@@ -11,6 +11,7 @@ __lazy_modules__ = {
     "packaging.version",
     "pathlib",
     "shutil",
+    "subprocess",
     "tomllib",
     "typing",
 }
@@ -19,6 +20,7 @@ import contextlib
 import functools
 import os
 import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -27,11 +29,11 @@ from typing import cast
 from filelock import FileLock
 from packaging.markers import default_environment
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from cibuildwheel.util import resources
 from cibuildwheel.util.cmd import call
-from cibuildwheel.util.file import CIBW_CACHE_PATH, download, remove_on_error
+from cibuildwheel.util.file import CIBW_CACHE_PATH, ca_bundle_path, download, remove_on_error
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -57,6 +59,15 @@ def target_marker_env(
         env["implementation_name"] = "pypy"
         env["platform_python_implementation"] = "PyPy"
     return env
+
+
+def needs_pip_cert(version: str, implementation_name: str) -> bool:
+    """
+    pip uses its bundled certifi instead of the system store when truststore
+    is unavailable: on Python 3.9 (pip 26.1+ needs Python 3.10+, older pip has
+    older certs) and on GraalPy. Those need our CA bundle.
+    """
+    return Version(version) < Version("3.10") or implementation_name == "graalpy"
 
 
 @functools.cache
@@ -161,6 +172,10 @@ def virtualenv(
 
     assert python.exists()
 
+    env = os.environ.copy() if env is None else env.copy()
+    if needs_pip_cert(version, (marker_env or {}).get("implementation_name", "")):
+        env.setdefault("PIP_CERT", ca_bundle_path())
+
     if use_uv:
         uv_path = find_uv()
         assert uv_path is not None
@@ -192,6 +207,7 @@ def virtualenv(
             "--python",
             python,
             venv_path,
+            env=env,
         )
     venv_env = activate_virtualenv(venv_path, env=env, base_python_bin_dir=base_python_bin_dir)
     if not use_uv and pip_version == "embed":
@@ -240,3 +256,25 @@ def find_uv() -> Path | None:
 
     uv_on_path = shutil.which("uv")
     return Path(uv_on_path) if uv_on_path else None
+
+
+# uv bundles its CA roots; this release drops the compromised eMudhra CA.
+# TODO: remove this check (and detect_uv_warnings) once uv < 0.13.4 (October 2026)
+# is no longer common, for example in 2028.
+_UV_CA_FIX_VERSION = "0.13.4"
+
+
+def uv_ca_warning(uv_path: Path) -> str | None:
+    try:
+        output = subprocess.run(
+            [uv_path, "--version"], capture_output=True, text=True, check=True
+        ).stdout
+        version = Version(output.split()[1])
+    except (OSError, subprocess.CalledProcessError, IndexError, InvalidVersion):
+        return None
+    if version >= Version(_UV_CA_FIX_VERSION):
+        return None
+    return (
+        f"uv {version} at {uv_path} is older than {_UV_CA_FIX_VERSION}, and its bundled CA "
+        "certificates still trust the compromised eMudhra CA. Please upgrade uv."
+    )

@@ -19,11 +19,17 @@ class Deployment(BaseModel):
   agent_id: str | None = None
   """Owning agent; null for unassigned legacy deployments."""
 
-  model_slug: str
-  """Human-readable slug this deployment serves under."""
+  production_model_slug: str | None = None
+  """The owning agent production model slug; null until configured."""
+
+  agent_name: str | None = None
+  """Owning agent display name; null for a deleted agent."""
+
+  test_model_slug: str
+  """Exact test model slug owned by this deployment."""
 
   model_slug_id: str
-  """Id of the slug this deployment serves under."""
+  """ID of this deployment test model slug row."""
 
   status: DeploymentLifecycleStatus
   """Deployment lifecycle state."""

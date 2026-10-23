@@ -15,6 +15,7 @@ def initialise_api(
     credential=None,
     proxy=None,
     ssl_verify=True,
+    ssl_verify_strict=True,
     user_agent=None,
     headers=None,
     rate_limit=True,
@@ -39,6 +40,7 @@ def initialise_api(
     config.error_retry_codes = error_retry_codes
     config.error_retry_cb = error_retry_cb
     config.verify_ssl = ssl_verify
+    config.ssl_verify_strict = ssl_verify_strict
     config.client_side_validation = False
 
     if credential:
@@ -48,7 +50,7 @@ def initialise_api(
             config.api_key.pop("X-Api-Key", None)
             config.headers["Authorization"] = f"Bearer {credential.api_key}"
             if config.debug:
-                click.echo("SSO access token config value set")
+                click.echo("SAML access token config value set")
         else:
             config.api_key["X-Api-Key"] = credential.api_key
             if config.debug:

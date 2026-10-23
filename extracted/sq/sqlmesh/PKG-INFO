@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.236.3
+Version: 0.236.4
 Summary: Next-generation data transformation framework
 Author: SQLMesh Contributors
 License:                                  Apache License
@@ -220,7 +220,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click
 Requires-Dist: croniter
-Requires-Dist: duckdb!=0.10.3,>=0.10.0
+Requires-Dist: duckdb!=0.10.3,<2,>=0.10.0
 Requires-Dist: dateparser<=1.2.1
 Requires-Dist: humanize
 Requires-Dist: hyperscript>=0.1.0
@@ -323,7 +323,7 @@ Requires-Dist: cloud-sql-python-connector[pg8000]>=1.8.0; extra == "gcppostgres"
 Provides-Extra: github
 Requires-Dist: PyGithub>=2.6.0; extra == "github"
 Provides-Extra: motherduck
-Requires-Dist: duckdb>=1.3.2; extra == "motherduck"
+Requires-Dist: duckdb<2,>=1.3.2; extra == "motherduck"
 Provides-Extra: mssql
 Requires-Dist: pymssql; extra == "mssql"
 Provides-Extra: mssql-odbc

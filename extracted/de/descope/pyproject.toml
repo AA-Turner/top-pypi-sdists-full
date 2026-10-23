@@ -1,6 +1,6 @@
 [project]
 name = "descope"
-version = "2.16.0"
+version = "2.16.1"
 description = "Descope Python SDK"
 requires-python = ">=3.9,<4.0"
 readme = "README.md"
@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.28,<0.29",
-    "certifi",
+    "certifi>=2026.10.19",
     "pyjwt[crypto]>=2.4.0",
     "email-validator>=2,<3",
 ]

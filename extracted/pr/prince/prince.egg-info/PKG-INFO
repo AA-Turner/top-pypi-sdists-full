@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prince
-Version: 0.21.0
+Version: 0.22.1
 Summary: Factor analysis in Python: PCA, CA, MCA, MFA, FAMD, GPA, PGA
 Author-email: Max Halford <maxhalford25@gmail.com>
 License-Expression: MIT
@@ -10,18 +10,15 @@ License-File: LICENSE
 Requires-Dist: scikit-learn>=1.5.1
 Requires-Dist: pandas>=2.2.0
 Requires-Dist: altair>=5.0.0
+Requires-Dist: narwhals>=2.0.0
 Requires-Dist: typing-extensions>=4.6
-Provides-Extra: lint
-Requires-Dist: ruff>=0.8.8; extra == "lint"
-Provides-Extra: dev
-Requires-Dist: prince[lint]; extra == "dev"
-Requires-Dist: nbconvert>=7.16.5; extra == "dev"
-Requires-Dist: fbpca>=1.0; extra == "dev"
-Requires-Dist: geomstats>=2.8.0; extra == "dev"
-Requires-Dist: pytest>=8.3.4; extra == "dev"
-Requires-Dist: ipykernel>=6.13.0; extra == "dev"
-Requires-Dist: rpy2>=3.5.2; extra == "dev"
-Requires-Dist: xarray>=2025.1.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: nbconvert>=7.16.5; extra == "docs"
+Requires-Dist: fbpca>=1.0; extra == "docs"
+Requires-Dist: pytest>=8.3.4; extra == "docs"
+Requires-Dist: ipykernel>=6.13.0; extra == "docs"
+Requires-Dist: polars>=1.0.0; extra == "docs"
+Requires-Dist: xarray>=2025.1.0; extra == "docs"
 Dynamic: license-file
 
 <div align="center">

@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: ISC
-
+#
 # Copyright (c) 2021, Timothée Mazzucotelli and contributors
-
+#
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -482,6 +482,7 @@ class AttributeChangedTypeBreakage(Breakage):
     kind: BreakageKind = BreakageKind.ATTRIBUTE_CHANGED_TYPE
 
 
+# YORE: Bump 3: Remove block.
 class AttributeChangedValueBreakage(Breakage):
     """Specific breakage class for attributes whose value changed."""
 
@@ -592,13 +593,9 @@ def _function_incompatibilities(old_function: Function, new_function: Function) 
         yield ReturnChangedTypeBreakage(new_function, old_function.returns, new_function.returns)
 
 
-def _attribute_incompatibilities(old_attribute: Attribute, new_attribute: Attribute) -> Iterable[Breakage]:
+def _attribute_incompatibilities(old_attribute: Attribute, new_attribute: Attribute) -> Iterable[Breakage]:  # noqa: ARG001
     # TODO: Support annotation breaking changes.
-    if old_attribute.value != new_attribute.value:
-        if new_attribute.value is None:
-            yield AttributeChangedValueBreakage(new_attribute, old_attribute.value, "unset")
-        else:
-            yield AttributeChangedValueBreakage(new_attribute, old_attribute.value, new_attribute.value)
+    yield from ()
 
 
 def _alias_incompatibilities(

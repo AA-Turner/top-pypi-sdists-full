@@ -2129,7 +2129,14 @@ class ParseEngine:
                     cdata_end = end if close == -1 else close
                     text = html[pos + 8 : cdata_end]
                     if self._raw_mode:
-                        self._append_raw_literal_text(text, pos + 8)
+                        self._append_raw_literal_text(
+                            text,
+                            pos + 8,
+                            replace_null=not (
+                                self._is_html_integration_point(self._stack[-1])
+                                or self._is_mathml_text_integration_point(self._stack[-1])
+                            ),
+                        )
                     elif text.strip(_SPACE + "\0"):
                         self._frameset_blocked = True
                     pos = end if close == -1 else close + 3
@@ -2208,11 +2215,7 @@ class ParseEngine:
                     self._append_comment(html[pos:gt].replace("\0", "\ufffd"), lt)
                 pos = end if gt == -1 else gt + 1
                 continue
-            if ch == "\0":
-                append_text("<\ufffd", lt)
-                pos += 1
-            else:
-                append_text("<", lt)
+            append_text("<", lt)
         return pos
 
     def _find_comment_end(self, pos: int, end: int) -> int:
@@ -3465,7 +3468,7 @@ class ParseEngine:
                 return template_pos
 
         if name == "button" and name not in self._allowed_tags:
-            if self._find_open_index_in_current_scope("button") is not None:
+            if self._has_button_in_scope():
                 self._close_until_before_boundary("button", frozenset({"template"}))
             button_parent = self._current_parent()
             if button_parent.namespace in {None, "html"}:
@@ -3970,7 +3973,7 @@ class ParseEngine:
                 return template_pos
 
         if html_text_parsing and name == "button":
-            if self._find_open_index_in_current_scope("button") is not None:
+            if self._has_button_in_scope():
                 self._generate_implied_end_tags()
                 self._close_until_before_boundary("button", frozenset({"template"}))
             if not allowed:
@@ -4537,6 +4540,16 @@ class ParseEngine:
             ):
                 return None
         return None
+
+    def _has_button_in_scope(self) -> bool:
+        # "has a button element in scope" (§13.2.6.4.7): an object, applet,
+        # marquee, table cell or integration point between the two buttons keeps
+        # the new one nested. The template check covers parser-only templates,
+        # which the boundary walk does not treat as scope boundaries.
+        return (
+            self._find_open_index_before_boundary("button", _DEFAULT_SCOPE_BOUNDARIES) is not None
+            and self._find_open_index_in_current_scope("button") is not None
+        )
 
     def _template_end_tag_boundaries(self, name: str, action: TagAction | None) -> frozenset[str]:
         # Generic in-body end tags inside a template still obey scope: block and
@@ -5555,13 +5568,13 @@ class ParseEngine:
         self._append_raw_literal_text(text, text_start)
         return pos
 
-    def _append_raw_literal_text(self, text: str, source_pos: int | None = None) -> None:
+    def _append_raw_literal_text(self, text: str, source_pos: int | None = None, *, replace_null: bool = True) -> None:
         if self._current_parent().namespace not in _OPEN_HTML_NAMESPACES and text.strip(_SPACE + "\0"):
             self._frameset_blocked = True
         if self._has_carriage_return and "\r" in text:
             text = text.replace("\r\n", "\n").replace("\r", "\n")
         if self._has_null and "\0" in text:
-            text = text.replace("\0", "\ufffd")
+            text = text.replace("\0", "\ufffd" if replace_null else "")
         if self._strip_invisible_unicode and text and not text.isascii():
             text = _strip_invisible_unicode(text)
         if self._xml_coercion and text:

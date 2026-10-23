@@ -18,6 +18,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -46,13 +53,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .unstructured_related import RelatedUnstructured
 
 # =============================================================================
@@ -597,6 +597,7 @@ def _unstructured_to_nested(unstructured: Unstructured) -> UnstructuredNested:
         is_incomplete=unstructured.is_incomplete,
         provenance_type=unstructured.provenance_type,
         home_id=unstructured.home_id,
+        delete_handler=unstructured.delete_handler,
         depth=unstructured.depth,
         immediate_upstream=unstructured.immediate_upstream,
         immediate_downstream=unstructured.immediate_downstream,
@@ -645,6 +646,7 @@ def _unstructured_from_nested(nested: UnstructuredNested) -> Unstructured:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -668,10 +670,7 @@ def _unstructured_from_nested_bytes(data: bytes, serde: Serde) -> Unstructured:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 Unstructured.UNSTRUCTURED_CONTAINER_NAME = KeywordField(
     "unstructuredContainerName", "unstructuredContainerName"

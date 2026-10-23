@@ -66,6 +66,9 @@ def _result():
 
 
 def _render(renderer, result, width, **options):
+    # Layout cases list their sample advice; the default advice set is covered
+    # by test_evidence_gated_advice.py.
+    options.setdefault("all_advice", True)
     output = StringIO()
     console = Console(
         file=output, width=width, color_system=None, theme=_skylos_console_theme()
@@ -96,7 +99,10 @@ def test_grouping_keeps_complete_counts_types_severity_and_result(
         < output.index("SKY-C303")
     )
     assert "Type" in output and "Severity" in output
-    assert "LOW" in output and "CRITICAL" in output and "HIGH" in output
+    assert "LOW" in output and "CRITICAL" in output and "MEDIUM" in output
+    assert "Advice priority" in normalized
+    assert "original severities remain in JSON and gates" in normalized
+    assert result["quality"][0]["severity"] == "HIGH"
     assert "c.py:3" in output and "c.py:4" in output
     if expanded:
         for message in ("ADVICE-FIRST", "ADVICE-SECOND", "ADVICE-THIRD"):
@@ -226,7 +232,7 @@ def test_tree_includes_types_severity_and_all_finding_categories():
     ):
         assert text in output
     assert "Type: Review  Severity: HIGH" in output
-    assert "Type: Advice  Severity: LOW" in output
+    assert "Type: Advice  Advice priority: LOW" in output
     assert max(map(len, output.splitlines())) <= 80
     assert result == original
 

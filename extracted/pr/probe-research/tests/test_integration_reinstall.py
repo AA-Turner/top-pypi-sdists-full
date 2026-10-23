@@ -11,6 +11,7 @@ import importlib
 import json
 import os
 import shutil
+import stat
 import sys
 
 import pytest
@@ -128,6 +129,28 @@ def test_core_reinstalls_current_corrupt_files_and_preserves_off_defaults_creden
     assert all(event["event"] != "device_prompt" for event in events)
 
 
+def test_a_symlinked_claude_settings_json_stays_a_link_through_repair(device, tmp_path):
+    """The repair restores enable flags into settings.json; one kept in a
+    dotfiles repo must stay a link with its mode, as Claude Code itself keeps
+    it. The stub `claude` writes through the link; the real CLI does too
+    (checked by hand on Claude Code 2.1.296: `plugin install` kept the link
+    and a 0664 mode)."""
+    real = tmp_path / "dotfiles" / "settings.json"
+    real.parent.mkdir()
+    shutil.move(device / "settings.json", real)
+    real.chmod(0o664)
+    (device / "settings.json").symlink_to(real)
+
+    code = probe.core.configure(ConfigureRequest(agents=(Agent.CLAUDE,), reinstall=True), lambda event: None)
+
+    assert code == 0
+    assert (device / "settings.json").is_symlink()
+    assert stat.S_IMODE(real.stat().st_mode) == 0o664
+    settings = json.loads(real.read_text())
+    assert settings["enabledPlugins"][f"{PROFILE}@{MARKET}"] is False
+    assert settings["userChoice"] == "kept"
+
+
 def test_failed_install_is_incomplete_and_retry_repairs_a_now_missing_registration(device, monkeypatch):
     monkeypatch.setenv("FAIL_INSTALL", PROFILE)
     events = []
@@ -178,7 +201,11 @@ def test_reinstall_cannot_reset_settings_or_redeem_an_onboarding_code(device):
     assert _code(device, PROFILE).read_text() == "corrupt"
 
 
-def test_codex_repairs_only_the_current_profile_and_preserves_disabled_plugins(device, tmp_path, monkeypatch):
+@pytest.mark.parametrize("linked", [False, True])
+def test_codex_repairs_only_the_current_profile_and_preserves_disabled_plugins(device, tmp_path, monkeypatch, linked):
+    """`linked`: a config.toml kept in a dotfiles repo stays a link, like
+    `codex_config.write_top_level` keeps it. The repair rewrites only the
+    target's own bytes, so following the link carries no Probe token."""
     import tomlkit
     from probe.cli import claude_cli, codex_config
 
@@ -194,6 +221,12 @@ enabled = false
 [plugins."probe-research@{MARKET}"]
 enabled = true
 ''')
+    (home / "config.toml").chmod(0o640)
+    if linked:
+        real = tmp_path / "dotfiles" / "config.toml"
+        real.parent.mkdir()
+        shutil.move(home / "config.toml", real)
+        (home / "config.toml").symlink_to(real)
     for name in (PROFILE, "probe-research-tap", "probe-research"):
         root = home / "plugins/cache" / MARKET / name / "1.0.0"
         (root / ".codex-plugin").mkdir(parents=True)
@@ -226,7 +259,12 @@ enabled = true
     monkeypatch.setattr(repair.plugin_cli, "available", lambda source: True)
     before = session_marker.config_path().read_bytes()
     assert repair.run(["codex"])
+    assert (home / "config.toml").is_symlink() is linked
+    # ~/.codex/config.toml can hold the MCP token: tightened to 0600 as before.
+    # A dotfiles target behind a link holds none of Probe's and keeps its mode.
+    assert stat.S_IMODE((home / "config.toml").stat().st_mode) == (0o640 if linked else 0o600)
     data = tomlkit.parse((home / "config.toml").read_text())
+    assert data["user_choice"] == "kept"
     assert data["plugins"][f"{PROFILE}@{MARKET}"]["enabled"] is False
     assert data["plugins"][f"probe-research-tap@{MARKET}"]["enabled"] is False
     assert (home / "plugins/cache" / MARKET / "probe-research/1.0.0/code.py").read_text() == "corrupt"

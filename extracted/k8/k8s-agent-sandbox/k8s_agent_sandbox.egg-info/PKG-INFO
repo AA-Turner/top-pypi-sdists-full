@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: k8s-agent-sandbox
-Version: 1.0.7
+Version: 1.0.8
 Summary: A client library to interact with the Agentic Sandbox on Kubernetes.
 Project-URL: Homepage, https://github.com/kubernetes-sigs/agent-sandbox
 Project-URL: Bug Tracker, https://github.com/kubernetes-sigs/agent-sandbox/issues
@@ -9,7 +9,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: kubernetes
+Requires-Dist: kubernetes!=36.0.0
 Requires-Dist: requests
 Requires-Dist: urllib3
 Requires-Dist: pydantic

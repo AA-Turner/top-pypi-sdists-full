@@ -26,6 +26,7 @@ from cyclopts.annotations import (
     is_pydantic,
     is_pydantic_secret,
     is_typeddict,
+    is_union,
     resolve,
     resolve_annotated,
 )
@@ -94,10 +95,18 @@ class FieldInfo:
         """Annotation with cyclopts type-inferring."""
         hint = self.annotation
         if hint is inspect.Parameter.empty or resolve(hint) is Any:
-            hint = _replace_annotated_type(
-                hint, str if self.default is inspect.Parameter.empty or self.default is None else type(self.default)
-            )
+            hint = _replace_annotated_type(hint, str if self.is_any else type(self.default))
         return hint
+
+    @property
+    def is_any(self) -> bool:
+        """Whether this takes any value: annotated ``Any`` (or not at all) with no default to infer a type from.
+
+        :attr:`hint` reads such a parameter as ``str``.
+        """
+        return (self.annotation is inspect.Parameter.empty or resolve(self.annotation) is Any) and (
+            self.default is inspect.Parameter.empty or self.default is None
+        )
 
     @property
     def name(self):
@@ -171,12 +180,18 @@ def _pydantic_field_infos(model) -> dict[str, FieldInfo]:
             #   * validate_by_alias -> aliases are accepted (defaults to True).
             # populate_by_name is the pre-2.11 spelling of validate_by_name; it is not
             # recommended in pydantic 2.11+ and is slated for removal in pydantic v3, so
-            # we honor both across the supported pydantic range. pydantic forbids both
-            # validate_by_* being False, so at least one name is always registered.
-            validate_by_name = model.model_config.get("validate_by_name", False) or model.model_config.get(
-                "populate_by_name", False
-            )
+            # we honor both across the supported pydantic range.
+            # Mirrors pydantic's _build_effective_config: pydantic <2.14 wrote the normalized
+            # values back into model_config, 2.14+ leaves model_config as declared.
             validate_by_alias = model.model_config.get("validate_by_alias", True)
+            validate_by_name = model.model_config.get("validate_by_name")
+            if validate_by_name is None:
+                populate_by_name = model.model_config.get("populate_by_name")
+                if populate_by_name is None:
+                    validate_by_name = not validate_by_alias
+                else:
+                    validate_by_alias = True
+                    validate_by_name = populate_by_name
 
             if validate_by_name:
                 names.append(python_name)
@@ -371,6 +386,12 @@ def get_field_infos(hint) -> dict[str, FieldInfo]:
         return {}
     else:
         return _generic_class_field_infos(hint)
+
+
+def is_structured_type(hint) -> bool:
+    """Whether ``hint`` (or a member of a union) is a class built from fields, like a dataclass."""
+    hint = resolve(hint)
+    return any(get_field_infos(t) for t in (get_args(hint) if is_union(hint) else (hint,)))
 
 
 def signature_parameters(f: Any) -> dict[str, FieldInfo]:

@@ -370,7 +370,10 @@ def negative_schema(
             strategy = strategy.filter(
                 lambda value: (
                     filter_values(value, chosen)
-                    and not mutated_parameter_reads_as_valid(value, metadata, parameter_validator)
+                    # Parameter containers are always objects.
+                    and not mutated_parameter_reads_as_valid(
+                        cast("dict[str, Any]", value), metadata, parameter_validator
+                    )
                 )
             )
         else:
@@ -447,7 +450,7 @@ def _with_value_channel(
 ) -> st.SearchStrategy:
     """Sometimes break a single value of a valid body instead of mutating the schema."""
 
-    @st.composite  # type: ignore[untyped-decorator]
+    @st.composite
     def hybrid(draw: Any) -> GeneratedValue:
         random = draw(st.randoms())
         if random.random() < VALUE_CHANNEL_PROBABILITY:
@@ -507,7 +510,7 @@ def _with_syntax_fuzzing(mutated_strategy: st.SearchStrategy, location: Paramete
         lambda data: GeneratedValue(data, _syntax_fuzzing_metadata(location))
     )
 
-    @st.composite  # type: ignore[untyped-decorator]
+    @st.composite
     def with_syntax_fuzzing(draw: Any) -> GeneratedValue:
         random = draw(st.randoms())
         if random.random() < SYNTAX_FUZZING_PROBABILITY:
@@ -534,7 +537,7 @@ def is_non_empty_query(query: dict[str, Any]) -> bool:
     return urlencode(result, doseq=True) != ""
 
 
-@st.composite  # type: ignore[untyped-decorator]
+@st.composite
 def mutated(
     draw: Draw,
     *,

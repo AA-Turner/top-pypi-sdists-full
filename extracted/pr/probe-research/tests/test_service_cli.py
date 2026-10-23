@@ -9,7 +9,7 @@ import sys
 
 import pytest
 
-from probe.service import client, paths
+from probe.service import paths
 from tests.service_harness import service_home, wait_for  # noqa: F401 -- a fixture
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
@@ -58,20 +58,6 @@ def test_runtime_is_recorded_only_from_the_uv_tool_env(service_home, monkeypatch
     service_cli.record_runtime()  # unchanged: not rewritten
     assert paths.runtime_path().stat().st_mtime_ns == stamp
     assert paths.runtime_path().stat().st_mode & 0o777 == 0o600
-
-
-def test_the_switch(monkeypatch, tmp_path):
-    config = tmp_path / "config.json"
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(config))
-    monkeypatch.delenv("PROBE_SERVICE", raising=False)
-    assert client.enabled() is False
-    config.write_text(json.dumps({"service": "on"}))
-    assert client.enabled() is True
-    monkeypatch.setenv("PROBE_SERVICE", "off")
-    assert client.enabled() is False
-    config.write_text("{}")
-    monkeypatch.setenv("PROBE_SERVICE", "on")
-    assert client.enabled() is True
 
 
 def test_status_says_what_the_updater_did(service_home):

@@ -31,7 +31,7 @@ from fiddle._src.experimental import auto_config
 from fiddle._src.experimental import auto_config_policy
 from fiddle._src.experimental import autobuilders as ab
 from fiddle._src.testing import test_util
-import pytype_extensions
+import typing_extensions
 
 
 def basic_fn(arg, kwarg='test'):
@@ -318,6 +318,54 @@ class AutoConfigTest(parameterized.TestCase, test_util.TestCase):
     self.assertEqual(expected_config, test_fn_config_1.as_buildable())
     self.assertEqual(expected_config, test_fn_config_2.as_buildable())
 
+  def test_inlined_partial(self):
+    expected_config = fdl.Partial(FrozenSampleClass, arg1=1, arg2=2)
+
+    @auto_config.auto_config
+    def make_frozen_sample_class(arg1):
+      return FrozenSampleClass(arg1, 2)
+
+    @auto_config.auto_config
+    def test_config():
+      return auto_config.inlined_partial(make_frozen_sample_class, arg1=1)
+
+    with self.subTest('as_buildable'):
+      self.assertEqual(expected_config, test_config.as_buildable())
+
+    with self.subTest('python_path'):
+      python_path_output = test_config()
+      self.assertIsInstance(python_path_output, functools.partial)
+      self.assertEqual(python_path_output.func, make_frozen_sample_class)
+      self.assertEqual(python_path_output.keywords, {'arg1': 1})
+
+  def test_inlined_partial_non_auto_config_fn_error(self):
+
+    @auto_config.auto_config
+    def test_config_with_non_auto_config_fn():
+      return auto_config.inlined_partial(pass_through, arg=1)  # pyrefly: ignore[bad-argument-type]
+
+    with self.assertRaisesRegex(
+        ValueError,
+        'inlined_partial should only be applied to auto_config functions',
+    ):
+      test_config_with_non_auto_config_fn.as_buildable()
+
+  def test_inlined_partial_non_single_config_error(self):
+    @auto_config.auto_config
+    def make_frozen_sample_class_list(arg1):
+      return [FrozenSampleClass(arg1, 2)]
+
+    @auto_config.auto_config
+    def test_config():
+      return auto_config.inlined_partial(make_frozen_sample_class_list, arg1=1)
+
+    with self.assertRaisesRegex(
+        ValueError,
+        'inlined_partial should only be applied to auto_config functions that'
+        ' create a single top-level Config, received',
+    ):
+      test_config.as_buildable()
+
   def test_create_config_with_args(self):
     expected_config = fdl.Config(
         FrozenSampleClass, 'positional', arg2='default'
@@ -506,7 +554,7 @@ class AutoConfigTest(parameterized.TestCase, test_util.TestCase):
     class CustomArgFactory(fdl.ArgFactory):
       pass
 
-    config_types = auto_config.ConfigTypes(  # pytype: disable=wrong-arg-types  # use-fiddle-overlay
+    config_types = auto_config.ConfigTypes(
         config_cls=CustomConfig,
         partial_cls=CustomPartial,
         arg_factory_cls=CustomArgFactory,
@@ -737,7 +785,7 @@ class AutoConfigTest(parameterized.TestCase, test_util.TestCase):
     cfg = instance.my_fn.as_buildable('a')
     self.assertEqual(fdl.get_callable(cfg), basic_fn)
     self.assertEqual(cfg.arg, 'a')
-    self.assertEqual(cfg.kwarg, fdl.Config(super(MyClass, instance).method))  # pytype: disable=invalid-annotation  # use-fiddle-overlay
+    self.assertEqual(cfg.kwarg, fdl.Config(super(MyClass, instance).method))
 
   def test_custom_policy(self):
 
@@ -786,7 +834,7 @@ class AutoConfigTest(parameterized.TestCase, test_util.TestCase):
   def test_exemption_type_inference(self):
     exempted_func = auto_config.exempt(pass_through)
     value = exempted_func(42)
-    pytype_extensions.assert_type(value, int)
+    typing_extensions.assert_type(value, int)
 
   def test_lambda_supported_in_decorator(self):
     @auto_config.auto_config(experimental_exemption_policy=lambda x: False)
@@ -839,7 +887,7 @@ class AutoConfigTest(parameterized.TestCase, test_util.TestCase):
       return obj(1)
 
     cfg = make_sample.as_buildable(obj)
-    self.assertEqual(cfg, fdl.Config(obj, arg1=1))  # pytype: disable=invalid-annotation  # use-fiddle-overlay
+    self.assertEqual(cfg, fdl.Config(obj, arg1=1))
 
   def test_control_flow_if(self):
 
@@ -1046,7 +1094,6 @@ class AutoConfigTest(parameterized.TestCase, test_util.TestCase):
         FrozenSampleClass.autoconfig_method, auto_config.AutoConfig
     )
 
-  @absltest.skip('Enable this after dropping pyhon 3.7 support')
   def test_can_pass_self_as_keyword(self):
     x = FrozenSampleClass(1, 2)
     self.assertEqual(

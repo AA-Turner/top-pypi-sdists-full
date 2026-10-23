@@ -6,6 +6,7 @@ import asyncio
 import importlib.metadata
 import json
 import logging
+import resource
 import signal
 from pathlib import Path
 from typing import Annotated
@@ -22,6 +23,17 @@ app = typer.Typer(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def raise_open_files_limit() -> tuple[int, int]:
+    """Raise this process's soft open-file limit to its hard limit and return (old, new) soft limits.
+
+    Children inherit it, including the plato-fuse daemons that serve workspaces to agent VMs over NFS.
+    """
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if soft != hard:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
+    return soft, hard
 
 
 def _report_crash_to_chronos(
@@ -144,6 +156,12 @@ def run(
     )
     # Silence noisy httpx logs
     logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    try:
+        old_limit, new_limit = raise_open_files_limit()
+        logger.info(f"Open-file limit {new_limit} (was {old_limit})")
+    except (OSError, ValueError) as e:
+        logger.warning(f"Raising the open-file limit failed: {e}")
 
     if not config.exists():
         typer.echo(f"Error: Config file not found: {config}", err=True)

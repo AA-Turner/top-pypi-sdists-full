@@ -96,7 +96,15 @@ from matrx_scraper.scraper import (
     primary_failure_reason,
     wall_reason_from_status,
 )
-from matrx_scraper.seo_audit import IMAGE_INVENTORY_LIMIT, audit_html
+from matrx_scraper.seo_audit import (
+    IMAGE_INVENTORY_LIMIT,
+    JS_SHELL_KNOB_MIRRORS,
+    audit_html,
+    KEPT_JS_SHELL,
+    is_same_site_host,
+    keepable_failed_read,
+    use_js_shell_knobs,
+)
 from matrx_scraper.user_agents import normalize_user_agent
 from matrx_scraper.utils.url import normalize_url, public_http_client, validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
@@ -335,7 +343,7 @@ def _is_same_host(url: str, base_host: str, follow_subdomains: bool) -> bool:
     # serves https://www.example.com/... (or vice versa) must never classify
     # its own URLs as outside_site_scope. Every other subdomain still honors
     # follow_subdomains below.
-    if host.removeprefix("www.") == base_host.removeprefix("www."):
+    if is_same_site_host(host, base_host):
         return True
     if follow_subdomains:
         return _registrable_domain(host) == _registrable_domain(base_host)
@@ -1207,7 +1215,13 @@ class SiteCrawler:
         """Re-read the `crawl.*` knobs for THIS crawl's organization / person / site."""
         if self._knob_scope is None:
             return
-        self._knobs = await CrawlKnobs.load_for(self._knob_scope)
+        # ONE host call per run: the `crawl.*` knobs and the app-shell test's
+        # knobs (the keep-a-shell decision below reads those through the context).
+        values = await scoped_parser_knobs(
+            {**CRAWL_KNOB_MIRRORS, **JS_SHELL_KNOB_MIRRORS}, self._knob_scope
+        )
+        self._knobs = CrawlKnobs.from_values(values)
+        use_js_shell_knobs({key: values[key] for key in JS_SHELL_KNOB_MIRRORS})
         if self.config.respect_robots is None:
             self._respect_robots = self._knobs.respect_robots
             self._robots = _RobotsCache(self.user_agent) if self._respect_robots else None
@@ -2322,6 +2336,7 @@ class SiteCrawler:
                         domain_config=self.domain_config,
                         browser_pool=self.browser_pool,
                         user_agent=self._user_agent_override,
+                        keeps_failed_reads=True,
                     )
                 except Exception as proxy_exc:
                     if not use_proxy:
@@ -2336,6 +2351,7 @@ class SiteCrawler:
                         domain_config=self.domain_config,
                         browser_pool=self.browser_pool,
                         user_agent=self._user_agent_override,
+                        keeps_failed_reads=True,
                     )
                 if self._is_proxy_failure_status(result.status_code) and use_proxy:
                     await self._emit_proxy_bypass(
@@ -2351,6 +2367,7 @@ class SiteCrawler:
                         domain_config=self.domain_config,
                         browser_pool=self.browser_pool,
                         user_agent=self._user_agent_override,
+                        keeps_failed_reads=True,
                     )
                 response_ms = int((time.monotonic() - t0) * 1000)
 
@@ -2578,7 +2595,26 @@ class SiteCrawler:
                     )
                 )
 
-            if not result.success:
+            # An unrendered JavaScript app frame trips the content-sanity gate
+            # (almost no text), but it is a real page the site serves: KEEP it,
+            # marked as a shell, so the audit answers "content needs rendering"
+            # instead of losing the page as a failed fetch. Genuinely empty or
+            # broken pages (no app-shell markup) still fail below.
+            # A soft 404 (a 200 page that says it does not exist) is kept the same
+            # way, so `soft_404_detection` and thin content can judge it.
+            kept_as = (
+                await run_cpu(
+                    keepable_failed_read,
+                    failure_reason=result.failure_reason,
+                    status=status,
+                    html=result.raw_html,
+                    url=final_url,
+                    title=result.title,
+                )
+                if not result.success
+                else None
+            )
+            if not result.success and kept_as is None:
                 self._pages_failed += 1
                 await self._emit(
                     CrawlPageFailedEvent(
@@ -2594,8 +2630,10 @@ class SiteCrawler:
             # A clean fetch is the ONLY thing that earns a climb — this is
             # the "keep pushing up higher" half of the ruling. It is placed
             # after the failure return above so a 200-shaped failure never
-            # buys the crawl more speed.
-            await self._note_clean_response(final_url, response_ms)
+            # buys the crawl more speed — and a KEPT failure (a shell, a soft
+            # 404) is still a failed read, so it never does either.
+            if kept_as is None:
+                await self._note_clean_response(final_url, response_ms)
 
             # Run any matching custom extractors against the raw HTML so
             # the host can persist them alongside the page row.
@@ -2621,6 +2659,10 @@ class SiteCrawler:
             summary = await run_cpu(
                 self._build_summary, result, item, response_ms, bytes_total, None
             )
+            if kept_as is not None:
+                summary.kept_from_failed_read = {"kind": kept_as, "reason": result.failure_reason}
+                if kept_as == KEPT_JS_SHELL and summary.app_shell is not None:
+                    summary.app_shell["kept_from_failed_read"] = result.failure_reason
             # The byte cap bounds what is STORED, after the whole page was
             # read: every link on the page becomes an edge and every check
             # sees the whole page. Capping before the summary lost the links
@@ -2887,6 +2929,7 @@ class SiteCrawler:
                 domain_config=self.domain_config,
                 browser_pool=self.browser_pool,
                 user_agent=self._user_agent_override,
+                keeps_failed_reads=True,
             )
         except Exception as exc:
             logger.info("browser fallback failed for %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc))
@@ -3277,12 +3320,20 @@ class SiteCrawler:
                 text_hash=audit.text_hash,
                 content_fingerprint=audit.content_fingerprint,
                 internal_links=audit.internal_links,
+                onward_internal_links=audit.onward_internal_links,
                 external_links=audit.external_links,
                 link_count=audit.link_count,
                 images_count=audit.images_total,
                 images_missing_alt=audit.images_missing_alt,
                 image_inventory=audit.image_inventory,
                 resources=audit.resources,
+                app_shell={
+                    "app_root": audit.app_root,
+                    "executable_script": audit.executable_script,
+                    "visible_words": audit.app_shell_words,
+                    "root_text_words": audit.root_text_words,
+                    "bot_wall": audit.bot_wall,
+                },
                 links=[
                     LinkEntry(
                         target_url=link.target_url,

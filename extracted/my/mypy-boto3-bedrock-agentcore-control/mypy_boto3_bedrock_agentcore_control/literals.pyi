@@ -36,6 +36,7 @@ __all__ = (
     "CapacityProviderStatusCodeType",
     "CapacityProviderStatusType",
     "CapacityReservationPreferenceType",
+    "CircuitBreakerModeType",
     "ClaimMatchOperatorTypeType",
     "ClientAuthenticationMethodTypeType",
     "ClusteringFrequencyType",
@@ -61,6 +62,7 @@ __all__ = (
     "EvaluatorTypeType",
     "ExceptionLevelType",
     "ExtractionTypeType",
+    "FallbackErrorType",
     "FilterOperatorType",
     "FindingTypeType",
     "GatewayInterceptionPointType",
@@ -121,6 +123,7 @@ __all__ = (
     "ListRegistryRecordsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
     "ListingModeType",
+    "MatchOperatorType",
     "MemoryCreatedWaiterName",
     "MemoryStatusType",
     "MemoryStrategyStatusType",
@@ -206,6 +209,7 @@ CapacityProviderStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only", "none", "open"]
+CircuitBreakerModeType = Literal["DISABLED", "ENABLED"]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 ClientAuthenticationMethodTypeType = Literal[
     "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST", "PRIVATE_KEY_JWT"
@@ -275,6 +279,7 @@ EvaluatorStatusType = Literal[
 EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode", "CustomDerived", "ThirdParty"]
 ExceptionLevelType = Literal["DEBUG"]
 ExtractionTypeType = Literal["LLM_INFERRED", "STRICTLY_CONSISTENT"]
+FallbackErrorType = Literal["CONNECTION_ERROR", "FIRST_BYTE_TIMEOUT", "UNROUTABLE"]
 FilterOperatorType = Literal[
     "Contains",
     "Equals",
@@ -362,6 +367,7 @@ ListRegistriesPaginatorName = Literal["list_registries"]
 ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
 ListingModeType = Literal["DEFAULT", "DYNAMIC"]
+MatchOperatorType = Literal["StringEquals", "StringLike"]
 MemoryCreatedWaiterName = Literal["memory_created"]
 MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 MemoryStrategyStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
@@ -591,6 +597,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -642,8 +649,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -897,7 +902,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

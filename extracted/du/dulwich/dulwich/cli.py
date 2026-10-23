@@ -231,6 +231,7 @@ from .hooks import (
     UpdateShellHook,
 )
 from .index import Index, InvalidPathError
+from .lfs import LFSError
 from .log_utils import _configure_logging_from_trace
 from .objects import Commit, ObjectID, RawObjectID, sha_to_hex, valid_hexsha
 from .objectspec import parse_commit, parse_commit_range
@@ -6684,7 +6685,7 @@ class cmd_lfs(Command):
 
     """Git LFS management commands."""
 
-    def run(self, argv: Sequence[str]) -> None:
+    def run(self, argv: Sequence[str]) -> int | None:
         """Execute the lfs command.
 
         Args:
@@ -6747,7 +6748,15 @@ class cmd_lfs(Command):
         parser_fetch.add_argument(
             "--remote", default="origin", help="Remote to fetch from"
         )
-        parser_fetch.add_argument("refs", nargs="*", help="Specific refs to fetch")
+        parser_fetch.add_argument(
+            "--all",
+            action="store_true",
+            help="Fetch the objects for the whole history of the refs, "
+            "or of all refs if none are given",
+        )
+        parser_fetch.add_argument(
+            "refs", nargs="*", help="Refs to fetch (default: HEAD)"
+        )
 
         # lfs pull
         parser_pull = subparsers.add_parser(
@@ -6760,7 +6769,13 @@ class cmd_lfs(Command):
         # lfs push
         parser_push = subparsers.add_parser("push", help="Push LFS objects to remote")
         parser_push.add_argument("--remote", default="origin", help="Remote to push to")
-        parser_push.add_argument("refs", nargs="*", help="Specific refs to push")
+        parser_push.add_argument(
+            "--all",
+            action="store_true",
+            help="Push all objects reachable from the refs, or from all "
+            "local branches and tags if none are given",
+        )
+        parser_push.add_argument("refs", nargs="*", help="Refs to push")
 
         # lfs status
         subparsers.add_parser("status", help="Show status of LFS files")
@@ -6826,7 +6841,13 @@ class cmd_lfs(Command):
         elif args.subcommand == "smudge":
             if args.stdin:
                 pointer_content = sys.stdin.buffer.read()
-                content = porcelain.lfs_smudge(pointer_content=pointer_content)
+                try:
+                    content = porcelain.lfs_smudge(pointer_content=pointer_content)
+                except LFSError as e:
+                    # Like git-lfs, pass the pointer through but fail
+                    sys.stdout.buffer.write(pointer_content)
+                    logger.error("Error downloading object: %s", e)
+                    return 2
                 sys.stdout.buffer.write(content)
             else:
                 logger.error("--stdin required for smudge command")
@@ -6834,7 +6855,7 @@ class cmd_lfs(Command):
 
         elif args.subcommand == "fetch":
             refs = args.refs or None
-            count = porcelain.lfs_fetch(remote=args.remote, refs=refs)
+            count = porcelain.lfs_fetch(remote=args.remote, refs=refs, all=args.all)
             logger.info("Fetched %d LFS object(s).", count)
 
         elif args.subcommand == "pull":
@@ -6843,7 +6864,7 @@ class cmd_lfs(Command):
 
         elif args.subcommand == "push":
             refs = args.refs or None
-            count = porcelain.lfs_push(remote=args.remote, refs=refs)
+            count = porcelain.lfs_push(remote=args.remote, refs=refs, all=args.all)
             logger.info("Pushed %d LFS object(s).", count)
 
         elif args.subcommand == "status":
@@ -6868,6 +6889,8 @@ class cmd_lfs(Command):
         else:
             parser.print_help()
             sys.exit(1)
+
+        return None
 
 
 class cmd_help(Command):

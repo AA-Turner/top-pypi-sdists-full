@@ -117,7 +117,6 @@ from opentelemetry.util.genai.stream import (
 from opentelemetry.util.genai.types import (
     Error,
     FunctionToolDefinition,
-    GenericPart,
     GenericToolDefinition,
     InputMessage,
     MessagePart,
@@ -279,6 +278,8 @@ def _to_server_tool_part(
     item: Step | dict[str, object],
 ) -> MessagePart | None:
     item_type = item.get("type") if isinstance(item, dict) else item.type
+    if not isinstance(item_type, str):
+        return None
     tool_name = _SERVER_TOOL_CALL_NAMES.get(item_type)
     response_name = _SERVER_TOOL_RESPONSE_NAMES.get(item_type)
     if tool_name is None and response_name is None:
@@ -387,9 +388,6 @@ def _interactions_input_to_messages(
                 modality=Modality.DOCUMENT,
                 uri=_get_field(item, "uri") or "",
             )
-            parts.append(part)
-        elif item_type is not None:
-            part = GenericPart(type=item_type)
             parts.append(part)
 
     return [InputMessage(role=Role.USER.value, parts=parts)]
@@ -557,7 +555,7 @@ class InteractionsStreamWrapper(SyncStreamWrapper[InteractionSSEEvent]):
 
     def _process_chunk(self, chunk: InteractionSSEEvent) -> None:
         event_type = _get_field(chunk, "event_type")
-        if event_type == "interaction_completed":
+        if event_type == "interaction.completed":
             interaction = _get_field(chunk, "interaction")
             if interaction:
                 self._self_last_interaction = interaction
@@ -589,7 +587,7 @@ class AsyncInteractionsStreamWrapper(AsyncStreamWrapper[InteractionSSEEvent]):
 
     def _process_chunk(self, chunk: InteractionSSEEvent) -> None:
         event_type = _get_field(chunk, "event_type")
-        if event_type == "interaction_completed":
+        if event_type == "interaction.completed":
             interaction = _get_field(chunk, "interaction")
             if interaction:
                 self._self_last_interaction = interaction
@@ -1092,6 +1090,10 @@ def _apply_interaction_request_attributes(
     invocation: InferenceInvocation | RemoteAgentInvocation,
     request: Mapping[str, object],
 ) -> None:
+    previous_interaction_id = _get_field(request, "previous_interaction_id")
+    if isinstance(previous_interaction_id, str) and previous_interaction_id:
+        invocation.previous_response_id = previous_interaction_id
+
     config = _explicit_request_fields(_get_field(request, "generation_config"))
     invocation.temperature = _coerce_float(_get_field(config, "temperature"))
     invocation.top_p = _coerce_float(_get_field(config, "top_p"))
@@ -1191,6 +1193,7 @@ def _create_instrumented_interactions_create(
         try:
             response = wrapped(*args, **kwargs)
             if _is_interaction_stream(response, request):
+                invocation.suspend()
                 return InteractionsStreamWrapper(
                     response,
                     invocation,
@@ -1233,6 +1236,7 @@ def _create_instrumented_async_interactions_create(
         try:
             response = await wrapped(*args, **kwargs)
             if _is_interaction_stream(response, request):
+                invocation.suspend()
                 return AsyncInteractionsStreamWrapper(
                     response,
                     invocation,
@@ -1378,6 +1382,7 @@ def _create_instrumented_interactions_get(
             elif not _is_unparsed_response(result) and hasattr(
                 result, "__iter__"
             ):
+                invocation.suspend()
                 return FetchInteractionStreamWrapper(
                     cast("Stream[InteractionSSEEvent]", result),
                     invocation,
@@ -1435,6 +1440,7 @@ def _create_instrumented_async_interactions_get(
             elif not _is_unparsed_response(result) and hasattr(
                 result, "__aiter__"
             ):
+                invocation.suspend()
                 return AsyncFetchInteractionStreamWrapper(
                     result, invocation, telemetry_handler
                 )

@@ -19,6 +19,8 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from . import typedvalue
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -90,7 +92,7 @@ def use_color(stream=None) -> bool:
         return True
     if os.environ.get("NO_COLOR"):
         return False
-    if os.environ.get("CLICOLOR_FORCE"):
+    if typedvalue.env_flag("CLICOLOR_FORCE"):
         return True
     # TERM=dumb (Emacs shell/compile buffers, some CI log viewers) is a TTY
     # that renders escapes as junk: no color, and — since color_level() and
@@ -147,7 +149,7 @@ def color_level(stream=None) -> int:
     env = os.environ.get("COLORTERM", "").lower()
     if "truecolor" in env or "24bit" in env:
         return 2
-    if os.environ.get("CLICOLOR_FORCE"):
+    if typedvalue.env_flag("CLICOLOR_FORCE"):
         return 2
     return 1
 
@@ -387,7 +389,15 @@ def info(msg: str = "", stream=None, wrap: bool = False) -> None:
 # hides what follows, and C1 `\x9b` is a one-byte CSI on terminals that honor
 # 8-bit controls. Tab and newline are matched separately so they can become a
 # space rather than vanish — see `plain`.
-_CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+#
+# The Unicode bidi embeddings, overrides and isolates (U+202A-202E,
+# U+2066-2069) and the directional marks (U+200E/U+200F, Arabic U+061C) go
+# too. They are not terminal controls, but a bidi-aware terminal obeys them:
+# an unclosed U+202E in a version cell renders the rest of the line right to
+# left, the columns boost printed after it included. RTL *letters* are untouched — only the
+# invisible formatting characters that reorder their neighbours are removed.
+_CONTROL_RE = re.compile(
+    r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 _FOLD_RE = re.compile(r"[\t\n]")
 
 
@@ -1341,7 +1351,7 @@ def confirm(prompt: str, default: bool = False, quiet: bool = False) -> bool:
     to print its own machine-readable (``--json``) result on a decline, where
     the hint would land as a stray prose line ahead of it.
     """
-    if os.environ.get("BOOST_ASSUME_YES") or "--yes" in sys.argv or "-y" in sys.argv:
+    if typedvalue.env_flag("BOOST_ASSUME_YES") or "--yes" in sys.argv or "-y" in sys.argv:
         return True
     if not stdin_is_tty():
         if not default and not quiet:

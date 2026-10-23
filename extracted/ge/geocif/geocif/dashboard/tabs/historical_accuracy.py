@@ -89,12 +89,11 @@ def create_tab(data, outlook_root=None):
 
         # ── scatter: observed vs predicted ──
         if not dff.empty and len(dff) >= 3:
-            from scipy.stats import pearsonr
-            from sklearn.metrics import mean_squared_error
+            from sklearn.metrics import mean_squared_error, r2_score
 
             obs = dff[obs_col].values
             pred = dff[pred_col].values
-            r2 = pearsonr(obs, pred)[0] ** 2
+            r2 = r2_score(obs, pred)
             rmse = np.sqrt(mean_squared_error(obs, pred))
 
             vmin = min(obs.min(), pred.min()) * 0.9

@@ -29,8 +29,9 @@ class AESO:
     including supply and demand, market data, and operational information.
     """
 
-    # NB: Data is also typically provided in UTC
-    default_timezone = "US/Mountain"
+    # NB: Data is also typically provided in UTC. Alberta stays on UTC-6 year
+    # round from November 1, 2026, which US/Mountain does not.
+    default_timezone = "America/Edmonton"
     MAX_NAVIGATION_ATTEMPTS = 100
 
     HISTORICAL_FORECAST_EARLIEST = pd.Timestamp("2023-03-01").tz_localize(
@@ -91,12 +92,12 @@ class AESO:
             return response.json()
         except HTTPError as e:
             raise HTTPError(
-                f"API request failed with status {response.status_code}: {str(e)}",
+                f"API request failed with status {response.status_code}: {e!s}",
             )
         except RequestException as e:
-            raise RequestException(f"Failed to connect to AESO API: {str(e)}")
+            raise RequestException(f"Failed to connect to AESO API: {e!s}")
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON response from API: {str(e)}")
+            raise ValueError(f"Invalid JSON response from API: {e!s}")
 
     @support_date_range(frequency=None)
     def get_load(
@@ -1392,7 +1393,7 @@ class AESO:
             df = pd.read_csv(url)
         except Exception as e:
             raise RequestException(
-                f"Failed to fetch {forecast_type} forecast data: {str(e)}",
+                f"Failed to fetch {forecast_type} forecast data: {e!s}",
             )
 
         df["Interval Start"] = pd.to_datetime(
@@ -1490,7 +1491,7 @@ class AESO:
             df = pd.read_csv(url)
         except Exception as e:
             raise RequestException(
-                f"Failed to fetch historical {forecast_type} forecast data: {str(e)}",
+                f"Failed to fetch historical {forecast_type} forecast data: {e!s}",
             )
 
         forecast_prefix = forecast_type.upper()
@@ -1692,7 +1693,7 @@ class AESO:
             df = pd.read_csv(url)
         except Exception as e:
             raise RequestException(
-                f"Failed to fetch {generation_type} generation data: {str(e)}",
+                f"Failed to fetch {generation_type} generation data: {e!s}",
             )
 
         df["Interval Start"] = pd.to_datetime(
@@ -1760,7 +1761,7 @@ class AESO:
             df = pd.read_csv(url)
         except Exception as e:
             raise RequestException(
-                f"Failed to fetch historical {generation_type} generation data: {str(e)}",
+                f"Failed to fetch historical {generation_type} generation data: {e!s}",
             )
 
         generation_prefix = generation_type.upper()

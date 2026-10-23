@@ -20,6 +20,14 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -42,24 +50,17 @@ from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
+from .power_bi_related import (
+    RelatedPowerBIColumn,
+    RelatedPowerBIMeasure,
+    RelatedPowerBITable,
+)
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .power_bi_related import (
-    RelatedPowerBIColumn,
-    RelatedPowerBIMeasure,
-    RelatedPowerBITable,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -367,6 +368,43 @@ class PowerBIMeasure(Asset):
         if self.guid is not UNSET:
             return RelatedPowerBIMeasure(guid=self.guid)
         return RelatedPowerBIMeasure(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        power_bi_table_qualified_name: str,
+    ) -> "PowerBIMeasure":
+        validate_required_fields(
+            ["name", "power_bi_table_qualified_name"],
+            [name, power_bi_table_qualified_name],
+        )
+        # Table names may contain "/", so only the leading segments are fixed.
+        fields = power_bi_table_qualified_name.split("/")
+        if len(fields) < 6 or not all(fields[:5]):
+            raise ValueError("power_bi_table_qualified_name is invalid")
+        return cls(
+            name=name,
+            qualified_name=f"{power_bi_table_qualified_name}/{name}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            workspace_qualified_name="/".join(fields[:4]),
+            dataset_qualified_name="/".join(fields[:5]),
+            power_bi_table_qualified_name=power_bi_table_qualified_name,
+            table=RelatedPowerBITable(
+                unique_attributes={"qualifiedName": power_bi_table_qualified_name}
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "PowerBIMeasure":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "PowerBIMeasure":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -725,6 +763,7 @@ def _power_bi_measure_to_nested(
         is_incomplete=power_bi_measure.is_incomplete,
         provenance_type=power_bi_measure.provenance_type,
         home_id=power_bi_measure.home_id,
+        delete_handler=power_bi_measure.delete_handler,
         depth=power_bi_measure.depth,
         immediate_upstream=power_bi_measure.immediate_upstream,
         immediate_downstream=power_bi_measure.immediate_downstream,
@@ -773,6 +812,7 @@ def _power_bi_measure_from_nested(nested: PowerBIMeasureNested) -> PowerBIMeasur
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

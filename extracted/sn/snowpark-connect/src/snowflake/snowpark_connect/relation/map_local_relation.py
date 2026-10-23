@@ -33,6 +33,7 @@ from snowflake.snowpark_connect.type_mapping import (
     map_simple_types,
 )
 from snowflake.snowpark_connect.typed_column import FieldType
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -359,7 +360,8 @@ def map_local_relation(
 
         # Special characters in the schema currently break create_dataframe with arrow
         # https://snowflakecomputing.atlassian.net/browse/SNOW-2199291
-        current_schema = session.get_current_schema()
+        with scos_internal_query_tag():
+            current_schema = session.get_current_schema()
 
         # _create_temp_stage() changes were not ported to the internal connector, leading to this
         # error on TCM and in notebooks (sproc):

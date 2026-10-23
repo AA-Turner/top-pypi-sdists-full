@@ -18,6 +18,8 @@ class PressClipRenderRequest(BaseModel):
     keep: list[str] = Field(default_factory=list)
     root: str | None = None
     logo_url: str | None = None
+    #: The host's ``press.clip.photo_rules`` knob row; omitted means the package seeds.
+    photo_rules: dict[str, Any] | None = None
 
 @router.post("/press-clips/render", summary="Render a cookie-free press clip")
 async def render_press_clip(body: PressClipRenderRequest) -> dict[str, Any]:

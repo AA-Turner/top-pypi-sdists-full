@@ -39,12 +39,14 @@ from snowflake.snowpark_connect.relation.map_relation import map_relation
 from snowflake.snowpark_connect.relation.utils import (
     create_pivot_column_condition,
     get_all_dependent_column_names,
+    map_pivot_aggregates,
     map_pivot_value_to_spark_column_name,
 )
 from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
 from snowflake.snowpark_connect.utils.context import (
     get_sql_aggregate_function_count,
     push_outer_dataframe,
+    register_lca_alias,
     set_current_grouping_columns,
 )
 from snowflake.snowpark_connect.utils.expression_transformer import (
@@ -57,6 +59,7 @@ from snowflake.snowpark_connect.utils.python_udf_marshal import (
     encode_native_or_variant_args,
     python_is_native_input,
 )
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -746,48 +749,69 @@ def map_aggregate(
 
     # LCA Support for aggregate expressions: Use the LCA alias map
     # Note: We don't clear the map here to preserve any parent context aliases
-    from snowflake.snowpark_connect.utils.context import register_lca_alias
-
     # If it's an unresolved attribute when its in aggregate.aggregate_expressions, we know it came from the parent map straight away
     # in this case, we should see if the parent map has a qualifier for it and propagate that here, in case the order by references it in
     # a qualified way later.
-    agg_count = get_sql_aggregate_function_count()
-    for exp in aggregate.aggregate_expressions:
-        cols = _map_columns(exp)
-        for col in cols:
-            if exp.WhichOneof("expr_type") == "unresolved_attribute":
-                qualifiers: set[
-                    ColumnQualifier
-                ] = input_container.column_map.get_qualifiers_for_snowpark_column(
-                    col[1].col.get_name()
-                )
-            else:
-                qualifiers = set()
+    is_pivot = aggregate.group_type == snowflake_proto.Aggregate.GROUP_TYPE_PIVOT
 
-            raw_aggregations.append((col[0], col[1], qualifiers))
+    def _map_aggregate_expressions() -> list[
+        tuple[str, TypedColumn, set[ColumnQualifier]]
+    ]:
+        mapped: list[tuple[str, TypedColumn, set[ColumnQualifier]]] = []
+        running_agg_count = get_sql_aggregate_function_count()
+        for exp in aggregate.aggregate_expressions:
+            cols = _map_columns(exp)
+            for col in cols:
+                if exp.WhichOneof("expr_type") == "unresolved_attribute":
+                    qualifiers: set[
+                        ColumnQualifier
+                    ] = input_container.column_map.get_qualifiers_for_snowpark_column(
+                        col[1].col.get_name()
+                    )
+                else:
+                    qualifiers = set()
 
-        # If this is an alias, register it in the LCA map for subsequent expressions
-        if (
-            exp.WhichOneof("expr_type") == "alias"
-            and exp.alias.name
-            and len(exp.alias.name) > 0
-        ):
-            alias_name = exp.alias.name[0]
-            spark_name, snowpark_column = cols[0]
+                mapped.append((col[0], col[1], qualifiers))
 
-            # Register the alias pointing to the result of its expression
-            # This handles both simple aliases (k as lca) and complex ones (lca + 1 as col)
-            # The snowpark_column already contains the computed expression with its alias wrapper,
-            # which is fine - when referenced later, the column's value is what gets used
-            register_lca_alias(alias_name, snowpark_column)
+            # If this is an alias, register it in the LCA map for subsequent expressions
+            if (
+                exp.WhichOneof("expr_type") == "alias"
+                and exp.alias.name
+                and len(exp.alias.name) > 0
+            ):
+                alias_name = exp.alias.name[0]
+                spark_name, snowpark_column = cols[0]
 
-        if is_group_by_all:
-            new_agg_count = get_sql_aggregate_function_count()
-            if new_agg_count == agg_count:
-                for col in cols:
-                    raw_groupings.append(col)
-            else:
-                agg_count = new_agg_count
+                # Register the alias pointing to the result of its expression
+                # This handles both simple aliases (k as lca) and complex ones (lca + 1 as col)
+                # The snowpark_column already contains the computed expression with its alias wrapper,
+                # which is fine - when referenced later, the column's value is what gets used
+                register_lca_alias(alias_name, snowpark_column)
+
+            if is_group_by_all:
+                new_agg_count = get_sql_aggregate_function_count()
+                if new_agg_count == running_agg_count:
+                    for col in cols:
+                        raw_groupings.append(col)
+                else:
+                    running_agg_count = new_agg_count
+        return mapped
+
+    def _typed_datatype(typed_col: TypedColumn) -> snowpark_types.DataType | None:
+        try:
+            return typed_col.field_type.datatype
+        except Exception as exc:  # noqa: BLE001
+            # The typer cannot infer every expression. An unknown type counts
+            # as outside PivotFirst (see pivot_result_types_need_first_last_rewrite).
+            logger.debug("Pivot aggregate type not inferred: %s", exc)
+            return None
+
+    # SQL PIVOT lands here and follows the DataFrame pivot path.
+    raw_aggregations = map_pivot_aggregates(
+        is_pivot,
+        _map_aggregate_expressions,
+        lambda mapped: [_typed_datatype(col) for _, col, _ in mapped],
+    )
 
     # Now create column name lists and assign aliases.
     # In case of GROUP BY ALL, even though groupings are a subset of aggregations,

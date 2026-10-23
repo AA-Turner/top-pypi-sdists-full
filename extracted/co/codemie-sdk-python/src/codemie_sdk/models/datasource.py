@@ -394,7 +394,9 @@ class CodeAnalysisDataSourceRequest(BaseModel):
     name: str = Field(..., description="Datasource name")
     description: str | None = Field(None, description="Datasource description")
     project_name: str = Field(..., description="Project name")
-    project_space_visible: bool = Field(False, alias="projectSpaceVisible")
+    project_space_visible: bool = Field(
+        False, description="Make the datasource visible to the whole project"
+    )
     branch: str | None = Field(None, description="Git branch")
     api_url: str = Field(..., description="Repository URL")
     access_token: str = Field(..., description="Access token for repository")
@@ -412,7 +414,9 @@ class CodeExplorationDataSourceRequest(BaseModel):
     name: str = Field(..., description="Datasource name")
     description: str | None = Field(None, description="Datasource description")
     project_name: str = Field(..., description="Project name")
-    project_space_visible: bool = Field(False, alias="projectSpaceVisible")
+    project_space_visible: bool = Field(
+        False, description="Make the datasource visible to the whole project"
+    )
     code_analysis_datasource_ids: list[str] = Field(
         ...,
         alias="code_analysis_datasource_ids",

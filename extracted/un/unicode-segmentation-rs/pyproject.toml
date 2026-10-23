@@ -4,15 +4,15 @@ requires = ["maturin>=1.14.0,<2.0"]
 
 [dependency-groups]
 build = [
-  "maturin==1.14.1"
+  "maturin==1.15.0"
 ]
 dev = [
-  {include-group = "build"},
-  {include-group = "test"},
-  {include-group = "pre-commit"}
+  { include-group = "build" },
+  { include-group = "test" },
+  { include-group = "pre-commit" }
 ]
 pre-commit = [
-  "prek==0.4.12"
+  "prek==0.5.7"
 ]
 test = [
   "pytest-github-actions-annotate-failures==0.4.2",
@@ -21,6 +21,7 @@ test = [
 
 [project]
 classifiers = [
+  "Development Status :: 5 - Production/Stable",
   "Programming Language :: Rust",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",

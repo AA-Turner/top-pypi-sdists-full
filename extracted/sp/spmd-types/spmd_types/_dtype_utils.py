@@ -21,7 +21,8 @@ class _DtypeOptions:
     to each autograd Function's ``forward``.  The Function applies
     ``op_dtype`` / ``out_dtype`` inside forward (so the conversion is part of
     the same autograd node) and saves ``backward_options`` for the backward
-    pass.
+    pass.  ``async_op`` is not a dtype option but travels with them: it lets
+    the forward collective return without waiting.
 
     All fields are always concrete (never None).  When no conversion is
     needed, ``op_dtype`` and ``out_dtype`` equal the input tensor's dtype.
@@ -30,6 +31,7 @@ class _DtypeOptions:
 
     op_dtype: torch.dtype
     out_dtype: torch.dtype
+    async_op: bool
     backward_options: dict
 
 
@@ -129,7 +131,9 @@ def _check_backward_options(
     )
 
 
-_VALID_BACKWARD_OPTIONS_KEYS = frozenset({"op_dtype", "out_dtype", "backward_options"})
+_VALID_BACKWARD_OPTIONS_KEYS = frozenset(
+    {"op_dtype", "out_dtype", "async_op", "backward_options"}
+)
 
 
 def _validate_backward_options(backward_options: dict | None) -> dict:
@@ -162,6 +166,8 @@ def _process_dtype_options(
     input_dtype: torch.dtype,
     requires_grad: bool,
     inplace: bool = False,
+    async_op: bool = False,
+    input_is_leaf: bool = False,
 ) -> _DtypeOptions:
     """Validate, resolve, and normalize all dtype options in one pass.
 
@@ -169,6 +175,10 @@ def _process_dtype_options(
     inference), resolves missing dtypes against ``input_dtype``, and validates
     backward_options keys.  Returns a ``_DtypeOptions`` with all fields
     concrete.
+
+    ``backward_options["async_op"]`` is dropped when the input is a leaf that
+    requires grad: the backward collective's output would become the leaf's
+    ``.grad``, which must not be an unwaited ``AsyncCollectiveTensor``.
     """
     if inplace and (op_dtype is not None or out_dtype is not None):
         raise ValueError(
@@ -188,9 +198,14 @@ def _process_dtype_options(
     backward_options = _validate_backward_options(backward_options)
     if "out_dtype" not in backward_options:
         backward_options = {**backward_options, "out_dtype": input_dtype}
+    if input_is_leaf and backward_options.get("async_op"):
+        backward_options = {
+            k: v for k, v in backward_options.items() if k != "async_op"
+        }
     return _DtypeOptions(
         op_dtype=op_dtype,
         out_dtype=out_dtype,
+        async_op=async_op,
         backward_options=backward_options,
     )
 
@@ -216,15 +231,18 @@ def _split_composition_dtype_options(
             "backward_options with nested backward_options (double backward) "
             "is not supported for composed operations (reinterpret I->V, I->P)"
         )
+    bw_async = {"async_op": bw["async_op"]} if "async_op" in bw else {}
     first = _DtypeOptions(
         op_dtype=dtype_options.op_dtype,
         out_dtype=dtype_options.op_dtype,
-        backward_options={"op_dtype": bw_op, "out_dtype": bw_out},
+        async_op=dtype_options.async_op,
+        backward_options={"op_dtype": bw_op, "out_dtype": bw_out, **bw_async},
     )
     second = _DtypeOptions(
         op_dtype=dtype_options.op_dtype,
         out_dtype=dtype_options.out_dtype,
-        backward_options={"op_dtype": bw_op, "out_dtype": bw_op},
+        async_op=dtype_options.async_op,
+        backward_options={"op_dtype": bw_op, "out_dtype": bw_op, **bw_async},
     )
     return first, second
 

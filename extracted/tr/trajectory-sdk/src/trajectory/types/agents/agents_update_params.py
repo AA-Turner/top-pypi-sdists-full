@@ -15,7 +15,3 @@ class AgentsUpdateParams(TypedDict, total=False):
   """
   New agent description. Set to null to clear it; omit to leave unchanged.
   """
-  model_slug: str | None
-  """
-  Existing serving model slug in this organization. Set null to unassign it.
-  """

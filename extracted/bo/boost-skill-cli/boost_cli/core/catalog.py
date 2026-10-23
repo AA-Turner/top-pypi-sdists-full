@@ -28,7 +28,7 @@ import re
 import sys
 import threading
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from ..errors import BoostError
@@ -59,7 +59,14 @@ from . import (
 #   4 -- a non-ASCII name is slugged by `_entry_slug` (accents folded, a
 #        name with no ASCII left takes its directory or a hash) instead of
 #        every CJK/Cyrillic name collapsing to `skill`
-CACHE_FORMAT = 4
+#   5 -- an item file that is a link out of the clone is skipped (see
+#        `escapes`), so a cache that indexed one must be rescanned to drop it
+#   6 -- an item whose files collide by case with another path in the tap
+#        is dropped on a case-insensitive clone (see `drop_case_collisions`)
+#   7 -- `frontmatter` folds an indented continuation carrying ": " into
+#        the plain scalar above it instead of dropping it and every line
+#        after, so a truncated description is restored on rescan
+CACHE_FORMAT = 7
 
 KIND_SKILL = "skill"
 KIND_RULE = "rule"
@@ -86,15 +93,30 @@ def _read(path: Path) -> tuple[dict, str] | None:
 
 
 def _text(meta: dict, key: str) -> str:
-    """A scalar frontmatter field as stripped text; a nested map reads as "".
+    """A scalar frontmatter field as stripped text (`util.frontmatter_text`)."""
+    return util.frontmatter_text(meta, key)
 
-    `frontmatter.parse_block` keeps `author:`/`metadata:`-style maps as dicts,
-    and `str()` of one would put a Python repr into a name or description.
+
+# What `_make_entry` stamps when the file declares no version, so the entry's
+# version field is always a sortable string.
+UNDECLARED_VERSION = "0.0.0"
+
+
+def declared_version(entry: dict) -> str:
+    """The version the item's own file declares, or ``""`` when it declares none.
+
+    ``entry["version"]`` cannot answer that: an unversioned file is stamped
+    ``0.0.0``, which is a fine sort key and a false statement in anything meant
+    for auditing — provenance read ``@ 0.0.0`` for a version that exists
+    nowhere in the source. The frontmatter (``entry["meta"]``) is the record of
+    what was declared. An entry carrying no ``meta`` (synthesised, or an old
+    cache) falls back to the field, with the placeholder read as absent.
     """
-    val = meta.get(key)
-    if isinstance(val, dict):
-        return ""
-    return str(val or "").strip()
+    meta = entry.get("meta")
+    if isinstance(meta, dict):
+        return str(entry.get("version") or "") if _text(meta, "version") else ""
+    version = str(entry.get("version") or "")
+    return "" if version == UNDECLARED_VERSION else version
 
 
 def _description(meta: dict, body: str) -> str:
@@ -106,6 +128,17 @@ def _description(meta: dict, body: str) -> str:
         if line and not line.startswith("#"):
             return line[:160]
     return ""
+
+
+def describe(meta: dict, body: str) -> str:
+    """The description the scanner indexes for an item with this frontmatter.
+
+    Public so a reader of an installed copy (``installedview``) derives the
+    same text a scan does: a SKILL.md with no ``description:`` is described by
+    its first prose line, and reading only the frontmatter there reported an
+    unchanged install as having no description and an "upstream" one.
+    """
+    return _description(meta, body)
 
 
 def _content_digest(name: str, description: str, body: str) -> str:
@@ -247,7 +280,7 @@ def _make_entry(root: Path, defining_file: Path, kind: str, default_name: str,
     return {
         "name": slug,
         "description": description,
-        "version": _text(meta, "version") or "0.0.0",
+        "version": _text(meta, "version") or UNDECLARED_VERSION,
         "tap": tap_name,
         "curated": curated,
         "kind": kind,
@@ -284,11 +317,46 @@ def _classify_workflow(path: Path, meta: dict) -> bool:
                 and (WORKFLOW_META_KEYS & set(meta)))
 
 
-def scan_dir(root: Path, tap_name: str = "local", curated: bool = False) -> list[dict]:
+def escapes(root: Path, path: Path) -> bool:
+    """True when ``path``, links followed, is not inside ``root``.
+
+    Both sides are resolved: on macOS a tempdir under ``/var/folders`` is
+    really ``/private/var/...``, and resolving one side only compares a real
+    path against a nominal one. A path ``realpath`` rejects counts as
+    escaping — refusing it costs one item, serving it costs a file.
+    """
+    try:
+        return not Path(os.path.realpath(path)).is_relative_to(
+            os.path.realpath(root))
+    except ValueError:      # an embedded NUL: not a path at all
+        return True
+
+
+def _escaping(root: Path, path: Path, escaped: list[str] | None) -> bool:
+    """`escapes` for one scanned file, recording it in ``escaped``.
+
+    ``os.walk`` does not follow directory links, so inside one walk the only
+    way out of the clone is the file itself being a link: the cheap
+    ``is_symlink`` gates the two ``realpath`` calls.
+    """
+    if not (path.is_symlink() and escapes(root, path)):
+        return False
+    if escaped is not None:
+        escaped.append(path.relative_to(root).as_posix())
+    return True
+
+
+def scan_dir(root: Path, tap_name: str = "local", curated: bool = False,
+             escaped: list[str] | None = None) -> list[dict]:
     """Walk `root` and index every skill/rule/workflow into entry dicts.
 
     Files inside a SKILL.md dir belong to that skill, never re-indexed;
     output is sorted by (skill_md, name) regardless of walk order.
+
+    An item file that is a link leading out of `root` is skipped, before it
+    is opened, and its path relative to `root` appended to ``escaped``. A tap
+    is somebody else's repo: a ``SKILL.md -> ../../../.ssh/id_rsa`` put the
+    key in the BM25 index, in `boost_search` results and in `boost_read`.
     """
     root = Path(root)
     entries: list[dict] = []
@@ -308,7 +376,13 @@ def scan_dir(root: Path, tap_name: str = "local", curated: bool = False) -> list
         # A directory holding a SKILL.md is a skill: index it and remember the
         # dir so its other files are not re-indexed as loose rules/workflows.
         if "SKILL.md" in filenames:
-            parsed = _read(here / "SKILL.md")
+            # An escaping SKILL.md still marks its dir a skill dir, so its
+            # sibling .md files are not indexed as loose workflows instead.
+            if _escaping(root, here / "SKILL.md", escaped):
+                skill_dirs.add(here)
+                parsed = None
+            else:
+                parsed = _read(here / "SKILL.md")
             if parsed is not None:
                 meta, body = parsed
                 default = here.name if here != root else root.name
@@ -324,6 +398,8 @@ def scan_dir(root: Path, tap_name: str = "local", curated: bool = False) -> list
             is_rule = _classify_rule(path)
             is_md = path.suffix.lower() == ".md" and path.name != "SKILL.md"
             if not is_rule and not is_md:
+                continue
+            if _escaping(root, path, escaped):
                 continue
             parsed = _read(path)
             if parsed is None:
@@ -349,6 +425,90 @@ def scan_dir(root: Path, tap_name: str = "local", curated: bool = False) -> list
 #: Taps whose cache could not be saved this process — warned about once.
 _UNSAVED: set[str] = set()
 
+#: Taps whose escaping links were reported this process — warned about once.
+_ESCAPED: set[str] = set()
+
+
+def _report_escaped(tap_name: str, escaped: list[str]) -> None:
+    """Warn, once per tap per process, about item links out of its clone."""
+    if not escaped or tap_name in _ESCAPED:
+        return
+    _ESCAPED.add(tap_name)
+    n = len(escaped)
+    output.warn("skipped %d item%s in tap %s that link outside its clone: %s"
+                % (n, "" if n == 1 else "s", tap_name, ", ".join(sorted(escaped))),
+                stream=sys.stderr, wrap=True)
+
+
+#: Taps whose case-colliding paths were reported this process — warned once.
+_COLLIDED: set[str] = set()
+
+
+def _fold(path: str) -> str:
+    return unicodedata.normalize("NFC", path).casefold()
+
+
+def drop_case_collisions(entries: list[dict], groups: list[list[str]]
+                         ) -> tuple[list[dict], list[str]]:
+    """``(kept, colliding paths)``: ``entries`` less every item a
+    case-insensitive checkout merged with another.
+
+    ``groups`` is :func:`gitutil.case_collisions`. A tap shipping
+    ``skills/Lint`` and ``skills/lint`` checks out as one directory holding
+    one SKILL.md and *both* skills' scripts: indexed as it stood it counted
+    one item, named the other, and installed a mix of the two that doctor and
+    verify called healthy. An item is dropped when its defining file is one
+    of the colliding paths, or a colliding path sits inside its directory
+    (a skill at the repo root holds them all), or its directory is itself
+    one of a group of colliding dirs (``skills/Lint/`` beside
+    ``skills/lint/``, which merge with no file colliding), since neither
+    spelling can be told from the copy on disk. The second value lists the colliding paths
+    that touched a dropped item, for the warning.
+    """
+    if not groups:
+        return entries, []
+    folded = {_fold(p): g for g in groups for p in g}
+    kept: list[dict] = []
+    hit: set[str] = set()
+    for e in entries:
+        own = _fold(e["skill_md"])
+        if (e.get("kind") or KIND_SKILL) == KIND_SKILL:
+            inside = "" if e["rel_dir"] == "." else _fold(e["rel_dir"]) + "/"
+            # A file key inside the dir, or the dir itself spelled twice; a
+            # dir key nested deeper only merges this skill's own subdirs.
+            touched = [k for k in folded
+                       if (k == inside if k.endswith("/")
+                           else k.startswith(inside))]
+        else:
+            touched = [own] if own in folded else []
+        if touched:
+            for k in touched:
+                hit.update(folded[k])
+        else:
+            kept.append(e)
+    return kept, sorted(hit)
+
+
+def _report_collided(tap_name: str, dropped: int, paths_: list[str]) -> None:
+    """Warn, once per tap per process, about items a case clash dropped."""
+    if not dropped or tap_name in _COLLIDED:
+        return
+    _COLLIDED.add(tap_name)
+    output.warn("skipped %d item%s in tap %s whose paths differ only by case, "
+                "which this filesystem cannot hold apart: %s"
+                % (dropped, "" if dropped == 1 else "s", tap_name,
+                   ", ".join(paths_)),
+                stream=sys.stderr, wrap=True)
+
+
+def _case_collisions(repo: Path) -> list[list[str]]:
+    """:func:`gitutil.case_collisions`, or none where git cannot answer: the
+    scan in hand is still the catalog."""
+    try:
+        return gitutil.case_collisions(repo)
+    except BoostError:
+        return []
+
 
 def rebuild_tap(tap: registry.Tap) -> list[dict]:
     """Rescan a cloned tap and rewrite its JSON cache file -> entries.
@@ -359,7 +519,17 @@ def rebuild_tap(tap: registry.Tap) -> list[dict]:
     if not tap.is_cloned:
         raise BoostError("tap %s is not cloned" % tap.name,
                         hint="run `boost update %s`" % tap.name)
-    entries = scan_dir(tap.path, tap.name, tap.curated)
+    escaped: list[str] = []
+    scanned = scan_dir(tap.path, tap.name, tap.curated, escaped=escaped)
+    _report_escaped(tap.name, escaped)
+    entries, collided = drop_case_collisions(scanned,
+                                             _case_collisions(tap.path))
+    _report_collided(tap.name, len(scanned) - len(entries), collided)
+    if not tap.owns_cache_file:
+        # Its cache path is one of boost's own indexes (a tap configured
+        # before `add` refused the name): the scan is the answer, and writing
+        # it would replace the BM25 index. See registry.Tap.owns_cache_file.
+        return entries
     payload = json.dumps({
         "tap": tap.name,
         "url": tap.url,
@@ -415,6 +585,8 @@ def _cache_record(tap: registry.Tap) -> tuple[list[dict], bool, str] | None:
     """``(skills, is_current, commit)`` for a tap's cache, or ``None`` when
     the file is missing, unreadable or corrupt. ``commit`` is the HEAD the
     cache was scanned at (``""`` when it never recorded one)."""
+    if not tap.owns_cache_file:
+        return None     # boost's own index, never this tap's catalog
     p = tap.cache_file
     key = str(p)
     try:
@@ -504,6 +676,18 @@ def stale_commit(tap: registry.Tap, head: str | None = None
 def join_hints(*hints: str | None) -> str | None:
     """The non-empty ``hints`` as one ``; ``-separated line, or ``None``."""
     return "; ".join(h for h in hints if h) or None
+
+
+NO_TAPS_HINT = "no taps configured — start with `boost tap --defaults`"
+
+
+def search_hint(name: str) -> str:
+    """The next step after a failed lookup of ``name``: ``boost search`` it,
+    unless nothing is tapped — then search fails too ("no taps configured"),
+    so the step is to tap something first."""
+    if not builtin.configured_tap_count():
+        return NO_TAPS_HINT
+    return "try `boost search %s`" % name
 
 
 def stale_commit_hint() -> str | None:
@@ -746,15 +930,30 @@ def split_name(name: str) -> tuple[str | None, str]:
     return None, name
 
 
+def _tap_tiers(qualifier: str) -> list[Callable[[str], bool]]:
+    """The tests a ``tap:`` qualifier is matched by, best first.
+
+    The same four tiers as :func:`registry.get`: exact ``owner/repo``, the
+    filesystem ``safe_name``, the bare repo tail, then case-folded. Before the
+    last tier, `boost update Beta` acted on tap ``beta`` while `boost install
+    Beta:x` answered "no tap named 'Beta'", so one spelling worked for every
+    tap command and failed for every item command.
+    """
+    folded = registry.name_key(qualifier)
+    return [lambda t: t == qualifier,
+            lambda t: t.replace("/", "__") == qualifier,
+            lambda t: t.split("/")[-1] == qualifier,
+            lambda t: registry.name_key(t) == folded]
+
+
 def tap_matches(tap_name: str, qualifier: str) -> bool:
     """True when ``qualifier`` selects the single tap ``tap_name``.
 
-    The one-candidate form of :func:`find`'s tap filter — an exact
-    ``owner/repo`` or the bare repo tail. Not a substitute for find's tiering,
-    which picks the *best* tap among several; here there is only one to accept
-    or reject, so the two tiers collapse into one test.
+    The one-candidate form of :func:`find`'s tap filter. Not a substitute for
+    find's tiering, which picks the *best* tap among several; here there is
+    only one to accept or reject, so any tier accepts it.
     """
-    return bool(tap_name) and qualifier in (tap_name, tap_name.split("/")[-1])
+    return bool(tap_name) and any(t(tap_name) for t in _tap_tiers(qualifier))
 
 
 def for_tap(entry: dict | None, qualifier: str | None) -> dict | None:
@@ -870,9 +1069,11 @@ def find(name: str, tap: str | None = None,
         # errored on the ambiguity while `boost bundle apply` with
         # `skills:brainstorming` silently took matches[0] from whichever tap
         # sorted first.
-        exact = [e for e in matches if e["tap"] == tap]
-        matches = exact or [e for e in matches
-                            if e["tap"].split("/")[-1] == tap]
+        for tier in _tap_tiers(tap):
+            hits = [e for e in matches if tier(e["tap"])]
+            if hits:
+                return hits
+        return []
     return matches
 
 
@@ -909,6 +1110,20 @@ def select_lock_source(matches: list[dict], lk: dict) -> tuple[dict | None, str 
     fallback = matches[0]
     return fallback, ("%s no longer at its installed source (%s) — using %s"
                       % (fallback.get("name", "?"), wanted, fallback.get(field, "?")))
+
+
+def installed_row(matches: list[dict], kind: str, lk: dict) -> dict | None:
+    """The catalog row an installed item came from, or None.
+
+    Same tap, same kind, then the recorded source (:func:`select_lock_source`).
+    One tap can ship one name as a skill *and* a workflow, and a row picked
+    by tap alone described whichever of the two sorted first, so `boost info`
+    on an installed workflow printed its skill namesake's description.
+    """
+    same = [e for e in matches
+            if e.get("tap") == lk.get("tap")
+            and (e.get("kind") or "skill") == kind]
+    return select_lock_source(same, lk)[0]
 
 
 def upstream_path(entry: dict) -> str:
@@ -1065,9 +1280,12 @@ class SameTapAmbiguity(BoostError):
     """
 
     def __init__(self, message: str, hint: str, *, bare: str,
-                 paths: list[str]):
+                 paths: list[str], qualified: str | None = None):
         super().__init__(message, hint=hint)
         self.bare = bare
+        #: ``tap:bare`` — the name a retry must pass, since the bare name can
+        #: resolve to (or collide with) another tap's copy.
+        self.qualified = qualified or bare
         self.paths = paths
 
 
@@ -1148,7 +1366,7 @@ def resolve_one(name: str, path: str | None = None) -> dict:
                 # wheel and is appended on a machine the user has tapped
                 # nothing on, which silenced this hint exactly where a new
                 # user needs it.
-                hint = "no taps configured — start with `boost tap --defaults`"
+                hint = NO_TAPS_HINT
         raise BoostError("no skill named %r in any tap" % name,
                          hint=join_hints(hint, stale_commit_hint()))
     if len(matches) > 1:
@@ -1179,14 +1397,28 @@ def resolve_one(name: str, path: str | None = None) -> dict:
             # reaching the catalog (see e.g. `_resolve_skill_md`,
             # `_resolve_skill`), so installing one clears the ambiguity for
             # every command that would otherwise hit it again.
-            kind = str(matches[0].get("kind") or "skill")
+            kinds = {str(e.get("kind") or "skill") for e in matches}
+            if len(kinds) == 1:
+                noun = "%ss" % kinds.pop()
+            else:
+                # A skill, a command and a rule are not "3 workflows": name
+                # each match's own kind.
+                noun = "items"
+                paths = ", ".join(sorted(
+                    "%s (%s)" % (e.get("rel_dir", "?"), e.get("kind") or "skill")
+                    for e in matches))
             raise SameTapAmbiguity(
-                "%r matches %d different %ss in %s: %s"
-                % (bare, len(matches), kind, taps[0], paths),
+                "%r matches %d different %s in %s: %s"
+                % (bare, len(matches), noun, taps[0], paths),
+                # Qualified, always: the bare name with `--path` resolves
+                # across every tap, so when another registry ships it too the
+                # suggested command failed with the cross-tap error — naming
+                # the wrong tap — or, for identical copies, quietly installed
+                # the other registry's.
                 hint="that registry ships one name twice — install one with "
-                     "`boost install %s --path <one of the above>`, then "
-                     "retry; raise it with the tap" % bare,
-                bare=bare,
+                     "`boost install %s:%s --path <one of the above>`, then "
+                     "retry; raise it with the tap" % (taps[0], bare),
+                bare=bare, qualified="%s:%s" % (taps[0], bare),
                 paths=sorted(str(e.get("rel_dir", "?")) for e in matches))
         # Several taps, one thing. Registries mirror each other constantly, so
         # the common cross-tap collision is N byte-identical copies of one
@@ -1203,6 +1435,72 @@ def resolve_one(name: str, path: str | None = None) -> dict:
             "%r exists in multiple taps: %s" % (name, ", ".join(taps)),
             hint="qualify it, e.g. `%s:%s`" % (taps[0], bare))
     return matches[0]
+
+
+def _resolve_kind(name: str, kind: str | None) -> dict:
+    """:func:`resolve_one`, narrowed to ``kind`` when one copy of it remains.
+
+    A record that carries one kind only (a profile or snapshot keeps skills)
+    is not ambiguous because the tap also ships a workflow of that name — and
+    without the narrowing a ``find()[0]`` restore brought back the workflow.
+    """
+    if kind is not None:
+        found = find(name)
+        same = [e for e in found if (e.get("kind") or KIND_SKILL) == kind]
+        if len(same) == 1:
+            return same[0]
+        if found and not same:
+            # Only another kind answers to the name: restoring it would put a
+            # workflow where the record kept a skill.
+            raise BoostError(
+                "%s is no longer shipped as a %s"
+                % (split_name(name)[1], kind),
+                hint="what answers to it now: %s" % ", ".join(sorted(
+                    "%s (%s)" % (e.get("tap"), e.get("kind") or KIND_SKILL)
+                    for e in found)))
+    return resolve_one(name)
+
+
+def resolve_recorded(name: str, tap: str | None = None,
+                     kind: str | None = None) -> dict | None:
+    """The entry to reinstall for a name some record kept, or None if absent.
+
+    For ``cohort apply``, ``profile use`` and ``snapshot rollback``. None
+    only when no tap ships the name at all; every other way to fail raises
+    :class:`BoostError` naming why, so the caller can skip the item and say
+    so. Both refusals replace a ``find()[0]`` that installed whichever tap
+    sorted first:
+
+    * without ``tap``, the name resolves like ``install`` resolves it
+      (:func:`resolve_one`), so an ambiguous name is refused, not guessed;
+    * with ``tap`` — the tap the record says it came from — only that tap's
+      copy is the answer. A recorded tap that is gone used to bring back
+      another tap's item and blame "its tap has moved".
+
+    ``kind`` is the one kind the record carries, when it carries one: a
+    single copy of that kind is the answer even beside a namesake of another.
+    """
+    bare = split_name(name)[1]
+    shipped = find(bare)
+    if not shipped:
+        return None
+    if not tap:
+        return _resolve_kind(name, kind)
+    others = ", ".join(sorted({str(e.get("tap") or "") for e in shipped}))
+    if not any(tap_matches(t.name, tap) for t in registry.list_taps()):
+        if tap == "local":
+            raise BoostError(
+                "%s was installed from a local path, not a tap" % bare,
+                hint="it is shipped by: %s — install one by name to switch"
+                     % others)
+        raise BoostError(
+            "%s was recorded from tap %s, which is no longer tapped"
+            % (bare, tap),
+            hint="`boost tap` it again, or install it from: %s" % others)
+    if not find("%s:%s" % (tap, bare)):
+        raise BoostError("%s is no longer in tap %s" % (bare, tap),
+                         hint="it is shipped by: %s" % others)
+    return _resolve_kind("%s:%s" % (tap, bare), kind)
 
 
 def _same_thing(matches: list[dict]) -> dict | None:

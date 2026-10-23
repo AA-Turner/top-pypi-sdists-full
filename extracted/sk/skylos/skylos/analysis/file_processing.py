@@ -17,6 +17,7 @@ from skylos.rules.quality.cohesion import LCOMRule
 from skylos.rules.quality.concurrency import LockOrderRule, ThreadSharedStateRule
 from skylos.rules.quality.complexity import ComplexityRule, CognitiveComplexityRule
 from skylos.rules.quality.coupling import CBORule
+from skylos.rules.quality.logic_foundation import TRY_NODE_TYPES
 from skylos.rules.quality.logic import (
     BareExceptRule,
     BooleanTrapRule,
@@ -52,6 +53,12 @@ from skylos.rules.quality.practices import (
     FrameworkPracticeRule,
     TypeAnnotationPracticeRule,
 )
+from skylos.rules.quality.slop import (
+    BooleanLiteralConditionalRule,
+    FormattedConversionCallRule,
+    RepeatedFunctionImportRule,
+    ReraiseOnlyHandlerRule,
+)
 from skylos.rules.quality.structure import ArgCountRule, FunctionLengthRule
 from skylos.rules.quality.unreachable import UnreachableCodeRule
 from skylos.rules.secrets import SECRET_CONFIG_SUFFIXES
@@ -86,11 +93,10 @@ TS_JS_SOURCE_EXTS = (
 )
 KOTLIN_SOURCE_EXTS = (".kt", ".kts")
 CPP_ANALYSIS_EXTS = CPP_SOURCE_EXTS + CPP_HEADER_EXTS
-TRY_NODE_TYPES = (ast.Try, getattr(ast, "TryStar", ast.Try))
 
 LINTER_RULE_NODE_TYPES = {
     ComplexityRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    CognitiveComplexityRule: (ast.FunctionDef, ast.AsyncFunctionDef),
+    CognitiveComplexityRule: (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef),
     NestingRule: (ast.FunctionDef, ast.AsyncFunctionDef),
     AsyncBlockingRule: (
         ast.Import,
@@ -102,23 +108,24 @@ LINTER_RULE_NODE_TYPES = {
     ),
     LockOrderRule: (ast.Module,),
     ThreadSharedStateRule: (ast.Module,),
-    ArgCountRule: (ast.FunctionDef, ast.AsyncFunctionDef),
+    ArgCountRule: (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef),
     FunctionLengthRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    MutableDefaultRule: (ast.FunctionDef, ast.AsyncFunctionDef),
+    MutableDefaultRule: (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef),
     RepeatedMutableAliasRule: (ast.Module, ast.BinOp),
     BareExceptRule: (ast.ExceptHandler,),
     DangerousComparisonRule: (ast.Compare,),
     DuplicateBranchRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    TryBlockPatternsRule: (ast.Try,),
+    TryBlockPatternsRule: TRY_NODE_TYPES,
     UnusedExceptVarRule: (ast.ExceptHandler,),
     ReturnConsistencyRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    EmptyErrorHandlerRule: (ast.ExceptHandler, ast.With),
+    EmptyErrorHandlerRule: (ast.Module, *TRY_NODE_TYPES, ast.ExceptHandler, ast.With),
     MissingResourceCleanupRule: (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef),
     DebugLeftoverRule: (ast.Call,),
     SecurityTodoRule: (ast.Module,),
     DisabledSecurityRule: (ast.Call, ast.FunctionDef, ast.AsyncFunctionDef, ast.Assign),
     InsecureRandomRule: (ast.Assign,),
     HardcodedCredentialRule: (
+        ast.Module,
         ast.Assign,
         ast.AnnAssign,
         ast.FunctionDef,
@@ -131,12 +138,12 @@ LINTER_RULE_NODE_TYPES = {
     UnfinishedGenerationRule: (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef),
     DuplicateStringLiteralRule: (ast.Module,),
     TooManyReturnsRule: (ast.FunctionDef, ast.AsyncFunctionDef),
-    BooleanTrapRule: (ast.FunctionDef, ast.AsyncFunctionDef),
+    BooleanTrapRule: (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef),
     BroadExceptionRule: (ast.ExceptHandler,),
     MissingNetworkTimeoutRule: (ast.Call,),
-    NoEffectStatementRule: (ast.Expr,),
+    NoEffectStatementRule: (ast.Module, ast.Expr),
     GodFileRule: (ast.Module,),
-    GodClassRule: (ast.ClassDef,),
+    GodClassRule: (ast.Module, ast.ClassDef),
     CBORule: (ast.ClassDef,),
     LCOMRule: (ast.Module, ast.ClassDef),
     UnreachableCodeRule: (
@@ -152,10 +159,14 @@ LINTER_RULE_NODE_TYPES = {
         ast.AsyncWith,
         *TRY_NODE_TYPES,
     ),
-    PerformanceRule: (ast.Call, ast.For),
+    PerformanceRule: (ast.Module, ast.Call, ast.For),
     TypeAnnotationPracticeRule: (ast.Module,),
     FrameworkPracticeRule: (ast.Module,),
     OpaqueIdentifierRule: (ast.Module,),
+    RepeatedFunctionImportRule: (ast.Module,),
+    BooleanLiteralConditionalRule: (ast.Module,),
+    FormattedConversionCallRule: (ast.Module,),
+    ReraiseOnlyHandlerRule: (ast.Module,),
     DangerousCallsRule: (ast.Module, ast.Import, ast.ImportFrom, ast.Assign, ast.Call),
 }
 
@@ -233,6 +244,10 @@ def _build_builtin_quality_rules(cfg: dict) -> list:
             lambda: MissingNetworkTimeoutRule(vibe_dictionary=vibe_dictionary),
         ),
         ("SKY-L033", NoEffectStatementRule),
+        ("SKY-L036", RepeatedFunctionImportRule),
+        ("SKY-L037", BooleanLiteralConditionalRule),
+        ("SKY-L038", FormattedConversionCallRule),
+        ("SKY-L039", ReraiseOnlyHandlerRule),
     ]
 
     q_rules = [factory() for rule_id, factory in specs if _enabled(cfg, rule_id)]
@@ -267,7 +282,11 @@ def _build_structural_quality_rules(cfg: dict) -> list:
     ]
     q_rules.extend(factory() for rule_id, factory in specs if _enabled(cfg, rule_id))
     if _enabled(cfg, "SKY-T101") or _enabled(cfg, "SKY-T102"):
-        q_rules.append(TypeAnnotationPracticeRule())
+        q_rules.append(
+            TypeAnnotationPracticeRule(
+                coverage_advice=cfg.get("typing_coverage_advice", False)
+            )
+        )
     if _enabled(cfg, "SKY-F101") or _enabled(cfg, "SKY-F102"):
         q_rules.append(FrameworkPracticeRule())
     return q_rules
@@ -314,13 +333,32 @@ def _extend_community_quality_rules(q_rules: list, file) -> None:
         pass
 
 
-def scan_python_quality(tree: ast.AST, source: str, file, cfg: dict) -> list[dict]:
+def scan_python_quality(
+    tree: ast.AST,
+    source: str,
+    file,
+    cfg: dict,
+    *,
+    credential_source_locations=(),
+    project_root=None,
+    receiver_source_reader=None,
+    typing_source_reader=None,
+    annotation_coverage=None,
+) -> list[dict]:
     q_rules = _build_builtin_quality_rules(cfg)
     _extend_env_custom_quality_rules(q_rules, file)
     _extend_community_quality_rules(q_rules, file)
     set_linter_node_types(q_rules)
     linter_q = LinterVisitor(q_rules, str(file))
     linter_q.context["source"] = source
+    linter_q.context["project_root"] = project_root
+    if annotation_coverage is not None:
+        linter_q.context["annotation_coverage"] = annotation_coverage
+    if receiver_source_reader is not None:
+        linter_q.context["receiver_source_reader"] = receiver_source_reader
+    if typing_source_reader is not None:
+        linter_q.context["typing_source_reader"] = typing_source_reader
+    linter_q.context["credential_source_locations"] = credential_source_locations
     linter_q.visit(tree)
     quality_findings = [
         f for f in linter_q.findings if f.get("rule_id") not in cfg["ignore"]

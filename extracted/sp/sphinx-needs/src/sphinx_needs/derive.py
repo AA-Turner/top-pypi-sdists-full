@@ -33,9 +33,11 @@ from __future__ import annotations
 
 import ast
 import enum
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, TypeGuard
+
+from sphinx_needs._wording import title_hint
 
 if TYPE_CHECKING:
     from sphinx_needs.needs_schema import FieldSchema, FieldsSchema, LinkSchema
@@ -53,6 +55,7 @@ DeriveKind: TypeAlias = Literal[
     "fingerprint",
     "links",
     "content_links",
+    "union",
 ]
 
 #: The kinds, in the order the documentation lists them.
@@ -69,11 +72,12 @@ KINDS: Final[tuple[DeriveKind, ...]] = (
     "fingerprint",
     "links",
     "content_links",
+    "union",
 )
 
 #: The kinds that compute a link list, declared on a link type; every other kind
 #: computes a value, declared on a field.
-LINK_KINDS: Final = frozenset({"links", "content_links"})
+LINK_KINDS: Final = frozenset({"links", "content_links", "union"})
 
 #: The roles, in the order a rule's problems are looked for.
 ROLES: Final = (
@@ -82,6 +86,7 @@ ROLES: Final = (
     "exclude",
     "over",
     "from",
+    "join",
     "where",
     "test",
     "select",
@@ -92,14 +97,18 @@ ROLES: Final = (
 )
 
 #: Roles that are reserved for a later release: a rule naming one cannot be read.
-RESERVED_ROLES: Final = frozenset({"join"})
+#: None is today (the ``expr`` kind of a later release is refused as an unknown kind).
+RESERVED_ROLES: Final = frozenset[str]()
 
 #: The core fields, besides every ``NeedsCoreFields`` entry, that cannot carry a rule.
 CORE_LINK_TYPES: Final = frozenset({"parent_needs"})
 
 #: Per kind, the roles it requires and the roles it may take besides.
 _ROLES_OF: Final[Mapping[str, tuple[frozenset[str], frozenset[str]]]] = {
-    "copy": (frozenset({"field"}), frozenset({"from", "over", "select", "after"})),
+    "copy": (
+        frozenset({"field"}),
+        frozenset({"from", "over", "join", "select", "include_self", "after"}),
+    ),
     "sum": (frozenset({"field", "over"}), frozenset({"where", "after"})),
     "count": (frozenset({"over"}), frozenset({"field", "where", "after"})),
     "min": (
@@ -115,13 +124,35 @@ _ROLES_OF: Final[Mapping[str, tuple[frozenset[str], frozenset[str]]]] = {
     "collect": (frozenset({"field", "over"}), frozenset({"where", "after"})),
     "hash": (frozenset({"fields"}), frozenset({"after"})),
     "fingerprint": (frozenset(), frozenset({"exclude"})),
-    "links": (frozenset({"where"}), frozenset({"include_self", "include_parts"})),
+    # ``where`` or ``join``: required as one, see parse_derive
+    "links": (
+        frozenset(),
+        frozenset({"where", "join", "include_self", "include_parts"}),
+    ),
     "content_links": (frozenset(), frozenset({"from", "where"})),
+    "union": (frozenset({"fields"}), frozenset()),
 }
 
 _STRING_ROLES: Final = frozenset({"field", "over", "from", "where", "test"})
 _BOOLEAN_ROLES: Final = frozenset({"transitive", "include_self", "include_parts"})
 _SELECT: Final = ("first", "unique", "list")
+#: The keys of the ``join`` role.
+_JOIN_KEYS: Final = ("field", "equals")
+
+
+@dataclass(frozen=True, slots=True)
+class DeriveJoin:
+    """The ``join`` role: the needs whose ``field`` equals one of this need's ``equals``.
+
+    Both are text fields: a string is split on ``,``, an array taken by item, each
+    value stripped, and a need matches when the two share a value.
+
+    :ivar field: The field read on every need, the candidates.
+    :ivar equals: The field read on the need holding the rule.
+    """
+
+    field: str
+    equals: str
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -130,10 +161,13 @@ class DeriveRule:
 
     :ivar kind: The kind.
     :ivar field: The ``field`` role: the field read on each candidate, or on this need.
-    :ivar fields: The ``fields`` role (``hash``): the own fields hashed, in order.
+    :ivar fields: The ``fields`` role: the own fields hashed, in order (``hash``), or
+        the link types whose links are united, in order (``union``).
     :ivar exclude: The ``exclude`` role (``fingerprint``): what it leaves out.
     :ivar over: The ``over`` role: a link type, or ``<link type>_back``.
     :ivar from_need: The ``from`` role: the id of the one need read.
+    :ivar join: The ``join`` role (``links``, ``copy``): the needs whose field equals
+        one of this need's values.
     :ivar where: The ``where`` role: the predicate narrowing the candidates.
     :ivar test: The ``test`` role: the predicate asserted of each candidate.
     :ivar select: The ``select`` role of a ``copy`` over several targets.
@@ -149,6 +183,7 @@ class DeriveRule:
     exclude: tuple[str, ...] = ()
     over: str | None = None
     from_need: str | None = None
+    join: DeriveJoin | None = None
     where: str | None = None
     test: str | None = None
     select: Literal["first", "unique", "list"] = "first"
@@ -250,7 +285,9 @@ def parse_derive(raw: Any, *, on_link: bool) -> Derive:
             return DeriveInvalid(
                 kind,
                 f"{prefix}: 'types' is not a role; a rule for some need types is "
-                "declared under derive_by_type",
+                "declared in those need types' own entries (a derive under the type's "
+                "fields or links), or under derive_by_type for a type an extension "
+                "adds",
             )
         return DeriveInvalid(kind, f"{prefix}: {unknown[0]!r} is not a role")
     if on_link and kind not in LINK_KINDS:
@@ -272,6 +309,8 @@ def parse_derive(raw: Any, *, on_link: bool) -> Derive:
     for role in ROLES:
         if role in required and role not in raw:
             return DeriveInvalid(kind, f"{prefix} requires the role {role!r}")
+    if kind == "links" and "where" not in raw and "join" not in raw:
+        return DeriveInvalid(kind, f"{prefix} requires the role 'where' or 'join'")
     for role in ROLES:
         if role in raw and (problem := _value_problem(role, raw[role])) is not None:
             return DeriveInvalid(kind, f"{prefix}: the role {role!r} {problem}")
@@ -279,6 +318,8 @@ def parse_derive(raw: Any, *, on_link: bool) -> Derive:
         return DeriveInvalid(
             kind, f"{prefix}: the role 'exclude' names {twice!r} twice"
         )
+    if kind == "union" and (twice := _named_twice(raw["fields"])) is not None:
+        return DeriveInvalid(kind, f"{prefix}: the role 'fields' names {twice!r} twice")
     if (problem := _combination_problem(kind, raw)) is not None:
         return DeriveInvalid(kind, f"{prefix} {problem}")
     return DeriveRule(
@@ -288,6 +329,9 @@ def parse_derive(raw: Any, *, on_link: bool) -> Derive:
         exclude=tuple(raw.get("exclude", ())),
         over=raw.get("over"),
         from_need=raw.get("from"),
+        join=DeriveJoin(raw["join"]["field"], raw["join"]["equals"])
+        if "join" in raw
+        else None,
         where=raw.get("where"),
         test=raw.get("test"),
         select=raw.get("select", "first"),
@@ -318,17 +362,12 @@ def parse_derive_by_type(
         return {}, [("derive_by_type", "it is not a table of need types")]
     if not raw:
         return {}, [("derive_by_type", "it names no need type")]
-    titles = {title: directive for directive, title in need_types.items()}
     rules: dict[str, Derive] = {}
     problems: list[tuple[str, str]] = []
     for key in sorted(raw, key=str):
         name = str(key)
         if not isinstance(key, str) or key not in need_types:
-            hint = (
-                f" (did you mean {titles[name]!r}?)"
-                if name in titles and name not in need_types
-                else ""
-            )
+            hint = title_hint(name, need_types)
             problems.append(
                 (
                     f"derive_by_type.{name}",
@@ -371,6 +410,24 @@ def _value_problem(role: str, value: Any) -> str | None:
             return 'must be "first", "unique" or "list"'
     elif role == "after" and value != "derived":
         return 'must be "derived"'
+    elif role == "join":
+        return _join_shape_problem(value)
+    return None
+
+
+def _join_shape_problem(value: Any) -> str | None:
+    """What is wrong with the value of the ``join`` role, if anything: it is a table of
+    exactly ``field`` and ``equals``, each a field's name."""
+    if not isinstance(value, Mapping):
+        return "must be a table with 'field' and 'equals'"
+    if extra := sorted(str(key) for key in value if key not in _JOIN_KEYS):
+        return f"has the key {extra[0]!r}; it takes 'field' and 'equals'"
+    for key in _JOIN_KEYS:
+        if key not in value:
+            return f"has no {key!r}"
+    for key in _JOIN_KEYS:
+        if not isinstance(value[key], str) or not value[key].strip():
+            return f"must name a field in {key!r}"
     return None
 
 
@@ -387,15 +444,21 @@ def _named_twice(names: Iterable[str]) -> str | None:
 def _combination_problem(kind: str, raw: Mapping[str, Any]) -> str | None:
     """What is wrong with how the roles of a rule go together, if anything."""
     if kind == "copy":
-        if "from" in raw and "over" in raw:
-            return "takes one of the roles 'from' and 'over', not both"
-        if "select" in raw and "over" not in raw:
-            return "takes the role 'select' only with 'over'"
+        if sum(role in raw for role in ("from", "over", "join")) > 1:
+            return "takes one of the roles 'from', 'over' and 'join', not more"
+        if "select" in raw and "over" not in raw and "join" not in raw:
+            return "takes the role 'select' only with 'over' or 'join'"
+        # ``false``, the default, says nothing, as on min and max without transitive
+        if raw.get("include_self") and "join" not in raw:
+            return "takes the role 'include_self' only with 'join'"
+    if kind == "links" and "join" in raw and raw.get("include_parts"):
+        # a join's candidates are needs only
+        return "takes the role 'include_parts' only without 'join'"
     if kind in {"any", "all"} and ("field" in raw) == ("test" in raw):
         return "takes exactly one of the roles 'field' and 'test'"
     if kind in {"min", "max"} and raw.get("include_self") and not raw.get("transitive"):
         return "takes the role 'include_self' only with 'transitive = true'"
-    if kind == "links" and not str(raw.get("where", "")).strip():
+    if kind == "links" and "where" in raw and not str(raw["where"]).strip():
         return "has an empty 'where', which would link every need"
     return None
 
@@ -431,13 +494,24 @@ def fingerprint_names(schema: FieldsSchema) -> dict[str, Any]:
     ``content`` has ``""``; a link type's default is its list of links, and a link
     type or ``tags`` without a literal default has ``[]``, its empty value.
 
+    The default is the field's global declaration
+    (:meth:`~sphinx_needs.needs_schema.FieldsSchema.global_declaration`), the same for the
+    needs of every type: a value equal to a default a need type declares anew enters
+    the fingerprint of its needs, unless it equals the global default too.
+
     :param schema: The schema, every field and link type added.
     :return: Each name, in the order above, with its default.
     """
     # imported here, as the schema module imports this one
     from sphinx_needs.needs_schema import FieldLiteralValue, LinksLiteralValue
 
-    def default_of(field: FieldSchema) -> Any:
+    def declared(name: str) -> FieldSchema | LinkSchema:
+        field = schema.global_declaration(name)
+        assert field is not None, "a name of the schema"
+        return field
+
+    def default_of(name: str) -> Any:
+        field = declared(name)
         if isinstance(field.default, FieldLiteralValue):
             return field.default.value
         return None if field.nullable else NO_DEFAULT
@@ -446,15 +520,15 @@ def fingerprint_names(schema: FieldsSchema) -> dict[str, Any]:
     for name in FINGERPRINT_CORE:
         if name == "content":
             names[name] = ""
-        elif name in {"status", "tags"} and (core := schema.get_core_field(name)):
-            names[name] = default_of(core)
+        elif name in {"status", "tags"} and schema.get_core_field(name):
+            names[name] = default_of(name)
             if name == "tags" and names[name] is NO_DEFAULT:
                 names[name] = []
         else:
             names[name] = NO_DEFAULT
     for field in schema.iter_extra_fields():
         if not field.derived and schema.is_project_field(field.name):
-            names[field.name] = default_of(field)
+            names[field.name] = default_of(field.name)
     # Every link type is the project's today: only needs_links and needs_extra_links
     # declare one, and there is no API for an extension to add one. The set of names
     # is frozen to what the project declares, so when such an API lands, its link
@@ -462,10 +536,9 @@ def fingerprint_names(schema: FieldsSchema) -> dict[str, Any]:
     # marks a field) and left out here.
     for link in schema.iter_link_fields():
         if not link.derived and link.name not in CORE_LINK_TYPES:
+            default = declared(link.name).default
             names[link.name] = (
-                list(link.default.value)
-                if isinstance(link.default, LinksLiteralValue)
-                else []
+                list(default.value) if isinstance(default, LinksLiteralValue) else []
             )
     return names
 
@@ -508,6 +581,8 @@ class DeriveProblem:
         and applies on every other type.
     :ivar type_reasons: For such a rule: each of those types with why it cannot be
         read there (the cycle closes along its own path on each).
+    :ivar beside: The keys refused beside ``derive`` (``copy`` among them) with the
+        rule as read: a finding replacing this one says them.
     """
 
     name: str
@@ -518,6 +593,7 @@ class DeriveProblem:
     part: str = "derive"
     on_types: tuple[str, ...] = ()
     type_reasons: tuple[tuple[str, str], ...] = ()
+    beside: tuple[str, ...] = ()
 
     @property
     def order(self) -> tuple[bool, str, int, str]:
@@ -549,14 +625,24 @@ def invalid_message(name: str, *, on_link: bool, reason: str) -> str:
 
 
 def invalid_entry_message(
-    name: str, *, on_link: bool, need_type: str, reason: str
+    name: str,
+    *,
+    on_link: bool,
+    need_type: str,
+    reason: str,
+    spelling: str | None = None,
 ) -> str:
     """The ``needs.derive_invalid`` warning for a ``derive_by_type`` entry that cannot
-    be read."""
+    be read.
+
+    :param spelling: The configuration the rule came from, if not ``derive_by_type``:
+        a need type's entry (``needs_types['task'].fields['p'].derive``).
+    """
     what = _what(on_link)
     holds = "holds no links" if on_link else "holds its empty value"
+    entry = spelling or f"derive_by_type.{need_type}"
     return (
-        f"Invalid derive of {what} {name!r}: derive_by_type.{need_type}: {reason}; "
+        f"Invalid derive of {what} {name!r}: {entry}: {reason}; "
         f"the {what} cannot be set in a need or by a needextend, and on need type "
         f"{need_type!r} {holds}"
     )
@@ -629,28 +715,73 @@ def by_type_message(
     return f"Invalid derive_by_type of {what} {name!r}: {reason}"
 
 
-def beside_by_type_message(name: str, *, on_link: bool, keys: list[str]) -> str:
-    """The ``needs.derive_invalid`` warning for a key beside ``derive_by_type`` alone:
-    ``predicates``, or a ``default`` that is not a literal."""
+#: Why ``allow_dead_links`` cannot be given beside a link type whose rules are unions.
+_UNION_DEAD_LINKS: Final = " (a union's dead links are its members')"
+
+
+def beside_clause(keys: Sequence[str]) -> str:
+    """What a finding of a ``derive`` adds for the keys refused beside it, when the
+    finding is another's: a cycle on some need types only, which leaves the rule
+    applying on the others, so the keys beside it are still refused."""
     named = " and ".join(repr(key) for key in keys)
     verb = "are" if len(keys) > 1 else "is"
+    union = _UNION_DEAD_LINKS if "allow_dead_links" in keys else ""
+    return f"; {named} cannot be given beside derive, and {verb} ignored{union}"
+
+
+def beside_by_type_message(
+    name: str,
+    *,
+    on_link: bool,
+    keys: list[str],
+    spelling: str | None = None,
+    entries: Sequence[str] = (),
+) -> str:
+    """The ``needs.derive_invalid`` warning for a key beside ``derive_by_type`` alone:
+    ``predicates``, a ``default`` that is not a literal, or an ``allow_dead_links``
+    where every rule is a ``union``.
+
+    :param spelling: The need type's entry the key came from, if it did (a link type
+        need types alone declare, whose rules are folded into ``derive_by_type``): the
+        entry is named, and the key is beside its ``derive``.
+    :param entries: The need types' entries the rules come from, when no
+        ``derive_by_type`` is written (their rules are folded into it): the key is
+        beside their rules, which are named.
+    """
+    named = " and ".join(repr(key) for key in keys)
+    verb = "are" if len(keys) > 1 else "is"
+    union = _UNION_DEAD_LINKS if "allow_dead_links" in keys else ""
+    if spelling is not None:
+        return (
+            f"Invalid derive of {_what(on_link)} {name!r}: {spelling}: {named} cannot "
+            f"be given beside derive, and {verb} ignored{union}; the rule applies"
+        )
     why = (
         "; the default of the need types without a rule must be a literal value"
         if "default" in keys
         else ""
     )
+    beside = (
+        f"the rules of need types' entries ({', '.join(entries)})"
+        if entries
+        else "derive_by_type"
+    )
     return (
         f"Invalid derive of {_what(on_link)} {name!r}: {named} cannot be given beside "
-        f"derive_by_type, and {verb} ignored{why}; the rules apply"
+        f"{beside}, and {verb} ignored{union}{why}; the rules apply"
     )
 
 
-def core_message(name: str, *, on_link: bool) -> str:
-    """The ``needs.derive_invalid`` warning for a rule on a core field or link type."""
+def core_message(name: str, *, on_link: bool, spelling: str | None = None) -> str:
+    """The ``needs.derive_invalid`` warning for a rule on a core field or link type.
+
+    :param spelling: The need type's entry the rule came from, if it did.
+    """
     what = _what(on_link)
+    entry = "" if spelling is None else f"{spelling}: "
     return (
-        f"Invalid derive of {what} {name!r}: a core {what} cannot carry a derive rule "
-        "in this release; the rule is ignored"
+        f"Invalid derive of {what} {name!r}: {entry}a core {what} cannot carry a "
+        "derive rule in this release; the rule is ignored"
     )
 
 
@@ -670,9 +801,10 @@ def beside_message(name: str, *, on_link: bool, rule: Derive, keys: list[str]) -
     """The ``needs.derive_invalid`` warning for a default beside a rule."""
     named = " and ".join(repr(key) for key in keys)
     verb = "are" if len(keys) > 1 else "is"
+    union = _UNION_DEAD_LINKS if "allow_dead_links" in keys else ""
     return (
         f"Invalid derive of {_what(on_link)} {name!r}: {rule.describe()}: {named} "
-        f"cannot be given beside derive, and {verb} ignored; the rule applies"
+        f"cannot be given beside derive, and {verb} ignored{union}; the rule applies"
     )
 
 
@@ -703,14 +835,22 @@ def copy_problem(schema: FieldsSchema) -> DeriveProblem | None:
     holds what a rule computes, nothing is copied, and that is reported at the rule,
     naming every copying link type. The rule applies.
     """
+    # imported here, as the schema module imports this one
+    from sphinx_needs.needs_schema import LinkSchema
+
     links = schema.get_link_field("links")
     if links is None or not links.derived:
         return None
-    # a derived link type copies nothing, and is reported at its own rule
+    # a derived link type copies nothing, and is reported at its own rule; the
+    # schema is still built, so each link type is read in its global declaration
     copying = sorted(
-        link.name
-        for link in schema.iter_link_fields()
-        if link.copy and link.name != "links" and not link.derived
+        name
+        for name in schema.iter_link_field_names()
+        if (link := schema.global_declaration(name)) is not None
+        and isinstance(link, LinkSchema)
+        and link.copy
+        and name != "links"
+        and not link.derived
     )
     if not copying:
         return None
@@ -745,7 +885,12 @@ def check_derive_rules(
     :return: One problem per rule that cannot be read, in :attr:`DeriveProblem.order`.
     """
     problems: dict[tuple[bool, str, str], DeriveProblem] = {}
-    targets = [*schema.iter_extra_fields(), *schema.iter_link_fields()]
+    # the global declarations: the rules are checked before any need is created
+    targets = [
+        target
+        for name in (*schema.iter_extra_field_names(), *schema.iter_link_field_names())
+        if (target := schema.global_declaration(name)) is not None
+    ]
     #: the rules that can be read, by field and by entry ("" for ``derive``)
     valid: dict[tuple[str, str], tuple[DeriveRule, FieldSchema | LinkSchema]] = {}
     for target in targets:
@@ -879,6 +1024,8 @@ def _rule_problem(
                 f"{prefix}: the role 'field' names {rule.field!r}, "
                 "which is not a field, a link type or the back links of one"
             )
+    if rule.kind == "union":
+        return _union_problem(rule, links)
     for name in rule.fields:
         if name.endswith("_back") and name[:-5] in links:
             return (
@@ -902,12 +1049,50 @@ def _rule_problem(
                 f"{prefix}: the role 'exclude' names {name!r}, "
                 "which a fingerprint never includes"
             )
+    if rule.join is not None:
+        for key, name in (("field", rule.join.field), ("equals", rule.join.equals)):
+            if (problem := join_name_problem(name, schema, links)) is not None:
+                return f"{prefix}: the role 'join' names {name!r} in {key!r}{problem}"
     for role, text in (("where", rule.where), ("test", rule.test)):
         if text is not None and (problem := filter_problem(text)) is not None:
             return f"{prefix}: the role {role!r} {problem}"
     if rule.link_valued:
         return None
     return _result_problem(rule, source, target)
+
+
+def _union_problem(rule: DeriveRule, links: set[str]) -> str | None:
+    """Why a ``union`` cannot be read against the configuration, if it cannot: each
+    member must be a link type, other than ``parent_needs``.
+
+    The union itself, or a union naming it back, is the cycle check's to refuse.
+    """
+    prefix = rule.describe()
+    for name in rule.fields:
+        if name in CORE_LINK_TYPES:
+            return (
+                f"{prefix}: the role 'fields' names {name!r}, which a union cannot "
+                "read in this release"
+            )
+        if _is_link_name(name, links) and name not in links:
+            return (
+                f"{prefix}: the role 'fields' names the back links {name!r}, which a "
+                "union cannot read: they are built after the link types"
+            )
+        if name not in links:
+            return (
+                f"{prefix}: the role 'fields' names {name!r}, which is not a link type"
+            )
+    return None
+
+
+def is_union(rule: Derive | None) -> TypeGuard[DeriveRule]:
+    """Whether a rule is a ``union``: its links are those of its members, which report
+    their own dead links and link conditions, so the union reports none of its own.
+
+    A ``union`` that cannot be read is no union: it holds no links.
+    """
+    return isinstance(rule, DeriveRule) and rule.kind == "union"
 
 
 def _result_problem(
@@ -1022,6 +1207,28 @@ def _holds(result: _ValueType, value: _ValueType) -> bool:
     return result.type != "array" and scalar(result.type, value.type)
 
 
+def join_name_problem(
+    name: str, schema: FieldsSchema, links: Iterable[str]
+) -> str | None:
+    """Why a join cannot compare ``name``, if it cannot: it must be a value field
+    holding a string (an enum included) or an array of strings.
+
+    :return: The rest of a sentence naming ``name``: a link type (or its back links),
+        a name that is no field, or a field of another type.
+    """
+    links = set(links)
+    if _is_link_name(name, links):
+        return ", a link type; a join compares text fields"
+    joined = _value_type(name, schema, links)
+    if joined is None:
+        return ", which is not a field"
+    if joined.type != "string" and joined != _LINK_LIST:
+        return (
+            f" ({joined.describe()}); a join compares a string or an array of strings"
+        )
+    return None
+
+
 def _is_link_name(name: str, links: Iterable[str]) -> bool:
     """Whether ``name`` is a link type, or the back links of one."""
     links = set(links)
@@ -1032,7 +1239,8 @@ def _value_type(name: str, schema: FieldsSchema, links: set[str]) -> _ValueType 
     """The type of the value ``name`` reads on a need, ``None`` if it names nothing."""
     if _is_link_name(name, links):
         return _LINK_LIST
-    field = schema.get_extra_field(name) or schema.get_core_field(name)
+    # the global declaration: a need type's enum is a subset of it
+    field = schema.global_declaration(name)
     if field is not None:
         return _ValueType(
             field.type,
@@ -1082,10 +1290,17 @@ def filter_problem(text: str) -> str | None:
 
 
 def _own_reads(rule: DeriveRule) -> tuple[str, list[str]]:
-    """The fields of its own need a rule reads (its S-edges), with the role naming them."""
+    """The fields of its own need a rule reads (its S-edges), with the role naming them.
+
+    A ``join`` reads ``equals`` on its own need, and its ``field`` on every need: only
+    the first is an S-edge (a ``links`` rule's names are text fields, which no link
+    rule computes, so only ``copy`` can close a cycle through them).
+    """
+    if rule.kind == "copy" and rule.join is not None:
+        return "join", [rule.join.equals]
     if rule.kind == "copy" and rule.over is None and rule.from_need is None:
         return "field", [rule.field] if rule.field is not None else []
-    if rule.kind == "hash":
+    if rule.kind in {"hash", "union"}:
         return "fields", list(rule.fields)
     return "", []
 

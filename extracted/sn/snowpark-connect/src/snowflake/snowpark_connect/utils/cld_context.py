@@ -53,7 +53,10 @@ class CLDInfo:
     # External catalog provider label for telemetry. "managed" for a non-CLD
     # (Snowflake-managed) session; for a CLD, one of the values produced by
     # `_classify_catalog_provider` (glue / unity / horizon / other), or
-    # "unknown" when the integration lookup fails.
+    # "unknown" when the integration lookup fails. NOTE: this stored field keeps
+    # "unknown" on a classify failure (so the bounded provider-retry in
+    # `get_cld_info` keeps re-attempting); the *telemetry label* for that case is
+    # "cld" (see `_catalog_kind_label`), not "unknown".
     catalog_provider: str | None = None
 
 
@@ -71,6 +74,12 @@ CATALOG_PROVIDER_HORIZON = (
 # S3 Tables, a generic Iceberg REST endpoint, ...). Only the three above are
 # broken out; everything else is deliberately collapsed here.
 CATALOG_PROVIDER_OTHER = "other"
+# A confirmed catalog-linked database whose external provider could NOT be
+# classified (e.g. missing USAGE on the catalog integration so DESCRIBE CATALOG
+# INTEGRATION fails). Distinct from UNKNOWN ("couldn't resolve anything / genuine
+# lookup miss"): with CLD we at least know it is catalog-linked. Resolved CLDs
+# still report their real provider (glue / unity / horizon / other).
+CATALOG_PROVIDER_CLD = "cld"
 CATALOG_PROVIDER_UNKNOWN = "unknown"
 
 # Canonical telemetry catalog_kind vocabulary. Docstrings that enumerate the
@@ -82,6 +91,7 @@ CATALOG_PROVIDERS = frozenset(
         CATALOG_PROVIDER_UNITY,
         CATALOG_PROVIDER_HORIZON,
         CATALOG_PROVIDER_OTHER,
+        CATALOG_PROVIDER_CLD,
         CATALOG_PROVIDER_UNKNOWN,
     }
 )
@@ -278,7 +288,7 @@ def _warn_provider_unresolved_once(database_name: str) -> None:
         _provider_resolution_warned.add(database_name)
     logger.warning(
         "Could not resolve catalog provider for CLD %r; telemetry catalog_kind will "
-        "report 'unknown' until the lookup succeeds (check USAGE on the catalog "
+        "report 'cld' until the lookup succeeds (check USAGE on the catalog "
         "integration).",
         database_name,
     )
@@ -344,7 +354,8 @@ def catalog_kind() -> str:
     """Return the telemetry catalog-provider label for the current session.
 
     ``"managed"`` for a non-CLD (Snowflake-managed) session; for a CLD, the
-    resolved external provider (glue / unity / horizon / other) or ``"unknown"`` when the integration couldn't be classified.
+    resolved external provider (glue / unity / horizon / other), or ``"cld"`` when
+    it is a confirmed CLD whose provider couldn't be classified.
 
     Replaces the old inline ``"cld" if is_in_cld_context() else "managed"``
     idiom at the Iceberg telemetry call sites so the emitted ``catalog_kind``
@@ -359,10 +370,20 @@ def catalog_kind() -> str:
 
 
 def _catalog_kind_label(ctx: CLDInfo) -> str:
-    """Map a resolved :class:`CLDInfo` to its telemetry catalog-provider label."""
-    if ctx.catalog_provider:
+    """Map a resolved :class:`CLDInfo` to its telemetry catalog-provider label.
+
+    A CLD whose external provider was classified reports that provider
+    (glue / unity / horizon / other). A CLD whose provider could *not* be
+    classified (``catalog_provider`` is ``None`` or ``"unknown"`` -- typically a
+    DESCRIBE CATALOG INTEGRATION failure from a missing USAGE grant) reports
+    ``"cld"`` rather than ``"unknown"``, so a known catalog-linked database stays
+    visible instead of collapsing into the generic unknown bucket (SNOW-4237460).
+    """
+    if ctx.catalog_provider and ctx.catalog_provider != CATALOG_PROVIDER_UNKNOWN:
         return ctx.catalog_provider
-    return CATALOG_PROVIDER_UNKNOWN if ctx.is_cld else CATALOG_PROVIDER_MANAGED
+    if ctx.is_cld:
+        return CATALOG_PROVIDER_CLD
+    return CATALOG_PROVIDER_MANAGED
 
 
 def catalog_kind_for_database(

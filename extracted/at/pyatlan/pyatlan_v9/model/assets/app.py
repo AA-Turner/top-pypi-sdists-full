@@ -18,8 +18,16 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
+from .app_related import RelatedApp, RelatedApplication, RelatedApplicationField
 from .asset import (
     _ASSET_REL_FIELDS,
     Asset,
@@ -45,14 +53,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .app_related import RelatedApp, RelatedApplication, RelatedApplicationField
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -553,6 +553,7 @@ def _app_to_nested(app: App) -> AppNested:
         is_incomplete=app.is_incomplete,
         provenance_type=app.provenance_type,
         home_id=app.home_id,
+        delete_handler=app.delete_handler,
         depth=app.depth,
         immediate_upstream=app.immediate_upstream,
         immediate_downstream=app.immediate_downstream,
@@ -597,6 +598,7 @@ def _app_from_nested(nested: AppNested) -> App:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -620,10 +622,7 @@ def _app_from_nested_bytes(data: bytes, serde: Serde) -> App:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 App.APP_ID = KeywordField("appId", "appId")
 App.CATALOG_DATASET_GUID = KeywordField("catalogDatasetGuid", "catalogDatasetGuid")

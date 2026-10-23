@@ -71,6 +71,27 @@ class Data:
         self._explanation_cop = {}
         self._explanation_tospace = {}
 
+    def is_known_language(self, lcode):
+        """
+        Checks a language code against all dictionaries of language-specific
+        validation rules. If at least one dictionary has an entry for that
+        code, the language is considered known. This may be useful to know
+        when the Lang attribute in MISC tries to switch the validator to
+        a different set of guidelines. For example, the list of auxiliaries
+        of an unknown language is by default empty; but we may want to allow
+        any auxiliary on such a position, not to ban them all.
+
+        Parameters
+        ----------
+        lcode : str
+            ISO 639 language code to be tested.
+
+        Returns
+        -------
+        bool
+        """
+        return lcode == 'ud' or lcode in self.feats or lcode in self.deprel or lcode in self.edeprel or lcode in self.auxcop or lcode in self.tospace
+
     def get_feats_for_language(self, lcode):
         """
         Searches the previously loaded database of feature-value-UPOS combinations.
@@ -218,7 +239,7 @@ class Data:
             msg += ', '.join(sorted_documented_features) + "\n"
             msg += "If a language needs a feature that is not documented in the universal guidelines, the feature must\n"
             msg += "have a language-specific documentation page in a prescribed format.\n"
-            msg += "See https://universaldependencies.org/contributing_language_specific.html for further guidelines.\n"
+            msg += "See https://universaldependencies.org/contributing/language_specific.html for further guidelines.\n"
             msg += "All features including universal must be specifically turned on for each language in which they are used.\n"
             msg += "See https://quest.ms.mff.cuni.cz/udvalidator/cgi-bin/unidep/langspec/specify_feature.pl for details.\n"
         self._explanation_feats[lcode] = msg
@@ -258,7 +279,7 @@ class Data:
             msg += ', '.join(sorted_documented_relations) + "\n"
             msg += "If a language needs a relation subtype that is not documented in the universal guidelines, the relation\n"
             msg += "must have a language-specific documentation page in a prescribed format.\n"
-            msg += "See https://universaldependencies.org/contributing_language_specific.html for further guidelines.\n"
+            msg += "See https://universaldependencies.org/contributing/language_specific.html for further guidelines.\n"
             msg += "Documented dependency relations can be specifically turned on/off for each language in which they are used.\n"
             msg += "See https://quest.ms.mff.cuni.cz/udvalidator/cgi-bin/unidep/langspec/specify_deprel.pl for details.\n"
         self._explanation_deprel[lcode] = msg

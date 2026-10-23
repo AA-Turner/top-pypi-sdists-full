@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +43,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .domo_related import RelatedDomoCard, RelatedDomoDashboard, RelatedDomoDataset
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,14 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .domo_related import RelatedDomoCard, RelatedDomoDashboard, RelatedDomoDataset
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -249,7 +250,7 @@ class DomoCard(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+/[^/]+$")
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/card/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -283,8 +284,6 @@ class DomoCard(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.domo_dataset is UNSET:
-                errors.append("domo_dataset is required for creation")
         if errors:
             raise ValueError(f"DomoCard validation failed: {errors}")
 
@@ -316,6 +315,40 @@ class DomoCard(Asset):
         if self.guid is not UNSET:
             return RelatedDomoCard(guid=self.guid)
         return RelatedDomoCard(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        domo_id: str,
+        connection_qualified_name: str,
+    ) -> "DomoCard":
+        """Create a new DomoCard asset."""
+        validate_required_fields(
+            ["name", "domo_id", "connection_qualified_name"],
+            [name, domo_id, connection_qualified_name],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            domo_id=domo_id,
+            qualified_name=f"{connection_qualified_name}/card/{domo_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+        )
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "DomoCard":
+        """Create a DomoCard instance for update operations."""
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    def trim_to_required(self) -> "DomoCard":
+        """Return only fields required for update operations."""
+        return DomoCard.updater(qualified_name=self.qualified_name, name=self.name)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -623,6 +656,7 @@ def _domo_card_to_nested(domo_card: DomoCard) -> DomoCardNested:
         is_incomplete=domo_card.is_incomplete,
         provenance_type=domo_card.provenance_type,
         home_id=domo_card.home_id,
+        delete_handler=domo_card.delete_handler,
         depth=domo_card.depth,
         immediate_upstream=domo_card.immediate_upstream,
         immediate_downstream=domo_card.immediate_downstream,
@@ -669,6 +703,7 @@ def _domo_card_from_nested(nested: DomoCardNested) -> DomoCard:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

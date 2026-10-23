@@ -1129,7 +1129,7 @@ class date:
     # Comparisons of date objects with other.
 
     def __eq__(self, other):
-        if isinstance(other, any_date):
+        if _is_date_not_datetime(other):
             return self._cmp(other) == 0
         return NotImplemented
 
@@ -1137,22 +1137,22 @@ class date:
         return _symbolic_ne(self.__eq__(other))
 
     def __le__(self, other):
-        if isinstance(other, any_date):
+        if _is_date_not_datetime(other):
             return self._cmp(other) <= 0
         return NotImplemented
 
     def __lt__(self, other):
-        if isinstance(other, any_date):
+        if _is_date_not_datetime(other):
             return self._cmp(other) < 0
         return NotImplemented
 
     def __ge__(self, other):
-        if isinstance(other, any_date):
+        if _is_date_not_datetime(other):
             return self._cmp(other) >= 0
         return NotImplemented
 
     def __gt__(self, other):
-        if isinstance(other, any_date):
+        if _is_date_not_datetime(other):
             return self._cmp(other) > 0
         return NotImplemented
 
@@ -1194,10 +1194,15 @@ class date:
         """Subtract two dates, or a date and a timedelta."""
         if isinstance(other, any_timedelta):
             return self + timedelta(-other.days)
-        if isinstance(other, any_date):
+        if _is_date_not_datetime(other):
             days1 = self.toordinal()
             days2 = other.toordinal()
             return timedelta(days1 - days2)
+        return NotImplemented
+
+    def __rsub__(self, other):
+        if _is_date_not_datetime(other):
+            return date.fromdate(other) - self
         return NotImplemented
 
     def weekday(self):
@@ -1254,6 +1259,11 @@ class date:
 
 
 any_date = (date, real_date)
+
+
+def _is_date_not_datetime(value: object) -> bool:
+    return isinstance(value, any_date) and not isinstance(value, any_datetime)
+
 
 _date_class = date  # so functions w/ args named "date" can get at the class
 
@@ -1824,7 +1834,7 @@ class datetime(date):
                 if probe2 == result:
                     result._fold = 1
         else:
-            result = tz.fromutc(result)
+            result = result._fromutc()
         return result
 
     @classmethod
@@ -2069,7 +2079,7 @@ class datetime(date):
             mytz = self._local_timezone()
             myoffset = mytz.utcoffset(self)
         else:
-            myoffset = mytz.utcoffset(self)
+            myoffset = self.utcoffset()
             if myoffset is None:
                 mytz = self.replace(tzinfo=None)._local_timezone()
                 myoffset = mytz.utcoffset(self)
@@ -2081,7 +2091,7 @@ class datetime(date):
         utc = (self - myoffset).replace(tzinfo=tz)
 
         # Convert from UTC to tz's local time.
-        return tz.fromutc(utc)
+        return utc._fromutc()
 
     # Ways to produce a string.
 
@@ -2170,11 +2180,21 @@ class datetime(date):
 
         return _strptime._strptime_datetime(cls, date_string, format)
 
-    def _realized_if_concrete_tzinfo(self):
+    def _arg_for_tzinfo(self):
+        """``self`` as an argument for ``self.tzinfo``'s methods."""
         with NoTracing():
-            if isinstance(self._tzinfo, any_tzinfo):
+            if type(self._tzinfo) is real_timezone:
+                return None
+            if isinstance(self._tzinfo, real_tzinfo):
                 return realize(self)
             return self
+
+    def _fromutc(self):
+        """Apply ``self.tzinfo.fromutc()`` to ``self``."""
+        tz = self._tzinfo
+        if type(tz) is real_timezone:
+            return self + tz.utcoffset(None)
+        return tz.fromutc(self._arg_for_tzinfo())
 
     def utcoffset(self):
         """
@@ -2183,7 +2203,7 @@ class datetime(date):
         """
         if self._tzinfo is None:
             return None
-        offset = self._tzinfo.utcoffset(self._realized_if_concrete_tzinfo())
+        offset = self._tzinfo.utcoffset(self._arg_for_tzinfo())
         _check_utc_offset("utcoffset", offset)
         return offset
 
@@ -2197,7 +2217,7 @@ class datetime(date):
         """
         if self._tzinfo is None:
             return None
-        name = self._tzinfo.tzname(self._realized_if_concrete_tzinfo())
+        name = self._tzinfo.tzname(self._arg_for_tzinfo())
         _check_tzname(name)
         return name
 
@@ -2213,7 +2233,7 @@ class datetime(date):
         """
         if self._tzinfo is None:
             return None
-        offset = self._tzinfo.dst(self._realized_if_concrete_tzinfo())
+        offset = self._tzinfo.dst(self._arg_for_tzinfo())
         _check_utc_offset("dst", offset)
         return offset
 
@@ -2367,6 +2387,11 @@ class datetime(date):
         if myoff is None or otoff is None:
             raise TypeError("cannot mix naive and timezone-aware time")
         return base + otoff - myoff
+
+    def __rsub__(self, other):
+        if isinstance(other, any_datetime):
+            return datetime.fromdatetime(other) - self
+        return NotImplemented
 
     def __hash__(self):
         if self._hashcode == -1:

@@ -1828,7 +1828,7 @@ END:VCALENDAR
         assert event._has_data() is False
 
     def test_set_data_updates_state_cache(self) -> None:
-        """§2.9: _set_data (raw string branch) must reset _state so that
+        """_set_data (raw string branch) must reset _state so that
         get_data()/get_icalendar_instance()/id return the new content.
 
         Bug: _set_data cleared _data/_vobject_instance/_icalendar_instance
@@ -1868,7 +1868,7 @@ END:VCALENDAR
         assert "Updated Event" in event.get_data()
 
     def test_vfreebusy_component_type_detection(self) -> None:
-        """§2.10: RawDataState.get_component_type() tested for 'BEGIN:FREEBUSY'
+        """RawDataState.get_component_type() tested for 'BEGIN:FREEBUSY'
         but real iCalendar data uses 'BEGIN:VFREEBUSY', so FreeBusy objects
         got component_type=None → is_loaded()/has_component() False → save()
         silent no-op and load(only_if_unloaded=True) spuriously reloads.
@@ -1925,12 +1925,10 @@ END:VEVENT
 END:VCALENDAR
 """
         event = Event(client, data=folded_uid_data)
-        # The cheap accessor uses regex which might not handle folded lines
-        # So we test that it falls back to full parsing when needed
-        uid = event._get_uid_cheap()
-        # Either the regex works or it falls back - either way we should get a UID
-        assert uid is not None
-        assert "this-is-a-very-long-uid" in uid
+        assert event._get_uid_cheap() == (
+            "this-is-a-very-long-uid-that-might-be-folded-across-multiple-lines-in-r"
+            "eal-world-icalendar-files@example.com"
+        )
 
         # Test that nested borrowing (even same type) raises error
         # This prevents confusing ownership semantics
@@ -2035,7 +2033,7 @@ END:VCALENDAR
         assert my_todo4.component["duration"].dt == timedelta(2)
 
     def testTodoDurationTimedDtstart(self):
-        """§2.11: _get_duration must return timedelta(0) for a VTODO with a timed DTSTART
+        """_get_duration must return timedelta(0) for a VTODO with a timed DTSTART
         and no DUE/DURATION — not timedelta(days=1).
 
         isinstance(i["DTSTART"], datetime) tested the vDDDTypes wrapper (always False),
@@ -2156,13 +2154,13 @@ END:VCALENDAR"""
             == URL("//www.example.com/bar/").canonical()
         )
 
-        # 9b) canonical() must strip credentials (§2.5a)
+        # 9b) canonical() must strip credentials
         cred_url = URL("https://user:pass@example.com/cal/")
         canon = cred_url.canonical()
         assert "user" not in str(canon), "canonical() leaked username"
         assert "pass" not in str(canon), "canonical() leaked password"
 
-        # 9c) canonical() must not mutate self (§2.5b):
+        # 9c) canonical() must not mutate self:
         #     a URL with no auth — unauth() returns self, canonical() must
         #     still return a fresh object and leave self unchanged.
         plain_url = URL("http://example.com/cal/path/")
@@ -2170,7 +2168,7 @@ END:VCALENDAR"""
         _ = plain_url.canonical()
         assert str(plain_url) == before, "canonical() mutated self"
 
-        # 9d) __eq__ calls canonical() — must not mutate self (§2.5b)
+        # 9d) __eq__ calls canonical() — must not mutate self
         #     A literal '+' in the path would become '%2B' after quote(unquote()),
         #     silently changing what resource subsequent requests target.
         plus_url = URL("http://example.com/cal/foo+bar/")
@@ -2285,7 +2283,7 @@ END:VCALENDAR"""
             "https://p49-caldav.example.com:443/123/calendars/cal/"
         ]
         assert client.url.hostname == "p49-caldav.example.com"
-        assert "caldav.example.com" in client.url.host_aliases
+        assert client.url.host_aliases == {"caldav.example.com"}
 
     def testFilters(self):
         filter = cdav.Filter().append(
@@ -2347,7 +2345,7 @@ END:VCALENDAR"""
                 "basic",
                 "digest",
             }
-            # §1.8: trailing comma (seen in the wild) must not raise IndexError
+            # Trailing comma (seen in the wild) must not raise IndexError
             assert client.extract_auth_types("Basic,") == {"basic"}
             assert client.extract_auth_types('Basic realm="x",') == {"basic"}
 
@@ -2643,8 +2641,10 @@ END:VCALENDAR"""
         """save(only_this_recurrence=None) calls _create() rather than raising when master absent."""
         event, _ = self._make_orphan_event()
         created = []
-        event._create = lambda id=None, path=None, retry_on_failure=True, precondition="auto": (
-            created.append(True)
+        event._create = (
+            lambda id=None, path=None, retry_on_failure=True, precondition="auto", wildcard=None: (
+                created.append(True)
+            )
         )
         event.save(only_this_recurrence=None)
         assert created, "_create() must be called (PUT as-is) when master not found"
@@ -2653,8 +2653,10 @@ END:VCALENDAR"""
         """save(only_this_recurrence=False) skips the master lookup entirely and PUTs directly."""
         event, mock_calendar = self._make_orphan_event()
         created = []
-        event._create = lambda id=None, path=None, retry_on_failure=True, precondition="auto": (
-            created.append(True)
+        event._create = (
+            lambda id=None, path=None, retry_on_failure=True, precondition="auto", wildcard=None: (
+                created.append(True)
+            )
         )
         event.save(only_this_recurrence=False)
         mock_calendar.get_event_by_uid.assert_not_called()
@@ -2669,7 +2671,7 @@ END:VCALENDAR"""
         created = []
         original_create = CalendarObjectResource._create
         CalendarObjectResource._create = (
-            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto": (
+            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto", wildcard=None: (
                 created.append(True)
             )
         )
@@ -2698,7 +2700,7 @@ END:VCALENDAR"""
         with mock.patch.object(
             CalendarObjectResource,
             "_create",
-            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto": (
+            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto", wildcard=None: (
                 created.append(self_)
             ),
         ):
@@ -2730,7 +2732,12 @@ END:VCALENDAR"""
         created = []
 
         async def fake_create(
-            self_, id=None, path=None, retry_on_failure=True, precondition="auto"
+            self_,
+            id=None,
+            path=None,
+            retry_on_failure=True,
+            precondition="auto",
+            wildcard=None,
         ):
             created.append(self_)
 
@@ -3217,7 +3224,7 @@ class TestSequenceOnSave:
         with mock.patch.object(
             CalendarObjectResource,
             "_create",
-            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto": (
+            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto", wildcard=None: (
                 put.append(self_)
             ),
         ):
@@ -3232,7 +3239,12 @@ class TestSequenceOnSave:
         put = []
 
         async def fake_create(
-            self_, id=None, path=None, retry_on_failure=True, precondition="auto"
+            self_,
+            id=None,
+            path=None,
+            retry_on_failure=True,
+            precondition="auto",
+            wildcard=None,
         ):
             put.append(self_)
 
@@ -3604,6 +3616,7 @@ class TestRateLimitHelpers:
             error.raise_if_rate_limited(429, "http://x/", "30")
         assert exc_info.value.retry_after == "30"
         assert exc_info.value.retry_after_seconds == 30.0
+        assert exc_info.value.status == 429
 
     def test_raise_if_rate_limited_503_with_header(self):
         with pytest.raises(error.RateLimitError):
@@ -3984,6 +3997,34 @@ class TestAuthorizationErrorPreconditions:
         e = error.AuthorizationError(url="/", reason="Forbidden")
         assert e.preconditions == []
         assert e.body is None
+        assert e.status is None
+
+    @pytest.mark.parametrize("status", [401, 403])
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_status_is_kept(self, mocked, status):
+        """Issue https://github.com/python-caldav/caldav/issues/805: 401 (bad
+        or missing credentials) and 403 (not allowed) are both an
+        AuthorizationError, told apart by ``status``."""
+        mocked.return_value = self._make_response(status)
+        client = DAVClient(url="https://cal.example.com/", auth=mock.MagicMock())
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            client.request("/")
+        assert exc_info.value.status == status
+
+    def test_status_from_httpx_response(self):
+        """An httpx response names the reason ``reason_phrase``; the status
+        is ``status_code`` in all the HTTP libraries."""
+        client = DAVClient(url="https://cal.example.com/")
+        r = mock.Mock(spec=["status_code", "reason_phrase", "content"])
+        r.status_code, r.reason_phrase, r.content = 401, "Unauthorized", b""
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            client._raise_authorization_error("https://cal.example.com/", r)
+        assert exc_info.value.status == 401
+        assert exc_info.value.reason == "Unauthorized"
+
+    def test_error_from_response_keeps_status(self):
+        r = mock.Mock(status=404, reason="Not Found", raw="", _raw=b"")
+        assert error.error_from_response(error.NotFoundError, r).status == 404
 
     def _calendar(self, report_error, sync_token_support=None):
         client = DAVClient(url="https://cal.example.com/")
@@ -4226,7 +4267,7 @@ class TestSyncReportsRemovals:
 
 
 class TestAsyncProbeResponseNotReturnedAsReal:
-    """§2.15: async _async_request: when the probe GET for issue-#158 workaround does
+    """async _async_request: when the probe GET for issue-#158 workaround does
     not receive a 401+WWW-Authenticate response, the original exception must be re-raised.
 
     Before the fix, a probe response with status != 401 (e.g. 200 HTML login page) fell
@@ -4262,7 +4303,7 @@ class TestAsyncProbeResponseNotReturnedAsReal:
 
 
 class TestRateLimitNoPlusNone:
-    """§1.3: rate-limit retry must not raise TypeError when second 429 has no usable Retry-After.
+    """Rate-limit retry must not raise TypeError when second 429 has no usable Retry-After.
 
     sleep_seconds += rate_limit_time_slept / 2 executed before the is-None check,
     so None += 2.5 raised TypeError instead of the documented RateLimitError.
@@ -4438,25 +4479,37 @@ class TestExpandConfigSection:
         }
         assert set(expand_config_section(config, "all")) == {"a", "b", "c"}
 
-    def test_missing_section_returns_empty(self):
-        """§1.9: expand_config_section(config, "default") when "default" is absent must
-        return [] rather than raising KeyError."""
+    def test_missing_section_is_an_error(self):
+        """A section named directly that is not there is a ValueError, not a KeyError."""
         from caldav.config import expand_config_section
 
         config = {"work": {"caldav_url": "https://work.example.com/"}}
-        # Requesting a section that doesn't exist should return [] (no match), not crash
-        assert expand_config_section(config, "default") == []
+        with pytest.raises(ValueError, match="home"):
+            expand_config_section(config, "home")
+
+    def test_missing_default_is_no_configuration(self):
+        """plann asks for "default" when none was named; a file without one is not an error."""
+        from caldav.config import expand_config_section
+
+        assert expand_config_section({"work": {"caldav_url": "https://w.example.com/"}}) == []
+        assert expand_config_section({"default": {"caldav_url": "x", "disable": True}}) == []
 
     def test_disable_respected_for_named_sections(self):
-        """§2.17: disable:true must suppress named sections, not just glob '*' results.
+        """disable:true must suppress named sections, not just glob '*' results.
 
         The old code used the literal string 'section' instead of the variable,
         so disable was only effective under the '*' glob path.
         """
         from caldav.config import expand_config_section
 
-        config = {"work": {"caldav_url": "https://work.example.com/", "disable": True}}
-        assert expand_config_section(config, "work") == []
+        config = {
+            "work": {"caldav_url": "https://work.example.com/", "disable": True},
+            "home": {"caldav_url": "https://home.example.com/"},
+            "all": {"contains": ["work", "home"]},
+        }
+        assert expand_config_section(config, "all") == ["home"]
+        with pytest.raises(ValueError, match="work"):
+            expand_config_section(config, "work")
 
 
 class TestConfigSectionInheritance:
@@ -4496,6 +4549,91 @@ class TestConfigSectionInheritance:
         assert result["caldav_url"] == "https://example.com/"
         assert result["caldav_username"] == "alice"
         assert result["caldav_password"] == "secret"
+
+    def test_result_is_a_leaf(self):
+        """plann hands the result to extract_conn_params_from_section, which
+        refused it as long as the inherits key was left in"""
+        from caldav.config import config_section, extract_conn_params_from_section
+
+        config = {
+            "base": {"caldav_url": "https://dav.example.com/", "contains": ["x"]},
+            "default": {"inherits": "base", "caldav_user": "bob"},
+            "x": {},
+        }
+        result = config_section(config, "default")
+        assert "inherits" not in result and "contains" not in result
+        assert extract_conn_params_from_section(result) == {
+            "url": "https://dav.example.com/",
+            "username": "bob",
+        }
+
+    def test_test_server_with_inherits(self, tmp_path):
+        import json
+
+        from caldav.config import get_all_test_servers
+
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(
+            json.dumps(
+                {
+                    "base": {"caldav_url": "https://dav.example.com/"},
+                    "srv": {"inherits": "base", "test_allowed": True},
+                }
+            )
+        )
+        assert get_all_test_servers(str(config_file))["srv"]["url"] == "https://dav.example.com/"
+
+    def test_broken_section_does_not_hide_test_servers(self, tmp_path):
+        import json
+
+        from caldav.config import get_all_test_servers
+
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(
+            json.dumps(
+                {
+                    "srv": {"caldav_url": "https://dav.example.com/", "test_allowed": True},
+                    "broken": {"inherits": "nosuch"},
+                    "a": {"inherits": "b"},
+                    "b": {"inherits": "a"},
+                }
+            )
+        )
+        assert list(get_all_test_servers(str(config_file))) == ["srv"]
+
+    def test_own_contains_and_disable_are_kept(self):
+        """only the parents' contains and disable are dropped"""
+        from caldav.config import config_section
+
+        config = {"meta": {"contains": ["a"], "disable": True}, "a": {}}
+        assert config_section(config, "meta") == {"contains": ["a"], "disable": True}
+
+    def test_parent_disable_is_not_inherited(self):
+        from caldav.config import config_section
+
+        config = {
+            "base": {"caldav_url": "https://dav.example.com/", "disable": True},
+            "child": {"inherits": "base"},
+        }
+        assert config_section(config, "child") == {"caldav_url": "https://dav.example.com/"}
+
+    def test_kind_mismatch_is_refused(self):
+        import calendaring_config
+        import pytest
+
+        from caldav.config import config_section
+
+        config = {
+            "jmap": {"kind": "jmap", "url": "https://jmap.example.com/"},
+            "child": {"inherits": "jmap", "caldav_url": "https://dav.example.com/"},
+        }
+        with pytest.raises(calendaring_config.ConfigError):
+            config_section(config, "child")
+
+    def test_missing_section_is_empty(self):
+        from caldav.config import config_section
+
+        assert config_section({"a": {}}, "nosuch") == {}
 
 
 class TestExpandEnvVars:
@@ -4548,6 +4686,85 @@ class TestExpandEnvVars:
         config_file.write_text(json.dumps(config))
         results = get_all_file_connection_params(str(config_file))
         assert results[0]["password"] == "s3cr3t"
+
+
+class TestReadConfigYaml:
+    """caldav.config.read_config must not let a config file build Python objects."""
+
+    def test_python_tag_is_refused(self, tmp_path):
+        from caldav.config import read_config
+
+        marker = tmp_path / "ran"
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(
+            f"default:\n  caldav_url: !!python/object/apply:os.mkdir ['{marker}']\n"
+        )
+        with pytest.raises(ValueError, match="calendar.conf"):
+            read_config(str(config_file))
+        assert not marker.exists()
+
+    def test_plain_yaml_still_works(self, tmp_path):
+        from caldav.config import read_config
+
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text("default:\n  caldav_url: https://dav.example.com/\n")
+        assert read_config(str(config_file)) == {
+            "default": {"caldav_url": "https://dav.example.com/"}
+        }
+
+
+class TestTestKeyPrefix:
+    """Keys starting with ``test_`` are reserved for test tooling (issue 786)."""
+
+    def _write(self, tmp_path, section):
+        import json
+
+        config_file = tmp_path / "calendar.conf"
+        config_file.write_text(
+            json.dumps({"srv": {"caldav_url": "https://dav.example.com/", **section}})
+        )
+        return str(config_file)
+
+    def test_test_allowed(self, tmp_path):
+        from caldav.config import get_all_test_servers
+
+        assert "srv" in get_all_test_servers(self._write(tmp_path, {"test_allowed": True}))
+
+    def test_testing_allowed_is_deprecated(self, tmp_path):
+        from caldav.config import get_all_test_servers
+
+        config_file = self._write(tmp_path, {"testing_allowed": True})
+        with pytest.warns(DeprecationWarning, match="test_allowed"):
+            assert "srv" in get_all_test_servers(config_file)
+
+    def test_test_priority(self, tmp_path):
+        from caldav.config import _ConfiguredServer, get_all_test_servers
+
+        config_file = self._write(tmp_path, {"test_allowed": True, "test_priority": 5})
+        params = get_all_test_servers(config_file)["srv"]
+        assert _ConfiguredServer("srv", params).priority == 5
+        assert "test_priority" not in extract_conn_keys(params)
+
+    def test_priority_is_deprecated(self, tmp_path):
+        from caldav.config import _ConfiguredServer, get_all_test_servers
+
+        config_file = self._write(tmp_path, {"test_allowed": True, "priority": 5})
+        with pytest.warns(DeprecationWarning, match="test_priority"):
+            params = get_all_test_servers(config_file)["srv"]
+            assert _ConfiguredServer("srv", params).priority == 5
+
+    def test_embedded_server_priority(self):
+        from caldav.testing import RadicaleServer
+
+        assert RadicaleServer({"test_priority": 3}).priority == 3
+        with pytest.warns(DeprecationWarning, match="test_priority"):
+            assert RadicaleServer({"priority": 4}).priority == 4
+
+
+def extract_conn_keys(params):
+    from caldav.config import CONNKEYS
+
+    return {k for k in params if k in CONNKEYS}
 
 
 class TestGetAllFileConnectionParams:
@@ -4680,7 +4897,7 @@ class TestGetAllFileConnectionParams:
 
 
 class TestExplicitParamsMerge:
-    """§2.18: get_connection_params explicit kwargs must be merged with env/file config.
+    """get_connection_params explicit kwargs must be merged with env/file config.
 
     The old code only returned explicit_params when 'url' or 'features' was present;
     params like password-only were silently discarded when an env/file source was found.
@@ -4749,8 +4966,255 @@ class TestExplicitParamsMerge:
         assert result.get("password") == "secret"
 
 
+class TestSharedConfigFormat:
+    """The config file is read through calendaring-config (issue 786)."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, no_config_files):
+        pass
+
+    def _write(self, tmp_path, config, name="calendar.conf"):
+        import json
+
+        config_file = tmp_path / name
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(json.dumps(config))
+        config_file.chmod(0o600)
+        return str(config_file)
+
+    def test_kind_section(self, tmp_path):
+        from caldav.config import get_connection_params
+
+        config_file = self._write(
+            tmp_path, {"default": {"kind": "caldav", "url": "https://dav.example.com/"}}
+        )
+        assert get_connection_params(config_file=config_file) == {"url": "https://dav.example.com/"}
+
+    def test_password_command(self, tmp_path):
+        import sys
+
+        from caldav.config import get_connection_params
+
+        config_file = self._write(
+            tmp_path,
+            {
+                "default": {
+                    "caldav_url": "https://dav.example.com/",
+                    "caldav_password_command": [sys.executable, "-c", "print('s3cr3t')"],
+                }
+            },
+        )
+        assert get_connection_params(config_file=config_file)["password"] == "s3cr3t"
+
+    def test_environment_overrides_key_by_key(self, tmp_path, monkeypatch):
+        """https://github.com/python-caldav/caldav/issues/780"""
+        from caldav.config import get_connection_params
+
+        config_file = self._write(tmp_path, {"default": {"caldav_url": "https://dav.example.com/"}})
+        monkeypatch.setenv("CALDAV_PASSWORD", "from-env")
+        assert get_connection_params(config_file=config_file) == {
+            "url": "https://dav.example.com/",
+            "password": "from-env",
+        }
+        assert "password" not in get_connection_params(config_file=config_file, environment=False)
+
+    def test_environment_values_are_converted(self, monkeypatch):
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_REQUIRE_TLS", "false")
+        monkeypatch.setenv("CALDAV_HUGE_TREE", "1")
+        monkeypatch.setenv("CALDAV_SSL_VERIFY_CERT", "/etc/ssl/ca.pem")
+        monkeypatch.setenv("CALDAV_HEADERS", '{"X-Test": "1"}')
+        monkeypatch.setenv("CALDAV_FEATURES", "radicale")
+        params = get_connection_params(check_config_file=False)
+        assert params["require_tls"] is False
+        assert params["huge_tree"] is True
+        assert params["ssl_verify_cert"] == "/etc/ssl/ca.pem"
+        assert params["headers"] == {"X-Test": "1"}
+        assert isinstance(params["features"], dict)
+
+    def test_bad_headers_is_an_error(self, monkeypatch):
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_HEADERS", "X-Test: 1")
+        with pytest.raises(ValueError, match="headers"):
+            get_connection_params(check_config_file=False)
+
+    def test_unknown_key_is_warned_about(self, tmp_path, caplog):
+        from caldav.config import get_connection_params
+
+        config_file = self._write(
+            tmp_path,
+            {
+                "default": {
+                    "caldav_url": "https://dav.example.com/",
+                    "caldav_pasword": "typo",
+                    "calendar_name": "Work",
+                    "test_allowed": True,
+                    "testing_allowed": True,
+                    "x_colour": "blue",
+                    "extra_config": {},
+                }
+            },
+        )
+        with caplog.at_level("WARNING", logger="caldav"):
+            get_connection_params(config_file=config_file)
+        assert [r.getMessage() for r in caplog.records if r.levelname == "WARNING"] == [
+            "config section default: unknown key 'pasword'"
+        ]
+
+    def test_other_kinds_are_skipped(self, tmp_path):
+        from caldav.config import get_all_file_connection_params
+
+        config_file = self._write(
+            tmp_path,
+            {
+                "dav": {"kind": "caldav", "url": "https://dav.example.com/"},
+                "mail": {"kind": "jmap", "url": "https://jmap.example.com/"},
+                "files": {"url": "~/calendars"},
+                "plain": {"url": "https://plain.example.com/"},
+                "all": {"contains": ["*"]},
+            },
+        )
+        urls = [p["url"] for p in get_all_file_connection_params(config_file, "all")]
+        assert urls == ["https://dav.example.com/", "https://plain.example.com/"]
+
+    def test_pycal_path_is_searched_first(self, tmp_path):
+        from caldav.config import get_connection_params
+
+        home = tmp_path / "home" / ".config"
+        self._write(
+            home, {"default": {"caldav_url": "https://old.example.com/"}}, "caldav/calendar.conf"
+        )
+        self._write(
+            home, {"default": {"caldav_url": "https://new.example.com/"}}, "pycal/calendar.yaml"
+        )
+        assert get_connection_params()["url"] == "https://new.example.com/"
+
+    def test_jmap_url_does_not_hide_the_file(self, tmp_path, monkeypatch):
+        from caldav.config import get_all_file_connection_params, get_connection_params
+
+        config_file = self._write(tmp_path, {"default": {"caldav_url": "https://dav.example.com/"}})
+        monkeypatch.setenv("JMAP_URL", "https://jmap.example.com/")
+        assert get_connection_params(config_file=config_file)["url"] == "https://dav.example.com/"
+        assert get_all_file_connection_params(config_file, environment=True)[0]["url"] == (
+            "https://dav.example.com/"
+        )
+
+    def test_environment_secrets_without_the_file(self, monkeypatch):
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_PASSWORD_COMMAND", "pass show dav")
+        with pytest.raises(ValueError, match="must be a list"):
+            get_connection_params(check_config_file=False)
+
+    def test_headers_error_hides_the_value(self, monkeypatch):
+        from caldav.config import get_connection_params
+
+        monkeypatch.setenv("CALDAV_URL", "https://env.example.com/")
+        monkeypatch.setenv("CALDAV_HEADERS", "Authorization: Bearer s3cr3t")
+        with pytest.raises(ValueError) as e:
+            get_connection_params(check_config_file=False)
+        assert "s3cr3t" not in str(e.value)
+
+    def test_calendaring_variables_come_first(self, tmp_path, monkeypatch):
+        from caldav.config import get_connection_params
+
+        config_file = self._write(
+            tmp_path,
+            {
+                "a": {"caldav_url": "https://a.example.com/"},
+                "b": {"caldav_url": "https://b.example.com/"},
+            },
+        )
+        monkeypatch.setenv("CALDAV_CONFIG_FILE", config_file)
+        monkeypatch.setenv("CALDAV_CONFIG_SECTION", "a")
+        monkeypatch.setenv("CALENDARING_CONFIG_SECTION", "b")
+        assert get_connection_params()["url"] == "https://b.example.com/"
+
+    def test_extract_reads_the_new_format(self, tmp_path, caplog):
+        import sys
+
+        from caldav.config import extract_conn_params_from_section
+
+        config_file = self._write(tmp_path, {})
+        command = [sys.executable, "-c", "print('s3cr3t')"]
+        new = {"kind": "caldav", "url": "https://dav.example.com/", "password_command": command}
+        assert extract_conn_params_from_section(new, config_file) == {
+            "url": "https://dav.example.com/",
+            "password": "s3cr3t",
+        }
+        with pytest.raises(ValueError, match="file"):
+            extract_conn_params_from_section(new)
+        assert extract_conn_params_from_section({"kind": "jmap", "url": "x"}) is None
+        # plann passes its command line arguments too: no warnings about those
+        cli = {"caldav_url": "https://dav.example.com/", "caldav_proxy": None, "calendar_name": "W"}
+        with caplog.at_level("WARNING", logger="caldav"):
+            assert extract_conn_params_from_section({**cli, "debug": True}) == {
+                "url": "https://dav.example.com/"
+            }
+        assert not caplog.records
+        assert "features" in extract_conn_params_from_section({"features": "radicale"})
+
+    def test_extract_names_the_section_in_errors(self, tmp_path):
+        import sys
+
+        from caldav.config import extract_conn_params_from_section
+
+        config_file = self._write(tmp_path, {})
+        failing = {"caldav_url": "u", "caldav_password_command": [sys.executable, "-c", "exit(3)"]}
+        with pytest.raises(ValueError, match="section work "):
+            extract_conn_params_from_section(failing, config_file, section_name="work")
+        with pytest.raises(ValueError):
+            extract_conn_params_from_section(failing, config_file)
+
+    def test_test_servers_name_the_section_in_errors(self, tmp_path):
+        import sys
+
+        from caldav.config import get_all_test_servers
+
+        config_file = self._write(
+            tmp_path,
+            {
+                "scratch": {
+                    "caldav_url": "https://test.example.com/",
+                    "caldav_password_command": [sys.executable, "-c", "exit(3)"],
+                    "test_allowed": True,
+                }
+            },
+        )
+        with pytest.raises(ValueError, match="section scratch "):
+            get_all_test_servers(config_file)
+
+    def test_test_servers_in_the_new_format(self, tmp_path):
+        import sys
+
+        from caldav.config import get_all_test_servers
+
+        command = [sys.executable, "-c", "print('s3cr3t')"]
+        config_file = self._write(
+            tmp_path,
+            {
+                "scratch": {
+                    "kind": "caldav",
+                    "url": "https://test.example.com/",
+                    "password_command": command,
+                    "test_allowed": True,
+                    "test_priority": 5,
+                }
+            },
+        )
+        params = get_all_test_servers(config_file)["scratch"]
+        assert params["url"] == "https://test.example.com/"
+        assert params["password"] == "s3cr3t"
+        assert params["test_priority"] == 5
+
+
 class TestResolveFeaturesMutation:
-    """§2.19: resolve_features and testing.py server classes must deepcopy hint dicts.
+    """resolve_features and testing.py server classes must deepcopy hint dicts.
 
     Returning or shallow-copying a module-level dict then mutating a nested key
     permanently corrupts the module-level dict for all subsequent users.
@@ -5095,7 +5559,7 @@ END:VCALENDAR
 
 
 class TestAddAttendee:
-    """§1.6: add_attendee() crashes with UnboundLocalError on uppercase MAILTO: scheme.
+    """add_attendee() crashes with UnboundLocalError on uppercase MAILTO: scheme.
 
     RFC 3986 §3.1 specifies URI schemes are case-insensitive, so "MAILTO:user@example.com"
     is valid and common in real-world iCalendar data.  The old code only matched lowercase
@@ -5132,7 +5596,7 @@ END:VCALENDAR
 
 
 class TestChangeAttendeeStatusNoAttendees:
-    """§1.7: change_attendee_status() raises bare KeyError when event has no ATTENDEE property.
+    """change_attendee_status() raises bare KeyError when event has no ATTENDEE property.
 
     ical_obj["attendee"] raises KeyError when the key is absent; the NotFoundError-catching
     loop in the Principal branch never sees it, so the "Principal is not invited" message
@@ -5173,24 +5637,24 @@ END:VCALENDAR
 
 
 class TestFeatureSetCopyFeatureSet:
-    """§1.10 + §1.11: FeatureSet.copyFeatureSet() correctness bugs.
+    """FeatureSet.copy_feature_set() correctness bugs.
 
-    §1.10: Merging a plain-string feature over an existing string-valued feature raised
+    Merging a plain-string feature over an existing string-valued feature raised
     bare AssertionError because the 'support' not in server_node guard prevented the
     update branch from running.
 
-    §1.11: An unknown feature name produced a UserWarning but was still stored in
+    An unknown feature name produced a UserWarning but was still stored in
     _server_features; a later collapse()/is_supported() then hit a message-less
     AssertionError far from the originating config.  Unknown features must be skipped
     (continue after warning) so bad keys never contaminate the feature set.
     """
 
     def test_string_feature_can_be_overridden(self):
-        """copyFeatureSet must accept a string value that overrides an existing string."""
+        """copy_feature_set must accept a string value that overrides an existing string."""
         from caldav.compatibility_hints import FeatureSet
 
         fs = FeatureSet({"scheduling": "unsupported"})
-        fs.copyFeatureSet({"scheduling": "fragile"})
+        fs.copy_feature_set({"scheduling": "fragile"})
         assert fs.is_supported("scheduling") is False  # fragile → False per is_supported semantics
 
     def test_string_feature_full_override(self):
@@ -5198,7 +5662,7 @@ class TestFeatureSetCopyFeatureSet:
         from caldav.compatibility_hints import FeatureSet
 
         fs = FeatureSet({"scheduling": "unsupported"})
-        fs.copyFeatureSet({"scheduling": "full"})
+        fs.copy_feature_set({"scheduling": "full"})
         assert fs.is_supported("scheduling") is True
 
     def test_unknown_feature_warns_and_does_not_store(self):
@@ -5210,15 +5674,26 @@ class TestFeatureSetCopyFeatureSet:
         fs = FeatureSet({})
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            fs.copyFeatureSet({"totally_nonexistent_feature_xyz": "full"})
+            fs.copy_feature_set({"totally_nonexistent_feature_xyz": "full"})
 
         assert any("totally_nonexistent_feature_xyz" in str(warning.message) for warning in w)
         # The bad key must NOT be in the internal feature dict
         assert "totally_nonexistent_feature_xyz" not in fs._server_features
 
+    def test_copyFeatureSet_is_deprecated_alias(self):
+        """The old camelCase name still works but emits DeprecationWarning."""
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet({"scheduling": "unsupported"})
+        with pytest.warns(DeprecationWarning, match="copy_feature_set") as rec:
+            fs.copyFeatureSet({"scheduling": "full"})
+        assert fs.is_supported("scheduling") is True
+        ## the warning should point at the caller, not at the alias
+        assert rec[0].filename == __file__
+
 
 class TestXMLEntityHardening:
-    """§3.2: XML parser must not expand entity references from untrusted server data.
+    """XML parser must not expand entity references from untrusted server data.
 
     etree.XMLParser without resolve_entities=False expands inline DOCTYPE
     entities, allowing a malicious server to inject arbitrary text into
@@ -5249,7 +5724,7 @@ class TestXMLEntityHardening:
 
 
 class TestDAVClientCredentialPrecedence:
-    """§1.2: DAVClient credential handling bugs.
+    """DAVClient credential handling bugs.
 
     - URL with username but no password (user@host) crashed with TypeError inside
       urllib.parse.unquote(None).
@@ -5261,7 +5736,7 @@ class TestDAVClientCredentialPrecedence:
         """DAVClient(url='https://user@host/', password='p') must not raise TypeError."""
         client = DAVClient(url="https://user@cal.example.com/dav/", password="secret")
         assert client.username == "user"
-        assert client.password == b"secret"
+        assert client.password == "secret"
 
     def test_explicit_kwargs_take_precedence_over_url_credentials(self):
         """Explicit username/password kwargs must override credentials embedded in the URL."""
@@ -5271,7 +5746,7 @@ class TestDAVClientCredentialPrecedence:
             password="kwargpass",
         )
         assert client.username == "kwarguser"
-        assert client.password == b"kwargpass"
+        assert client.password == "kwargpass"
 
     def test_explicit_username_does_not_borrow_url_password(self):
         """Gate finding F6: credentials are a pair, not two independent fields.
@@ -5293,7 +5768,7 @@ class TestDAVClientCredentialPrecedence:
             password="s3cret",
         )
         assert client.username == "bob"
-        assert client.password == b"s3cret"
+        assert client.password == "s3cret"
 
 
 class TestRepeatedHrefCalendarData:
@@ -5447,7 +5922,7 @@ class TestAsyncDAVClientCredentialPairing:
 
 
 class TestPostPutRedirect:
-    """§1.1: 302 response to PUT must update event.url from Location header.
+    """302 response to PUT must update event.url from Location header.
 
     Bug: `[x[1] for x in r.headers if x[0] == "location"]` iterates the
     headers dict yielding key *strings*, so x[0] is the first character of
@@ -5483,7 +5958,7 @@ class TestPostPutRedirect:
 
 
 class TestWarnUnreadableDisplayName:
-    """§5 (DRY): the shared helper backing the sync/async name-matching loops.
+    """The shared helper backing the sync/async name-matching loops.
 
     Warn unless we positively know the server can't read DAV:displayname via
     PROPFIND (propfind.displayname non-supported); warn when the feature is
@@ -5546,7 +6021,6 @@ class TestRecurringCompleteHelpers:
 
     These exercise the icalendar-mutation logic shared by the sync and async
     ``complete()`` paths without touching a server.
-    ref https://github.com/python-caldav/caldav code-review §5.6
     """
 
     def _make_todo(self, data: str = todo6) -> Todo:
@@ -5612,6 +6086,49 @@ class TestRecurringCompleteHelpers:
             todo._build_recurring_safe_completed(datetime(2026, 6, 14, tzinfo=timezone.utc)) is None
         )
         assert todo.icalendar_component["RRULE"]["COUNT"] == [1]
+
+    ## Issue https://github.com/python-caldav/caldav/issues/782: a
+    ## fixed-time task (BY* in the RRULE) done before its DTSTART
+    EARLY = todo6.replace("RRULE:FREQ=YEARLY", "RRULE:FREQ=YEARLY;BYMONTH=4,9")
+
+    def test_next_fixed_time_completed_early(self) -> None:
+        todo = self._make_todo(self.EARLY)
+        ## done two days before the 1992-04-15 13:30 occurrence
+        early = datetime(1992, 4, 13, 10, tzinfo=timezone.utc)
+        assert todo._next(early) == datetime(1992, 9, 15, 13, 30, tzinfo=timezone.utc)
+        ## done after DTSTART: unchanged
+        late = datetime(1992, 4, 16, 10, tzinfo=timezone.utc)
+        assert todo._next(late) == datetime(1992, 9, 15, 13, 30, tzinfo=timezone.utc)
+
+    def test_next_floating_fixed_time_completed_early(self) -> None:
+        """A floating DTSTART is taken as local time before the comparison."""
+        todo = self._make_todo(
+            self.EARLY.replace("DTSTART:19920415T133000Z", "DTSTART:19920415T133000").replace(
+                "DUE:19920516T045959Z", "DUE:19920516T045959"
+            )
+        )
+        dtstart = datetime(1992, 4, 15, 13, 30).astimezone(timezone.utc)
+        assert todo._next(dtstart - timedelta(days=2)) == datetime(1992, 9, 15, 13, 30).astimezone(
+            timezone.utc
+        )
+
+    def test_safe_completion_completed_early_advances(self) -> None:
+        todo = self._make_todo(self.EARLY)
+        completed = todo._build_recurring_safe_completed(
+            datetime(1992, 4, 13, 10, tzinfo=timezone.utc)
+        )
+        assert completed is not None
+        assert todo.icalendar_component["DTSTART"].dt == datetime(
+            1992, 9, 15, 13, 30, tzinfo=timezone.utc
+        )
+
+    def test_thisandfuture_completed_early_advances(self) -> None:
+        todo = self._make_todo(self.EARLY)
+        todo._prepare_recurring_thisandfuture(datetime(1992, 4, 13, 10, tzinfo=timezone.utc))
+        thisandfuture = todo.icalendar_instance.subcomponents[-1]
+        nxt = datetime(1992, 9, 15, 13, 30, tzinfo=timezone.utc)
+        assert thisandfuture["RECURRENCE-ID"].dt == nxt
+        assert thisandfuture["DTSTART"].dt == nxt
 
     def test_safe_completion_issues_two_puts(self, monkeypatch: Any) -> None:
         """The standalone completed copy must not be PUT twice.
@@ -5758,6 +6275,139 @@ class TestWrappedComponentHasNoCalendarUid:
         second.icalendar_instance = ievent
 
         assert first.data == second.data
+
+
+class TestFoldedUid:
+    """A long UID may be folded over several lines (RFC 5545 section 3.1), and
+    ``.id`` of an object not parsed yet has to unfold it."""
+
+    UID = "040000008200E00074C5B7101A82E00800000000F0A1B2C3D4E5DA01000000000000000010000000AB12CD34EF56"
+    URL = "http://cal.example.com/dav/user/mycal/"
+
+    @classmethod
+    def _ical(cls, fold: str) -> str:
+        if fold == "to_ical":
+            ievent = icalendar.Event()
+            ievent.add("uid", cls.UID)
+            ievent.add("dtstamp", datetime(2026, 1, 1, tzinfo=timezone.utc))
+            ievent.add("dtstart", datetime(2026, 1, 2, tzinfo=timezone.utc))
+            ievent.add("summary", "Long UID")
+            ical = icalendar.Calendar()
+            ical.add("prodid", "-//Example//EN")
+            ical.add("version", "2.0")
+            ical.add_component(ievent)
+            return ical.to_ical().decode()
+        eol = fold[:-1]
+        uid = fold.join((cls.UID[:30], cls.UID[30:70], cls.UID[70:]))
+        lines = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Example//EN",
+            "BEGIN:VEVENT",
+            f"UID:{uid}",
+            "DTSTAMP:20260101T000000Z",
+            "DTSTART:20260102T000000Z",
+            "SUMMARY:Long UID",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ]
+        return eol.join(lines) + eol
+
+    def _calendar(self, ical: str):
+        """A fake server with one object, ``ev1.ics``.  Returns the calendar
+        and the (method, body) pairs sent."""
+        sent = []
+        ## keep CR through XML end-of-line normalisation
+        multistatus = (
+            '<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">'
+            "<d:response><d:href>/dav/user/mycal/ev1.ics</d:href><d:propstat><d:prop>"
+            f"<cal:calendar-data>{ical.replace(chr(13), '&#13;')}</cal:calendar-data>"
+            "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"
+            "</d:multistatus>"
+        )
+
+        class FakeServerClient(DAVClient):
+            def request(self, url, method="GET", body="", headers=None):
+                sent.append((method, body))
+                resp = mock.MagicMock()
+                resp.headers = {}
+                if method == "GET":
+                    resp.status_code, resp.reason = 200, "OK"
+                    resp.headers = {"Content-Type": "text/calendar"}
+                    resp.content = ical.encode()
+                elif method == "REPORT":
+                    resp.status_code, resp.reason = 207, "Multi-Status"
+                    resp.content = multistatus.encode()
+                else:
+                    resp.status_code, resp.reason = 204, "No Content"
+                    resp.content = b""
+                return DAVResponse(resp, self)
+
+        client = FakeServerClient(url="http://cal.example.com/dav/")
+        return Calendar(client, url=self.URL), sent
+
+    def _loaded(self, ical: str):
+        calendar, sent = self._calendar(ical)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar).load()
+        sent.clear()
+        return event, sent
+
+    @pytest.mark.parametrize("fold", ["\r\n ", "\n ", "\r\n\t", "to_ical"])
+    def test_cheap_accessor_unfolds(self, fold) -> None:
+        from caldav.datastate import RawDataState
+
+        ical = self._ical(fold)
+        assert self.UID not in ical
+        assert RawDataState(ical).get_uid() == self.UID
+        assert Event(data=ical).id == self.UID
+
+    def test_folded_uid_needs_no_full_parse(self) -> None:
+        from caldav.datastate import RawDataState
+
+        with mock.patch("caldav.datastate.parse_ical", side_effect=AssertionError):
+            assert RawDataState(self._ical("\r\n ")).get_uid() == self.UID
+
+    def test_escaped_uid_is_unescaped(self) -> None:
+        ical = self._ical("\n ").replace(self.UID[:30], "a\\,b" + self.UID[:30])
+        event = Event(data=ical)
+        assert event.id == "a,b" + self.UID
+        assert event.id == str(event.icalendar_component["UID"])
+
+    @pytest.mark.parametrize("fold", ["\r\n ", "to_ical"])
+    def test_search_and_load(self, fold) -> None:
+        calendar, _ = self._calendar(self._ical(fold))
+        assert [o.id for o in calendar.search(event=True)] == [self.UID]
+        assert [o.id for o in calendar.get_events()] == [self.UID]
+        assert Event(url=self.URL + "ev1.ics", parent=calendar).load().id == self.UID
+
+    def test_save_no_create_existing(self) -> None:
+        event, sent = self._loaded(self._ical("to_ical"))
+        event.save(no_create=True)
+        assert sent[-1][0] == "PUT"
+
+    def test_save_no_overwrite_existing(self) -> None:
+        event, sent = self._loaded(self._ical("to_ical"))
+        with pytest.raises(error.ConsistencyError):
+            event.save(no_overwrite=True)
+        assert "PUT" not in [method for method, _ in sent]
+
+    def test_save_unparsed_keeps_uid(self) -> None:
+        """This save() takes the UID from ``.id``."""
+        event, sent = self._loaded(self._ical("to_ical"))
+        event.save(increase_seqno=False, only_this_recurrence=False)
+        [(method, body)] = sent
+        assert method == "PUT"
+        put = icalendar.Calendar.from_ical(body)
+        assert [str(c["UID"]) for c in put.walk("VEVENT")] == [self.UID]
+
+    def test_save_unparsed_keeps_escaped_uid(self) -> None:
+        ical = self._ical("\r\n ").replace(self.UID[:30], "a\\,b" + self.UID[:30])
+        event, sent = self._loaded(ical)
+        event.save(increase_seqno=False, only_this_recurrence=False)
+        [(method, body)] = sent
+        assert method == "PUT"
+        put = icalendar.Calendar.from_ical(body)
+        assert [str(c["UID"]) for c in put.walk("VEVENT")] == ["a,b" + self.UID]
 
 
 class TestMkcalendarMultistatus:
@@ -7315,3 +7965,816 @@ class TestPreconditionsOnOtherStatuses:
         assert exc_info.value.preconditions == [MKCALENDAR_TAG]
         ## the message format of earlier versions is kept
         assert " - <?xml" in str(exc_info.value)
+
+
+EMPTY_MULTISTATUS = b'<?xml version="1.0" encoding="utf-8"?>\n<D:multistatus xmlns:D="DAV:"/>'
+
+
+class _SaveRequests:
+    """Records the requests of a save() against a mocked server, sync
+    and async."""
+
+    URL = "http://cal.example.com/dav/user/mycal/"
+
+    @pytest.fixture(params=["sync", "async"])
+    def base(self, request):
+        if request.param == "sync":
+            return DAVClient
+        from caldav.async_davclient import AsyncDAVClient
+
+        return AsyncDAVClient
+
+    def _client(
+        self, base, put_status=201, put_body=b"", features=None, exc=None, report=EMPTY_MULTISTATUS
+    ):
+        sent = []
+        client = base(url="http://cal.example.com/dav/", features=features)
+
+        def request(url, method="GET", body_=None, headers=None):
+            method = method.upper()
+            sent.append((method, {k.lower(): v for k, v in (headers or {}).items()}))
+            if method == "PUT":
+                if exc is not None:
+                    raise exc
+                status, body = put_status, put_body
+            else:
+                status, body = 207, report
+            resp = mock.MagicMock()
+            resp.status_code = status
+            resp.reason = "whatever"
+            resp.headers = {"Content-Type": "application/xml"} if body else {}
+            resp.content = body
+            resp.text = body.decode()
+            return DAVResponse(resp, client)
+
+        if base is DAVClient:
+            client.request = lambda url, method="GET", body="", headers=None: request(
+                url, method, body, headers
+            )
+        else:
+
+            async def async_request(url, method="GET", body="", headers=None):
+                return request(url, method, body, headers)
+
+            client.request = async_request
+        return client, sent
+
+    def _event(self, client, data=ev1, etag=None):
+        cal = Calendar(client, url=self.URL)
+        event = Event(client, data=data, parent=cal)
+        if etag:
+            event.url = URL(self.URL + "ev1.ics")
+            event.props[dav.GetEtag.tag] = etag
+        return event
+
+    _run = staticmethod(TestPreconditionsOnOtherStatuses._run)
+
+
+SERIES = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VEVENT
+UID:daily
+DTSTAMP:20260101T000000Z
+DTSTART:20260105T080000Z
+DTEND:20260105T090000Z
+SEQUENCE:2
+RRULE:FREQ=DAILY
+SUMMARY:daily
+END:VEVENT
+BEGIN:VEVENT
+UID:daily
+DTSTAMP:20260101T000000Z
+RECURRENCE-ID:20260107T080000Z
+DTSTART:20260107T100000Z
+DTEND:20260107T110000Z
+SUMMARY:moved
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+def _occurrence(series: str, rid: str) -> str:
+    """An occurrence as search(expand=True) returns it."""
+    return (
+        series.split("BEGIN:VEVENT")[0]
+        + "BEGIN:VEVENT\nUID:daily\nDTSTAMP:20260101T000000Z\n"
+        + f"RECURRENCE-ID:{rid}\nDTSTART:{rid}\nSUMMARY:daily\nEND:VEVENT\nEND:VCALENDAR\n"
+    )
+
+
+def _multistatus(data: str) -> bytes:
+    """A REPORT answer holding ``data`` at daily.ics."""
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+        "<D:response><D:href>/dav/user/mycal/daily.ics</D:href><D:propstat><D:prop>"
+        f'<D:getetag>"e1"</D:getetag><C:calendar-data>{data}</C:calendar-data></D:prop>'
+        "<D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>"
+        "</D:multistatus>"
+    ).encode()
+
+
+class TestCancel(_SaveRequests):
+    """cancel() sets STATUS:CANCELLED and saves; on an occurrence, only
+    that occurrence is cancelled (issue
+    https://github.com/python-caldav/caldav/issues/598)."""
+
+    def _series_client(self, base, series=SERIES):
+        sent = []
+        client = base(url="http://cal.example.com/dav/")
+        statuses = {"GET": 200, "REPORT": 207, "PUT": 204}
+
+        def request(url, method="GET", body="", headers=None):
+            method = method.upper()
+            sent.append((method, body))
+            resp = mock.MagicMock()
+            resp.status_code = statuses[method]
+            resp.reason = "whatever"
+            ## save() of an occurrence finds the series by its UID
+            content = {"GET": series.encode(), "REPORT": _multistatus(series)}.get(method, b"")
+            content_type = "text/calendar" if method == "GET" else "application/xml"
+            ## a plain dict: the key is spelled as the client looks it up
+            resp.headers = {"Content-Type": content_type, "Etag": '"e1"'} if content else {}
+            resp.content = content
+            resp.text = content.decode()
+            return DAVResponse(resp, client)
+
+        if base is DAVClient:
+            client.request = lambda url, method="GET", body="", headers=None: request(
+                url, method, body, headers
+            )
+        else:
+
+            async def async_request(url, method="GET", body="", headers=None):
+                return request(url, method, body, headers)
+
+            client.request = async_request
+        return client, sent
+
+    def _instance(self, client, data):
+        cal = Calendar(client, url=self.URL)
+        return Event(client, data=data, parent=cal, url=self.URL + "daily.ics")
+
+    def _put(self, sent):
+        [body] = [body for method, body in sent if method == "PUT"]
+        return icalendar.Calendar.from_ical(to_normal_str(body))
+
+    def test_cancel_occurrence(self, base) -> None:
+        client, sent = self._series_client(base)
+        occurrence = self._instance(client, _occurrence(SERIES, "20260106T080000Z"))
+        self._run(occurrence.cancel())
+        master, override, cancelled = self._put(sent).walk("VEVENT")
+        assert "EXDATE" not in master and "STATUS" not in master
+        assert str(override["SUMMARY"]) == "moved"
+        assert str(cancelled["STATUS"]) == "CANCELLED"
+        assert cancelled["RECURRENCE-ID"].dt == datetime(2026, 1, 6, 8, tzinfo=timezone.utc)
+
+    def test_cancel_series_cancels_overrides(self, base) -> None:
+        """An override replaces its occurrence, so it is cancelled too."""
+        client, sent = self._series_client(base)
+        self._run(self._instance(client, SERIES).cancel())
+        assert [str(x["STATUS"]) for x in self._put(sent).walk("VEVENT")] == [
+            "CANCELLED",
+            "CANCELLED",
+        ]
+
+    def test_cancel_replaces_status(self, base) -> None:
+        client, sent = self._series_client(base)
+        single = (
+            SERIES.split("RRULE:FREQ=DAILY\n")[0] + "STATUS:CONFIRMED\nEND:VEVENT\nEND:VCALENDAR\n"
+        )
+        self._run(self._instance(client, single).cancel())
+        [event] = self._put(sent).walk("VEVENT")
+        assert event.to_ical().count(b"STATUS") == 1
+        assert str(event["STATUS"]) == "CANCELLED"
+
+
+class TestNoOverwriteIfNoneMatch(_SaveRequests):
+    """save(no_overwrite=True) sends If-None-Match: * (RFC 9110 section
+    13.1.2), so the server refuses an overwrite of the same URL in the
+    same request.  The UID search before the PUT is only skipped where
+    the server is known to refuse the UID under another URL as well
+    (CALDAV:no-uid-conflict, RFC 4791 section 5.3.2.1)."""
+
+    NO_UID_CONFLICT = {"save.no-uid-conflict": {"support": "full"}}
+
+    def test_search_kept_by_default(self, base) -> None:
+        """Whether the server refuses the UID under another URL is not
+        known, so the search stays; the PUT is guarded all the same."""
+        client, sent = self._client(base)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+        assert sent[-1][1]["if-none-match"] == "*"
+
+    def test_search_skipped_where_no_uid_conflict_holds(self, base) -> None:
+        client, sent = self._client(base, features=self.NO_UID_CONFLICT)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+        assert sent[-1][1]["if-none-match"] == "*"
+
+    def test_plain_save_sends_no_if_none_match(self, base) -> None:
+        client, sent = self._client(base, features=self.NO_UID_CONFLICT)
+        self._run(self._event(client).save())
+        assert "if-none-match" not in sent[-1][1]
+
+    def test_412_raises_consistency_error(self, base) -> None:
+        client, sent = self._client(base, put_status=412, features=self.NO_UID_CONFLICT)
+        with pytest.raises(error.ConsistencyError):
+            self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_loaded_object_sends_only_if_none_match(self, base) -> None:
+        """If-Match with the cached ETag would contradict If-None-Match: *."""
+        client, sent = self._client(base, put_status=412, features=self.NO_UID_CONFLICT)
+        event = self._event(client, etag='"etag-a"')
+        with pytest.raises(error.ConsistencyError):
+            self._run(event.save(no_overwrite=True))
+        assert sent[-1][1]["if-none-match"] == "*"
+        assert "if-match" not in sent[-1][1]
+        assert "if-schedule-tag-match" not in sent[-1][1]
+
+    @pytest.mark.parametrize("status", [409, 412])
+    def test_uid_conflict_is_also_consistency_error(self, base, status) -> None:
+        """The same UID under another URL: before, the search found it and
+        ConsistencyError was raised, so handlers for that keep working."""
+        client, sent = self._client(
+            base, put_status=status, put_body=NO_UID_CONFLICT_BODY, features=self.NO_UID_CONFLICT
+        )
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(self._event(client).save(no_overwrite=True))
+        assert isinstance(exc_info.value, error.ConsistencyError)
+        assert exc_info.value.preconditions == ["{urn:ietf:params:xml:ns:caldav}no-uid-conflict"]
+        assert exc_info.value.status == status
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_403_uid_conflict_is_also_consistency_error(self, base) -> None:
+        tag = "{urn:ietf:params:xml:ns:caldav}unique-scheduling-object-resource"
+        exc = error.AuthorizationError(
+            url=self.URL + "ev1.ics",
+            reason="Forbidden",
+            preconditions=[tag],
+            body=UNIQUE_SCHEDULING_BODY,
+            status=403,
+        )
+        client, _ = self._client(base, features=self.NO_UID_CONFLICT, exc=exc)
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(self._event(client).save(no_overwrite=True))
+        assert isinstance(exc_info.value, error.ConsistencyError)
+        ## ... and still what earlier versions raised (issue #756)
+        assert isinstance(exc_info.value, error.AuthorizationError)
+        assert exc_info.value.status == 403
+
+    def test_uid_found_elsewhere_by_search_is_uid_conflict(self, base) -> None:
+        """Issue https://github.com/python-caldav/caldav/issues/806: where
+        caldav searches for the UID itself, a hit under another URL is the
+        same UidConflictConsistencyError the server's precondition gives."""
+        client, sent = self._client(base, report=EV1_MULTISTATUS)
+        with pytest.raises(error.UidConflictConsistencyError):
+            self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["REPORT"]
+
+    def test_uid_found_at_own_url_by_search_is_plain_consistency_error(self, base) -> None:
+        """The object found is the one at the URL to save to: the name is
+        taken, as with a 412 to If-None-Match: *, not a UID conflict."""
+        client, sent = self._client(base, report=EV1_MULTISTATUS)
+        event = self._event(client)
+        event.url = URL(self.URL + "ev1.ics")
+        with pytest.raises(error.ConsistencyError) as exc_info:
+            self._run(event.save(no_overwrite=True))
+        assert not isinstance(exc_info.value, error.UidConflictError)
+
+    def test_server_ignoring_if_none_match_keeps_search(self, base) -> None:
+        """Where If-None-Match: * is known to overwrite (Zimbra, SOGo) the
+        old search-then-PUT is kept, and the header is not sent."""
+        features = {
+            "save.if-none-match": {"support": "unsupported"},
+            "save.no-uid-conflict": {"support": "full"},
+        }
+        client, sent = self._client(base, features=features)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+        assert "if-none-match" not in sent[-1][1]
+
+    def test_recurrence_instance_keeps_search(self, base) -> None:
+        """A recurrence instance is merged into its master, which the PUT
+        then overwrites - only the search can refuse that."""
+        client, sent = self._client(base, features=self.NO_UID_CONFLICT)
+        instance = ev1.replace("DTSTART", "RECURRENCE-ID:20060714T170000Z\nDTSTART", 1)
+        self._run(
+            self._event(client, data=instance).save(no_overwrite=True, only_this_recurrence=None)
+        )
+        assert [m for m, _ in sent][0] == "REPORT"
+        assert sent[-1][1]["if-none-match"] == "*"
+
+    @pytest.mark.parametrize("server", ["zimbra", "sogo"])
+    def test_hints_of_servers_overwriting(self, server) -> None:
+        from caldav import compatibility_hints
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet(getattr(compatibility_hints, server))
+        assert not fs.is_supported("save.if-none-match")
+
+    def test_if_none_match_default_full_no_uid_conflict_default_unknown(self) -> None:
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet()
+        assert fs.is_supported("save.if-none-match")
+        assert not fs.is_supported("save.no-uid-conflict")
+
+    def test_200_is_success_without_retry(self, base) -> None:
+        """A 200 is a successful PUT (RFC 9110 section 9.3.4).  Retrying it
+        would resend If-None-Match: *, which the object the first PUT
+        stored then refuses: the caller's own save would read as a
+        conflict."""
+        client, sent = self._client(base, put_status=200, features=self.NO_UID_CONFLICT)
+        self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_plain_save_200_is_success_without_retry(self, base) -> None:
+        client, sent = self._client(base, put_status=200, features=self.NO_UID_CONFLICT)
+        self._run(self._event(client).save())
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_failure_not_retried_with_wildcard(self, base) -> None:
+        """A 5xx may come after the object was written, so a retry with
+        If-None-Match: * could be refused by the caller's own object."""
+        client, sent = self._client(base, put_status=500, features=self.NO_UID_CONFLICT)
+        with pytest.raises(error.PutError):
+            self._run(self._event(client).save(no_overwrite=True))
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_plain_save_failure_still_retried(self, base) -> None:
+        client, sent = self._client(base, put_status=500, features=self.NO_UID_CONFLICT)
+        with pytest.raises(error.PutError):
+            self._run(self._event(client).save())
+        assert [m for m, _ in sent] == ["PUT", "PUT"]
+
+
+EV1_MULTISTATUS = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+    "<D:response><D:href>/dav/user/mycal/ev1.ics</D:href><D:propstat><D:prop>"
+    '<D:getetag>"etag-a"</D:getetag><C:calendar-data>'
+    + ev1
+    + "</C:calendar-data></D:prop><D:status>HTTP/1.1 200 OK</D:status>"
+    "</D:propstat></D:response></D:multistatus>"
+).encode()
+
+
+class TestNoCreateIfMatch(_SaveRequests):
+    """save(no_create=True) sends If-Match: * (RFC 9110 section 13.1.1),
+    so the server refuses to create a missing object in the same request,
+    where save-load.mutable.if-match-wildcard is full.  Elsewhere, and
+    when a cached ETag or Schedule-Tag already makes the PUT
+    conditional, the UID search before the PUT is kept."""
+
+    def test_if_match_star_replaces_search(self, base) -> None:
+        client, sent = self._client(base, put_status=204)
+        self._run(self._event(client).save(no_create=True))
+        assert [m for m, _ in sent] == ["PUT"]
+        assert sent[-1][1]["if-match"] == "*"
+        assert "if-none-match" not in sent[-1][1]
+
+    def test_412_raises_consistency_error(self, base) -> None:
+        """As the search did when the object was missing."""
+        client, sent = self._client(base, put_status=412)
+        with pytest.raises(error.ConsistencyError) as exc_info:
+            self._run(self._event(client).save(no_create=True))
+        assert not isinstance(exc_info.value, error.ETagMismatchError)
+        assert "there is no object at" in str(exc_info.value)
+        assert [m for m, _ in sent] == ["PUT"]
+
+    @pytest.mark.parametrize("status", [409, 412])
+    def test_uid_conflict_is_also_consistency_error(self, base, status) -> None:
+        client, sent = self._client(base, put_status=status, put_body=NO_UID_CONFLICT_BODY)
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(self._event(client).save(no_create=True))
+        assert isinstance(exc_info.value, error.ConsistencyError)
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_failure_not_retried_with_wildcard(self, base) -> None:
+        client, sent = self._client(base, put_status=500)
+        with pytest.raises(error.PutError):
+            self._run(self._event(client).save(no_create=True))
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_plain_save_sends_no_if_match_star(self, base) -> None:
+        client, sent = self._client(base)
+        self._run(self._event(client).save())
+        assert "if-match" not in sent[-1][1]
+
+    def test_cached_etag_wins_and_search_kept(self, base) -> None:
+        """The cached ETag is stricter than '*' and is sent alone; a 412
+        to it cannot tell a deleted object from a changed one, so the
+        search still decides 'does not exist'."""
+        client, sent = self._client(base, put_status=204, report=EV1_MULTISTATUS)
+        self._run(self._event(client, etag='"etag-a"').save(no_create=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+        assert sent[-1][1]["if-match"] == '"etag-a"'
+
+    def test_cached_schedule_tag_wins_and_search_kept(self, base) -> None:
+        """As with an ETag: If-Schedule-Tag-Match is sent, not '*'."""
+        client, sent = self._client(base, put_status=204, report=EV1_MULTISTATUS)
+        event = self._event(client)
+        event.props[cdav.ScheduleTag.tag] = '"stag-a"'
+        self._run(event.save(no_create=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+        assert sent[-1][1]["if-schedule-tag-match"] == '"stag-a"'
+        assert "if-match" not in sent[-1][1]
+
+    def test_cached_etag_missing_object_found_by_search(self, base) -> None:
+        client, sent = self._client(base)
+        with pytest.raises(error.ConsistencyError):
+            self._run(self._event(client, etag='"etag-a"').save(no_create=True))
+        assert "PUT" not in [m for m, _ in sent]
+
+    def test_weak_etag_gets_if_match_star(self, base) -> None:
+        """A weak ETag is never sent (If-Match compares strongly)."""
+        client, sent = self._client(base, put_status=204)
+        self._run(self._event(client, etag='W/"etag-a"').save(no_create=True))
+        assert [m for m, _ in sent] == ["PUT"]
+        assert sent[-1][1]["if-match"] == "*"
+
+    @pytest.mark.parametrize("support", ["unsupported", "broken"])
+    def test_server_mishandling_if_match_star_keeps_search(self, base, support) -> None:
+        """Radicale and Zimbra refuse '*' on an existing object, Bedework
+        and SOGo create a missing one: the search-then-PUT stays."""
+        features = {"save-load.mutable.if-match-wildcard": {"support": support}}
+        client, sent = self._client(base, put_status=204, features=features, report=EV1_MULTISTATUS)
+        self._run(self._event(client).save(no_create=True))
+        assert [m for m, _ in sent] == ["REPORT", "PUT"]
+        assert "if-match" not in sent[-1][1]
+
+    def test_no_uid_raises_before_sending(self, base) -> None:
+        client, sent = self._client(base)
+        event = self._event(
+            client, data=ev1.replace("UID:20010712T182145Z-123401@example.com\n", "")
+        )
+        with pytest.raises(error.ConsistencyError):
+            self._run(event.save(no_create=True))
+        assert sent == []
+
+    def test_no_create_and_no_overwrite_never_send_both(self, base) -> None:
+        client, sent = self._client(base, features={"save.no-uid-conflict": {"support": "full"}})
+        with pytest.raises(error.ConsistencyError):
+            self._run(self._event(client).save(no_create=True, no_overwrite=True))
+        assert "PUT" not in [m for m, _ in sent]
+
+    def test_recurrence_instance_keeps_search(self, base) -> None:
+        """A recurrence instance is merged into its master, which is PUT
+        by another save() - only the search can refuse a missing one."""
+        client, sent = self._client(base)
+        instance = ev1.replace("DTSTART", "RECURRENCE-ID:20060714T170000Z\nDTSTART", 1)
+        with pytest.raises(error.ConsistencyError):
+            self._run(
+                self._event(client, data=instance).save(no_create=True, only_this_recurrence=None)
+            )
+        assert [m for m, _ in sent] == ["REPORT"]
+
+    @pytest.mark.parametrize("server", ["radicale", "zimbra", "bedework_5_0_0", "sogo"])
+    def test_hints_of_servers_mishandling_if_match_star(self, server) -> None:
+        from caldav import compatibility_hints
+        from caldav.compatibility_hints import FeatureSet
+
+        fs = FeatureSet(getattr(compatibility_hints, server))
+        assert not fs.is_supported("save-load.mutable.if-match-wildcard")
+
+
+class TestRawData:
+    """``raw_data`` keeps the calendar data as the server sent it, and
+    ``save(raw_data=...)`` sends given bytes unchanged.
+    https://github.com/python-caldav/caldav/issues/763"""
+
+    URL = "http://cal.example.com/dav/user/mycal/"
+    ## An unusual but valid layout: X- property first, a folded line,
+    ## SEQUENCE (no bump expected), a trailing blank that vcal.fix()
+    ## strips, a duplicated DTSTAMP that vcal.fix() drops, and CRLF.
+    BODY = (
+        b"BEGIN:VCALENDAR\r\n"
+        b"X-WR-ODD:first\r\n"
+        b"PRODID:-//Example//EN\r\n"
+        b"VERSION:2.0\r\n"
+        b"BEGIN:VEVENT\r\n"
+        b"SUMMARY:A folded summary that goes on and on and on and on and o\r\n"
+        b" n until it is folded\r\n"
+        b"UID:raw-1\r\n"
+        b"SEQUENCE:3\r\n"
+        b"DTSTAMP:20260101T000000Z\r\n"
+        b"DTSTAMP:20260101T000001Z\r\n"
+        b"DTSTART:20260102T100000Z\r\n"
+        b"X-TRAILING:blank \r\n"
+        b"END:VEVENT\r\n"
+        b"END:VCALENDAR\r\n"
+    )
+
+    @pytest.fixture(params=["sync", "async"])
+    def base(self, request):
+        if request.param == "sync":
+            return DAVClient
+        from caldav.async_davclient import AsyncDAVClient
+
+        return AsyncDAVClient
+
+    @staticmethod
+    def _run(result):
+        import asyncio
+
+        if asyncio.iscoroutine(result):
+            return asyncio.run(result)
+        return result
+
+    def _calendar(self, base, body=BODY, put_status=204, features=None, get_status=200):
+        """A fake server with one object, ``ev1.ics``.  Returns the
+        calendar and the (method, headers, body) triples sent."""
+        sent = []
+        ## &#13; keeps the CR through XML end-of-line normalisation, and
+        ## &amp; is an entity the XML parser decodes
+        text = body.decode().replace("\r", "&#13;").replace("&", "&amp;")
+        text = text.replace("&amp;#13;", "&#13;")
+        multistatus = (
+            '<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">'
+            "<d:response><d:href>/dav/user/mycal/ev1.ics</d:href><d:propstat><d:prop>"
+            '<d:getetag>"etag-r"</d:getetag>'
+            f"<cal:calendar-data>{text}</cal:calendar-data>"
+            "</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>"
+            "</d:multistatus>"
+        ).encode()
+        client = base(url="http://cal.example.com/dav/", features=features)
+
+        def request(url, method="GET", body="", headers=None):
+            sent.append((method, {k.lower(): v for k, v in (headers or {}).items()}, body))
+            resp = mock.MagicMock()
+            resp.headers = {}
+            if method == "GET" and get_status == 404:
+                resp.status_code, resp.reason = 404, "Not Found"
+                resp.content = b""
+            elif method == "GET":
+                resp.status_code, resp.reason = 200, "OK"
+                resp.headers = {"Content-Type": "text/calendar", "Etag": '"etag-g"'}
+                resp.content = body_get
+            elif method == "REPORT":
+                resp.status_code, resp.reason = 207, "Multi-Status"
+                resp.content = multistatus
+            else:
+                resp.status_code, resp.reason = put_status, "whatever"
+                resp.headers = {"Etag": '"etag-p"'}
+                resp.content = b""
+            return DAVResponse(resp, client)
+
+        body_get = body
+        if base is DAVClient:
+            client.request = request
+        else:
+
+            async def async_request(*args, **kwargs):
+                return request(*args, **kwargs)
+
+            client.request = async_request
+        return Calendar(client, url=self.URL), sent
+
+    def _loaded(self, base, **kwargs):
+        calendar, sent = self._calendar(base, **kwargs)
+        event = self._run(Event(url=self.URL + "ev1.ics", parent=calendar).load())
+        sent.clear()
+        return event, sent
+
+    def test_load_keeps_the_body(self, base) -> None:
+        event, _ = self._loaded(base)
+        assert event.raw_data == self.BODY
+        assert isinstance(event.raw_data, bytes)
+        ## the parsed view is still caldav's normalised copy
+        assert event.wire_data != self.BODY
+        assert event.etag == '"etag-g"'
+
+    def test_load_keeps_bare_lf_and_odd_bytes(self, base) -> None:
+        body = self.BODY.replace(b"\r\n", b"\n").replace(b"blank", b"bl\xc3\xa5nk")
+        event, _ = self._loaded(base, body=body)
+        assert event.raw_data == body
+
+    def test_raw_data_is_a_snapshot(self, base) -> None:
+        event, _ = self._loaded(base)
+        event.icalendar_component["SUMMARY"] = "changed"
+        event.data = event.data.replace("X-WR-ODD", "X-WR-EVEN")
+        with event.edit_icalendar_instance() as cal:
+            cal.subcomponents[0]["SUMMARY"] = "changed again"
+        assert event.raw_data == self.BODY
+
+    def test_local_object_has_no_raw_data(self) -> None:
+        assert Event(data=self.BODY.decode()).raw_data is None
+        assert Event(data=self.BODY).raw_data is None
+
+    def test_raw_data_is_read_only(self) -> None:
+        with pytest.raises(AttributeError):
+            Event(data=self.BODY).raw_data = self.BODY
+
+    def test_search_keeps_calendar_data(self, base) -> None:
+        calendar, _ = self._calendar(base)
+        (event,) = self._run(calendar.search(event=True))
+        ## the text of the calendar-data element, entities decoded
+        assert event.raw_data == self.BODY
+        assert event.etag == '"etag-r"'
+
+    def test_entities_are_decoded(self, base) -> None:
+        body = self.BODY.replace(b"X-WR-ODD:first", b"X-WR-ODD:fish & chips")
+        calendar, _ = self._calendar(base, body=body)
+        (event,) = self._run(calendar.search(event=True))
+        assert event.raw_data == body
+
+    def test_multiget_keeps_calendar_data(self, base) -> None:
+        calendar, _ = self._calendar(base)
+        (event,) = self._run(calendar.multiget([URL(self.URL + "ev1.ics")]))
+        assert event.raw_data == self.BODY
+
+    def test_load_by_multiget_keeps_calendar_data(self, base) -> None:
+        calendar, _ = self._calendar(base)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        self._run(event.load_by_multiget())
+        assert event.raw_data == self.BODY
+
+    def test_batch_load_keeps_calendar_data(self, base) -> None:
+        """search() loads objects the server listed without calendar-data
+        in one multiget"""
+        calendar, _ = self._calendar(base)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        if base is DAVClient:
+            calendar._batch_load_objects([event])
+        else:
+            self._run(calendar._async_batch_load_objects([event]))
+        assert event.raw_data == self.BODY
+
+    def test_copy_has_no_raw_data(self, base) -> None:
+        """A copy is not read from the server; like the ETag, raw_data
+        stays with the original"""
+        event, _ = self._loaded(base)
+        assert event.copy(keep_uid=True).raw_data is None
+        assert event.copy().raw_data is None
+
+    def test_xml_body_is_not_kept_twice(self) -> None:
+        response = DAVResponse.from_bytes(b'<d:multistatus xmlns:d="DAV:"/>')
+        assert response._raw_body == b""
+        response = DAVResponse.from_bytes(self.BODY)
+        assert response._raw_body == self.BODY
+
+    def test_save_raw_data_sends_the_bytes(self, base) -> None:
+        event, sent = self._loaded(base)
+        ## bare LF and CRLF mixed: neither is to be touched
+        body = self.BODY.replace(b"VERSION:2.0\r\n", b"VERSION:2.0\n")
+        self._run(event.save(raw_data=body))
+        assert [(m, b) for m, _, b in sent] == [("PUT", body)]
+        assert sent[0][1]["if-match"] == '"etag-g"'
+        ## the parsed view follows the bytes sent; no SEQUENCE bump
+        assert event.icalendar_component["SEQUENCE"] == 3
+        assert event.etag == '"etag-p"'
+
+    def test_save_raw_data_wins_over_edits(self, base) -> None:
+        event, sent = self._loaded(base)
+        event.icalendar_component["SUMMARY"] = "an edit that is discarded"
+        self._run(event.save(raw_data=self.BODY))
+        assert sent[0][2] == self.BODY
+        assert "discarded" not in event.data
+
+    def test_save_clears_raw_data(self, base) -> None:
+        event, _ = self._loaded(base)
+        self._run(event.save(raw_data=self.BODY))
+        assert event.raw_data is None
+        event, _ = self._loaded(base)
+        self._run(event.save())
+        assert event.raw_data is None
+
+    def test_save_raw_data_of_a_new_object(self, base) -> None:
+        calendar, sent = self._calendar(base)
+        event = Event(parent=calendar)
+        self._run(event.save(raw_data=self.BODY))
+        assert [(m, b) for m, _, b in sent] == [("PUT", self.BODY)]
+        assert str(event.url) == self.URL + "raw-1.ics"
+        assert "if-match" not in sent[0][1]
+
+    def test_save_raw_data_does_not_merge_a_recurrence(self, base) -> None:
+        calendar, sent = self._calendar(base)
+        body = self.BODY.replace(b"SEQUENCE:3\r\n", b"RECURRENCE-ID:20260102T100000Z\r\n")
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        self._run(event.save(raw_data=body))
+        assert [(m, b) for m, _, b in sent] == [("PUT", body)]
+
+    def test_save_raw_data_no_overwrite_sends_if_none_match(self, base) -> None:
+        features = {"save.no-uid-conflict": {"support": "full"}}
+        calendar, sent = self._calendar(base, put_status=201, features=features)
+        event = Event(parent=calendar)
+        self._run(event.save(raw_data=self.BODY, no_overwrite=True))
+        assert [(m, b) for m, _, b in sent] == [("PUT", self.BODY)]
+        assert sent[0][1]["if-none-match"] == "*"
+
+    def test_save_raw_data_no_create_sends_if_match_star(self, base) -> None:
+        calendar, sent = self._calendar(base)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        self._run(event.save(raw_data=self.BODY, no_create=True))
+        assert [(m, b) for m, _, b in sent] == [("PUT", self.BODY)]
+        assert sent[0][1]["if-match"] == "*"
+
+    def test_save_raw_data_no_create_412_is_consistency_error(self, base) -> None:
+        calendar, sent = self._calendar(base, put_status=412)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        with pytest.raises(error.ConsistencyError):
+            self._run(event.save(raw_data=self.BODY, no_create=True))
+        assert [m for m, _, _ in sent] == ["PUT"]
+
+    def test_save_raw_data_recurrence_no_create_skips_search(self, base) -> None:
+        """No merge into a master, so nothing to search for."""
+        calendar, sent = self._calendar(base)
+        body = self.BODY.replace(b"SEQUENCE:3\r\n", b"RECURRENCE-ID:20260102T100000Z\r\n")
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        self._run(event.save(raw_data=body, no_create=True))
+        assert [(m, b) for m, _, b in sent] == [("PUT", body)]
+        assert sent[0][1]["if-match"] == "*"
+
+    def test_save_raw_data_none_is_refused(self, base) -> None:
+        """save(raw_data=source.raw_data) with nothing read must not
+        turn into a plain save()"""
+        event, sent = self._loaded(base)
+        with pytest.raises(ValueError):
+            self._run(event.save(raw_data=None))
+        assert sent == []
+
+    def test_save_raw_data_empty_is_refused(self, base) -> None:
+        event, sent = self._loaded(base)
+        data = event.data
+        with pytest.raises(ValueError):
+            self._run(event.save(raw_data=b""))
+        assert sent == []
+        assert event.data == data
+
+    def test_save_raw_data_not_utf8_is_refused(self, base) -> None:
+        event, sent = self._loaded(base)
+        with pytest.raises(ValueError, match="UTF-8"):
+            self._run(event.save(raw_data=self.BODY.replace(b"on and on", b"\xe6\xf8\xe5")))
+        assert sent == []
+
+    def test_save_raw_data_sends_cached_schedule_tag(self, base) -> None:
+        event, sent = self._loaded(base)
+        event.props[cdav.ScheduleTag.tag] = '"stag-r"'
+        self._run(event.save(raw_data=self.BODY))
+        assert sent[0][1]["if-schedule-tag-match"] == '"stag-r"'
+        assert "if-match" not in sent[0][1]
+
+    def test_save_raw_data_precondition_etag(self, base) -> None:
+        event, sent = self._loaded(base)
+        event.props[cdav.ScheduleTag.tag] = '"stag-r"'
+        self._run(event.save(raw_data=self.BODY, precondition="etag"))
+        assert sent[0][1]["if-match"] == '"etag-g"'
+        assert "if-schedule-tag-match" not in sent[0][1]
+
+    def test_report_text_is_not_kept_twice(self, base) -> None:
+        """The calendar-data text is kept as parsed and encoded on read."""
+        calendar, _ = self._calendar(base)
+        (event,) = self._run(calendar.multiget([URL(self.URL + "ev1.ics")]))
+        assert isinstance(event._raw_data, str)
+        assert isinstance(event.raw_data, bytes)
+
+    def test_load_by_uid_fallback_keeps_raw_data(self) -> None:
+        calendar, _ = self._calendar(DAVClient, get_status=404)
+        found = Event(url=self.URL + "moved.ics", parent=calendar)._keep_raw_data(self.BODY)
+        found.data = self.BODY
+        calendar.get_object_by_uid = lambda uid: found
+        event = Event(url=self.URL + "ev1.ics", parent=calendar, data=self.BODY)
+        event.load(only_if_unloaded=False, multiget_fallback=False)
+        assert event.raw_data == self.BODY
+        assert str(event.url) == self.URL + "moved.ics"
+
+    def test_save_raw_data_must_be_bytes(self, base) -> None:
+        calendar, sent = self._calendar(base)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        with pytest.raises(TypeError):
+            self._run(event.save(raw_data=self.BODY.decode()))
+        assert sent == []
+
+    def test_save_raw_data_without_uid_or_url(self, base) -> None:
+        calendar, sent = self._calendar(base)
+        event = Event(parent=calendar)
+        with pytest.raises(ValueError):
+            self._run(event.save(raw_data=self.BODY.replace(b"UID:raw-1\r\n", b"")))
+        assert sent == []
+
+    def test_save_raw_data_is_not_retried_altered(self, base) -> None:
+        calendar, sent = self._calendar(base, put_status=500)
+        event = Event(url=self.URL + "ev1.ics", parent=calendar)
+        with pytest.raises(error.PutError):
+            self._run(event.save(raw_data=self.BODY))
+        assert [(m, b) for m, _, b in sent] == [("PUT", self.BODY)]
+
+    def test_save_raw_data_reaches_the_http_session_unchanged(self, base) -> None:
+        """The client's own line ending normalisation is skipped too"""
+        body = self.BODY.replace(b"VERSION:2.0\r\n", b"VERSION:2.0\n")
+        client = base(url="http://cal.example.com/dav/")
+        resp = mock.MagicMock()
+        resp.status_code, resp.reason = 201, "Created"
+        resp.headers = {}
+        resp.content = b""
+        if base is DAVClient:
+            client.session.request = mock.MagicMock(return_value=resp)
+        else:
+            client.session.request = mock.AsyncMock(return_value=resp)
+        event = Event(url=self.URL + "ev1.ics", parent=Calendar(client, url=self.URL))
+        self._run(event.save(raw_data=body))
+        kwargs = client.session.request.call_args.kwargs
+        assert (kwargs.get("data") or kwargs.get("content")) == body

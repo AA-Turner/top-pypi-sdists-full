@@ -30,6 +30,7 @@ from fiddle import history
 from fiddle._src.experimental import dataclasses as fdl_dc
 from fiddle._src.testing import nested_values
 from fiddle._src.testing import test_util
+import numpy as np
 
 
 @dataclasses.dataclass
@@ -122,9 +123,9 @@ def myrange_flatten_with_paths_fn(myrange: MyRange):
 
 daglish.register_node_traverser(
     MyRange,
-    flatten_fn=NotImplemented,  # pytype: disable=wrong-arg-types
-    unflatten_fn=NotImplemented,  # pytype: disable=wrong-arg-types
-    path_elements_fn=NotImplemented,  # pytype: disable=wrong-arg-types
+    flatten_fn=NotImplemented,
+    unflatten_fn=NotImplemented,
+    path_elements_fn=NotImplemented,
     flatten_with_paths_fn=myrange_flatten_with_paths_fn,
 )
 
@@ -214,11 +215,11 @@ class PathElementTest(absltest.TestCase):
     self.assertIs(daglish.follow_path(root, path5), root[2])
 
     path6 = (daglish.Index(1), daglish.Key("a"))
-    self.assertIs(daglish.follow_path(root, path6), root[1]["a"])
+    self.assertIs(daglish.follow_path(root, path6), root[1]["a"])  # pyrefly: ignore[bad-index]
 
     path7 = (daglish.Index(2), daglish.Index(2), daglish.BuildableFnOrCls())
     self.assertIs(
-        daglish.follow_path(root, path7), fdl.get_callable(root[2][2]))
+        daglish.follow_path(root, path7), fdl.get_callable(root[2][2]))  # pyrefly: ignore[bad-argument-type, bad-index]
 
     bad_path_1 = (daglish.Key("a"), daglish.Key("b"))
     with self.assertRaisesRegex(
@@ -312,7 +313,7 @@ class TraverserRegistryTest(parameterized.TestCase):
           cast(Any, 42),
           flatten_fn=lambda x: (tuple(x), None),
           unflatten_fn=lambda x, _: list(x),
-          path_elements_fn=lambda x: (daglish.Index(i) for i in range(len(x))))
+          path_elements_fn=lambda x: (daglish.Index(i) for i in range(len(x))))  # pyrefly: ignore[bad-argument-type]
 
   def test_register_node_traverser_existing_registration_error(self):
     with self.assertRaises(ValueError):
@@ -320,7 +321,7 @@ class TraverserRegistryTest(parameterized.TestCase):
           list,
           flatten_fn=lambda x: (tuple(x), None),
           unflatten_fn=lambda x, _: list(x),
-          path_elements_fn=lambda x: (daglish.Index(i) for i in range(len(x))))
+          path_elements_fn=lambda x: (daglish.Index(i) for i in range(len(x))))  # pyrefly: ignore[bad-argument-type]
 
   def test_node_traverser_registry_with_fallback(self):
     registry = daglish.NodeTraverserRegistry(use_fallback=True)
@@ -652,7 +653,7 @@ class MemoizedTraversalTest(absltest.TestCase):
         result = 0
         for i in value:
           to_visit = fdl.Config(Foo, bar=i + 1, baz=2 * i + 1)
-          result += state.call(to_visit, daglish.Key(i))  # pytype: disable=unsupported-operands
+          result += state.call(to_visit, daglish.Key(i))
         return result
       else:
         raise AssertionError("Should not be reached, got " + str(value))
@@ -660,12 +661,20 @@ class MemoizedTraversalTest(absltest.TestCase):
     result = daglish.MemoizedTraversal.run(traverse, list(range(10_000)))
     self.assertEqual(result, 50_005_000)
 
+  def test_is_memoizable(self):
+    # Numpy scalars are memoizabale
+    self.assertTrue(daglish.is_memoizable(np.array(0)))
+    # Empty tuples are not!
+    self.assertFalse(daglish.is_memoizable(()))
+    # And neither are strings.
+    self.assertFalse(daglish.is_memoizable("Hello"))
+
   def test_cycle_detection(self):
     def traverse(value, state: daglish.State):
       return state.map_children(value)
 
     x = [1, 2, 3]
-    x.append(x)
+    x.append(x)  # pyrefly: ignore[bad-argument-type]
     with self.assertRaisesRegex(
         ValueError,
         "Fiddle detected a cycle while traversing a value: "
@@ -675,7 +684,7 @@ class MemoizedTraversalTest(absltest.TestCase):
 
   def test_cycle_detection_in_fdl_build(self):
     cfg = fdl.Config(Foo, bar=fdl.Config(Foo))
-    cfg.bar.bar = cfg  # pytype: disable=not-writable  # use-fiddle-overlay
+    cfg.bar.bar = cfg
     with self.assertRaisesRegex(
         ValueError,
         "Fiddle detected a cycle while traversing a value: "

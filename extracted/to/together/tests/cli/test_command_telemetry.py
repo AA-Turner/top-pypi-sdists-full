@@ -132,7 +132,6 @@ async def test_interactive_missing_required_argument_preserves_diagnostic(
 
     with pytest.raises(SystemExit) as exc_info:
         await launcher(
-            "beta",
             "models",
             "configs",
             api_key="0000000000000000000000000000000000000000",
@@ -146,7 +145,7 @@ async def test_interactive_missing_required_argument_preserves_diagnostic(
     ]
     failed = track_cli_capture[1][1]
     assert failed["command"] == "models configs"
-    assert failed["is_beta_command"] is True
+    assert failed["is_beta_command"] is False
     assert failed["error"] == "Missing required argument: --model"
 
 
@@ -162,7 +161,6 @@ async def test_invalid_autoscaling_preserves_diagnostic(
 
     with pytest.raises(SystemExit) as exc_info:
         await launcher(
-            "beta",
             "endpoints",
             "update",
             "dep_example",
@@ -181,7 +179,7 @@ async def test_invalid_autoscaling_preserves_diagnostic(
     ]
     failed = track_cli_capture[1][1]
     assert failed["command"] == "endpoints update"
-    assert failed["is_beta_command"] is True
+    assert failed["is_beta_command"] is False
     assert failed["error"] == "Scaling to zero requires both replica bounds"
 
 
@@ -197,7 +195,6 @@ async def test_missing_endpoint_update_option_preserves_diagnostic(
 
     with pytest.raises(SystemExit) as exc_info:
         await launcher(
-            "beta",
             "endpoints",
             "update",
             "dep_example",
@@ -212,7 +209,7 @@ async def test_missing_endpoint_update_option_preserves_diagnostic(
     ]
     failed = track_cli_capture[1][1]
     assert failed["command"] == "endpoints update"
-    assert failed["is_beta_command"] is True
+    assert failed["is_beta_command"] is False
     assert failed["error"] == "At least one endpoint update option must be specified"
 
 
@@ -230,7 +227,6 @@ async def test_model_upload_failure_preserves_diagnostic(
 
     with pytest.raises(SystemExit) as exc_info:
         await launcher(
-            "beta",
             "models",
             "upload",
             "ml_example",
@@ -247,7 +243,7 @@ async def test_model_upload_failure_preserves_diagnostic(
     ]
     failed = track_cli_capture[1][1]
     assert failed["command"] == "models upload"
-    assert failed["is_beta_command"] is True
+    assert failed["is_beta_command"] is False
     assert failed["error"] == "Model file upload failed"
     assert str(private_path) not in failed["error"]
 
@@ -265,7 +261,6 @@ async def test_model_download_validation_preserves_diagnostic(
 
     with pytest.raises(SystemExit) as exc_info:
         await launcher(
-            "beta",
             "models",
             "download",
             "ml_example@rev-a",
@@ -284,7 +279,7 @@ async def test_model_download_validation_preserves_diagnostic(
     ]
     failed = track_cli_capture[1][1]
     assert failed["command"] == "models download"
-    assert failed["is_beta_command"] is True
+    assert failed["is_beta_command"] is False
     assert failed["error"] == "Invalid model download request"
 
 
@@ -331,7 +326,7 @@ def test_unknown_option_error_telemetry_is_option_and_command(
     track_cli_capture: list[tuple[CliTrackingEvents, dict[str, Any]]],
     cli_runner: CliRunner,
 ) -> None:
-    r = cli_runner.invoke(["beta", "clusters", "create", "--not-a-real-option"])
+    r = cli_runner.invoke(["clusters", "create", "--not-a-real-option"])
     assert r.exit_code == 1
     assert _event_kinds(track_cli_capture) == [
         CliTrackingEvents.CommandStarted.value,
@@ -339,7 +334,7 @@ def test_unknown_option_error_telemetry_is_option_and_command(
     ]
     failed = track_cli_capture[1][1]
     assert failed["command"] == "clusters create"
-    assert failed["is_beta_command"] is True
+    assert failed["is_beta_command"] is False
     assert failed["error"] == 'Unknown option: "--not-a-real-option" for command "clusters create"'
     assert "Function defined in file" not in failed["error"]
     assert ".py" not in failed["error"]
@@ -350,7 +345,7 @@ def test_unknown_option_equals_value_telemetry_strips_value(
     track_cli_capture: list[tuple[CliTrackingEvents, dict[str, Any]]],
     cli_runner: CliRunner,
 ) -> None:
-    r = cli_runner.invoke(["beta", "clusters", "create", "--auth-token=hunter2secret"])
+    r = cli_runner.invoke(["clusters", "create", "--auth-token=hunter2secret"])
     assert r.exit_code == 1
     failed = track_cli_capture[1][1]
     assert failed["command"] == "clusters create"

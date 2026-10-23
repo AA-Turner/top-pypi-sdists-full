@@ -110,12 +110,23 @@ _GAP_TOL = 1e-7  # Relative eigenvalue gap below which an eigenvalue is consider
 _SHIFT = 1e-13  # Relative offset of the inverse iteration shift, to avoid an exactly singular system.
 
 
-@functools.lru_cache(maxsize=None)
 def _horn_map(device):
     r"""
     :meta private:
     Linear map (9x16 tensor) from the 9 entries of a 3x3 matrix M to the 16 entries of the symmetric 4x4 matrix N(M)
     of Horn's paper, for quaternions in XYZW convention. Its rows are orthogonal with squared norm 4.
+    """
+    # Dynamo does not support functools.lru_cache (it warns and traces the wrapped function):
+    # during compilation, the map is built within the graph instead.
+    if _is_torch_compiling():
+        return _build_horn_map(device)
+    return _cached_horn_map(device)
+
+
+def _build_horn_map(device):
+    r"""
+    :meta private:
+    Builds the linear map returned by _horn_map.
     """
     e = torch.eye(9, dtype=torch.float64).reshape(9, 3, 3)
     (m11, m12, m13), (m21, m22, m23), (m31, m32, m33) = (row.unbind(-1) for row in e.unbind(-2))
@@ -126,6 +137,9 @@ def _horn_map(device):
                         m32 - m23, m13 - m31, m21 - m12, m11 + m22 + m33], dim=-1)
     # fmt: on
     return horn.to(device)
+
+
+_cached_horn_map = functools.lru_cache(maxsize=None)(_build_horn_map)
 
 
 def _horn_matrix(M):
@@ -541,6 +555,45 @@ def special_procrustes(
     return procrustes(M, True, regularization, gradient_eps, return_singular_values, method)
 
 
+def special_procrustes_unitquat(M, gradient_eps=1e-5):
+    r"""
+    Returns the unit quaternion :math:`q` of the rotation matrix :math:`R` minimizing Frobenius norm :math:`\| M - R \|_F`,
+    i.e. the quaternion of :func:`~roma.mappings.special_procrustes` for 3x3 matrices.
+
+    The quaternion is computed directly with Horn's closed-form method (see the ``method`` argument of
+    :func:`~roma.mappings.procrustes`), without building the rotation matrix. Computations are performed in float64.
+    On devices without float64 support (MPS), the rotation matrix is computed with the SVD-based method instead,
+    and converted with :func:`~roma.mappings.rotmat_to_unitquat`.
+
+    Args:
+        M (...x3x3 tensor): batch of 3x3 matrices.
+        gradient_eps (float > 0): damping of the derivative when the solution is ill-conditioned, see :func:`~roma.mappings.procrustes`.
+    Returns:
+        batch of unit quaternions (...x4 tensor, XYZW convention). The sign of :math:`q` is arbitrary.
+    Raises:
+        ValueError: if the input matrices are not 3x3.
+    References:
+        B.K.P. Horn, “Closed-form solution of absolute orientation using unit quaternions,” Journal of the Optical Society of America A, 4(4), 1987, doi: 10.1364/JOSAA.4.000629.
+
+    Note:
+        When the nearest rotation is nearly ambiguous (relative gap between singular values of :math:`M` below :math:`10^{-7}`),
+        some optimal rotation is returned, and the derivative is damped (see ``gradient_eps``).
+    """
+    assert M.is_floating_point(), "Input should be a floating-point tensor."
+    if M.shape[-2:] != (3, 3):
+        raise ValueError("special_procrustes_unitquat is only applicable to 3x3 matrices.")
+    if not _supports_float64(M.device):
+        # In float32, the closed form returns a wrong eigenvector for relative gaps between singular values
+        # below about 3e-4 (the eigenvalue estimate is only accurate to the square root of the machine epsilon).
+        return rotmat_to_unitquat(special_procrustes(M, gradient_eps=gradient_eps, method="svd"))
+    M, batch_shape = roma.internal.flatten_batch_dims(M, -3)
+    # Under autocast, the input is cast to float32 (see procrustes).
+    M = roma.internal.autocast_to_float32(M)
+    # Damping consistent with _horn_procrustes.
+    q = _horn_eigenvector_apply(M.double(), 2 * gradient_eps).to(M.dtype)
+    return roma.internal.unflatten_batch_dims(q, batch_shape)
+
+
 def procrustes_naive(M, force_rotation: bool = False, return_singular_values: bool = False):
     r"""
     Implementation of :func:`~roma.mappings.procrustes` relying on default backward pass of autograd and SVD decomposition.
@@ -857,39 +910,30 @@ def rotmat_to_unitquat(R):
         R (...x3x3 tensor): batch of rotation matrices.
     Returns:
         batch of unit quaternions (...x4 tensor, XYZW convention).
+    References:
+        - F.L. Markley, “Unit quaternion from rotation matrix,” Journal of Guidance, Control, and Dynamics, 31(2), 2008, pp. 440-442, doi: 10.2514/1.31730.
     """
-    matrix, batch_shape = roma.internal.flatten_batch_dims(R, end_dim=-3)
-    num_rotations, D1, D2 = matrix.shape
-    assert (D1, D2) == (3, 3), "Input should be a Bx3x3 tensor."
+    assert R.shape[-2:] == (3, 3), "Input should be a ...x3x3 tensor."
 
-    # Adapted from SciPy:
-    # https://github.com/scipy/scipy/blob/7cb3d751756907238996502b92709dc45e1c6596/scipy/spatial/transform/rotation.py#L480
-
-    decision_matrix = torch.empty((num_rotations, 4), dtype=matrix.dtype, device=matrix.device)
-    decision_matrix[:, :3] = matrix.diagonal(dim1=1, dim2=2)
-    decision_matrix[:, -1] = decision_matrix[:, :3].sum(axis=1)
-    choices = decision_matrix.argmax(axis=1)
-
-    quat = torch.empty((num_rotations, 4), dtype=matrix.dtype, device=matrix.device)
-
-    ind = torch.nonzero(choices != 3, as_tuple=True)[0]
-    i = choices[ind]
-    j = (i + 1) % 3
-    k = (j + 1) % 3
-
-    quat[ind, i] = 1 - decision_matrix[ind, -1] + 2 * matrix[ind, i, i]
-    quat[ind, j] = matrix[ind, j, i] + matrix[ind, i, j]
-    quat[ind, k] = matrix[ind, k, i] + matrix[ind, i, k]
-    quat[ind, 3] = matrix[ind, k, j] - matrix[ind, j, k]
-
-    ind = torch.nonzero(choices == 3, as_tuple=True)[0]
-    quat[ind, 0] = matrix[ind, 2, 1] - matrix[ind, 1, 2]
-    quat[ind, 1] = matrix[ind, 0, 2] - matrix[ind, 2, 0]
-    quat[ind, 2] = matrix[ind, 1, 0] - matrix[ind, 0, 1]
-    quat[ind, 3] = 1 + decision_matrix[ind, -1]
-
-    quat = quat / torch.norm(quat, dim=1)[:, None]
-    return roma.internal.unflatten_batch_dims(quat, batch_shape)
+    # Markley's variant of Shepperd's method, with the notations of Markley (2008), whose attitude matrix is A = R^T,
+    # and whose quaternions q = (q1, q2, q3, q4) are in XYZW convention:
+    # each of the four vectors x^(i) = 4 q_i q (eq. 7) is computed from the entries of A (eq. 8), and q is obtained
+    # by normalizing the one corresponding to the largest q_i^2 (eq. 9), i.e. to the largest diagonal entry 4 q_i^2 (eq. 4).
+    # Unlike Shepperd's original method (computing q_i as a square root and dividing the other entries of x^(i) by 4 q_i),
+    # this returns a unit quaternion even for slightly non-orthonormal inputs.
+    # All the x^(i) are computed and the best one is selected, which avoids data-dependent indexing
+    # (device synchronizations, and graph breaks with torch.compile).
+    (a11, a12, a13), (a21, a22, a23), (a31, a32, a33) = (row.unbind(-1) for row in R.transpose(-1, -2).unbind(-2))
+    # x[..., i - 1, :] = x^(i), a symmetric 4x4 matrix equal to 4 q q^T.
+    # fmt: off
+    x = torch.stack([1 + a11 - a22 - a33, a12 + a21, a13 + a31, a23 - a32,
+                     a21 + a12, 1 + a22 - a33 - a11, a23 + a32, a31 - a13,
+                     a31 + a13, a32 + a23, 1 + a33 - a11 - a22, a12 - a21,
+                     a23 - a32, a31 - a13, a12 - a21, 1 + a11 + a22 + a33], dim=-1).unflatten(-1, (4, 4))
+    # fmt: on
+    i = x.diagonal(dim1=-2, dim2=-1).argmax(dim=-1)
+    x_i = torch.gather(x, -2, i[..., None, None].expand(*i.shape, 1, 4))[..., 0, :]
+    return x_i / torch.norm(x_i, dim=-1, keepdim=True)
 
 
 def rotvec_to_rotmat(rotvec: torch.Tensor, epsilon=1e-6) -> torch.Tensor:

@@ -195,10 +195,10 @@ class ArgFactory:
   # of `ArgFactory(list)` is `ArgFactory`, but the declared type is `list`.
   # (Without the overload, we'd get an annotation-type-mismatch error.)
   @overload
-  def __new__(cls, factory: Callable[..., T]) -> T:
+  def __new__(cls, factory: Callable[..., T]) -> T:  # pyrefly: ignore[invalid-overload]
     ...
 
-  def __new__(cls, *args, **kwargs):
+  def __new__(cls, /, *args, **kwargs):
     del args, kwargs  # Unused
     return super().__new__(cls)
 
@@ -332,7 +332,7 @@ class _InvokeArgFactoryWrapper:
 
   func: Callable[..., Any]
 
-  def __call__(self, *args, **kwargs):
+  def __call__(self, /, *args, **kwargs):
     args = tuple(_arg_factory_value(arg) for arg in args)
     kwargs = {key: _arg_factory_value(arg) for (key, arg) in kwargs.items()}
     return self.func(*args, **kwargs)
@@ -406,7 +406,7 @@ def supply_defaults(wrapped_func):
 # `default_factory` is `ArgFactory`, but the declared type is `list`.
 # (Without the overload, we'd get an annotation-type-mismatch error.)
 @overload
-def default_factory(factory: Callable[..., T]) -> T:
+def default_factory(factory: Callable[..., T]) -> T:  # pyrefly: ignore[invalid-overload]
   ...
 
 

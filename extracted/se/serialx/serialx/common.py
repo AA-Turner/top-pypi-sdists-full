@@ -14,6 +14,7 @@ import dataclasses
 from enum import Enum
 import functools
 import io
+import itertools
 import logging
 import os.path
 from pathlib import Path
@@ -1528,6 +1529,83 @@ def get_serial_classes(
     """Get the appropriate serial and transport classes based on the URL scheme."""
     handler = get_uri_handler(url)
     return handler.sync_cls, handler.async_transport_cls
+
+
+# USB serial numbers known to be shared by many devices
+NON_UNIQUE_SERIAL_NUMBERS = frozenset(
+    # Windows appends an `A` to FTDI serial numbers so both spellings are seen
+    set(
+        itertools.chain.from_iterable(
+            (serial + "", serial + "A")
+            for serial in {
+                # Counterfeit FT232R (0403:6001) chips have no writable EEPROM
+                "A50285BI",
+                "A5XK3RJT",
+                "A5XK3RJJ",
+                "A5069RR4",
+                "FTB6SPL3",
+                "A601CKQK",
+                "A400DE3U",
+                "00000000",
+                "0000000",
+                # FT232RL reels sold at a discount, likely factory rejects
+                "DUT",
+                # TivaWare CDC example, Solo motor controllers, an FT232R batch
+                "12345678",
+                # ZiGate+ (FT230X, 0403:6015), programmed with the product name
+                "ZIGATE+",
+                # TI CC25xx USB stack (CC2531, CC2540), also seen on FT232R clones
+                "001",
+            }
+        )
+    )
+    | {
+        # Unprogrammed Silicon Labs CP210x default, kept by some vendors (early Sonoff
+        # ZBDongle-P batches, Zooz ZST10-700, SiK telemetry radios) and by CP2102 clones
+        "0001",
+        # CP2102 programmed identically by NTREX for every STELLA AHRS
+        "1234",
+        # STM32 CubeMX CDC VCP default descriptor
+        "00000000001A",
+        # ESP32-S2 ROM download mode
+        "0",
+        # Older esp_tinyusb default descriptor
+        "123456",
+        # Microchip MCP2221 with serial number enumeration enabled but unset
+        "0000000000",
+        # Raspberry Pi Pico SDK `PICO_NO_FLASH` builds, with no flash ID to read
+        "EEEEEEEEEEEEEEEE",
+        # Arduino ATmega32U4 PluggableUSB, built from the interface letters
+        "HIDFG",
+        # Android boards (HiKey960) with an unset serial, seen by adb
+        "0123456789ABCDEF",
+        # Z-Wave.Me UZB1 firmware
+        "12345678-9012-3456-7890-123456789012",
+        # VESC on ChibiOS, which reports the kernel version as the serial number
+        "301",
+        "304",
+        # Linux USB gadget scripts (Milk-V Duo, Librem 5, Zynq boards, Ubiquiti)
+        "0123456789",
+        # Some RP2040 firmwares (PicoMite, MicroPython builds)
+        "000000000000",
+        # Dangerous Prototypes PIC firmware (USB IR Toy, LCD Backpack)
+        "00000001",
+        # WQ9201S and WQ9101 Wi-Fi modules
+        "123456789",
+        # Generic placeholders seen across unrelated USB devices
+        "000000000001",
+        "1234567890",
+        "000000000000000000000000",
+    }
+)
+
+
+def is_non_unique_serial(serial_number: str | None) -> bool:
+    """Whether a serial number fails to tell a device apart from identical ones."""
+    if serial_number is None or not serial_number.strip():
+        return True
+
+    return serial_number in NON_UNIQUE_SERIAL_NUMBERS
 
 
 @dataclasses.dataclass

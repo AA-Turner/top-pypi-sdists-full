@@ -22,44 +22,39 @@ message template.
 
 Git fields (`git_branch`, `git_short_hash`, ...) are resolved at runtime by
 shelling out to `git`, with two fallbacks for `git`-less environments: a
-pre-baked `__<field>__` dunder in the CLI module (injected before build by
-{mod}`click_extra.prebake`), then a committed `.git_archival.json` populated
-by `git archive`.
+pre-baked `__<field>__` dunder in the CLI module or its package (injected before
+build by {mod}`click_extra.prebake`), then a committed `.git_archival.json`
+populated by `git archive`.
 """
 
 from __future__ import annotations
 
 import copy
-import importlib
 import inspect
 import json
 import logging
 import os
-import platform
 import re
 import shutil
-import subprocess
 import sys
-import sysconfig
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from email.utils import getaddresses
 from functools import cached_property
 from gettext import gettext as _
-from importlib import metadata
 from pathlib import Path
 
 import click
-from boltons.formatutils import BaseFormatField, tokenize_format_str
 from click import echo, get_current_context
 from click._utils import UNSET
-from extra_platforms import current_architecture, current_platform
 
 # CLI_ECOSYSTEM_PACKAGES is bound under a private name so this module's
 # namespace does not resurrect the moved constant: its canonical home is
 # click_extra._utils, and the public `version.CLI_ECOSYSTEM_PACKAGES` spelling
 # resolves through the deprecation hook below.
-from ._utils import CLI_ECOSYSTEM_PACKAGES as _CLI_ECOSYSTEM_PACKAGES, memoize_enums
+from ._utils import (
+    CLI_ECOSYSTEM_PACKAGES as _CLI_ECOSYSTEM_PACKAGES,
+    memoize_enums,
+)
 from .color import invocation_color, is_a_tty
 from .context import ACCESSIBLE, _LazyMetaDict, get
 from .layout import cell_width, pad_to
@@ -68,7 +63,12 @@ from .styling import Style
 from .theme import get_current_theme
 
 MUTED = Style(fg="bright_black")
-"""The recessive style the version screen gives its tagline and its fact labels."""
+"""The recessive style of what a version message says beside its name and version.
+
+The tagline and the fact labels of a {class}`VersionScreen` take it, and so do
+the template fields that locate a build rather than identify it: the repository
+path, the commit date, the build facts and the environment profile.
+"""
 
 
 def is_main_module(module_name: str) -> bool:
@@ -99,6 +99,9 @@ def distribution_of(package_name: str | None) -> str | None:
     if not package_name:
         logger.debug("No package name provided.")
         return None
+
+    # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+    from importlib import metadata
 
     # `package_name` already matches an installed distribution.
     try:
@@ -203,6 +206,9 @@ def run_git(
     commands use meaningfully: `git status --porcelain` prints nothing for a
     clean work tree, and that is distinct from the command failing.
     """
+    # Deferred import: keeps subprocess off the startup path of every CLI.
+    import subprocess
+
     try:
         result = subprocess.run(
             ["git", *args],
@@ -342,6 +348,9 @@ def resolve_build_time() -> str:
 
 def resolve_build_os() -> str:
     """The operating system the build runs on."""
+    # Deferred import: keeps extra_platforms off the startup path of every CLI.
+    from extra_platforms import current_platform
+
     return current_platform().name
 
 
@@ -354,11 +363,17 @@ def resolve_build_target() -> str:
     `macosx-15.0-arm64` says the binary needs macOS 15, where
     {func}`~click_extra.version.resolve_build_os` only says it was built on macOS.
     """
+    # Deferred import: keeps sysconfig off the startup path of every CLI.
+    import sysconfig
+
     return sysconfig.get_platform()
 
 
 def resolve_build_target_arch() -> str:
     """The CPU architecture the build runs on."""
+    # Deferred import: keeps extra_platforms off the startup path of every CLI.
+    from extra_platforms import current_architecture
+
     return current_architecture().name
 
 
@@ -384,6 +399,16 @@ only thing that ever writes these. A field left unbaked stays empty, and its
 
 Adding a field here is a one-line edit, with no matching change in the CLI.
 """
+
+
+def dunder_name(field_id: str) -> str:
+    """The module-level name a pre-baked template field is stored under.
+
+    `git_branch` is baked as `__git_branch__`: the one spelling
+    {class}`VersionOption` reads back, and `click-extra prebake` writes. Keeping
+    the contract in one place is what lets the two sides stay agreed.
+    """
+    return f"__{field_id}__"
 
 
 def find_archival_file(start: Path) -> Path | None:
@@ -481,6 +506,9 @@ def resolve_distribution(names: Iterable[str]) -> str | None:
     pick a distribution from a set of plausible spellings (for example the
     program name with `-` / `_` variants) before reading its metadata.
     """
+    # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+    from importlib import metadata
+
     for name in names:
         if not name:
             continue
@@ -526,6 +554,9 @@ def resolve_author(meta: PackageMetadata | None) -> str | None:
     # back to the raw value when no name part is present.
     contact = meta_value(meta, "Author-email", "Maintainer-email")
     if contact:
+        # Deferred import: keeps email.utils off the startup path of every CLI.
+        from email.utils import getaddresses
+
         names = [n for n, _addr in getaddresses([contact]) if n]
         return ", ".join(names) if names else contact
 
@@ -561,6 +592,9 @@ def resolve_license(meta: PackageMetadata | None) -> str | None:
 
 def platform_label() -> str:
     """Current platform and CPU architecture, as displayed to the user."""
+    # Deferred import: keeps extra_platforms off the startup path of every CLI.
+    from extra_platforms import current_architecture, current_platform
+
     return f"{current_platform().name} {current_architecture().name}"
 
 
@@ -571,6 +605,9 @@ def env_summary() -> str:
     a CLI that would rather spend one line of its plain `--version` on them than
     draw a screen at all: `@version_option(fields={"env_info": env_summary()})`.
     """
+    # Deferred import: keeps platform off the startup path of every CLI.
+    import platform
+
     return f"Python {platform.python_version()}, {platform_label()}"
 
 
@@ -585,6 +622,9 @@ def dependency_versions() -> str:
     Read from the installed distributions rather than the packages' own
     `__version__`, which Click deprecated in `8.4.0` and removes in `9.1`.
     """
+    # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+    from importlib import metadata
+
     return ", ".join(
         f"{name.capitalize()} {metadata.version(name)}" for name in ("click", "cloup")
     )
@@ -602,19 +642,13 @@ def default_facts() -> dict[str, str]:
     default_facts() | {"Docs": DOCS_URL}           # appends, at the end
     ```
     """
+    # Deferred import: keeps platform off the startup path of every CLI.
+    import platform
+
     return {
         "Python": platform.python_version(),
         "Platform": platform_label(),
     }
-
-
-def visible_width(text: str) -> int:
-    """Cells *text* occupies once its escape sequences are discounted.
-
-    Kept as the name this module has always measured with;
-    {func}`~click_extra.layout.cell_width` is where the measure lives.
-    """
-    return cell_width(text)
 
 
 @dataclass(frozen=True)
@@ -628,8 +662,13 @@ class VersionScreen:
     `default_params(screen=…)`.
     """
 
-    logo: str | Sequence[str]
-    """The mark, pre-rendered. A string is split on newlines."""
+    logo: str | Sequence[str] | Callable[[], str | Sequence[str]]
+    """The mark, pre-rendered, or a callable producing it. A string splits on newlines.
+
+    A callable defers the rendering to the first `--version` that draws the
+    screen, as {attr}`facts` does for its values: a mark painted by code, from
+    an image say, then costs nothing to the invocations that never ask for it.
+    """
 
     tagline: str = ""
     """One line under the program name. Omitted, with its blank line, when empty."""
@@ -645,6 +684,11 @@ class VersionScreen:
     gutter: str = "   "
     """Blank columns between the mark and the facts, and between label and value."""
 
+    def _artwork(self) -> list[str]:
+        """The lines of the mark, as its renderer produced them."""
+        logo = self.logo() if callable(self.logo) else self.logo
+        return logo.split("\n") if isinstance(logo, str) else list(logo)
+
     @property
     def lines(self) -> tuple[str, ...]:
         """The mark's lines, every one padded out to {attr}`width`.
@@ -655,15 +699,14 @@ class VersionScreen:
         cannot repair that afterwards: {func}`~click_extra.layout.pad_to` is
         what measures a styled line right and closes the style it left open.
         """
-        raw = self.logo.split("\n") if isinstance(self.logo, str) else list(self.logo)
-        width = self.width
+        raw = self._artwork()
+        width = max((cell_width(line) for line in raw), default=0)
         return tuple(pad_to(line, width) for line in raw)
 
     @property
     def width(self) -> int:
         """Columns the mark occupies, taken from its widest line."""
-        raw = self.logo.split("\n") if isinstance(self.logo, str) else self.logo
-        return max((visible_width(line) for line in raw), default=0)
+        return max((cell_width(line) for line in self._artwork()), default=0)
 
     def rows(self, prog_name: str, version: str, styles: Mapping[str, IStyle | None]):
         """The column of facts, as (plain, styled) pairs.
@@ -828,21 +871,21 @@ class VersionOption(ExtraOption):
         "package_version": theme_slot("success"),
         "exec_name": theme_slot("invoked_command"),
         "version": theme_slot("success"),
-        "git_repo_path": Style(fg="bright_black"),
+        "git_repo_path": MUTED,
         "git_branch": Style(fg="cyan"),
         "git_long_hash": Style(fg="yellow"),
         "git_short_hash": Style(fg="yellow"),
-        "git_date": Style(fg="bright_black"),
+        "git_date": MUTED,
         "git_tag": Style(fg="cyan"),
         "git_tag_sha": Style(fg="yellow"),
         "git_distance": theme_slot("success"),
         "git_dirty": Style(fg="red"),
-        "build_time": Style(fg="bright_black"),
-        "build_os": Style(fg="bright_black"),
-        "build_target": Style(fg="bright_black"),
-        "build_target_arch": Style(fg="bright_black"),
+        "build_time": MUTED,
+        "build_os": MUTED,
+        "build_target": MUTED,
+        "build_target_arch": MUTED,
         "prog_name": theme_slot("invoked_command"),
-        "env_info": Style(fg="bright_black"),
+        "env_info": MUTED,
     }
     """Default style for each template field.
 
@@ -960,7 +1003,14 @@ class VersionOption(ExtraOption):
 
         :param field_id: Name of the template field to pin.
         :param value: Value the field reports from now on.
+        :raises TypeError: when `field_id` names no template field.
         """
+        if field_id not in self.template_fields:
+            msg = (
+                f"Unknown version field {field_id!r}."
+                f" Must be one of {self.template_fields}."
+            )
+            raise TypeError(msg)
         setattr(self, field_id, value)
         self._field_overrides = self._field_overrides | {field_id}
 
@@ -1029,8 +1079,10 @@ class VersionOption(ExtraOption):
 
         candidate: FrameType | None = None
 
-        # Walk the execution stack from bottom to top.
-        for frame_info in inspect.stack():
+        # Walk the execution stack from bottom to top. No source context is
+        # asked for: the walk reads each frame's module and function name only,
+        # and `--version` is eager, so every CLI pays for this walk at startup.
+        for frame_info in inspect.stack(0):
             frame = frame_info.frame
 
             # Get the current package name from the frame's globals.
@@ -1059,8 +1111,13 @@ class VersionOption(ExtraOption):
                 return candidate
 
             # Skip the intermediate frames added by the `@cached_property` decorator
-            # and the Click ecosystem.
-            if frame_name and frame_name.split(".", 1)[0] in _CLI_ECOSYSTEM_PACKAGES:
+            # and the Click ecosystem. An entry point is never plumbing, whichever
+            # package it sits under: `click_extra.__main__` is Click Extra's own CLI.
+            if (
+                frame_name
+                and frame_name.split(".", 1)[0] in _CLI_ECOSYSTEM_PACKAGES
+                and not is_main_module(frame_name)
+            ):
                 continue
 
             # We found a frame that is not part of the Click ecosystem, and is not an
@@ -1068,17 +1125,15 @@ class VersionOption(ExtraOption):
             # which the user's CLI is implemented.
             return frame
 
-        # Our heuristics to locate the CLI implementation failed. Fall back to
-        # the outermost frame in the stack. This happens in Nuitka-compiled
-        # binaries where the entry point module's `__name__` may be a
-        # submodule of the Click ecosystem package (like
-        # `click_extra.__main__`) and all frames get skipped.
+        # Our heuristics to locate the CLI implementation failed: every frame
+        # belongs to the Click ecosystem, and none is an entry point. Fall back to
+        # the outermost frame in the stack.
         count_size = len(str(len(frame_chain)))
         for counter, (p_name, f_name) in enumerate(frame_chain):
             logger.debug(f"Frame {counter:<{count_size}} # {p_name}:{f_name}")
 
         # The outermost frame is the last one returned by inspect.stack().
-        outermost = inspect.stack()[-1].frame
+        outermost = inspect.stack(0)[-1].frame
         logger.debug(
             "cli_frame heuristics exhausted, falling back to outermost frame: "
             f"{outermost.f_globals.get('__name__')}:{outermost.f_code.co_name}"
@@ -1100,6 +1155,10 @@ class VersionOption(ExtraOption):
         `--version` used to render the version of whichever ecosystem package
         owned the runner (`None`, once `click_extra.sphinx` resolved to no
         installed distribution) in place of the CLI's own.
+
+        A launcher is the other shape. A console script or a compiled binary whose
+        entry point is a command object, like `orchard.cli:cli`, leaves no frame of
+        that module on the stack: the walk ends on the launcher itself.
 
         A command's callback names its defining module directly and needs no
         stack, so it settles the case the walk cannot see. Returns `None` when the
@@ -1125,50 +1184,37 @@ class VersionOption(ExtraOption):
         if not module:
             raise RuntimeError(f"Cannot find module of {frame!r}")
 
-        # If the module is a generated entry point script (like .venv/bin/cli-name),
-        # try to find the actual CLI module.
-        if module.__name__ == "__main__" and not module.__package__:
-            module_file = getattr(module, "__file__", None)
-            if module_file:
-                module_path = Path(module_file)
-                # Entry points are typically in bin/ or Scripts/ directories.
-                if module_path.parent.name in ("bin", "Scripts"):
-                    script_name = module_path.name
-
-                    # Try to find the package via entry_points API.
-                    actual_module = self._resolve_entry_point_module(script_name)
-                    if actual_module:
-                        return actual_module
-
-                    # Fallback: inspect frame globals for imported callables.
-                    actual_module = self._resolve_module_from_frame(frame)
-                    if actual_module:
-                        return actual_module
-
-        # The walk ended on ecosystem plumbing that no installed distribution
-        # provides, so it never found the CLI at all: it ran out of user frames
-        # and stopped on the runner that invoked an imported command. Defer to
-        # that command's own callback module, which needs no stack.
+        # The walk can stop on a frame that only leads to the CLI. Defer then to
+        # the module of the root command's callback, which needs no stack.
         #
-        # Both halves of the test matter. A runner living in a real distribution
-        # (`click.testing`, `click_extra.testing`) still answers as it always
-        # has, which is what a CLI declared in the module driving the runner
-        # relies on. Only a runner under a subpackage that resolves to nothing
-        # (`click_extra.sphinx`, which the `click:run` directive invokes through)
-        # reaches the fallback.
+        # A packageless `__main__` is such a frame when it launches a command
+        # object of another module: a console script in a `bin/` folder, or the
+        # runner Nuitka compiles for `--main-entry-point`. A standalone script
+        # declares its command in that same `__main__`, and gets it back.
         #
-        # An entry point is excluded outright, because the distribution test
+        # Ecosystem plumbing that no installed distribution provides is the other
+        # case: the walk ran out of user frames and stopped on the runner that
+        # invoked an imported command. Both halves of that test matter. A runner
+        # living in a real distribution (`click.testing`, `click_extra.testing`)
+        # still answers as it always has, which is what a CLI declared in the
+        # module driving the runner relies on. Only a runner under a subpackage
+        # that resolves to nothing (`click_extra.sphinx`, which the `click:run`
+        # directive invokes through) reaches the fallback.
+        #
+        # An entry point with a package is never deferred. The distribution test
         # cannot see it: a Nuitka binary ships no metadata at all, so
         # `distribution_of()` answers `None` for the CLI's own package too.
-        # Click Extra's own binary starts in `click_extra.__main__`, and trading
+        # Click Extra's own binary resolves to `click_extra.__main__`, and trading
         # that for the callback's module costs it the {func}`is_main_module`
-        # exemption `module_version` needs to read the pre-baked `__version__`
+        # exemption `_package_dunder()` needs to read the pre-baked `__version__`
         # off the parent package.
-        if (
+        launcher = module.__name__ == "__main__" and not module.__package__
+        plumbing = (
             not is_main_module(module.__name__)
             and module.__name__.split(".", 1)[0] in _CLI_ECOSYSTEM_PACKAGES
             and distribution_of(module.__package__) is None
-        ):
+        )
+        if launcher or plumbing:
             ctx = click.get_current_context(silent=True)
             if ctx is not None:
                 from_command = self.command_module(ctx)
@@ -1176,36 +1222,6 @@ class VersionOption(ExtraOption):
                     return from_command
 
         return module
-
-    @staticmethod
-    def _resolve_entry_point_module(script_name: str) -> ModuleType | None:
-        """Resolve the module from a console_scripts entry point name."""
-        # Search through all entry points in the 'console_scripts' group.
-        eps = metadata.entry_points()
-
-        console_scripts = eps.select(group="console_scripts")
-
-        for ep in console_scripts:
-            if ep.name == script_name:
-                # ep.value is like "click_extra.__main__:main".
-                module_name = ep.value.split(":")[0]
-                if module_name in sys.modules:
-                    return sys.modules[module_name]
-                return importlib.import_module(module_name)
-
-        return None
-
-    @staticmethod
-    def _resolve_module_from_frame(frame: FrameType) -> ModuleType | None:
-        """Fallback: find module from callables in frame's globals."""
-        for obj in frame.f_globals.values():
-            if callable(obj) and hasattr(obj, "__module__"):
-                actual_module_name = obj.__module__
-                if actual_module_name in sys.modules:
-                    actual_module = sys.modules[actual_module_name]
-                    if getattr(actual_module, "__package__", None):
-                        return actual_module
-        return None
 
     @cached_property
     def module_name(self) -> str:
@@ -1250,25 +1266,10 @@ class VersionOption(ExtraOption):
                     callback_globals = getattr(callback, "__globals__", {})
                     version = callback_globals.get("__version__")
 
-        # If still not found, check the parent package. This handles
-        # `__main__` entry points where `__version__` is defined in
-        # the package's `__init__.py` (like Nuitka-compiled binaries).
-        # Skip modules belonging to the Click ecosystem because
-        # `cli_frame()` may resolve to a CliRunner frame instead of
-        # the user's module, producing false-positive lookups. `__main__`
-        # modules are always entry points (never CliRunner artifacts), so
-        # they are exempt from the exclusion.
-        if (
-            version is None
-            and self.package_name
-            and (
-                is_main_module(self.module_name)
-                or self.module_name.split(".", 1)[0] not in _CLI_ECOSYSTEM_PACKAGES
-            )
-        ):
-            parent = sys.modules.get(self.package_name)
-            if parent:
-                version = getattr(parent, "__version__", None)
+        # If still not found, read it off the package, whose `__init__.py` holds
+        # it for a CLI that sits in a sibling module.
+        if version is None:
+            version = self._package_dunder("__version__")
 
         if version is not None and not isinstance(version, str):
             raise ValueError(
@@ -1280,6 +1281,27 @@ class VersionOption(ExtraOption):
     def package_name(self) -> str | None:
         """Returns the package name."""
         return self.module.__package__
+
+    def _package_dunder(self, name: str) -> Any:
+        """Read *name* off the package of the CLI module, or `None`.
+
+        `__version__` and the dunders `click-extra prebake all` writes live in the
+        `__init__.py` of the package, while the CLI usually sits in a module beside
+        it, like `__main__` or `cli`.
+
+        The package is read only when the walk found the CLI's own module: an entry
+        point {func}`is_main_module` recognizes, or any module outside
+        `CLI_ECOSYSTEM_PACKAGES`. A walk that stops on the `invoke()` of a
+        `CliRunner` lands in the ecosystem, and reading the package there would
+        report Click Extra's own values for the CLI under test.
+        """
+        if not self.package_name or not (
+            is_main_module(self.module_name)
+            or self.module_name.split(".", 1)[0] not in _CLI_ECOSYSTEM_PACKAGES
+        ):
+            return None
+        parent = sys.modules.get(self.package_name)
+        return getattr(parent, name, None) if parent else None
 
     @cached_property
     def _distribution_name(self) -> str | None:
@@ -1307,6 +1329,9 @@ class VersionOption(ExtraOption):
         Returns `None` if the package is not installed or cannot be
         resolved.
         """
+        # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+        from importlib import metadata
+
         name = self._distribution_name
         return metadata.version(name) if name else None
 
@@ -1319,6 +1344,9 @@ class VersionOption(ExtraOption):
         resolved distribution (see `_distribution_name`). Returns
         `None` when the package is not installed or cannot be resolved.
         """
+        # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+        from importlib import metadata
+
         name = self._distribution_name
         return metadata.metadata(name) if name else None
 
@@ -1349,15 +1377,16 @@ class VersionOption(ExtraOption):
     def exec_name(self) -> str:
         """User-friendly name of the executed CLI.
 
-        Returns the module name. But if the later is `__main__`, returns the package
-        name.
+        Returns the module name. But if the module is a `__main__` entry point,
+        returns the package name: `python -m` runs it as `__main__`, while a console
+        script or a compiled binary imports it as `package.__main__`.
 
         If not packaged, the CLI is assumed to be a simple standalone script, and the
         returned name is the script's file name (including its extension). Code with
         no file, like a CLI run by `python -c`, keeps the `__main__` module name.
         """
         # The CLI has its own module.
-        if self.module_name != "__main__":
+        if not is_main_module(self.module_name):
             return self.module_name
 
         # The CLI module is a `__main__` entry-point, so returns its package name.
@@ -1399,21 +1428,29 @@ class VersionOption(ExtraOption):
                 return f"{ver}+{git_hash}"
         return ver or None
 
+    @property
+    def _search_start(self) -> Path:
+        """Where the walks for a Git repository and an archival file start.
+
+        The directory of the CLI module, or the working directory for a module
+        with no file, like the `__main__` of `python -c`. Read on each call
+        rather than cached: the working directory is free to change between two.
+        """
+        if self.module_file:
+            return Path(self.module_file).parent
+        return Path.cwd()
+
     @cached_property
     def git_repo_path(self) -> Path | None:
-        """Find the Git repository root directory."""
-        if self.module_file:
-            # Start from the module's directory.
-            current_path = Path(self.module_file).parent
-        else:
-            # Fallback to current working directory.
-            current_path = Path.cwd()
+        """Find the Git repository root directory.
 
-        # Walk up the directory tree to find .git.
-        for path in [current_path] + list(current_path.parents):
+        Walks up from `_search_start` to the first directory holding a `.git`
+        entry.
+        """
+        start = self._search_start
+        for path in (start, *start.parents):
             if (path / ".git").exists():
                 return path
-
         return None
 
     def _run_git_command(self, *args: str) -> str | None:
@@ -1423,17 +1460,18 @@ class VersionOption(ExtraOption):
         return run_git(*args, cwd=self.git_repo_path)
 
     def _get_prebaked(self, field_id: str) -> str | None:
-        """Check the CLI module for a pre-baked `__<field_id>__` dunder.
+        """Read a pre-baked `__<field_id>__` dunder of the CLI.
 
-        Returns the dunder's value if it is a non-empty string, otherwise
-        `None`.
+        Checks the CLI module, then its package, where `click-extra prebake all`
+        writes the dunders: see {meth}`_package_dunder`. Returns the first
+        non-empty string, otherwise `None`.
         """
-        dunder_name = f"__{field_id}__"
-        value = getattr(self.module, dunder_name, None)
-        # `isinstance` first so mypy narrows `value` from `Any` to `str`
-        # for the return; the `and value` keeps only non-empty strings.
-        if isinstance(value, str) and value:
-            return value
+        name = dunder_name(field_id)
+        for value in (getattr(self.module, name, None), self._package_dunder(name)):
+            # `isinstance` first so mypy narrows `value` from `Any` to `str`
+            # for the return; the `and value` keeps only non-empty strings.
+            if isinstance(value, str) and value:
+                return value
         return None
 
     @cached_property
@@ -1447,11 +1485,7 @@ class VersionOption(ExtraOption):
         checkout holds the raw placeholders and yields nothing here, so live
         `git` calls take precedence and this is consulted only as a fallback.
         """
-        if self.module_file:
-            start = Path(self.module_file).parent
-        else:
-            start = Path.cwd()
-        path = find_archival_file(start)
+        path = find_archival_file(self._search_start)
         return read_archival(path) if path else {}
 
     def _resolve_uniform_git_field(self, field_id: str) -> str | None:
@@ -1701,6 +1735,9 @@ class VersionOption(ExtraOption):
 
         default_style = self.field_style()
 
+        # Deferred import: keeps boltons.formatutils off the startup path of every CLI.
+        from boltons.formatutils import BaseFormatField, tokenize_format_str
+
         # Split the template semantically between fields and literals.
         segments = tokenize_format_str(template, resolve_pos=False)
 
@@ -1772,6 +1809,9 @@ class VersionOption(ExtraOption):
 
         if template is None:
             template = self.colored_template()
+
+        # Deferred import: keeps boltons.formatutils off the startup path of every CLI.
+        from boltons.formatutils import BaseFormatField, tokenize_format_str
 
         # Only resolve fields that actually appear in the template, so unused
         # properties (git calls, env_info, etc.) are never evaluated.
@@ -1883,8 +1923,10 @@ def __getattr__(name: str) -> Any:
     """Resolve deprecated `version` symbols via the PEP 562 `__getattr__` hook.
 
     The `CLI_ECOSYSTEM_PACKAGES` constant moved to {mod}`click_extra._utils`,
-    which the deprecation `stacklevel` walk reads it from too. Fires only for
-    names not defined in this module. See {mod}`click_extra._deprecated`.
+    which the deprecation `stacklevel` walk reads it from too, and
+    `visible_width` is {func}`click_extra.layout.cell_width`, the measure every
+    line of terminal text is sized with. Fires only for names not defined in
+    this module. See {mod}`click_extra._deprecated`.
     """
     from ._deprecated import resolve_deprecated
 

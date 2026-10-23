@@ -161,6 +161,16 @@ def _telemetry_off(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _no_hosted_recording(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No tap hook a test runs may ask a Probe service to record its session
+    (plan A2): the developer's real one included. Tests of hosted recording
+    turn it back on themselves."""
+    monkeypatch.setenv("PROBE_TAP_HOSTED", "0")
+    # Nor may a service a test starts install the OS keeper (D35) for this account.
+    monkeypatch.setenv("PROBE_SERVICE_KEEPER", "0")
+
+
+@pytest.fixture(autouse=True)
 def _no_real_takeover_wait(monkeypatch: pytest.MonkeyPatch) -> None:
     """A relaunch onto a `running` incumbent now WAITS (2.3), up to 300 s by
     default, for the fake server to call it silent. Every test that opens a
@@ -555,6 +565,9 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # the status line into `$CLAUDE_CONFIG_DIR/settings.json`, so a developer
     # who exports it would otherwise have tests editing their real Claude Code.
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    # CLAUDE_CODE_PLUGIN_CACHE_DIR moves Claude Code's install ledger, which an
+    # update test reads to refresh the skills (`root_skills.refresh`).
+    monkeypatch.delenv("CLAUDE_CODE_PLUGIN_CACHE_DIR", raising=False)
     # PI_CODING_AGENT_DIR, likewise: an update test reaching the pi step would
     # run a real `pi update` against a developer's own pi install.
     monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)

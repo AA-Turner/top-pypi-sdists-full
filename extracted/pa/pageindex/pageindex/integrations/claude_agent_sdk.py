@@ -251,7 +251,7 @@ def _drop_probe_reaped(record) -> bool:
     watcher logs this for an exit code nobody reads. Matched on the ending
     every child watcher's wording shares, which LiteLLM's redaction filter on
     the same logger keeps when it renders the message first."""
-    # ponytail: drops this one message process-wide, not only for the probe;
+    # drops this one message process-wide, not only for the probe;
     # remove once the SDK stops terminating an exited probe
     return not (isinstance(record.msg, str)
                 and record.msg.endswith("will report returncode 255"))
@@ -320,7 +320,9 @@ async def claude_code_messages(prompt, options):
                 if isinstance(message, AssistantMessage) and message.error:
                     kind = message.error
                 elif isinstance(message, ResultMessage) and message.is_error:
-                    raise _run_error(message, kind, options.max_turns)
+                    from ..local_chat import _claude_code_usage, _with_usage
+                    raise _with_usage(_run_error(message, kind, options.max_turns),
+                                      _claude_code_usage(message.usage))
                 yield message
     except PageIndexAPIError:
         raise
@@ -341,9 +343,9 @@ async def claude_code_complete(model: str, prompt: str,
     """One indexing prompt on the claude-code/ route: no tools, one turn.
     Every failure is final — the CLI already retried what it could — and
     only a 400 stays per-prompt, for the indexing callers to absorb."""
-    from ..utils import LLMRetriesExhausted
+    from ..utils import LLMRetriesExhausted, _add_usage_counts
     loop = asyncio.get_running_loop()
-    # ponytail: one cap per event loop; submits on separate threads each get their own
+    # one cap per event loop; submits on separate threads each get their own
     entry = _GATES.setdefault(loop, [asyncio.Semaphore(CLAUDE_CODE_CONCURRENCY), 0])
     entry[1] += 1
     reply = ""
@@ -354,7 +356,10 @@ async def claude_code_complete(model: str, prompt: str,
             async for message in claude_code_messages(prompt, options):
                 if isinstance(message, ResultMessage):
                     reply = message.result or ""
+                    from ..local_chat import _claude_code_usage
+                    _add_usage_counts(_claude_code_usage(message.usage))
     except Exception as exc:
+        _add_usage_counts(getattr(exc, "usage", None) or {})
         # anything unmapped is final too: a bare error would read as a
         # per-node miss and quietly leave fallback summaries
         raise LLMRetriesExhausted(

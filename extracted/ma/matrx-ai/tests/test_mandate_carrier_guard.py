@@ -24,8 +24,9 @@ from matrx_ai.orchestrator.mandate_carrier import (
     MANDATE_CARRIED_UNRESOLVED_KIND,
     MANDATE_HOLDER_METADATA_KEY,
     MANDATE_SCAN_SOURCE_APP,
+    HOLDER_CARRIER_MARKER,
+    HolderCarrier,
     carrier_for,
-    mandate_carrier_passthrough,
     note_mandate_carrier,
 )
 
@@ -141,13 +142,35 @@ def test_blank_mandate_key_is_not_a_carrier(recorded: list[dict[str, Any]]) -> N
 
 
 def test_one_row_per_code_path(recorded: list[dict[str, Any]]) -> None:
-    """Ten thousand extract steps are one fact, not ten thousand rows."""
-    for _ in range(5):
-        note_mandate_carrier(_Config("gpt-4o-mini"))
-    assert len(recorded) == 1
-    # A different model on the same line is a different fact and is reported.
-    note_mandate_carrier(_Config("claude-opus-5"))
-    assert len(recorded) == 2
+    """Ten thousand extract steps are one fact, not ten thousand rows — and every one is COUNTED.
+
+    Each sighting reaches the host door as a GROUPED capture keyed on the code path (``route``): the door
+    keeps ONE open row per path and bumps its ``context.occurrences`` (matrx-orm ``record_error(group_open=)``,
+    proven in ``packages/matrx-orm/tests/test_record_error_group_open.py``). A per-process set alone re-filed
+    the same path once per process and deploy: 56 rows for 2 lines in 12 hours (2026-10-22)."""
+    for model in ("gpt-4o-mini",) * 5 + ("claude-opus-5",):
+        note_mandate_carrier(_Config(model))
+    assert len(recorded) == 6, "every sighting is counted"
+    assert all(r.get("group_open") is True for r in recorded), "one open row per code path, at the door"
+    # A different model on the same line is the same code path: counted on the same row.
+    assert len({r["route"] for r in recorded}) == 1
+
+
+def test_a_door_without_grouping_still_records(monkeypatch) -> None:
+    """A client host's record_error that takes no ``group_open`` still gets the row (never a lost alarm)."""
+    rows: list[dict[str, Any]] = []
+
+    def _plain(exc: BaseException, *, kind: str, error_type: str, error_text: str, source_app: str,
+               source_feature: str, route: str, user_id: Any, organization_id: Any, conversation_id: Any,
+               request_id: Any, payload: dict[str, Any]) -> None:
+        rows.append({"kind": kind, "route": route})
+
+    monkeypatch.setitem(_ext._registry, "record_error", _plain)
+    monkeypatch.setattr(mandate_carrier, "_context", lambda: None)
+    mandate_carrier.reset_reported_signatures()
+    note_mandate_carrier(_Config("gpt-4o-mini"))
+    mandate_carrier.reset_reported_signatures()
+    assert [r["kind"] for r in rows] == [MANDATE_BYPASS_KIND]
 
 
 def test_context_carriers(monkeypatch) -> None:
@@ -176,12 +199,12 @@ def test_gate_never_raises(recorded: list[dict[str, Any]]) -> None:
     assert note_mandate_carrier(object()) is not None  # no .model attribute at all
 
 
-def test_passthrough_declaration_requires_a_reason() -> None:
-    with pytest.raises(ValueError):
-        mandate_carrier_passthrough("  ")
+def test_the_holder_carrier_types_the_value_and_changes_nothing() -> None:
+    """The retired function-wide decorator is gone; the value that carries the
+    Holder is typed instead, and the type is an inert ``Annotated``."""
+    from typing import Annotated, get_args, get_origin
 
-    @mandate_carrier_passthrough("its caller supplies the Holder")
-    def _funnel() -> None:
-        return None
-
-    assert _funnel.__mandate_carrier_passthrough__ == "its caller supplies the Holder"
+    assert not hasattr(mandate_carrier, "mandate_carrier_passthrough")
+    carried = HolderCarrier[dict[str, Any] | None]
+    assert get_origin(carried) is Annotated
+    assert get_args(carried) == (dict[str, Any] | None, HOLDER_CARRIER_MARKER)

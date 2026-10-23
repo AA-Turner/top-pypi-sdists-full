@@ -18,6 +18,20 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
+from .adf_related import (
+    RelatedAdfActivity,
+    RelatedAdfDataflow,
+    RelatedAdfDataset,
+    RelatedAdfLinkedservice,
+    RelatedAdfPipeline,
+)
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -46,20 +60,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .adf_related import (
-    RelatedAdfActivity,
-    RelatedAdfDataflow,
-    RelatedAdfDataset,
-    RelatedAdfLinkedservice,
-    RelatedAdfPipeline,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -704,6 +704,7 @@ def _adf_dataset_to_nested(adf_dataset: AdfDataset) -> AdfDatasetNested:
         is_incomplete=adf_dataset.is_incomplete,
         provenance_type=adf_dataset.provenance_type,
         home_id=adf_dataset.home_id,
+        delete_handler=adf_dataset.delete_handler,
         depth=adf_dataset.depth,
         immediate_upstream=adf_dataset.immediate_upstream,
         immediate_downstream=adf_dataset.immediate_downstream,
@@ -750,6 +751,7 @@ def _adf_dataset_from_nested(nested: AdfDatasetNested) -> AdfDataset:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -773,10 +775,7 @@ def _adf_dataset_from_nested_bytes(data: bytes, serde: Serde) -> AdfDataset:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 AdfDataset.ADF_DATASET_TYPE = KeywordField("adfDatasetType", "adfDatasetType")
 AdfDataset.ADF_DATASET_ANNOTATIONS = KeywordField(

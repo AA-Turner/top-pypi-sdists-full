@@ -2,7 +2,7 @@
 
 [project]
 name = "pact-python"
-version = "4.1.0"
+version = "4.2.0"
 description = "Tool for creating and verifying consumer-driven contracts using the Pact framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -41,7 +41,7 @@ requires-python = ">=3.11"
 # - A minor version address vulnerability which directly impacts Pact Python
 dependencies = [
   # Pact dependencies
-  "pact-python-ffi~=0.5.0",
+  "pact-python-ffi~=0.5.12",
   "typing-extensions~=4.0 ; python_version < '3.13'",
   # External dependencies
 ]
@@ -53,11 +53,14 @@ dependencies = [
   issues = "https://github.com/pact-foundation/pact-python/issues"
   source = "https://github.com/pact-foundation/pact-python"
 
+  [project.entry-points.pytest11]
+  pact = "pact.testing.pytest"
+
 [dependency-groups]
 # Linting and formatting tools use a more narrow specification to ensure
 # developper consistency. All other dependencies are as above.
 dev = [
-  "ruff==0.17.1",
+  "ruff==0.17.2",
   { include-group = "docs" },
   { include-group = "example" },
   { include-group = "test" },
@@ -76,8 +79,9 @@ docs = [
   "mkdocs-llmstxt==0.5.1",
   "mkdocs-material[recommended,git,imaging]==9.7.7",
   "mkdocs-section-index==0.3.12",
-  "mkdocstrings[python]==1.0.7",
+  "mkdocstrings[python]==1.0.8",
   "pathspec==1.1.1",
+  "pygments-ansi-color==0.3.0",
 ]
 example = [
   "fastapi~=0.0",
@@ -170,7 +174,7 @@ __version_tuple__ = version_tuple = tuple(
       dependency-groups = ["test"]
 
         [[tool.hatch.envs.test.matrix]]
-        python = ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        python = ["3.11", "3.12", "3.13", "3.14", "3.15", "3.15t"]
 
       [tool.hatch.envs.example]
       installer = "uv"
@@ -178,7 +182,7 @@ __version_tuple__ = version_tuple = tuple(
       dependency-groups = ["example"]
 
         [[tool.hatch.envs.example.matrix]]
-        python = ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        python = ["3.11", "3.12", "3.13", "3.14", "3.15", "3.15t"]
 
   [tool.pytest]
   addopts = [
@@ -267,7 +271,7 @@ __version_tuple__ = version_tuple = tuple(
     ]
 
     [tool.typos.files]
-    extend-exclude = ["*.svg"]
+    extend-exclude = ["*.ansi", "*.svg"]
 
   [tool.uv]
     [tool.uv.sources]

@@ -9,7 +9,7 @@ from matrx_ai.tools.executor import ToolExecutor
 
 
 def test_successful_db_trace_always_retains_result_preview() -> None:
-    tree = ast.parse(textwrap.dedent(stable_source(ToolExecutor.execute)))
+    tree = ast.parse(textwrap.dedent(stable_source(ToolExecutor._execute_pipeline)))
     ok_trace_calls = [
         node
         for node in ast.walk(tree)

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: kaggle
-Version: 2.2.4
+Version: 2.2.5
 Summary: Access Kaggle resources anywhere
 Project-URL: Homepage, https://github.com/Kaggle/kaggle-cli
 Project-URL: Issues, https://github.com/Kaggle/kaggle-cli/issues
@@ -213,8 +213,9 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
 Requires-Dist: bleach
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: jupytext
-Requires-Dist: kagglesdk<1.0,>=0.1.35
+Requires-Dist: kagglesdk<1.0,>=0.1.38
 Requires-Dist: packaging
 Requires-Dist: protobuf
 Requires-Dist: python-dateutil

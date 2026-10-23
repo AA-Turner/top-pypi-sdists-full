@@ -838,8 +838,7 @@ def test_create_dag_with_task_auto_retry_attempts(schema):
             op.drop(dag)
 
 
-# warnings are suppressed when we run tests in notebooks and stored procs
-@pytest.mark.skip_notebook
+# warnings are suppressed when we run tests in stored procs
 @pytest.mark.skip_storedproc
 def test_dag_with_user_task_managed_initial_warehouse_size_raises_deprecation_warning(schema):
     dag_name = random_object_name()
@@ -852,7 +851,6 @@ def test_dag_with_user_task_managed_initial_warehouse_size_raises_deprecation_wa
         )
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_child_task_with_error_integration_raises_deprecation_warning(schema):
     dag_name = random_object_name()
@@ -865,7 +863,6 @@ def test_child_task_with_error_integration_raises_deprecation_warning(schema):
         assert "error_integration cannot be specified for a child Task." in str(w[-1].message)
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_drop_with_drop_finalizer_as_false_raises_deprecation_warning(schema):
     with DAG("dag") as dag:

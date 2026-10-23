@@ -15,6 +15,8 @@ pub(crate) const HOST_TOKEN_LENGTH: usize = 16;
 pub(crate) const MINIMUM_HEARTBEAT_SECONDS: f64 = 0.01;
 /// What a Recall closing notice says is the only thing affected.
 pub(crate) const RECALL_HISTORY: &str = "Recall history";
+/// The database the ClickHouse client takes as none, so the server uses the user's default: a store whose database is missing connects with it to create or report the database.
+pub(crate) const SERVER_DEFAULT_DATABASE: &str = "__default__";
 /// The compute-log stream index of stdout; every other output index is stderr.
 pub(crate) const STDOUT_STREAM_INDEX: usize = 0;
 pub(crate) const RECALL_DISABLED_CODE: &str = "C970";
@@ -100,6 +102,9 @@ pub(crate) const CLOSE_POLL_MS: u64 = 50;
 pub(crate) const QUARANTINE_START_WAIT_MS: u64 = 200;
 /// The ClickHouse error name of a query naming a relation that does not exist yet.
 pub(crate) const UNKNOWN_TABLE_ERROR: &str = "UNKNOWN_TABLE";
+/// `sqb recall query` runs read-only: the setting, and the value that still allows query settings. Not sent when the session is already read-only.
+pub(crate) const READONLY_SETTING: &str = "readonly";
+pub(crate) const READ_ONLY_QUERIES: i64 = 2;
 /// Seconds in a day, for the artifact refresh cutoff.
 pub(crate) const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 /// The parameter a lifecycle-event sink takes its event in.

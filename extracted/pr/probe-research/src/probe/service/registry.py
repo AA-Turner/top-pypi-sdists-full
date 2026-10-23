@@ -60,6 +60,10 @@ class Session:
     heartbeat_at: float
     #: False once the owner's exit was seen. Unknown (unreadable start) counts as live.
     owner_live: bool = True
+    #: The session's own state folder (`$XDG_STATE_HOME/probe`, or the default)
+    #: when its registrant said (plan D13): where its daemon worker, its runs
+    #: and a setup it started keep their locks. None: an older registrant.
+    state_dir: str | None = None
 
     def alive(self, now: float, ttl: float) -> bool:
         if self.mode == Mode.OFF:
@@ -88,6 +92,7 @@ class Session:
             "generation": self.generation,
             "registered_at": self.registered_at,
             "heartbeat_at": self.heartbeat_at,
+            "state_dir": self.state_dir,
         }
 
 
@@ -120,6 +125,35 @@ class Registry:
         """Is a live session registered in daemon mode (its worker recording)?"""
         now = self.clock()
         return any(s.mode == Mode.DAEMON and s.alive(now, self.ttl) for s in self.sessions.values())
+
+    def daemon_unseen(self) -> bool:
+        """Is a live daemon-mode session registered WITHOUT its state folder?
+        Its worker's lock may sit where the updater cannot look (an older
+        registrant under XDG_STATE_HOME), so only the registration says a
+        worker records."""
+        now = self.clock()
+        return any(
+            s.mode == Mode.DAEMON and s.state_dir is None and s.alive(now, self.ttl) for s in self.sessions.values()
+        )
+
+    def live_sids(self) -> set:
+        """The ids of every live session."""
+        now = self.clock()
+        return {s.sid for s in self.sessions.values() if s.alive(now, self.ttl)}
+
+    def state_dirs(self) -> set:
+        """Every live session's state folder its registrant named (plan D13)."""
+        now = self.clock()
+        return {s.state_dir for s in self.sessions.values() if s.state_dir and s.alive(now, self.ttl)}
+
+    def owners(self) -> dict:
+        """`{(owner pid, owner start time): session}` of every live session with an owner."""
+        now = self.clock()
+        return {
+            (s.owner["pid"], s.owner["start_time"]): s
+            for s in self.sessions.values()
+            if s.owner is not None and s.alive(now, self.ttl)
+        }
 
     def listing(self) -> list[dict]:
         now = self.clock()
@@ -160,7 +194,7 @@ class Registry:
                 )
 
     def register(
-        self, sid: str, harness: str, mode: str, owner: dict | None, generation: int
+        self, sid: str, harness: str, mode: str, owner: dict | None, generation: int, state_dir: str | None = None
     ) -> Registration:
         self._refuse_stale(sid, generation)
         now = self.clock()
@@ -170,14 +204,15 @@ class Registry:
             current.harness = harness
             current.mode = mode
             current.heartbeat_at = now
+            current.state_dir = state_dir
             self.save()
             return Registration(Outcome.REFRESHED, current)
         if owner is not None and self.owner_alive(owner["pid"], owner["start_time"]) is False:
             # Never stored: a dead owner cannot hold the service, and storing it
             # would only wait for an exit event that already happened.
-            dead = Session(sid, harness, mode, owner, generation, now, now, owner_live=False)
+            dead = Session(sid, harness, mode, owner, generation, now, now, owner_live=False, state_dir=state_dir)
             return Registration(Outcome.DEAD, dead, current)
-        session = Session(sid, harness, mode, owner, generation, now, now)
+        session = Session(sid, harness, mode, owner, generation, now, now, state_dir=state_dir)
         self.sessions[sid] = session
         self.tombstones.pop(sid, None)
         self.save()
@@ -265,6 +300,7 @@ class Registry:
                     generation=int(raw["generation"]),
                     registered_at=float(raw["registered_at"]),
                     heartbeat_at=float(raw["heartbeat_at"]),
+                    state_dir=raw["state_dir"] if isinstance(raw.get("state_dir"), str) else None,
                 )
             except (KeyError, TypeError, ValueError):
                 continue

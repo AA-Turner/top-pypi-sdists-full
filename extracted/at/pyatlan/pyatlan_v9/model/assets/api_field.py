@@ -19,8 +19,17 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
+from .api_related import RelatedAPIField, RelatedAPIObject, RelatedAPIQuery
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
     _ASSET_REL_FIELDS,
@@ -47,15 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .api_related import RelatedAPIField, RelatedAPIObject, RelatedAPIQuery
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -803,6 +803,7 @@ def _api_field_to_nested(api_field: APIField) -> APIFieldNested:
         is_incomplete=api_field.is_incomplete,
         provenance_type=api_field.provenance_type,
         home_id=api_field.home_id,
+        delete_handler=api_field.delete_handler,
         depth=api_field.depth,
         immediate_upstream=api_field.immediate_upstream,
         immediate_downstream=api_field.immediate_downstream,
@@ -849,6 +850,7 @@ def _api_field_from_nested(nested: APIFieldNested) -> APIField:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

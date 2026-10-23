@@ -17,6 +17,7 @@ from snowflake.snowpark_connect import tcm
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.error.exceptions import MissingDatabase, MissingSchema
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.telemetry import telemetry
 from snowflake.snowpark_connect.utils.upload_java_jar import (
     JAVA_UDFS_JAR_NAME,
@@ -122,8 +123,9 @@ def _build_fully_qualified_name(session: Session, name: str) -> list[str]:
     ``name`` is empty, because Snowflake cannot resolve the object without a full
     qualifier context.
     """
-    db = session.get_current_database()
-    schema = session.get_current_schema()
+    with scos_internal_query_tag():
+        db = session.get_current_database()
+        schema = session.get_current_schema()
 
     if not name:
         exception = ValueError(
@@ -207,11 +209,15 @@ def cached_udf(
     return_type: Optional[DataType] = None,
     imports: Optional[List[Union[str, Tuple[str, str]]]] = None,
     packages: Optional[List[Union[str, ModuleType]]] = None,
+    force_inline_code: bool = False,
 ):
     """
     A drop-in replacement for Snowpark's `udf` that caches the UDF in the active session.
 
     The UDF is cached based on its name and input types. Make sure any new cached functions are unique.
+
+    ``force_inline_code`` keeps a closure larger than Snowpark's 8 KB inline
+    limit in the CREATE FUNCTION body instead of uploading a zip to the stage.
     """
     packages = _packages(packages)
     imports, packages = _isolate_builtin_imports_packages(imports, packages)
@@ -243,6 +249,7 @@ def cached_udf(
             packages=packages,
             is_permanent=False,
             replace=True,
+            **({"force_inline_code": True} if force_inline_code else {}),
         )
 
         with _lock:

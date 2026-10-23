@@ -24,14 +24,28 @@ cycle.
 
 from __future__ import annotations
 
+import sys
 from contextlib import contextmanager
 from enum import Enum
-from importlib import metadata
+from functools import cache
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator, Iterator
+    from importlib.metadata import EntryPoint
     from typing import Any
+
+
+IS_WINDOWS: bool = sys.platform.startswith("win32")
+"""Whether the running platform is Windows, as `extra_platforms.is_windows()` says.
+
+Mirrors that function's own `sys.platform` test instead of calling it, for the
+two places that cannot wait for a deferred import of `extra_platforms`: the
+module-level prompt sigil of {mod}`click_extra.execution`, and the environment
+variable names {func}`click_extra.envvar.merge_envvar_ids` computes for every
+option at decoration time. Every other platform check in the package goes
+through `extra_platforms`, imported where it is used.
+"""
 
 CLI_ECOSYSTEM_PACKAGES = frozenset({"functools", "click_extra", "cloup", "click"})
 """Top-level packages that never implement the *user's* CLI.
@@ -65,19 +79,47 @@ def exception_chain(exc: BaseException | None) -> Iterator[BaseException]:
         exc = exc.__cause__ or exc.__context__
 
 
+def console_script(name: str) -> EntryPoint | None:
+    """The `console_scripts` entry point installed under `name`, or `None`.
+
+    Its `module` and `attr` name the callable the script runs, which is how a
+    generated script in a `bin/` folder is traced back to the package behind it.
+    """
+    # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+    from importlib import metadata
+
+    for entry_point in metadata.entry_points(group="console_scripts", name=name):
+        return entry_point
+    return None
+
+
+@cache
+def package_version() -> str | None:
+    """The installed version of Click Extra, or `None` without distribution metadata.
+
+    Metadata is missing from an uninstalled source tree and from a compiled binary
+    shipping none. Cached: the answer holds for the life of the process, and the
+    documents Click Extra generates stamp it on each of their pages.
+    """
+    # Deferred import: keeps importlib.metadata off the startup path of every CLI.
+    from importlib import metadata
+
+    try:
+        return metadata.version("click-extra")
+    except metadata.PackageNotFoundError:
+        return None
+
+
 def generator_tag() -> str:
     """Provenance tag for generated artifacts: `Click Extra <version>`.
 
     Stamped into the header comments of the documents Click Extra generates
-    from a CLI (man pages, Carapace completion specs). This is Click Extra's
-    *own* version (the generator), not the documented CLI's version. Falls back
-    to the bare name when the distribution metadata is unavailable (such as
-    running from an uninstalled source tree).
+    from a CLI (man pages, Carapace completion specs, captures). This is Click
+    Extra's *own* version (the generator), not the documented CLI's version.
+    Falls back to the bare name when {func}`package_version` answers `None`.
     """
-    try:
-        return f"Click Extra {metadata.version('click-extra')}"
-    except metadata.PackageNotFoundError:
-        return "Click Extra"
+    version = package_version()
+    return f"Click Extra {version}" if version else "Click Extra"
 
 
 def memoize_enums(obj: object, memo: dict[int, Any], *also: Enum) -> None:
@@ -140,7 +182,7 @@ def missing_extra_message(
 
 
 @contextmanager
-def patch_attr(obj: object, name: str, value: Any) -> Iterator[None]:
+def patch_attr(obj: object, name: str, value: Any) -> Generator[None, None, None]:
     """Temporarily set `obj.name` to `value`, restoring the original on exit.
 
     A minimal, dependency-free stand-in for `unittest.mock.patch.object` for

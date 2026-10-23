@@ -2,11 +2,10 @@ import json
 from typing import Any, List, Union, cast
 from typing_extensions import Annotated
 
-import httpx
 import pytest
 import pydantic
 
-from ours_privacy import BaseModel, OursPrivacy, AsyncOursPrivacy
+from ours_privacy import BaseModel, OursPrivacy, AsyncOursPrivacy, httpx
 from ours_privacy._response import (
     APIResponse,
     BaseAPIResponse,

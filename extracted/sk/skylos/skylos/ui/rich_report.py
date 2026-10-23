@@ -10,6 +10,15 @@ from rich.table import Table
 from rich.tree import Tree
 
 from skylos.deadcode.confidence import confidence_detail
+from skylos.reporting.advice_display import (
+    ADVICE_PRIORITY_NOTE,
+    advice_display_counts,
+    advice_priority,
+    combine_complexity_advice,
+    complexity_display,
+    group_advice_for_display,
+)
+from skylos.reporting.advice_policy import prepare_advice_view
 from skylos.reporting.assessment_display import (
     assessment_coverage_text,
     assessment_rows,
@@ -18,9 +27,7 @@ from skylos.reporting.assessment_display import (
 )
 from skylos.reporting.finding_types import (
     get_finding_type,
-    group_advice,
     iter_result_findings,
-    summarize_finding_types,
 )
 from skylos.reporting.rollups import FINDING_SECTIONS
 from skylos.ui.dead_code_evidence import (
@@ -190,12 +197,16 @@ def _fit_side_columns(console, fixed_widths, optional):
 
 
 def _finding_type_headline(result):
-    counts = summarize_finding_types(result)
+    counts = advice_display_counts(result)
     defect_label = "defect" if counts["defect"] == 1 else "defects"
     group_label = "group" if counts["advice_groups"] == 1 else "groups"
+    advice = f"{counts['advice']} advice"
+    if counts["raw_advice"] != counts["advice"]:
+        entry_label = "entry" if counts["advice"] == 1 else "entries"
+        advice += f" {entry_label} ({counts['raw_advice']} findings)"
     return (
         f"{counts['defect']} {defect_label} · {counts['review']} review · "
-        f"{counts['advice']} advice in {counts['advice_groups']} {group_label}"
+        f"{advice} in {counts['advice_groups']} {group_label}"
     )
 
 
@@ -212,7 +223,10 @@ def _finding_view(result, finding_type):
                 (id(finding), section == "custom_rules"), section
             )
     view = defaultdict(list)
-    for category, finding in iter_result_findings(result):
+    rows = iter_result_findings(result)
+    if finding_type == "advice":
+        rows = combine_complexity_advice(rows)
+    for category, finding in rows:
         if get_finding_type(finding, category) == finding_type:
             section = source_sections.get(
                 (id(finding), category == "custom_rules"), "quality"
@@ -222,6 +236,8 @@ def _finding_view(result, finding_type):
 
 
 def _finding_severity(item, category):
+    if get_finding_type(item, category) == "advice":
+        return advice_priority(item, category)
     default = "LOW" if category.startswith("unused_") else "MEDIUM"
     if category == "analysis_errors":
         default = "HIGH"
@@ -232,7 +248,12 @@ def _finding_severity(item, category):
 
 def _finding_table_cells(item, category, root_path=None):
     """Keep category-specific evidence in a consistent finding table."""
-    rule = str(item.get("rule_id") or item.get("rule") or "")
+    complexity = complexity_display(item)
+    rule = (
+        complexity.rule_label
+        if complexity is not None
+        else str(item.get("rule_id") or item.get("rule") or "")
+    )
     name = str(item.get("name") or item.get("simple_name") or "")
     details = []
     if category.startswith("unused_"):
@@ -326,8 +347,12 @@ def _finding_table_cells(item, category, root_path=None):
     file_path = item.get("file") or item.get("file_path") or item.get("basename")
     line = item.get("line") or item.get("line_number") or item.get("lineno") or 1
     location = f"{_shorten_path(file_path, root_path)}:{line}"
-    rule_name = _display_rule_name(
-        rule, default=str(item.get("kind") or "Finding").replace("_", " ").title()
+    rule_name = (
+        complexity.name
+        if complexity is not None
+        else _display_rule_name(
+            rule, default=str(item.get("kind") or "Finding").replace("_", " ").title()
+        )
     )
     return rule, rule_name, "\n".join(details), location
 
@@ -346,8 +371,10 @@ def _render_finding_table(console, root_path, limit, title, items, category):
     )
     table = Table(expand=True)
     table.add_column("Type", width=6, overflow="fold")
+    advice_only = all(get_finding_type(item, category) == "advice" for item in show)
+    priority_label = "Advice priority" if advice_only else "Severity"
     if "severity" in columns:
-        table.add_column("Severity", width=9, overflow="fold")
+        table.add_column(priority_label, width=9, overflow="fold")
     table.add_column("Rule", width=rule_width, overflow="fold")
     table.add_column("Message", overflow="fold")
     if "location" in columns:
@@ -358,7 +385,7 @@ def _render_finding_table(console, root_path, limit, title, items, category):
         if "severity" in columns:
             row.append(escape(severity))
         else:
-            detail += f"\nSeverity: {severity}"
+            detail += f"\n{priority_label}: {severity}"
         row.extend([escape(f"{name}\n{rule}"), escape(detail)])
         if "location" in columns:
             row.append(escape(location))
@@ -374,20 +401,20 @@ def _render_finding_table(console, root_path, limit, title, items, category):
 
 
 def _render_advice_groups(console, result, *, root_path=None, limit=None):
-    groups = group_advice(result)
+    groups = group_advice_for_display(result)
     if not groups:
         return
     console.rule("[bold]Advice")
     table = Table(expand=True)
     table.add_column("Type", width=6)
-    table.add_column("Severity", width=9, overflow="fold")
+    table.add_column("Advice priority", width=15, overflow="fold")
     table.add_column("Rule", width=20, overflow="fold")
     table.add_column("Count", width=5, justify="right")
     table.add_column("Top files", overflow="fold")
     show, overflow = _display_cap(groups, limit)
     for group in show:
         counts = Counter(
-            str(finding.get("severity") or "MEDIUM").upper()
+            advice_priority(finding, "quality")
             for finding in group["findings"]
         )
         severities = ", ".join(sorted(counts))
@@ -414,7 +441,7 @@ def _render_advice_groups(console, result, *, root_path=None, limit=None):
             f"  [muted]... and {overflow} more advice groups (use --limit to adjust)[/muted]"
         )
     console.print(
-        "[muted]Use --expand-advice for every location and message, or --format json for complete findings.[/muted]"
+        "[muted]Use --expand-advice for every location and message, or --format json for full records.[/muted]"
     )
     console.print()
 
@@ -458,7 +485,9 @@ def _render_analysis_errors(
     affected_label = "file" if affected_file_count == 1 else "files"
     error_label = "error" if error_count == 1 else "errors"
     coverage = (result.get("analysis_summary") or {}).get("analysis_coverage")
-    blocking = not isinstance(coverage, dict) or coverage.get("exit_blocking") is not False
+    blocking = (
+        not isinstance(coverage, dict) or coverage.get("exit_blocking") is not False
+    )
     if blocking:
         console.print(
             Panel.fit(
@@ -625,11 +654,15 @@ def _render_grade(console: Console, grade_data, *, copy_badge: bool = True):
         grade_table.add_row(display_name, s_str, l_str, w_pct, escape(issue))
 
     console.print(grade_table)
-    console.print("[muted]Historical result; this score is not a current risk assessment.[/muted]")
+    console.print(
+        "[muted]Historical result; this score is not a current risk assessment.[/muted]"
+    )
     console.print()
 
 
-def _render_assessment(console: Console, assessment, *, gate=None, analysis_summary=None):
+def _render_assessment(
+    console: Console, assessment, *, gate=None, analysis_summary=None
+):
     table = Table(title="Scan assessment", expand=True)
     table.add_column("Area", style="bold", width=16)
     table.add_column("Result", overflow="fold")
@@ -642,13 +675,15 @@ def _render_assessment(console: Console, assessment, *, gate=None, analysis_summ
     checks = maintainability_rows(assessment)
     if checks:
         maintenance = Table(title="Maintainability measurements", expand=True)
-        maintenance.add_column("Check", width=12)
+        maintenance.add_column("Rule", width=12)
         maintenance.add_column("Spread", overflow="fold")
         maintenance.add_column("Magnitude", overflow="fold")
         for row in checks:
             maintenance.add_row(*(escape(value) for value in row))
         console.print(maintenance)
-    console.print("[muted]Risk includes Defect and Review findings; review evidence before acting.[/muted]")
+    console.print(
+        "[muted]Risk includes Defect and Review findings; review evidence before acting.[/muted]"
+    )
     console.print()
 
 
@@ -718,6 +753,13 @@ def _structure_detail(quality, value, limit):
 
 
 def _quality_detail(quality):
+    complexity = complexity_display(quality)
+    if complexity is not None:
+        return (
+            complexity.name,
+            quality.get("name") or quality.get("simple_name") or "<?>",
+            complexity.message,
+        )
     raw_kind = quality.get("kind") or quality.get("metric") or "quality"
     func = quality.get("name") or quality.get("simple_name") or "<?>"
     value = quality.get("value")
@@ -796,8 +838,10 @@ def _render_result_tree(console: Console, result, root_path=None):
             file = str(finding.get("file") or finding.get("file_path") or "?")
             line = finding.get("line") or finding.get("lineno") or 1
             severity = _finding_severity(finding, category)
+            finding_type = get_finding_type(finding, category)
+            priority_label = "Advice priority" if finding_type == "advice" else "Severity"
             msg = (
-                f"Type: {get_finding_type(finding, category).title()}  Severity: {severity}\n"
+                f"Type: {finding_type.title()}  {priority_label}: {severity}\n"
                 f"{rule} · {name}\n{detail}\n{location}"
             )
             by_file[file].append((line, severity.lower(), escape(msg)))
@@ -970,7 +1014,11 @@ def render_results(
     *,
     copy_badge: bool = True,
     expand_advice: bool = False,
+    all_advice: bool = False,
 ):
+    result, visibility = prepare_advice_view(
+        result, project_root=root_path, all_advice=all_advice
+    )
     summ = result.get("analysis_summary", {})
     console.print(
         Panel.fit(
@@ -1034,6 +1082,11 @@ def render_results(
             "[muted]Architecture advice describes maintainability; gate decisions use "
             "your configured limits. To list signals, add --format concise.[/muted]"
         )
+    from skylos.reporting.typing_coverage import typing_coverage_text
+
+    annotation_summary = typing_coverage_text(summ)
+    if annotation_summary:
+        console.print(escape(annotation_summary), style="muted")
     if result.get("quality"):
         console.print(
             "[muted]Quality thresholds: tune in "
@@ -1042,6 +1095,10 @@ def render_results(
             )
             + "[/muted]"
         )
+    if visibility.message:
+        console.print(escape(visibility.message), style="muted")
+    if advice_display_counts(result)["advice"]:
+        console.print(ADVICE_PRIORITY_NOTE, style="muted")
     for note in scope_note_lines(result):
         console.print(f"[muted]{escape(note)}[/muted]")
     console.print()
@@ -1064,7 +1121,9 @@ def render_results(
         )
     elif grade_data:
         _render_grade(console, grade_data, copy_badge=copy_badge)
-    if summ.get("assessment_includes_filtered_findings") or summ.get("grade_includes_filtered_findings"):
+    if summ.get("assessment_includes_filtered_findings") or summ.get(
+        "grade_includes_filtered_findings"
+    ):
         label = "Assessment" if assessment else "Grade"
         console.print(
             f"[muted]{label} includes all analyzed findings, including those outside this display.[/muted]"

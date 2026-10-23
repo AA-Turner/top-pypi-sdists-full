@@ -42,6 +42,8 @@ import torch
 from spmd_types import _state
 from spmd_types._coverage import _cov, _coverage, _mark_asserted, _touch  # noqa: F401
 from spmd_types._mesh_axis import MeshAxis
+from spmd_types._mesh_region import check_reinterpret_mesh_compatible
+from spmd_types._reinterpret_mesh import _format_axis_set
 from spmd_types._type_attr import _LOCAL_TYPE_ATTR, get_local_type
 from spmd_types.runtime import (
     _PARTITION_SPEC_ATTR,
@@ -123,6 +125,32 @@ def _maybe_spec(spec: PartitionSpec | None) -> PartitionSpec | None:
     if spec is None or all(e is None for e in spec):
         return None
     return spec
+
+
+def _on_current_mesh(
+    value: torch.Tensor | NdimWithSpmdType, what: object
+) -> torch.Tensor | NdimWithSpmdType:
+    """``value``, or a stand-in retagged onto the current mesh when ``value``
+    is typed on a foreign mesh presentation.
+
+    The ``rules`` counterpart of the dispatcher's cross-mesh auto-reinterpret
+    (``_auto_reinterpret_cross_mesh``): an opaque kernel's operands reach its
+    hook directly, never passing through a torch op that would retag them.
+    """
+    mesh = _state.current_mesh()
+    local_type = get_local_type(value)
+    if mesh is None or local_type.keys() <= mesh:
+        return value
+    try:
+        new_type, new_spec = check_reinterpret_mesh_compatible(
+            local_type, mesh, get_partition_spec(value)
+        )
+    except SpmdTypeError as e:
+        raise SpmdTypeError(
+            f"{what}: cannot auto-reinterpret {_format_axis_set(local_type.keys())} "
+            f"onto the current mesh {_format_axis_set(mesh)}. {e}"
+        ) from e
+    return _make(value.ndim, new_type, new_spec)
 
 
 # =============================================================================
@@ -529,6 +557,10 @@ def einsum(
     eq = _parse_equation(equation)
     groups = _linear_groups(linear_in, len(operands))
     _touch(*operands)
+    operands = tuple(
+        _on_current_mesh(v, f"rules.einsum: {equation!r}: operand {i}")
+        for i, v in enumerate(operands)
+    )
     labels, ell_rank = _bind_einsum(eq, operands)
     out_labels = eq.output.expand(ell_rank)
     label_axes, partial_axes = _einsum_label_axes(eq, operands, labels, set(out_labels))
@@ -579,12 +611,15 @@ class _Transition:
             f"src={self.src!r}, dst={self.dst!r})"
         )
 
-    def _accepts_src(self, actual: PerMeshAxisLocalSpmdType) -> bool:
+    def _accepts_src(self, actual: PerMeshAxisLocalSpmdType, *, no_grad: bool) -> bool:
         # Unlike the runtime collectives, no implicit V -> P: a rule that
         # reduces a Varying value must say src=V, so the reinterpret is on
         # record.  A hook that accepted V under src=P would type a kernel
         # summing unrelated shards as if it had completed a contraction.
-        return actual is to_local_type(self.src)
+        # R and I differ only in backward, so an input that cannot receive a
+        # gradient may stand in for either.
+        expected = to_local_type(self.src)
+        return actual is expected or (no_grad and {actual, expected} == {R, I})
 
 
 def _check_pair(
@@ -653,7 +688,8 @@ def _transition(  # noqa: C901
 
     ``allowed`` describes the operation-specific ``src``/``dst`` pairs.  Once
     that declaration and ``x`` are validated, the transition checks that
-    ``x`` actually has ``src`` on ``axis``.  An axis not yet present on ``x``
+    ``x`` actually has ``src`` on ``axis``; a tensor that cannot receive a
+    gradient may be ``R`` where ``src`` is ``I`` or vice versa.  An axis not yet present on ``x``
     is established as ``src``.  A sharded source also refines an existing
     unqualified ``V`` to ``S(i)``; a singleton axis needs no stored annotation
     and skips this check.
@@ -675,8 +711,16 @@ def _transition(  # noqa: C901
             f"rules.{kind}: expected a tensor or NdimWithSpmdType, got {type(x).__name__}"
         )
     _touch(x)
+    given = x
+    no_grad = isinstance(x, torch.Tensor) and not (
+        torch.is_grad_enabled() and x.requires_grad
+    )
     tr = _Transition(kind, axis, src, dst)
     mesh_axis = normalize_axis(axis)
+    if mesh_axis not in get_local_type(x):
+        # An axis already on ``x`` names ``x``'s own mesh presentation;
+        # retagging would erase it.
+        x = _on_current_mesh(x, tr)
     ndim = x.ndim
     src_c = _canonicalize_shard(src, ndim)
     dst_c = _canonicalize_shard(dst, ndim)
@@ -699,7 +743,7 @@ def _transition(  # noqa: C901
     local_type = dict(get_local_type(x))
     spec = get_partition_spec(x)
     actual = local_type[mesh_axis]
-    if not tr._accepts_src(actual):
+    if not tr._accepts_src(actual, no_grad=no_grad):
         raise SpmdTypeError(
             f"{tr!r} expects its input to be {src!r} on axis "
             f"{format_axis(mesh_axis)}, but it is {actual!r}"
@@ -735,7 +779,14 @@ def _transition(  # noqa: C901
     )
     ndim, new_spec = _rank_change(tr, ndim, new_spec)
     if out is x and out.ndim == ndim:
-        mutate_type(out, axis, src=src, dst=dst)
+        mutate_type(
+            out, axis, src=src if actual is to_local_type(src) else actual, dst=dst
+        )
+        _set_partition_spec(out, new_spec)
+    elif out is given and out.ndim == ndim:
+        # In place on a retagged input: the buffer itself moves onto the
+        # current mesh.
+        _set_local_type(out, dict(local_type))
         _set_partition_spec(out, new_spec)
     return _finish(_make(ndim, local_type, new_spec), out)
 

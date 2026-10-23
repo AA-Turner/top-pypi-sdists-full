@@ -113,12 +113,11 @@ def create_tab(data):
         valid = group.dropna(subset=[pred_col, obs_col])
         metrics_row.clear()
         if len(valid) >= 3:
-            from scipy.stats import pearsonr
-            from sklearn.metrics import mean_squared_error, mean_absolute_error
+            from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
             obs = valid[obs_col].values
             pred = valid[pred_col].values
-            r2 = pearsonr(obs, pred)[0] ** 2
+            r2 = r2_score(obs, pred)
             rmse = np.sqrt(mean_squared_error(obs, pred))
             mape_val = np.mean(np.abs((obs - pred) / obs)) * 100
 

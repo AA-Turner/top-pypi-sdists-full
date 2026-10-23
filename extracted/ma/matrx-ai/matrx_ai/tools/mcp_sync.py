@@ -446,7 +446,7 @@ async def _register_mcp_discovered(
     async with transaction(database):
         await call_function(
             database,
-            "public",
+            "tool",
             "tool_register_mcp_discovered",
             server_id,
             specs,

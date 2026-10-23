@@ -18,7 +18,7 @@ from probe.cli import capabilities, claude_cli, codex_config, pi_config, plugin_
 from probe.core import events
 from probe.harness import get_registry
 from probe.sdk import session_marker
-from probe.sdk.durable import write_text_atomic
+from probe.sdk.durable import through_symlink, write_text_atomic
 
 _LIMIT = 8192
 _SOURCES = ("claude_code", "codex", "pi")
@@ -88,7 +88,13 @@ def _read_settings_json(path: Path) -> dict:
 
 
 def _restore_flags(source: str, flags: dict) -> None:
-    path = _settings_path(source)
+    # A file kept in a dotfiles repo stays a link, as the status line and
+    # `codex_config.write_top_level` already write it; resolved once, so the
+    # read and the write are the same file. This rewrites only bytes already in
+    # the target, so it never carries Probe's MCP token into a repo (only
+    # `codex_config.write_mcp_bearer` writes that, and it replaces the link).
+    original = _settings_path(source)
+    path = through_symlink(original)
     if source == "codex":
         import tomlkit
 
@@ -103,22 +109,26 @@ def _restore_flags(source: str, flags: dict) -> None:
                 else:
                     table["enabled"] = flag
         text = tomlkit.dumps(data)
-    else:
-        data = _read_settings_json(path)
-        table = data.get("enabledPlugins", {})
-        if not isinstance(table, dict):
-            raise RepairError("plugin enable settings changed during repair")
-        for name, flag in flags.items():
-            key = f"{name}@{capabilities.MARKETPLACE}"
-            if table.get(key) is False:
-                flag = False
-            if flag is None:
-                table.pop(key, None)
-            else:
-                table[key] = flag
-        data["enabledPlugins"] = table
-        text = json.dumps(data, indent=2) + "\n"
-    write_text_atomic(path, text, mode=0o600)
+        # ~/.codex/config.toml can hold the MCP token: tightened to 0600 on every
+        # write, as before. A dotfiles target behind a link holds none of
+        # Probe's (see above) and keeps its own mode, as `write_top_level` keeps it.
+        write_text_atomic(path, text, mode=0o600, keep_mode=path != original)
+        return
+    data = _read_settings_json(path)
+    table = data.get("enabledPlugins", {})
+    if not isinstance(table, dict):
+        raise RepairError("plugin enable settings changed during repair")
+    for name, flag in flags.items():
+        key = f"{name}@{capabilities.MARKETPLACE}"
+        if table.get(key) is False:
+            flag = False
+        if flag is None:
+            table.pop(key, None)
+        else:
+            table[key] = flag
+    data["enabledPlugins"] = table
+    text = json.dumps(data, indent=2) + "\n"
+    write_text_atomic(path, text, mode=0o600, keep_mode=True)
 
 
 def _cache(source: str, name: str) -> Path:

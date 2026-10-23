@@ -1222,15 +1222,21 @@ def installed_plugins(*, source: str | None = None, local: bool = False) -> Plug
     )
 
 
-def claude_plugin_ledger() -> Path:
+def claude_plugin_ledger(env: "dict[str, str] | None" = None) -> Path:
     """Claude Code's install ledger, `installed_plugins.json`: the record its
-    `plugin list` reads: `PROBE_INSTALLED_PLUGINS_JSON` first, then
-    `CLAUDE_CONFIG_DIR`, then `~/.claude`. The one answer: `versions.py` grades
-    the plugin's version off the same file."""
-    override = (os.environ.get("PROBE_INSTALLED_PLUGINS_JSON") or "").strip()
+    `plugin list` reads: `PROBE_INSTALLED_PLUGINS_JSON` first, then Claude
+    Code's own plugins folder, which `CLAUDE_CODE_PLUGIN_CACHE_DIR` moves, else
+    `CLAUDE_CONFIG_DIR` or `~/.claude`, then `plugins/`. The one answer:
+    `versions.py` grades the plugin's version off the same file, and the root
+    skills read it (`root_skills.installed_plugin_root`)."""
+    values = os.environ if env is None else env
+    override = (values.get("PROBE_INSTALLED_PLUGINS_JSON") or "").strip()
     if override:
         return Path(override)
-    home = (os.environ.get("CLAUDE_CONFIG_DIR") or "").strip()
+    moved = (values.get("CLAUDE_CODE_PLUGIN_CACHE_DIR") or "").strip()
+    if moved:
+        return Path(moved).expanduser() / "installed_plugins.json"
+    home = (values.get("CLAUDE_CONFIG_DIR") or "").strip()
     return (Path(home).expanduser() if home else Path.home() / ".claude") / "plugins" / "installed_plugins.json"
 
 

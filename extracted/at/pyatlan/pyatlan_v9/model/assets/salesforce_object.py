@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,21 +52,14 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .salesforce_related import (
     RelatedSalesforceField,
     RelatedSalesforceObject,
     RelatedSalesforceOrganization,
 )
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -330,6 +331,45 @@ class SalesforceObject(Asset):
         if self.guid is not UNSET:
             return RelatedSalesforceObject(guid=self.guid)
         return RelatedSalesforceObject(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        api_name: str,
+        organization_qualified_name: str,
+        connection_qualified_name: Union[str, None] = None,
+    ) -> "SalesforceObject":
+        validate_required_fields(
+            ["name", "api_name", "organization_qualified_name"],
+            [name, api_name, organization_qualified_name],
+        )
+        fields = organization_qualified_name.split("/")
+        if len(fields) < 4:
+            raise ValueError("organization_qualified_name is invalid")
+        if not connection_qualified_name:
+            connection_qualified_name = "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{organization_qualified_name}/{api_name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            api_name=api_name,
+            organization_qualified_name=organization_qualified_name,
+            organization=RelatedSalesforceOrganization(
+                qualified_name=organization_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "SalesforceObject":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "SalesforceObject":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -656,6 +696,7 @@ def _salesforce_object_to_nested(
         is_incomplete=salesforce_object.is_incomplete,
         provenance_type=salesforce_object.provenance_type,
         home_id=salesforce_object.home_id,
+        delete_handler=salesforce_object.delete_handler,
         depth=salesforce_object.depth,
         immediate_upstream=salesforce_object.immediate_upstream,
         immediate_downstream=salesforce_object.immediate_downstream,
@@ -704,6 +745,7 @@ def _salesforce_object_from_nested(nested: SalesforceObjectNested) -> Salesforce
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

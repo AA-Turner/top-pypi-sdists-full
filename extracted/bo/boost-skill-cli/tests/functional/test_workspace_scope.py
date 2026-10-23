@@ -750,9 +750,8 @@ def test_uninstalling_locally_removes_the_servers_it_added(boost, tapped, repo):
     _declare_mcp(tapped, "brainstorming")
     boost("install", "brainstorming", "--local")
     boost("uninstall", "brainstorming", "--local")
-    servers = json.loads(
-        (repo / mcpdecl.SIDECAR).read_text(encoding="utf-8"))[mcpdecl.SERVERS_KEY]
-    assert "gh" not in servers, \
+    # The install created the file, so nothing of it is left behind.
+    assert not (repo / mcpdecl.SIDECAR).exists(), \
         "a skill removed from the repo must stop launching its server"
 
 
@@ -803,7 +802,8 @@ def test_a_server_two_skills_declare_survives_the_first_uninstall(
     assert servers()["github"][mcpdecl.MARKER_KEY] == "tdd-workflow"
     res = boost("uninstall", "tdd-workflow", "--local")
     assert "removed 1 MCP server from .mcp.json" in res.out
-    assert servers() == {}
+    # brainstorming's install created the file; the last declarer removes it.
+    assert not (repo / mcpdecl.SIDECAR).exists()
 
 
 def test_an_unparseable_sidecar_is_refused_not_overwritten(boost, tapped, repo):
@@ -1128,13 +1128,13 @@ def test_info_project_skill_shows_its_identity_rows(boost, tapped, repo):
 def test_info_project_skill_omits_the_user_only_rows(boost, tapped, repo):
     """Omit rather than blank: a project entry has no such keys.
 
-    Printing `pinned no` would assert a field `store._install_project_skill`
-    never writes, and there is no canonical store in a repo to point `store`
-    at.
+    There is no canonical store in a repo to point `store` at, and nothing
+    quarantines a project row. `pinned` is the exception: `boost pin` writes
+    it into the project lock, so the card says it either way.
     """
     boost("install", "brainstorming", "--local")
     res = boost("info", "brainstorming")
-    assert "pinned" not in res.out
+    assert "pinned no" in " ".join(res.out.split())
     assert "quarantined" not in res.out
     assert "store" not in res.out
 

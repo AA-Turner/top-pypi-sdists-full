@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 2.32.0
+Version: 2.33.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -25,12 +25,14 @@ Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: pydantic<3.0.0,>=2.12.5
 Requires-Dist: requests<3.0.0,>=2.28.1
 Requires-Dist: tenacity<9.2.0,>=8.2.3
-Requires-Dist: websockets<17.0,>=13.0.0
+Requires-Dist: websockets<18.0,>=13.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.14.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: sniffio
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp<4.0.0,>=3.10.11; extra == "aiohttp"
+Provides-Extra: httpx2
+Requires-Dist: httpx2<3.0.0,>=2.0.0; extra == "httpx2"
 Provides-Extra: local-tokenizer
 Requires-Dist: sentencepiece>=0.2.0; extra == "local-tokenizer"
 Requires-Dist: protobuf; extra == "local-tokenizer"
@@ -294,6 +296,32 @@ client = genai.Client(
 )
 ```
 
+### HTTP client option: httpx2
+
+By default, the SDK uses `httpx` for its HTTP transport. You can opt in to
+[`httpx2`](https://github.com/pydantic/httpx2) by installing `google-genai[httpx2]`
+and setting the `GOOGLE_GENAI_HTTP_CLIENT` environment variable:
+
+```bash
+export GOOGLE_GENAI_HTTP_CLIENT=httpx2
+```
+
+Alternatively, you can directly inject an `httpx2.Client` or `httpx2.AsyncClient`
+via `HttpOptions`:
+
+```python
+import httpx2
+from google import genai
+from google.genai import types
+
+client = genai.Client(
+    http_options=types.HttpOptions(
+        httpx_client=httpx2.Client(),
+        httpx_async_client=httpx2.AsyncClient(),
+    )
+)
+```
+
 ### Faster async client option: Aiohttp
 
 By default we use httpx for both sync and async client implementations. In order
@@ -309,6 +337,7 @@ http_options = types.HttpOptions(
 
 client=Client(..., http_options=http_options)
 ```
+
 
 ### Proxy
 

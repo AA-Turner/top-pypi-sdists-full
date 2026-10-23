@@ -102,7 +102,7 @@ def test_the_main_agent_keeps_its_own_commands(tmp_path, command):
     assert _guard(tmp_path, command) is None
 
 
-@pytest.mark.parametrize("command,matched", [("probe get run r1", "probe get"),
+@pytest.mark.parametrize("command,matched", [("probe run list", "probe run list"),
                                              ("probe notes list", "probe notes list"),
                                              ("cd x && probe metrics run r1", "probe metrics")])
 def test_everything_else_is_the_daemons(tmp_path, command, matched):
@@ -139,9 +139,8 @@ def test_a_write_the_researcher_asked_for_runs(tmp_path, command):
     assert _guard(tmp_path, command) is None
 
 
-@pytest.mark.parametrize("command,matched", [("probe workspace list --directed", "probe workspace"),
-                                             ("probe run list --directed", "probe run list"),
-                                             ("probe get run r1 --directed", "probe get"),
+@pytest.mark.parametrize("command,matched", [("probe run list --directed", "probe run list"),
+                                             ("probe artifact list --run r1 --directed", "probe artifact list"),
                                              ("probe project contributors p1 --directed", "probe project contributors")])
 def test_directed_admits_no_read(tmp_path, command, matched):
     """Reads go through `probe ask` here, so the flag changes nothing."""
@@ -202,16 +201,16 @@ def test_the_write_refusal_is_the_approved_text_and_the_daemon_states_retry():
 
 def test_a_probe_mcp_call_is_refused_and_the_agent_profile_is_untouched(tmp_path):
     assert "was refused" in _guard(tmp_path, "", tool="mcp__probe-research__browse")
-    assert _guard(tmp_path, "probe get run r1", profile="") is None, "the agent profile's guard is unchanged"
+    assert _guard(tmp_path, "probe run list", profile="") is None, "the agent profile's guard is unchanged"
 
 
-@pytest.mark.parametrize("command,matched", [("command probe get run r1", "probe get"),
+@pytest.mark.parametrize("command,matched", [("command probe run list", "probe run list"),
                                              ("env FOO=1 probe notes list", "probe notes list"),
                                              ('bash -c "probe metrics run r1"', "probe metrics"),
-                                             ("timeout 30 probe get run r1", "probe get"),
-                                             ("python3 -m probe get run r1", "probe get"),
+                                             ("timeout 30 probe run list", "probe run list"),
+                                             ("python3 -m probe run list", "probe run list"),
                                              ("python -m probe.cli project list", "probe project list"),
-                                             ("python3 -m probe.cli.main get run r1", "probe get")])
+                                             ("python3 -m probe.cli.main run list", "probe run list")])
 def test_a_wrapped_probe_command_is_still_seen(tmp_path, command, matched):
     assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
 
@@ -234,14 +233,207 @@ def test_what_probes_own_messages_send_the_agent_to_is_allowed(tmp_path, command
     assert _guard(tmp_path, command) is None
 
 
-@pytest.mark.parametrize("command,matched", [("probe outbox discard op1", "probe outbox"),
-                                             ("probe outbox retry op1", "probe outbox"),
-                                             ("probe context use other-team", "probe context"),
-                                             ("probe wandb key set k", "probe wandb key set"),
-                                             ("probe daemon override x", "probe daemon"),
+@pytest.mark.parametrize("command,matched", [("probe daemon override x", "probe daemon"),
                                              ("probe artifact list --run r1", "probe artifact list")])
 def test_the_rest_of_those_groups_stays_refused(tmp_path, command, matched):
     assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+@pytest.mark.parametrize("command", ["probe update --check", "probe update --yes",
+                                     "probe wizard --action update --yes", "probe setup --action=diagnose",
+                                     "probe status --json", "probe service status", "probe token list",
+                                     "probe outbox retry op1", "probe wandb key set k", "probe workspace list",
+                                     "probe statusline status", "probe notes sync", "probe wizard --help",
+                                     "probe file preview data/train.csv", "probe draft edit n.md < edit.txt"])
+def test_the_clis_own_upkeep_runs(tmp_path, command):
+    """A daemon-profile agent could not run `probe update --check` (2026-10-21):
+    every command that neither reads nor writes research content was refused
+    with the reads and writes. Only tracking is the daemon's."""
+    assert _guard(tmp_path, command) is None
+
+
+@pytest.mark.parametrize("command", ["probe run get r1", "probe run metrics r1 --key loss", "probe run series r1",
+                                     "probe metrics plot r1", "probe metrics wide r1 --keys loss,acc",
+                                     "probe get run r1", "probe events run r1", "probe span list r1",
+                                     "probe trial get r1 t1", "probe artifact tree r1 --path ckpt",
+                                     "probe snapshot-show r1", "cd x && probe run upstream r1 --depth 2"])
+def test_the_agent_reads_a_run_by_its_id(tmp_path, command):
+    """The agent launched the run and logged to it but could not look at it: is
+    the loss falling, did the checkpoint land (Richard 2026-10-21)."""
+    assert _guard(tmp_path, command) is None
+
+
+@pytest.mark.parametrize("command,matched", [("probe series latest --project p1", "probe series"),
+                                             ("probe artifact list --project p1", "probe artifact list"),
+                                             ("probe provenance r1", "probe provenance"),
+                                             ("probe artifact pin-impact a1", "probe artifact pin-impact")])
+def test_a_listing_across_the_teams_work_stays_the_daemons(tmp_path, command, matched):
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+@pytest.mark.parametrize("command,matched", [("probe run set r1 --title x", "probe run set"),
+                                             ("probe run tag r1 good", "probe run tag")])
+def test_naming_and_filing_its_run_stays_the_daemons(tmp_path, command, matched):
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY_WRITE.format(matched=matched)
+
+
+def test_no_run_read_is_a_write():
+    """The set opens reads, never a write the daemon owns."""
+    for key in session_marker.DAEMON_PROFILE_RUN_READS:
+        assert session_marker.classify_probe_args([*key.split(), "r1"])[0] != "write", key
+
+
+@pytest.mark.parametrize("command,matched", [("probe run delete r1", "probe run"),
+                                             ("probe project reference remove p1 r1", "probe project reference"),
+                                             ("probe shared delete f1", "probe shared"),
+                                             ("probe commits --project p1", "probe commits"),
+                                             ("probe snapshot-restore r1", "probe snapshot-restore"),
+                                             ("probe session export s1", "probe session"),
+                                             ("probe mcp call search_runs", "probe mcp"),
+                                             ("probe mcp tools", "probe mcp"),
+                                             ("probe session inline", "probe session"),
+                                             ("probe install --yes", "probe install"),
+                                             ("probe desktop request < req.json", "probe desktop"),
+                                             ("probe wizard", "probe wizard"),
+                                             ("probe wizard --action recorder --yes", "probe wizard"),
+                                             ("probe wizard --action $ACTION", "probe wizard"),
+                                             ("probe wizard --action update --who-records agent", "probe wizard"),
+                                             ("probe wizard --action update --action recorder", "probe wizard"),
+                                             ("probe wizard --action update --action", "probe wizard"),
+                                             ("probe setup --action=update --no-tracking", "probe setup"),
+                                             ("probe wizard --action update --who-records=agent", "probe wizard"),
+                                             ("probe wizard --action update --folder ~/runs", "probe wizard"),
+                                             ("probe wizard --action update $FLAGS", "probe wizard"),
+                                             ("probe wizard --action login --no-browser", "probe wizard"),
+                                             ("probe login", "probe login"),
+                                             ("PROBE_BASE_URL=http://x.example probe login", "probe login"),
+                                             ("probe token create", "probe token"),
+                                             ("probe outbox resume", "probe outbox"),
+                                             ("probe wizard --action logout --yes", "probe wizard"),
+                                             ("probe --base-url https://x.example wizard --action update", "probe wizard"),
+                                             ("probe login --token t", "probe login"),
+                                             ("probe login --base-url https://x.example", "probe login"),
+                                             ("probe logout", "probe logout"),
+                                             ("probe context use other-team", "probe context"),
+                                             ("probe context delete default", "probe context"),
+                                             ("probe workspace use ws", "probe workspace"),
+                                             ("probe project use p1", "probe project use"),
+                                             ("probe token revoke t1", "probe token"),
+                                             ("probe session initialize --session s1 --cwd .", "probe session"),
+                                             ("probe outbox discard --held", "probe outbox"),
+                                             ("probe outbox pause", "probe outbox"),
+                                             ("probe workspace delete ws --yes", "probe workspace"),
+                                             ("probe workspace create ws", "probe workspace"),
+                                             ("probe workspace writers set ws --open", "probe workspace"),
+                                             ("probe access-group add g1 u1", "probe access-group"),
+                                             ("probe access-group remove g1 u1", "probe access-group"),
+                                             ("probe mcp headers", "probe mcp"),
+                                             ("probe statusline install --plugin-root /tmp/x", "probe statusline"),
+                                             ("probe companion authorize", "probe companion"),
+                                             ("probe companion trace --session s1", "probe companion"),
+                                             ("probe daemon install", "probe daemon"),
+                                             ("probe snapshot-prune-refs --force", "probe snapshot-prune-refs"),
+                                             ("probe run reproduce r1 --materialize ./tree", "probe run reproduce"),
+                                             ("probe run reproduce r1 --export=rec.json", "probe run reproduce")])
+def test_tracking_that_reads_as_neither_stays_the_daemons(tmp_path, command, matched):
+    """Removals (the daemon asks before deleting another researcher's work),
+    record reads the classifier does not sort, the agent taking Probe over
+    (`session inline`, CLIs of 2026-10-05..06), the researcher's own settings in
+    the wizard, and what moves the key, account, server or folder the daemon
+    records with (signing in included), holds its queue, or changes the team's
+    permissions."""
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+@pytest.mark.parametrize("command,matched", [("probe $G delete r1", "probe $G"),
+                                             ("probe ${G:-run} delete r1", "probe ${G:-run}"),
+                                             ('probe "$G" list', "probe $G"),
+                                             ("probe brand-new-command", "probe brand-new-command")])
+def test_a_word_the_guard_cannot_read_stays_refused(tmp_path, command, matched):
+    """`probe $G delete r1` runs `run delete` once the shell expands it; a
+    command the guard does not know may be anything."""
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+@pytest.mark.parametrize("command,matched", [("probe wizard --who-records agent --folder --help", "probe wizard"),
+                                             ("probe run list --fields --help", "probe run list")])
+def test_a_help_flag_click_takes_as_a_value_is_no_help_request(tmp_path, command, matched):
+    """Click hands `--help` to the bare option before it and runs the command."""
+    assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
+
+
+#: Commands the classifier reads as neither a read nor a write that stay the
+#: daemon's or the researcher's in the daemon profile, beyond removals and the
+#: switch. Sorting a new command means adding it here or to
+#: `session_marker.DAEMON_PROFILE_ALLOWED`.
+DAEMONS = {
+    # The daemon's own commands, its ledger (full model requests, any session),
+    # its install and the key the researcher approves for it.
+    "daemon override", "daemon session", "daemon task", "daemon worker", "daemon install",
+    "companion authorize", "companion log", "companion trace", "companion report",
+    # Record reads the classifier does not sort, and the MCP the profile removes
+    # (`headers` and `env` print its token into the transcript).
+    "commits", "snapshot-restore", "session export", "mcp call", "mcp tools", "mcp headers", "mcp env",
+    "mcp token set", "mcp token unset",
+    # What moves the key, account or folder the daemon records with, or holds
+    # and drops its queued writes.
+    "login", "logout", "context use", "workspace use", "project use", "token revoke", "token create",
+    "session initialize", "outbox discard", "outbox pause", "outbox resume", "snapshot-prune-refs",
+    # The team's permissions and workspaces.
+    "workspace create", "workspace rename", "workspace writers set", "access-group create",
+    "access-group rename", "access-group add",
+    # The researcher's: a no, their agent settings, the guided install, the
+    # desktop app's interface (it starts imports), and the agent taking Probe
+    # over in CLIs of 2026-10-05..06.
+    "deny", "statusline install", "statusline uninstall", "install", "desktop", "session inline",
+    "session daemon",
+}
+
+
+def test_every_command_that_neither_reads_nor_writes_is_sorted():
+    """The ratchet the stale allowlist lacked (`probe update --check` refused,
+    2026-10-21): every command the classifier reads as neither a read nor a
+    write runs in the daemon profile (`DAEMON_PROFILE_ALLOWED`, or plainly as
+    the wizard) or is the daemon's (`DAEMONS`, a removal, the
+    switch). A new one fails here until it is sorted, rather than being refused
+    unnoticed or allowed by default."""
+    import importlib
+
+    import typer.main
+
+    cli_main = importlib.import_module("probe.cli.main")
+
+    def walk(node, path):
+        subs = getattr(node, "commands", None)
+        if not subs:
+            yield path
+            return
+        for name, sub in subs.items():
+            yield from walk(sub, [*path, name])
+
+    def daemons(path):
+        keys = {" ".join(path[:3]), " ".join(path[:2]), path[0]}
+        return (bool(keys & DAEMONS) or path[-1] in session_marker.REMOVAL_VERBS
+                or " ".join(path[:2]) in session_marker.RESEARCHER_SWITCH)
+
+    root = typer.main.get_command(cli_main.app)
+    unsorted, both = [], []
+    for path in walk(root, []):
+        if session_marker.classify_probe_args(path)[0] is not None:
+            continue
+        runs = session_marker.daemon_profile_allows(path)[0] or path[0] in session_marker.DAEMON_PROFILE_PLAIN_FLAGS
+        if runs and daemons(path):
+            both.append(" ".join(path))
+        elif not runs and not daemons(path):
+            unsorted.append(" ".join(path))
+    assert not unsorted, f"{unsorted}: sort each into session_marker.DAEMON_PROFILE_ALLOWED or DAEMONS here"
+    assert not both, both
+    for key in (DAEMONS - {"session inline", "session daemon"}) | session_marker.DAEMON_PROFILE_ALLOWED:
+        node = root
+        for word in key.split():
+            node = getattr(node, "commands", {}).get(word)
+            assert node is not None, key
+    assert session_marker.daemon_profile_allows(["update", "--check"]) == (True, "probe update")
 
 
 def test_a_read_groups_write_is_a_write_the_researcher_can_direct(tmp_path):
@@ -315,3 +507,40 @@ def test_the_daemon_stopped_line_is_the_approved_researcher_line():
     from probe.daemon import mailbox
 
     assert vc.DAEMON_STOPPED_LINE == mailbox.FAILURE_MESSAGES[mailbox.DAEMON_STOPPED]
+
+
+# ---------------------------------------------------------------------------
+# The per-session-state folder: a tripwire like the approvals one. Those files
+# decide the guard's own verdict, so forging `on (inline)` would turn it off.
+# ---------------------------------------------------------------------------
+
+
+def test_the_sessions_folder_is_a_tripwire_like_approvals():
+    import os
+
+    root = str(session_marker.sessions_dir())
+    # A Write/Edit whose file is inside the folder.
+    for tool, field in [("Write", "file_path"), ("Edit", "file_path"), ("NotebookEdit", "notebook_path")]:
+        target = os.path.join(root, f"{SID}.state")
+        assert session_marker.touches_sessions_dir(tool, {field: target}) == target
+    assert session_marker.touches_sessions_dir("Write", {"file_path": os.path.join(root, f"{SID}.inline")})
+    # A relative path resolved against the session's cwd.
+    assert session_marker.touches_sessions_dir("Write", {"file_path": f"{SID}.profile"}, cwd=root)
+    # A Bash command that names the folder.
+    assert session_marker.touches_sessions_dir("Bash", {"command": f"printf full > {root}/{SID}.state"})
+    assert session_marker.touches_sessions_dir("Bash", {"command": "echo x > state/probe/sessions/s.inline"})
+    # A command that does not name it is not caught.
+    assert session_marker.touches_sessions_dir("Bash", {"command": "probe run get r1"}) is None
+    assert session_marker.touches_sessions_dir("Read", {"file_path": os.path.join(root, f"{SID}.state")}) is None
+
+
+def test_the_hook_refuses_forging_the_session_state(tmp_path):
+    # The whole point: a Bash write into the sessions folder is refused before it
+    # can flip the session to `on (inline)` and switch the guard off.
+    reason = _guard(tmp_path, "printf full > state/probe/sessions/x.inline")
+    assert reason is not None and "turn the guard off" in reason
+
+
+def test_the_sessions_tripwire_fires_in_the_agent_profile_too(tmp_path):
+    reason = _guard(tmp_path, "printf full > state/probe/sessions/x.state", profile="")
+    assert reason is not None and "turn the guard off" in reason

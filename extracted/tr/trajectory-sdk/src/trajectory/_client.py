@@ -23,6 +23,7 @@ if TYPE_CHECKING:
   from trajectory.resources.diagnostics import Diagnostics
   from trajectory.resources.evals.evals import Evals
   from trajectory.resources.inference import Inference
+  from trajectory.resources.model_slugs import ModelSlugs
   from trajectory.resources.organizations import Organizations
   from trajectory.resources.responses import Responses
   from trajectory.resources.secrets import Secrets
@@ -126,6 +127,12 @@ class Client(APIClient):
     from trajectory.resources.agents import Agents
 
     return Agents(self)
+
+  @cached_property
+  def model_slugs(self) -> ModelSlugs:
+    from trajectory.resources.model_slugs import ModelSlugs
+
+    return ModelSlugs(self)
 
   @cached_property
   def artifacts(self) -> Artifacts:

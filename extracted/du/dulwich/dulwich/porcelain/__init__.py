@@ -369,7 +369,7 @@ from ..diff_tree import (
     TreeChange,
     tree_changes,
 )
-from ..errors import SendPackError
+from ..errors import NoIndexPresent, SendPackError
 from ..file import FileLocked, open_nofollow
 from ..graph import can_fast_forward
 from ..ignore import IgnoreFilterManager
@@ -381,13 +381,16 @@ from ..index import (
     apply_stat_refresh,
     blob_from_path_and_stat,
     build_file_from_blob,
+    cleanup_mode,
     get_path_element_validator,
     get_symlink_fn,
     get_unstaged_changes,
     index_entry_from_tree_entry,
+    unchanged_entry_flags,
     update_working_tree,
     validate_path,
 )
+from ..index import commit_tree as commit_index_tree
 from ..object_store import BaseObjectStore, tree_lookup_path
 from ..objects import (
     Blob,
@@ -2017,11 +2020,8 @@ def add(
         trust_ctime = config.get_boolean(b"core", b"trustctime", True)
         precompose_unicode = config.get_boolean(b"core", b"precomposeunicode", False)
 
-        all_unstaged_paths = list(
-            get_unstaged_changes(
-                index, r.path, filter_callback, preload_index, trust_ctime
-            )
-        )
+        # Only needed when adding directories, so computed on first use
+        all_unstaged_paths: list[bytes] | None = None
 
         if paths is None:
             # When no paths specified, add all untracked and modified files from repo root
@@ -2086,6 +2086,12 @@ def add(
                         ignored.add(untracked_path)
 
                 # Also add unstaged (modified) files within this directory
+                if all_unstaged_paths is None:
+                    all_unstaged_paths = list(
+                        get_unstaged_changes(
+                            index, r.path, filter_callback, preload_index, trust_ctime
+                        )
+                    )
                 for unstaged_path in all_unstaged_paths:
                     if isinstance(unstaged_path, bytes):
                         unstaged_path_str = unstaged_path.decode("utf-8")
@@ -3239,7 +3245,8 @@ def reset(
 
         if mode == "soft":
             # Soft reset: only update HEAD, leave index and working tree unchanged
-            pass
+            if _in_merge(r):
+                raise Error("Cannot do a soft reset in the middle of a merge.")
 
         elif mode == "mixed":
             # Mixed reset: update HEAD and index, but leave working tree unchanged
@@ -3250,7 +3257,7 @@ def reset(
             index = r.open_index(config=config)
             validate_path_element = get_path_element_validator(config)
 
-            # Clear the current index
+            old_entries = dict(index.items())
             index.clear()
 
             # Populate index from the target tree
@@ -3264,10 +3271,19 @@ def reset(
                 # outside the work tree.
                 if not validate_path(entry.path, validate_path_element):
                     raise InvalidPathError(entry.path)
+                flags, extended_flags = unchanged_entry_flags(
+                    old_entries, entry.path, entry.sha, entry.mode
+                )
                 # Use set_verbatim so case-differing tree entries aren't
                 # folded together under core.ignorecase.
                 index.set_verbatim(
-                    entry.path, index_entry_from_tree_entry(entry.mode, entry.sha)
+                    entry.path,
+                    index_entry_from_tree_entry(
+                        entry.mode,
+                        entry.sha,
+                        flags=flags,
+                        extended_flags=extended_flags,
+                    ),
                 )
 
             # Write the updated index
@@ -3278,7 +3294,7 @@ def reset(
             # For reset --hard, use current index tree as old tree to get proper deletions
             index = r.open_index(config=r.get_config_stack())
             if len(index) > 0:
-                index_tree_id = index.commit(r.object_store)
+                index_tree_id = _index_tree_resolving_conflicts(index, r.object_store)
             else:
                 # Empty index
                 index_tree_id = None
@@ -3288,7 +3304,9 @@ def reset(
                 _get_worktree_update_config(r)
             )
 
-            blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
+            blob_normalizer = r.get_blob_normalizer(
+                config=r.get_config_stack(), tree=tree.id
+            )
             changes = tree_changes(
                 r.object_store, index_tree_id, tree.id, want_unchanged=True
             )
@@ -3338,6 +3356,54 @@ def reset(
                 ),
                 message=reflog_message,
             )
+
+        if mode != "soft":
+            _remove_branch_state(r)
+
+
+def _in_merge(r: Repo) -> bool:
+    """Check whether a merge is in progress, like git's is_merge()."""
+    if os.path.exists(os.path.join(r.controldir(), "MERGE_HEAD")):
+        return True
+    try:
+        index = r.open_index()
+    except NoIndexPresent:
+        return False
+    return index.has_conflicts()
+
+
+def _index_tree_resolving_conflicts(
+    index: Index, object_store: BaseObjectStore
+) -> ObjectID:
+    """Write a tree for the index, using the lowest stage for unmerged paths.
+
+    This mirrors git's read_index_unmerged(), so that a hard reset treats
+    unmerged paths as tracked and overwrites or removes them.
+    """
+    blobs = []
+    for path, entry in index.items():
+        if isinstance(entry, ConflictedIndexEntry):
+            stage = entry.ancestor or entry.this or entry.other
+            assert stage is not None
+            entry = stage
+        blobs.append((path, entry.sha, cleanup_mode(entry.mode)))
+    return commit_index_tree(object_store, blobs, object_format=index.object_format)
+
+
+def _remove_branch_state(r: Repo) -> None:
+    """Remove merge, cherry-pick and revert state, like git's remove_branch_state()."""
+    # TODO: Clean up .git/sequencer and save MERGE_AUTOSTASH like git does.
+    for name in (
+        "CHERRY_PICK_HEAD",
+        "REVERT_HEAD",
+        "AUTO_MERGE",
+        "SQUASH_MSG",
+        "MERGE_HEAD",
+        "MERGE_RR",
+        "MERGE_MSG",
+        "MERGE_MODE",
+    ):
+        r._del_named_file(name)
 
 
 def get_remote_repo(
@@ -3779,28 +3845,28 @@ def pull(
         selected_refs = []
 
         if refspecs is None:
-            refspecs_normalized: bytes | list[bytes] = [b"HEAD"]
-        elif isinstance(refspecs, str):
-            refspecs_normalized = refspecs.encode()
-        elif isinstance(refspecs, bytes):
-            refspecs_normalized = refspecs
-        else:
-            refspecs_normalized = []
-            for spec in refspecs:
-                if isinstance(spec, str):
-                    refspecs_normalized.append(spec.encode())
-                else:
-                    refspecs_normalized.append(spec)
+            refspecs = [b"HEAD"]
+        elif isinstance(refspecs, (str, bytes)):
+            refspecs = [refspecs]
+        refspecs_normalized = [
+            spec.encode() if isinstance(spec, str) else spec for spec in refspecs
+        ]
 
         def determine_wants(
             remote_refs: dict[Ref, ObjectID], depth: int | None = None
         ) -> list[ObjectID]:
             remote_refs_container = DictRefsContainer(remote_refs)  # type: ignore[arg-type]
-            selected_refs.extend(
+            for spec, (lh, rh, force_ref) in zip(
+                refspecs_normalized,
                 parse_reftuples(
                     remote_refs_container, r.refs, refspecs_normalized, force=force
-                )
-            )
+                ),
+            ):
+                # Like git, a refspec without a destination only fetches; it
+                # does not update a local ref of the same name.
+                if b":" not in spec:
+                    rh = None
+                selected_refs.append((lh, rh, force_ref))
             return [
                 remote_refs[lh]
                 for (lh, rh, force_ref) in selected_refs
@@ -3833,6 +3899,8 @@ def pull(
             filter_spec=filter_spec_bytes,
             protocol_version=protocol_version,
         )
+        if remote_name is not None:
+            _import_remote_refs(r.refs, remote_name, fetch_result.refs)
 
         # Store the old HEAD tree before making changes
         try:
@@ -3843,52 +3911,60 @@ def pull(
         except KeyError:
             old_tree_id = None
 
-        merged = False
+        # Store fetched refs in their destinations, rejecting non-fast-forward
+        # updates unless forced. As in git, the other refs are still updated
+        # before the first rejection is raised.
+        rejected: DivergedBranches | None = None
         for lh, rh, force_ref in selected_refs:
-            if not force_ref and rh is not None and rh in r.refs:
+            if rh is None or lh is None:
+                continue
+            lh_value = fetch_result.refs[lh]
+            if lh_value is None:
+                continue
+            old_value = r.refs.follow(rh)[1]
+            if not force_ref and old_value is not None:
                 try:
-                    assert lh is not None
-                    followed_ref = r.refs.follow(rh)[1]
-                    assert followed_ref is not None
-                    lh_ref = fetch_result.refs[lh]
-                    assert lh_ref is not None
-                    check_diverged(r, followed_ref, lh_ref)
+                    check_diverged(r, old_value, lh_value)
+                except DivergedBranches as exc:
+                    rejected = rejected or exc
+                    continue
+            r.refs[Ref(rh)] = lh_value
+        if rejected is not None:
+            raise rejected
+
+        # Bring the current branch up to date with the first fetched ref
+        merged = False
+        fetched = None
+        new_head = None
+        if selected_refs and selected_refs[0][0] is not None:
+            fetched = fetch_result.refs[selected_refs[0][0]]
+        if fetched is not None:
+            head = r.refs.follow(HEADREF)[1]
+            if head is None:
+                new_head = fetched
+            elif head != fetched and not can_fast_forward(r, fetched, head):
+                try:
+                    check_diverged(r, head, fetched)
                 except DivergedBranches as exc:
                     if ff_only or fast_forward:
                         raise
-                    else:
-                        # Perform merge
-                        assert lh is not None
-                        merge_ref = fetch_result.refs[lh]
-                        assert merge_ref is not None
-                        _merge_result, conflicts = _do_merge(r, merge_ref)
-                        if conflicts:
-                            raise Error(
-                                f"Merge conflicts occurred: {conflicts}"
-                            ) from exc
-                        merged = True
-                        # Skip updating ref since merge already updated HEAD
-                        continue
-            if rh is not None and lh is not None:
-                lh_value = fetch_result.refs[lh]
-                if lh_value is not None:
-                    r.refs[Ref(rh)] = lh_value
+                    _merge_result, conflicts = _do_merge(r, fetched)
+                    if conflicts:
+                        raise Error(f"Merge conflicts occurred: {conflicts}") from exc
+                    merged = True
+                else:
+                    new_head = fetched
 
-        # Only update HEAD if we didn't perform a merge
-        if selected_refs and not merged:
-            lh, rh, _ = selected_refs[0]
-            if lh is not None:
-                ref_value = fetch_result.refs[lh]
-                if ref_value is not None:
-                    r[b"HEAD"] = ref_value
-
-        # Update working tree to match the new HEAD
+        # Update the working tree before moving HEAD, so that HEAD stays put
+        # if the update refuses to overwrite local changes.
         # Skip if merge was performed as merge already updates the working tree
         if not merged and old_tree_id is not None:
-            head_commit = r[b"HEAD"]
+            head_commit = r[new_head if new_head is not None else HEADREF]
             assert isinstance(head_commit, Commit)
             new_tree_id = head_commit.tree
-            blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
+            blob_normalizer = r.get_blob_normalizer(
+                config=r.get_config_stack(), tree=new_tree_id
+            )
             changes = tree_changes(r.object_store, old_tree_id, new_tree_id)
             update_working_tree(
                 r,
@@ -3899,8 +3975,8 @@ def pull(
                 allow_overwrite_modified=force,
                 config=r.get_config_stack(),
             )
-        if remote_name is not None:
-            _import_remote_refs(r.refs, remote_name, fetch_result.refs)
+        if new_head is not None:
+            r[b"HEAD"] = new_head
 
     # Trigger auto GC if needed
     from ..gc import maybe_auto_gc
@@ -4094,6 +4170,13 @@ def _walk_working_dir_paths(
     # versus its expanded form.
     basepath_resolved = _resolve_path(basepath)
 
+    # dirpath is precomposed in full, so compare it against a precomposed root.
+    walk_root = (
+        _precompose_unicode_path(frompath)
+        if precompose_unicode and isinstance(frompath, str)
+        else frompath
+    )
+
     for dirpath, dirnames, filenames in os.walk(frompath):  # type: ignore[type-var]
         # Skip .git and below, unless this is the repo we are reporting
         # against, whose own files are still of interest.
@@ -4116,7 +4199,7 @@ def _walk_working_dir_paths(
                 _precompose_unicode_path(f) for f in filenames if isinstance(f, str)
             ]
 
-        if dirpath != frompath:
+        if dirpath != walk_root:
             yield dirpath, True  # type: ignore[misc]
 
         for filename in filenames:
@@ -4170,6 +4253,32 @@ def get_untracked_paths(
     with open_repo_closing(repo if repo is not None else basepath_str) as r:
         ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
 
+    # Walked paths are precomposed in full, including the roots, so make
+    # them relative to precomposed roots.
+    if precompose_unicode:
+        from_root = _precompose_unicode_path(frompath_str)
+        base_root = _precompose_unicode_path(basepath_str)
+    else:
+        from_root = frompath_str
+        base_root = basepath_str
+
+    # Walked paths are spelled from frompath, so only the two roots need
+    # resolving rather than every walked path, which is slow on Windows.
+    frompath_resolved = os.path.realpath(frompath_str)
+    basepath_resolved = os.path.realpath(basepath_str)
+    if precompose_unicode:
+        frompath_resolved = _precompose_unicode_path(frompath_resolved)
+        basepath_resolved = _precompose_unicode_path(basepath_resolved)
+
+    def to_tree_path(path: str) -> bytes:
+        rel = os.path.relpath(
+            os.path.join(frompath_resolved, os.path.relpath(path, from_root)),
+            basepath_resolved,
+        )
+        if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+            raise ValueError(f"{path!r} is not in the subpath of {basepath_str!r}")
+        return _fs_to_tree_path(rel)
+
     ignored_dirs = []
     # List to store untracked directories found during traversal
     untracked_dir_list = []
@@ -4195,14 +4304,14 @@ def get_untracked_paths(
     def prune_dirnames(dirpath: str, dirnames: list[str]) -> list[str]:
         for i in range(len(dirnames) - 1, -1, -1):
             path = os.path.join(dirpath, dirnames[i])
-            ip = os.path.join(os.path.relpath(path, basepath_str), "")
+            ip = os.path.join(os.path.relpath(path, base_root), "")
 
             # A directory excluded only by a pattern covering its contents
             # still has to be entered, so that a negation below it is seen.
             if ignore_manager.may_prune_directory(ip):
                 if not exclude_ignored:
                     ignored_dirs.append(
-                        os.path.join(os.path.relpath(path, frompath_str), "")
+                        os.path.join(os.path.relpath(path, from_root), "")
                     )
                 del dirnames[i]
                 continue
@@ -4210,7 +4319,7 @@ def get_untracked_paths(
             # For "normal" mode, check if the directory is entirely untracked
             if untracked_files == "normal":
                 # Convert directory path to tree path for index lookup
-                dir_tree_path = path_to_tree_path(basepath_str, path)
+                dir_tree_path = to_tree_path(path)
 
                 # Check if any file in this directory is tracked
                 dir_prefix = dir_tree_path + b"/" if dir_tree_path else b""
@@ -4218,10 +4327,8 @@ def get_untracked_paths(
 
                 if not has_tracked_files:
                     # This directory is entirely untracked
-                    rel_path_base = os.path.relpath(path, basepath_str)
-                    rel_path_from = os.path.join(
-                        os.path.relpath(path, frompath_str), ""
-                    )
+                    rel_path_base = os.path.relpath(path, base_root)
+                    rel_path_from = os.path.join(os.path.relpath(path, from_root), "")
 
                     # If excluding ignored, check if directory contains any non-ignored files
                     if exclude_ignored:
@@ -4249,12 +4356,12 @@ def get_untracked_paths(
             # frompath_str and basepath_str are both str, so ap must be str
             assert isinstance(ap, str)
             if not is_dir:
-                ip = path_to_tree_path(basepath_str, ap)
+                ip = to_tree_path(ap)
                 if ip not in index:
                     if not exclude_ignored or not ignore_manager.is_ignored(
-                        os.path.relpath(ap, basepath_str)
+                        os.path.relpath(ap, base_root)
                     ):
-                        yield os.path.relpath(ap, frompath_str)
+                        yield os.path.relpath(ap, from_root)
     else:  # "normal" mode
         # Walk directories, handling both files and directories
         for ap, is_dir in _walk_working_dir_paths(
@@ -4268,22 +4375,22 @@ def get_untracked_paths(
             # This part won't be reached for pruned directories
             if is_dir:
                 # Check if this directory is entirely untracked
-                dir_tree_path = path_to_tree_path(basepath_str, ap)
+                dir_tree_path = to_tree_path(ap)
                 dir_prefix = dir_tree_path + b"/" if dir_tree_path else b""
                 has_tracked_files = any(name.startswith(dir_prefix) for name in index)
                 if not has_tracked_files:
                     if not exclude_ignored or not ignore_manager.is_ignored(
-                        os.path.relpath(ap, basepath_str)
+                        os.path.relpath(ap, base_root)
                     ):
-                        yield os.path.join(os.path.relpath(ap, frompath_str), "")
+                        yield os.path.join(os.path.relpath(ap, from_root), "")
             else:
                 # Check individual files in directories that contain tracked files
-                ip = path_to_tree_path(basepath_str, ap)
+                ip = to_tree_path(ap)
                 if ip not in index:
                     if not exclude_ignored or not ignore_manager.is_ignored(
-                        os.path.relpath(ap, basepath_str)
+                        os.path.relpath(ap, base_root)
                     ):
-                        yield os.path.relpath(ap, frompath_str)
+                        yield os.path.relpath(ap, from_root)
 
         # Yield any untracked directories found during pruning
         yield from untracked_dir_list
@@ -5970,7 +6077,7 @@ def _perform_tree_switch(
 
     config = repo.get_config_stack()
     # Get blob normalizer for line ending conversion
-    blob_normalizer = repo.get_blob_normalizer(config=config)
+    blob_normalizer = repo.get_blob_normalizer(config=config, tree=target_tree_id)
 
     # Update working tree
     tree_change_iterator: Iterator[TreeChange] = tree_changes(
@@ -6328,7 +6435,12 @@ def restore(
                     from ..index import index_entry_from_stat
 
                     st = os.lstat(full_path)
-                    new_entry = index_entry_from_stat(st, sha, mode)
+                    flags, extended_flags = unchanged_entry_flags(
+                        index, tree_path, sha, mode
+                    )
+                    new_entry = index_entry_from_stat(
+                        st, sha, mode, flags=flags, extended_flags=extended_flags
+                    )
 
                 index[tree_path] = new_entry
                 index.write()
@@ -6487,7 +6599,9 @@ def sparse_checkout(
     ``core.sparseCheckoutCone`` config setting.
 
     Steps:
-      1) If ``patterns`` is provided, write them to ``.git/info/sparse-checkout``.
+      1) If ``patterns`` is provided, write them to ``.git/info/sparse-checkout``
+         and enable ``core.sparseCheckout``, so that later checkouts, merges
+         and resets keep excluded paths out of the working tree.
       2) Determine which paths in the index are included vs. excluded.
          - If ``cone=True``, use "cone-compatible" directory-based logic.
          - If ``cone=False``, use standard .gitignore-style matching.
@@ -6517,10 +6631,20 @@ def sparse_checkout(
         else:
             lines = patterns
             repo_obj.get_worktree().set_sparse_checkout_patterns(patterns)
+            repo_config = repo_obj.get_config()
+            repo_config.set((b"core",), b"sparseCheckout", True)
+            repo_config.set((b"core",), b"sparseCheckoutCone", cone)
+            repo_config.write_to_path()
 
         # --- 2) Determine the set of included paths ---
-        index = repo_obj.open_index(config=repo_obj.get_config_stack())
-        included_paths = determine_included_paths(index, lines, cone)
+        config = repo_obj.get_config_stack()
+        index = repo_obj.open_index(config=config)
+        included_paths = determine_included_paths(
+            index,
+            lines,
+            cone,
+            ignorecase=config.get_boolean((b"core",), b"ignorecase", False),
+        )
 
         # --- 3) Apply those results to the index & working tree ---
         try:
@@ -6528,7 +6652,7 @@ def sparse_checkout(
                 repo_obj,
                 included_paths,
                 force=force,
-                config=repo_obj.get_config_stack(),
+                config=config,
             )
         except SparseCheckoutConflictError as exc:
             raise CheckoutError(*exc.args) from exc
@@ -7302,13 +7426,18 @@ def _do_merge(
         # Fast-forward merge
         r.refs[HEADREF] = merge_commit_id
         # Update the working directory
+        config_stack = r.get_config_stack()
+        blob_normalizer = r.get_blob_normalizer(
+            config=config_stack, tree=merge_commit.tree
+        )
         changes = tree_changes(r.object_store, head_commit.tree, merge_commit.tree)
         update_working_tree(
             r,
             head_commit.tree,
             merge_commit.tree,
             change_iterator=changes,
-            config=r.get_config_stack(),
+            blob_normalizer=blob_normalizer,
+            config=config_stack,
         )
         return (merge_commit_id, [])
 
@@ -7334,13 +7463,16 @@ def _do_merge(
     r.object_store.add_object(merged_tree)
 
     # Update index and working directory
+    config_stack = r.get_config_stack()
+    blob_normalizer = r.get_blob_normalizer(config=config_stack, tree=merged_tree.id)
     changes = tree_changes(r.object_store, head_commit.tree, merged_tree.id)
     update_working_tree(
         r,
         head_commit.tree,
         merged_tree.id,
         change_iterator=changes,
-        config=r.get_config_stack(),
+        blob_normalizer=blob_normalizer,
+        config=config_stack,
     )
 
     if conflicts:

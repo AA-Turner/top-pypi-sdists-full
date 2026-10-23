@@ -38,19 +38,29 @@ def _explain(tool: str, extra: str, module: str) -> int:
 
 def _update_barrier(argv: list[str] | None) -> int | None:
     """While the Probe service updates the CLI's env (plan X1), wait up to 10 s
-    for it, else end here with the busy status: BEFORE the CLI is imported, so
-    nothing loads from files being replaced. One stat when no update runs.
-    `probe daemon worker` gets the worker's own come-back-later status, which
-    its supervisor answers with a later respawn instead of a crash count."""
+    for it -- or less, when the caller has a deadline (a hook, plan D12) -- else
+    end here with the busy status: BEFORE the CLI is imported, so nothing loads
+    from files being replaced. One stat when no update runs. `probe daemon
+    worker` gets the worker's own come-back-later status, which its supervisor
+    answers with a later respawn instead of a crash count; it also comes back
+    later while the service is stopping the running workers before an update
+    (plan D7), so it never starts on the code about to be replaced."""
     try:
         from probe.service import barrier
     except Exception:  # noqa: BLE001 -- never a reason not to run `probe`
         return None
-    if barrier.wait():
-        return None
     args = sys.argv[1:] if argv is None else argv
+    worker = args[:2] == ["daemon", "worker"]
+    try:
+        if worker and barrier.workers_held():
+            print(f"probe: {barrier.MESSAGE}.", file=sys.stderr)
+            return barrier.WORKER_BUSY_EXIT_CODE
+        if barrier.wait():
+            return None
+    except Exception:  # noqa: BLE001 -- never a reason not to run `probe`
+        return None
     print(f"probe: {barrier.MESSAGE}.", file=sys.stderr)
-    return barrier.WORKER_BUSY_EXIT_CODE if args[:2] == ["daemon", "worker"] else barrier.BUSY_EXIT_CODE
+    return barrier.WORKER_BUSY_EXIT_CODE if worker else barrier.BUSY_EXIT_CODE
 
 
 def main(argv: list[str] | None = None) -> int:

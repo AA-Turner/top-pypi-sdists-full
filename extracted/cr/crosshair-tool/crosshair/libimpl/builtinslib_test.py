@@ -745,6 +745,12 @@ def test_int_from_bytes_signed_multibyte_matches_cpython(
         assert int.from_bytes(data, byteorder, signed=signed) == expected
 
 
+def test_int_from_bytes_rejects_out_of_range_values(space):
+    with ResumedTracing():
+        with pytest.raises(ValueError):
+            int.from_bytes([1, 256], "big")
+
+
 def test_int_nonlinear() -> None:
     def make_bigger(x: int, e: int) -> float:
         """
@@ -1386,7 +1392,7 @@ def test_symbolic_bytearray_count_inverts():
 
 def test_symbolic_bytes_lower_inverts():
     # bytes/bytearray case + whitespace transforms now run symbolically (ASCII
-    # only -- no UnicodeMaskCache), instead of realizing the whole value, so
+    # only -- no Unicode tables), instead of realizing the whole value, so
     # CrossHair can invert them.
     def f(a: bytes) -> bytes:
         """
@@ -2012,6 +2018,40 @@ def test_str_title():
             lj = LazyIntSymbolicStr(list(map(ord, chr_lj)))
             lja_b = LazyIntSymbolicStr(list(map(ord, chr_lj + "a_b")))
         assert lja_b.title() == chr_Lj + "a_B"
+
+
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "capitalize",
+        "casefold",
+        "isalnum",
+        "isalpha",
+        "isascii",
+        "isdecimal",
+        "isdigit",
+        "islower",
+        "isnumeric",
+        "isprintable",
+        "isspace",
+        "istitle",
+        "isupper",
+        "lower",
+        "splitlines",
+        "swapcase",
+        "title",
+        "upper",
+    ],
+)
+def test_str_unicode_method_does_not_realize(space, method_name):
+    s = proxy_for_type(str, "s")
+    with ResumedTracing():
+        space.add(len(s) == 1)
+        space.add(ord(s) >= ord("a"))
+        space.add(ord(s) <= ord("z"))
+        getattr(s, method_name)()
+        assert space.is_possible(s == "a")
+        assert space.is_possible(s == "b")
 
 
 def test_str_translate_on_concrete_map(space):

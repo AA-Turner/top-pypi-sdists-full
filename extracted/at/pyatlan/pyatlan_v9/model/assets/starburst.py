@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -58,13 +65,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .starburst_related import RelatedStarburst
 
 # =============================================================================
@@ -1003,6 +1003,7 @@ def _starburst_to_nested(starburst: Starburst) -> StarburstNested:
         is_incomplete=starburst.is_incomplete,
         provenance_type=starburst.provenance_type,
         home_id=starburst.home_id,
+        delete_handler=starburst.delete_handler,
         depth=starburst.depth,
         immediate_upstream=starburst.immediate_upstream,
         immediate_downstream=starburst.immediate_downstream,
@@ -1049,6 +1050,7 @@ def _starburst_from_nested(nested: StarburstNested) -> Starburst:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

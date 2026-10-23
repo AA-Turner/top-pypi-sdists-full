@@ -11,7 +11,7 @@ no deploy.
 This used to be a deliberate exception (Arman, 2026-06-07): a direct ``AsyncGroq``
 call with an inline prompt, to keep a per-request background job cheap. Arman's
 2026-09-25 law supersedes it — nothing works around the mandate system. The call
-stays as light as it was: one turn, no tools, not streamed (``run_held_call``). Its run
+stays as light as it was: one turn, no tools, not streamed (``HeldCall.send``). Its run
 is kept as a hidden ``system_process`` conversation linked to the one it names — never a
 helper in that chat's sidebar, never in any list. The day-one Holders are the old prompt verbatim
 on the same model (``openai/gpt-oss-20b`` served by Groq, reasoning effort low,
@@ -232,16 +232,22 @@ async def _run_labeler(
 ) -> LabelResult:
     """One held labeler call: the Holder's model, prompt and settings, nothing else — run as the
     platform, inside the conversation it names."""
-    from matrx_ai.mandates import hold_code_call, run_held_call
+    from matrx_ai.mandates import Offer, RunOptions, get_mandate_runner, system_principal
 
     model: str | None = None
     try:
         async with system_process_scope(conversation_id):
-            held = await hold_code_call(
-                mandate_key, consumer="conversation.labeler", variables=variables
+            # Runner plan 25 step 6: prepared through the one runner, as SYSTEM (a system job — no user,
+            # no user organization, no user billing); the held call sends itself and closes the run.
+            prepared = await get_mandate_runner().prepare(
+                mandate_key,
+                Offer.given_values(variables),
+                who=system_principal(),
+                opts=RunOptions(door="package_code_call", consumer="conversation.labeler"),
             )
+            held = prepared.held_call()
             model = held.model
-            result = await run_held_call(held)
+            result = await held.send()
         return LabelResult(success=True, output=result.final_text or "")
     except asyncio.CancelledError as exc:
         await _capture_labeler_failure(

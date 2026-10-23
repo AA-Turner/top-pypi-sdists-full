@@ -3,6 +3,7 @@
 isort:skip_file
 """
 
+import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
 import typing
@@ -11,14 +12,20 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 @typing.final
 class ContractRolledOver(google.protobuf.message.Message):
-    """Future: uint64 old_contract_id = 1;
-    Future: uint64 new_contract_id = 2;
-    """
-
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    OLD_CONTRACT_ID_FIELD_NUMBER: builtins.int
+    NEW_CONTRACT_ID_FIELD_NUMBER: builtins.int
+    old_contract_id: builtins.int
+    """The contract that was closed by the rollover."""
+    new_contract_id: builtins.int
+    """The contract the rollover created to replace it."""
     def __init__(
         self,
+        *,
+        old_contract_id: builtins.int = ...,
+        new_contract_id: builtins.int = ...,
     ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["new_contract_id", b"new_contract_id", "old_contract_id", b"old_contract_id"]) -> None: ...
 
 global___ContractRolledOver = ContractRolledOver

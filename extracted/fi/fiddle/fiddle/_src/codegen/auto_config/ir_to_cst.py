@@ -114,7 +114,7 @@ def code_for_expr(expr: Any) -> cst.CSTNode:
               " please replace these objects in your input config, likely "
               "with fdl.Config nodes."
           )
-        elements.append(cst.Element(sub_value))
+        elements.append(cst.Element(sub_value))  # pyrefly: ignore[bad-argument-type]
       return cst_cls(elements)
     elif isinstance(value, dict):
       elements = []
@@ -130,9 +130,9 @@ def code_for_expr(expr: Any) -> cst.CSTNode:
       return cst.Attribute(value=base, attr=cst.Name(value.attribute))
     elif isinstance(value, code_ir.ParameterizedTypeExpression):
       return cst.Subscript(
-          value=code_for_expr(value.base_expression),
+          value=code_for_expr(value.base_expression),  # pyrefly: ignore[bad-argument-type]
           slice=[
-              cst.SubscriptElement(cst.Index(code_for_expr(param)))
+              cst.SubscriptElement(cst.Index(code_for_expr(param)))  # pyrefly: ignore[bad-argument-type]
               for param in value.param_expressions
           ],
       )
@@ -151,7 +151,7 @@ def code_for_expr(expr: Any) -> cst.CSTNode:
         )
         args.extend(
             _prepare_args_helper(
-                names, values, attr, history=value.history_comments
+                names, values, attr, history=value.history_comments  # pyrefly: ignore[bad-argument-type]
             )
         )
       if any_args_have_history:
@@ -171,13 +171,17 @@ def code_for_expr(expr: Any) -> cst.CSTNode:
     elif isinstance(value, code_ir.WithTagsCall):
       attr = daglish.Attr("item_to_tag")
       item_to_tag = state.call(value.item_to_tag, attr)
-      call_args = [cst.Arg(item_to_tag)]
-      sorted_tags = sorted([tag for tag in value.tag_symbol_expressions])
-      for tag in sorted_tags:
-        tag_name = cst.parse_expression(tag)
-        call_args.append(cst.Arg(tag_name))
+      tag_exprs = [
+          cst.parse_expression(tag)
+          for tag in sorted(value.tag_symbol_expressions)
+      ]
+      # `with_tags` accepts either a single tag or a collection of tags.
+      if len(tag_exprs) == 1:
+        tags_arg = tag_exprs[0]
+      else:
+        tags_arg = cst.List([cst.Element(tag) for tag in tag_exprs])
       with_tags = cst.parse_expression("auto_config.with_tags")
-      return cst.Call(with_tags, args=call_args)
+      return cst.Call(with_tags, args=[cst.Arg(item_to_tag), cst.Arg(tags_arg)])
     elif state.is_traversable(value):
       raise NotImplementedError(
           f"Expression generation is not implemented for {value!r}"
@@ -223,20 +227,20 @@ def code_for_fn(
     name = variable_decl.name.value
     assign = cst.Assign(
         targets=[cst.AssignTarget(target=cst.Name(name))],
-        value=code_for_expr(variable_decl.expression),
+        value=code_for_expr(variable_decl.expression),  # pyrefly: ignore[bad-argument-type]
     )
     variable_lines.append(cst.SimpleStatementLine(body=[assign]))
   body = cst.IndentedBlock(
       body=[
           *variable_lines,
           cst.SimpleStatementLine(
-              body=[cst.Return(code_for_expr(fn.output_value))]
+              body=[cst.Return(code_for_expr(fn.output_value))]  # pyrefly: ignore[bad-argument-type]
           ),
       ]
   )
   if fn.return_type_annotation:
     returns = cst.Annotation(
-        annotation=code_for_expr(fn.return_type_annotation)
+        annotation=code_for_expr(fn.return_type_annotation)  # pyrefly: ignore[bad-argument-type]
     )
   else:
     returns = None

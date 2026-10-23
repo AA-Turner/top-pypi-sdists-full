@@ -23,6 +23,7 @@ import ctypes
 import json
 import os
 import shutil
+import stat
 import sys
 import time
 import uuid
@@ -166,7 +167,12 @@ _SYNC_LEVELS = (SYNC_FULL, SYNC_FILE, SYNC_NONE)
 
 
 def write_text_atomic(
-    path: str | Path, text: str, *, mode: int | None = None, sync: str = SYNC_FULL
+    path: str | Path,
+    text: str,
+    *,
+    mode: int | None = None,
+    sync: str = SYNC_FULL,
+    keep_mode: bool = False,
 ) -> None:
     """Atomically replace ``path`` with ``text``.
 
@@ -182,16 +188,42 @@ def write_text_atomic(
     fsync: a power loss may lose the rename, never leave a torn file.
     ``"none"`` skips both: only for bookkeeping a later pass rebuilds (a status
     count) or recovers (the queue sequence, from the op filenames).
+
+    ``keep_mode`` is for a file the user owns: the new file takes the permission
+    bits of the one it replaces (never setuid/setgid/sticky), so a 0600 file is
+    not left 0644 by the umask and a 0664 one keeps group write. ``mode`` applies
+    instead when there is no file, and when ``path`` is itself a symlink being
+    replaced (the target's mode belongs to the target). A path that exists but
+    cannot be stat'ed (a symlink loop) raises rather than being replaced. Best
+    effort: a filesystem that refuses chmod still gets the write. POSIX only; on
+    Windows a mode carries little but the read-only bit, which must not reach
+    the temp.
     """
     if sync not in _SYNC_LEVELS:
         raise ValueError(f"sync must be one of {_SYNC_LEVELS}, not {sync!r}")
     path = Path(path)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     open_mode = 0o666 if mode is None else mode
+    kept = None
+    if keep_mode and os.name != "nt":
+        try:
+            existing = os.stat(path)
+        except FileNotFoundError:  # no file yet (or a dangling link): `mode` applies
+            existing = None
+        if existing is not None and not path.is_symlink():
+            kept = stat.S_IMODE(existing.st_mode) & 0o777
+            open_mode = kept  # never readable more widely than the old file, even briefly
     try:
         descriptor = os.open(
             temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | oscompat.O_BINARY, open_mode
         )
+        if kept is not None:
+            # On the open descriptor, not the path: a path chmod would follow a
+            # link swapped in for the temp. Exact bits, which the umask trimmed.
+            try:
+                os.fchmod(descriptor, kept)
+            except OSError:
+                pass
         # newline="": the text's own "\n", on every OS (Windows would write "\r\n").
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
@@ -203,6 +235,31 @@ def write_text_atomic(
             fsync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def through_symlink(path: str | Path) -> Path:
+    """``path``, or the file it links to when ``path`` is a symlink.
+
+    For a file the user owns, before ``write_text_atomic`` or any other
+    replace. A dotfiles setup keeps ``~/.codex/AGENTS.md`` as a link into a
+    repo; the replace writes a new directory entry, so writing the LINK swaps
+    it for a regular file and quietly detaches the machine from that repo.
+    Writing the target keeps the link. A dangling link gives the path it
+    names; a link loop gives ``path`` back (non-strict ``realpath`` stops there).
+
+    The temp file goes beside the target, so the target's folder must take a
+    new file. One that can't (a read-only Nix store, a repo folder not checked
+    out) gives ``path`` back: the link is replaced as before, rather than
+    nothing being written at all.
+    """
+    path = Path(path)
+    try:
+        if not path.is_symlink():
+            return path
+        target = Path(os.path.realpath(path))
+    except OSError:
+        return path
+    return target if os.access(target.parent, os.W_OK) else path
 
 
 @contextmanager

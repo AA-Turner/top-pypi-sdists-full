@@ -11,8 +11,8 @@ use prost::Message;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use statsig_rust::{
-    SpecAdapterConfig, SpecsAdapterType, SpecsSource, SpecsUpdate, Statsig, StatsigErr,
-    StatsigOptions, StatsigUser,
+    SpecAdapterConfig, SpecsAdapterType, SpecsSource, SpecsUpdate, SpecsUpdateListener, Statsig,
+    StatsigErr, StatsigOptions, StatsigUser,
     networking::ResponseData,
     specs_response::{
         proto_stream_reader::BUFFER_SIZE,
@@ -49,6 +49,65 @@ async fn initialize_hydrates_remote_dynamic_config_before_evaluation() {
     assert_eq!(config.value.get("nested"), Some(&json!({"enabled": true})));
 
     statsig.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn same_checksum_hydrated_full_response_advances_cursor() {
+    for protobuf in [false, true] {
+        let server = MockServer::start().await;
+        let remote_value = br#"{"large":"unchanged"}"#;
+        let sha = lowercase_hex(&Sha256::digest(remote_value));
+        let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+        mount_remote_value(&server, &download_path, remote_value).await;
+
+        let mut dcs = remote_dcs(&server, &download_path, &sha, remote_value.len());
+        dcs["checksum"] = json!("response-checksum");
+        let mut initial = dcs.clone();
+        initial["time"] = json!(0);
+        let config = initial["dynamic_configs"]["large_config"]
+            .as_object_mut()
+            .unwrap();
+        config.insert(
+            "defaultValue".to_string(),
+            serde_json::from_slice(remote_value).unwrap(),
+        );
+        config.remove("remoteConfigMetadata");
+
+        if protobuf {
+            mount_protobuf_dcs(
+                &server,
+                remote_protobuf_dcs(&server, &download_path, &sha, remote_value.len()),
+            )
+            .await;
+        } else {
+            mount_dcs(&server, dcs).await;
+        }
+
+        let statsig = Statsig::new(SDK_KEY, Some(options_for(&server)));
+        let store = statsig.get_context().spec_store;
+        store
+            .set_values(SpecsUpdate {
+                data: ResponseData::from_bytes(serde_json::to_vec(&initial).unwrap()),
+                source: SpecsSource::Bootstrap,
+                received_at: 0,
+                source_api: None,
+                has_updates: None,
+            })
+            .unwrap();
+
+        statsig.initialize().await.unwrap();
+
+        assert_eq!(
+            store.get_current_specs_info().lcut,
+            Some(1),
+            "protobuf={protobuf}"
+        );
+        let config =
+            statsig.get_dynamic_config(&StatsigUser::with_user_id("a-user"), "large_config");
+        assert_eq!(config.value.get("large"), Some(&json!("unchanged")));
+        statsig.shutdown().await.unwrap();
+        server.verify().await;
+    }
 }
 
 #[tokio::test]

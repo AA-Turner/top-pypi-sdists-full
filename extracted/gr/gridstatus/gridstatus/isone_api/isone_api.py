@@ -18,10 +18,29 @@ from gridstatus.isone_api.isone_api_constants import (
     ISONE_CONSTRAINT_FIVE_MIN_COLUMNS,
     ISONE_FCM_RECONFIGURATION_COLUMNS,
     ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS,
+    ISONE_FIVE_MIN_ZONAL_LOAD_FORECAST_COLUMNS,
+    ISONE_MORNING_REPORT_CITY_FIELDS,
+    ISONE_MORNING_REPORT_COLUMNS,
+    ISONE_MORNING_REPORT_INTERCHANGE_FIELDS,
+    ISONE_MORNING_REPORT_SCALAR_MAP,
+    ISONE_MORNING_REPORT_TIE_ALIASES,
+    ISONE_MORNING_REPORT_TIE_DELIVERY_FIELD,
+    ISONE_MORNING_REPORT_TIE_NAMES,
     ISONE_RESERVE_ZONE_ALL_COLUMNS,
     ISONE_RESERVE_ZONE_COLUMN_MAP,
     ISONE_RESERVE_ZONE_FLOAT_COLUMNS,
+    ISONE_TOTAL_DEMAND_COLUMNS,
 )
+from gridstatus.isone_constants import (
+    ISONE_ANCILLARY_SERVICES_ARD_OFFERS_COLUMNS,
+    ISONE_ANCILLARY_SERVICES_DRR_OFFERS_COLUMNS,
+    ISONE_ANCILLARY_SERVICES_ENERGY_OFFERS_COLUMNS,
+    ISONE_ARD_BIDS_COLUMNS,
+    ISONE_DRR_OFFERS_COLUMNS,
+    ISONE_IMPORT_OFFERS_EXPORT_BIDS_COLUMNS,
+    ISONE_OFFER_SEGMENT_COLUMNS,
+)
+from gridstatus.isone_utils import build_offer_curve
 
 # Default page size for API requests
 DEFAULT_PAGE_SIZE = 1000
@@ -137,7 +156,7 @@ class ISONEAPI:
     def make_api_call(
         self,
         url: str,
-        api_params: dict = None,
+        api_params: dict | None = None,
         parse_json: bool = True,
         verbose: bool = False,
     ):
@@ -183,6 +202,329 @@ class ISONEAPI:
             return response.json()
         else:
             return response.content
+
+    @support_date_range("DAY_START")
+    def get_ancillary_services_ard_offers_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead ancillary-services ARD offers, with timezone-aware hourly intervals.
+
+        Accepts an operating date or date range (exclusive end). ISO-NE publishes
+        these reports on the first day of the fourth month after the operating
+        month. Masked identifiers must not be treated as public asset IDs.
+        """
+        records = self._get_historical_offer_records(
+            date,
+            "hbdaasardoffer",
+            (
+                "isone_web_services",
+                "offer_publishing",
+                "day_ahead_ancillary_services",
+                "daas_ard_offer_data",
+            ),
+            verbose,
+        )
+        return self._parse_historical_offers(
+            records,
+            ISONE_ANCILLARY_SERVICES_ARD_OFFERS_COLUMNS,
+            {
+                "masked_lead_participant_id": "Masked Lead Participant ID",
+                "masked_asset_id": "Masked Asset ID",
+                "offer_mw": "Offer Max MW",
+                "tmsr_offer_price": "TMSR Price",
+                "tmor_offer_price": "TMOR Price",
+            },
+            "market_hour.local_day",
+        )
+
+    @support_date_range("DAY_START")
+    def get_ancillary_services_drr_offers_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead ancillary-services DRR offers, with timezone-aware hourly intervals.
+
+        Accepts an operating date or date range (exclusive end). ISO-NE publishes
+        these reports on the first day of the fourth month after the operating
+        month. Masked identifiers must not be treated as public asset IDs.
+        """
+        records = self._get_historical_offer_records(
+            date,
+            "hbdaasdrroffer",
+            (
+                "isone_web_services",
+                "offer_publishing",
+                "day_ahead_ancillary_services",
+                "daas_drr_offer_data",
+            ),
+            verbose,
+        )
+        return self._parse_historical_offers(
+            records,
+            ISONE_ANCILLARY_SERVICES_DRR_OFFERS_COLUMNS,
+            {
+                "masked_lead_participant_id": "Masked Lead Participant ID",
+                "masked_asset_id": "Masked Asset ID",
+                "offer_mw": "Offer Max MW",
+                "tmsr_offer_price": "TMSR Price",
+                "tmor_offer_price": "TMOR Price",
+                "tmnsr_offer_price": "TMNSR Price",
+                "eir_offer_price": "EIR Price",
+            },
+            "market_hour.local_day",
+        )
+
+    @support_date_range("DAY_START")
+    def get_ancillary_services_energy_offers_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead ancillary-services energy offers, with timezone-aware hourly intervals.
+
+        Accepts an operating date or date range (exclusive end). ISO-NE publishes
+        these reports on the first day of the fourth month after the operating
+        month. Masked identifiers must not be treated as public asset IDs.
+        """
+        records = self._get_historical_offer_records(
+            date,
+            "hbdaasenergyoffer",
+            (
+                "isone_web_services",
+                "offer_publishing",
+                "day_ahead_ancillary_services",
+                "daas_gen_offer_data",
+            ),
+            verbose,
+        )
+        return self._parse_historical_offers(
+            records,
+            ISONE_ANCILLARY_SERVICES_ENERGY_OFFERS_COLUMNS,
+            {
+                "masked_lead_participant_id": "Masked Lead Participant ID",
+                "masked_asset_id": "Masked Asset ID",
+                "offer_mw": "Offer Max MW",
+                "tmsr_offer_price": "TMSR Price",
+                "tmor_offer_price": "TMOR Price",
+                "tmnsr_offer_price": "TMNSR Price",
+                "eir_offer_price": "EIR Price",
+            },
+            "market_hour.local_day",
+        )
+
+    @support_date_range("DAY_START")
+    def get_ard_bids_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead asset-related demand (ARD) bids, with timezone-aware hourly intervals.
+
+        Accepts an operating date or date range (exclusive end). ISO-NE publishes
+        these reports on the first day of the fourth month after the operating
+        month. Masked identifiers must not be treated as public asset IDs.
+        Each curve contains [MW, Price] pairs in source segment order, without
+        rounding or accumulating MW. Unreported segments are omitted.
+        """
+        records = self._get_historical_offer_records(
+            date,
+            "hbdayaheadardbid",
+            ("HbDayAheadArdBids", "HbDayAheadArdBid"),
+            verbose,
+        )
+        return self._parse_historical_offers(
+            records,
+            ISONE_ARD_BIDS_COLUMNS,
+            {
+                "MaskedParticipantId": "Masked Lead Participant ID",
+                "MaskedAssetId": "Masked Asset ID",
+                "Claim10Mw": "Claim 10",
+                "Claim30Mw": "Claim 30",
+                "UnitStatus": "Unit Status",
+                "MaxDailyAwardLimitMw": "Max Daily Award Limit",
+                "MinimumConsumption": "Minimum Consumption",
+                "MaximumConsumption": "Maximum Consumption",
+            },
+            "BeginDate",
+            curve_column="ARD Bid Curve",
+            optional_fields=("MaxDailyAwardLimitMw",),
+        )
+
+    @support_date_range("DAY_START")
+    def get_drr_offers_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead demand-response resource (DRR) offers, with timezone-aware hourly intervals.
+
+        Accepts an operating date or date range (exclusive end). ISO-NE publishes
+        these reports on the first day of the fourth month after the operating
+        month. Masked identifiers must not be treated as public asset IDs.
+        Each curve contains [MW, Price] pairs in source segment order, without
+        rounding or accumulating MW. Unreported segments are omitted.
+        """
+        records = self._get_historical_offer_records(
+            date,
+            "hbdayaheaddrrbid",
+            ("HbDayAheadDrrBids", "HbDayAheadDrrBid"),
+            verbose,
+        )
+        return self._parse_historical_offers(
+            records,
+            ISONE_DRR_OFFERS_COLUMNS,
+            {
+                "MaskedParticipantId": "Masked Lead Participant ID",
+                "MaskedAssetId": "Masked Asset ID",
+                "Claim10Mw": "Claim 10",
+                "Claim30Mw": "Claim 30",
+                "UnitStatus": "Unit Status",
+                "MaxDailyAwardLimitMw": "Max Daily Award Limit",
+                "MaxDailyEnergy": "Max Daily Energy",
+                "MinimumReduction": "Minimum Reduction",
+                "MaximumReduction": "Maximum Reduction",
+                "InterruptionCost": "Interruption Cost",
+            },
+            "Day",
+            curve_column="DRR Offer Curve",
+            optional_fields=("MaxDailyEnergy", "MaxDailyAwardLimitMw"),
+        )
+
+    @support_date_range("DAY_START")
+    def get_import_offers_export_bids_day_ahead(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead import offers and export bids, with timezone-aware hourly intervals.
+
+        Accepts an operating date or date range (exclusive end). ISO-NE publishes
+        these reports on the first day of the fourth month after the operating
+        month. Masked identifiers must not be treated as public asset IDs.
+        The source provides no transaction identifier. Identical rows are retained
+        because they can represent separate bids. Price is null for fixed bids.
+        """
+        records = self._get_historical_offer_records(
+            date,
+            "hbimportexport/marketType/DA",
+            ("HbImportExports", "HbImportExport"),
+            verbose,
+        )
+        return self._parse_historical_offers(
+            records,
+            ISONE_IMPORT_OFFERS_EXPORT_BIDS_COLUMNS,
+            {
+                "MarketType": "Market Type",
+                "MaskedCustomerId": "Masked Customer ID",
+                "MaskedSourceId": "Masked Originating Location ID",
+                "MaskedSinkId": "Masked Destination Location ID",
+                "EmergencyFlag": "Emergency Flag",
+                "Direction": "Direction",
+                "TransactionType": "Transaction Type",
+                "Price": "Price",
+                "Mw": "Bid MW",
+            },
+            "BeginDate",
+            curve_column=None,
+            optional_fields=("Price",),
+        )
+
+    def _get_historical_offer_records(self, date, endpoint, keys, verbose):
+        if date == "latest":
+            raise ValueError("Historical offers require a specific operating date")
+        data = self.make_api_call(
+            self._build_url(endpoint, date),
+            verbose=verbose,
+        )
+        for key in keys:
+            if data == {}:
+                return []
+            data = data[key]
+        return self._prepare_records(data)
+
+    def _parse_historical_offers(
+        self,
+        records,
+        columns,
+        column_map,
+        time_column,
+        curve_column=None,
+        optional_fields=(),
+    ):
+        if records:
+            df = pd.json_normalize(records)
+            required = [time_column] + [
+                field for field in column_map if field not in optional_fields
+            ]
+            missing = set(required) - set(df.columns)
+            if missing:
+                raise ValueError(f"Missing historical offer fields: {sorted(missing)}")
+            for field in optional_fields:
+                if field not in df:
+                    df[field] = float("nan")
+            df = df.rename(columns=column_map)
+            df["Interval Start"] = pd.to_datetime(
+                df[time_column],
+                utc=True,
+            ).dt.tz_convert(self.default_timezone)
+            df["Interval End"] = df["Interval Start"] + pd.Timedelta(hours=1)
+            if curve_column:
+                segment_df = pd.DataFrame(
+                    [
+                        self._parse_offer_segments(record["Segments"])
+                        for record in records
+                    ],
+                ).reindex(columns=ISONE_OFFER_SEGMENT_COLUMNS)
+                df[curve_column] = build_offer_curve(segment_df)
+            df = df[columns].copy()
+        else:
+            df = pd.DataFrame(columns=columns)
+            for column in ["Interval Start", "Interval End"]:
+                df[column] = pd.Series(dtype=f"datetime64[ns, {self.default_timezone}]")
+        text_columns = {
+            "Unit Status",
+            "Market Type",
+            "Emergency Flag",
+            "Direction",
+            "Transaction Type",
+        }
+        for column in columns[2:]:
+            if column in text_columns or column == curve_column:
+                df[column] = df[column].astype("object")
+            else:
+                df[column] = pd.to_numeric(df[column], errors="raise").astype(
+                    "int64" if column.endswith(" ID") else "float64",
+                )
+        return df.sort_values(
+            [column for column in columns if column != curve_column],
+            kind="stable",
+        ).reset_index(drop=True)
+
+    @staticmethod
+    def _parse_offer_segments(value):
+        if isinstance(value, list):
+            segments = [item["Segment"] for item in value]
+        else:
+            segments = value["Segment"]
+            if isinstance(segments, dict):
+                segments = [segments]
+        result = {}
+        for segment in segments:
+            number = int(segment.get("Number", segment.get("@Number")))
+            if number not in range(1, 11) or f"Segment {number} Price" in result:
+                raise ValueError(f"Invalid or duplicate offer segment number: {number}")
+            result[f"Segment {number} Price"] = segment["Price"]
+            result[f"Segment {number} MW"] = segment["Mw"]
+        return result
 
     def get_locations(self) -> pd.DataFrame:
         """
@@ -279,11 +621,175 @@ class ISONEAPI:
         return mix_df
 
     @support_date_range("DAY_START")
+    def get_marginal_fuel_type(
+        self,
+        date: str | pd.Timestamp = "latest",
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return marginal-fuel flags per timestamp, one boolean column per fuel type.
+
+        Args:
+            date (str | pd.Timestamp): The start date for the data request. Use "latest" for most recent data.
+            end (str | pd.Timestamp | None): The end date for the data request. Only used if date is not "latest".
+            verbose (bool): Whether to print verbose logging information.
+
+        Returns:
+            pd.DataFrame: One row per timestamp. Column "Time" plus one boolean
+                column per fuel category (e.g. "Natural Gas", "Solar"). True
+                means the fuel was marginal at that timestamp; missing
+                (timestamp, fuel) pairs and timestamps with no marginal fuel
+                are False.
+        """
+        if date == "latest":
+            url = f"{self.base_url}/genfuelmix/current"
+        else:
+            url = f"{self.base_url}/genfuelmix/day/{date.strftime('%Y%m%d')}"
+
+        response = self.make_api_call(url)
+        df = pd.DataFrame(response["GenFuelMixes"]["GenFuelMix"])
+        df["IsMarginal"] = (df["MarginalFlag"] == "Y").astype(int)
+
+        pivoted = df.pivot_table(
+            index="BeginDate",
+            columns="FuelCategory",
+            values="IsMarginal",
+            aggfunc="first",
+        ).reset_index()
+        pivoted.columns.name = None
+
+        pivoted = pivoted.rename(columns={"BeginDate": "Time"})
+        pivoted["Time"] = pivoted["Time"].apply(self.parse_problematic_datetime)
+
+        fuel_cols = sorted(c for c in pivoted.columns if c != "Time")
+        pivoted[fuel_cols] = pivoted[fuel_cols].fillna(0).astype(bool)
+
+        return utils.move_cols_to_front(pivoted, ["Time"] + fuel_cols)
+
+    @support_date_range("DAY_START")
+    def get_morning_report(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get ISO-NE's daily morning report for the operating day."""
+        url = f"{self.base_url}/morningreport/day/{date.strftime('%Y%m%d')}/all"
+        response = self.make_api_call(url, verbose=verbose)
+        reports = self._prepare_records(
+            self._safe_get(response, "MorningReports", "MorningReport"),
+        )
+        if not reports:
+            raise NoDataFoundException(f"No morning report data found for {date}")
+
+        report = next(
+            (
+                item
+                for item in reports
+                if str(item.get("ReportType", "")).upper()
+                in {"MR", "MORNING REPORT", "MORNINGREPORT"}
+            ),
+            reports[0],
+        )
+        df = pd.DataFrame([self._parse_morning_report(report)])
+        return df[ISONE_MORNING_REPORT_COLUMNS]
+
+    def _parse_morning_report(self, report: dict) -> dict[str, object]:
+        """Flatten one MorningReport JSON object into the daily wide-row output schema."""
+        tz = self.default_timezone
+
+        begin_date = pd.to_datetime(report["BeginDate"], utc=True).tz_convert(tz)
+        report_date = begin_date.normalize().date()
+
+        prior_peak_time = report.get("PeakLoadYesterdayHour")
+        if prior_peak_time is None or (
+            isinstance(prior_peak_time, float) and pd.isna(prior_peak_time)
+        ):
+            prior_day = None
+            prior_day_peak_hour = None
+        else:
+            prior_peak_time = pd.to_datetime(prior_peak_time, utc=True).tz_convert(tz)
+            prior_day = prior_peak_time.normalize().date()
+            prior_day_peak_hour = prior_peak_time.hour + 1
+
+        row: dict[str, object] = {
+            "Report Date": report_date,
+            "Prior Day": prior_day,
+            "Prior Day Peak Hour": prior_day_peak_hour,
+        }
+        row.update(
+            {
+                output: report.get(source)
+                for source, output in ISONE_MORNING_REPORT_SCALAR_MAP.items()
+            },
+        )
+        row.update(
+            self._morning_report_tie_columns(
+                report.get("TieDelivery"),
+                ISONE_MORNING_REPORT_TIE_DELIVERY_FIELD,
+            ),
+        )
+        row.update(
+            self._morning_report_tie_columns(
+                report.get("InterchangeDetail"),
+                ISONE_MORNING_REPORT_INTERCHANGE_FIELDS,
+            ),
+        )
+
+        cities = pd.json_normalize(
+            self._prepare_records(report.get("CityForecastDetail") or []),
+        )
+        for city_key, prefix in [("boston", "Boston"), ("hartford", "Hartford")]:
+            for api_field, suffix in ISONE_MORNING_REPORT_CITY_FIELDS.items():
+                row[f"{prefix} {suffix}"] = None
+            if cities.empty or "CityName" not in cities.columns:
+                continue
+            match = cities.loc[cities["CityName"].str.casefold() == city_key]
+            if match.empty:
+                continue
+            city_row = match.iloc[0]
+            for api_field, suffix in ISONE_MORNING_REPORT_CITY_FIELDS.items():
+                row[f"{prefix} {suffix}"] = city_row.get(api_field)
+
+        return row
+
+    def _morning_report_tie_columns(
+        self,
+        records: dict | list[dict] | None,
+        api_field_suffix_pairs: dict[str, str],
+    ) -> dict[str, object]:
+        """Pivot TieDelivery or InterchangeDetail arrays into wide tie columns."""
+        columns = {
+            f"{tie} {suffix}": None
+            for tie in ISONE_MORNING_REPORT_TIE_NAMES
+            for suffix in api_field_suffix_pairs.values()
+        }
+        if not records:
+            return columns
+
+        ties = pd.json_normalize(self._prepare_records(records))
+        ties["TieName"] = ties["TieName"].map(
+            lambda name: ISONE_MORNING_REPORT_TIE_ALIASES.get(
+                str(name).strip().casefold(),
+                str(name).strip(),
+            ),
+        )
+        for api_field, suffix in api_field_suffix_pairs.items():
+            if api_field not in ties.columns:
+                continue
+            values = ties.set_index("TieName")[api_field]
+            for tie in ISONE_MORNING_REPORT_TIE_NAMES:
+                column = f"{tie} {suffix}"
+                if tie in values.index:
+                    columns[column] = values.loc[tie]
+        return columns
+
+    @support_date_range("DAY_START")
     def get_realtime_hourly_demand(
         self,
         date: str | pd.Timestamp = "latest",
         end: str | pd.Timestamp | None = None,
-        locations: list[str] = None,
+        locations: list[str] | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
         """
@@ -331,7 +837,7 @@ class ISONEAPI:
                 if not locations:
                     locations = [
                         loc
-                        for loc in ZONE_LOCATIONID_MAP.keys()
+                        for loc in ZONE_LOCATIONID_MAP
                         if loc not in EXCLUDE_FROM_REALTIME_HOURLY_DEMAND
                     ]
 
@@ -426,7 +932,7 @@ class ISONEAPI:
         self,
         date: str | pd.Timestamp = "latest",
         end: str | pd.Timestamp | None = None,
-        locations: list[str] = None,
+        locations: list[str] | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
         """
@@ -778,7 +1284,7 @@ class ISONEAPI:
         if date == "latest":
             url = f"{self.base_url}/fifteenminuteinterchange/current"
         else:
-            url = f"{self.base_url}/fifteenminuteinterchange/day/{date.strftime('%Y%m%d')}"  # noqa: E501
+            url = f"{self.base_url}/fifteenminuteinterchange/day/{date.strftime('%Y%m%d')}"
 
         log.info(f"Requesting interchange data for date: {date}")
 
@@ -966,6 +1472,148 @@ class ISONEAPI:
         return df[ISONE_FIVE_MIN_ESTIMATED_ZONAL_LOAD_COLUMNS].sort_values(
             ["Interval Start", "Load Zone ID"],
         )
+
+    def get_load_forecast_by_zone_5_min(
+        self,
+        date: str | pd.Timestamp | Literal["latest"] = "latest",
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Get five-minute zonal load forecast data for all load zones.
+
+        Args:
+            date (pd.Timestamp | Literal["latest"]): Unused. Kept for API
+                compatibility. This endpoint always returns the current forecast.
+            end (pd.Timestamp | None): Unused. Date ranges are not supported.
+            verbose (bool): Whether to print verbose logging information.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing five-minute zonal load forecast data.
+                Publish Time comes from the /info endpoint CreationDate field.
+        """
+        if end is not None:
+            raise ValueError(
+                "Date ranges are not supported for five-minute zonal load forecast. "
+                "Use date='latest'.",
+            )
+        data_url = self._build_url("fiveminutezonalloadforecast", "latest")
+
+        info_response = self.make_api_call(
+            f"{self.base_url}/fiveminutezonalloadforecast/info",
+            verbose=verbose,
+        )
+        response = self.make_api_call(data_url, verbose=verbose)
+        publish_time = pd.to_datetime(
+            info_response["ServiceInfo"]["CreationDate"],
+            utc=True,
+        ).tz_convert(self.default_timezone)
+
+        records = self._prepare_records(
+            self._safe_get(
+                response,
+                "isone_web_services",
+                "five_min_zonal_forecast_data",
+                "five_min_zonal_forecast",
+            ),
+        )
+
+        if not records:
+            raise NoDataFoundException(
+                "No five-minute zonal load forecast data found",
+            )
+
+        df = pd.DataFrame(records)
+
+        df["Interval Start"] = pd.to_datetime(
+            df["interval_begin_date"],
+            utc=True,
+        ).dt.tz_convert(self.default_timezone)
+        df["Interval End"] = df["Interval Start"] + pd.Timedelta(minutes=5)
+
+        df = df.rename(
+            columns={
+                "load_zone_id": "Load Zone ID",
+                "load_zone_name": "Load Zone Name",
+                "load_mw": "Load Forecast",
+                "btm_pv_mw": "BTM Solar Forecast",
+            },
+        )
+
+        df["Publish Time"] = publish_time
+
+        df["Load Zone ID"] = pd.to_numeric(df["Load Zone ID"], errors="coerce")
+        df["Load Forecast"] = pd.to_numeric(df["Load Forecast"], errors="coerce")
+        df["BTM Solar Forecast"] = pd.to_numeric(
+            df["BTM Solar Forecast"],
+            errors="coerce",
+        )
+
+        return (
+            df[ISONE_FIVE_MIN_ZONAL_LOAD_FORECAST_COLUMNS]
+            .sort_values(["Interval Start", "Load Zone Name"])
+            .reset_index(drop=True)
+        )
+
+    @support_date_range("DAY_START")
+    def get_total_demand(
+        self,
+        date: str | pd.Timestamp | Literal["latest"],
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """
+        Get five-minute system load ("total demand") data.
+
+        Includes Total Load, Native Load, Storage Load, and the
+        behind-the-meter (estimated solar) variants, as reported by the
+        ISO-NE /fiveminutesystemload web service endpoint.
+
+        Args:
+            date (pd.Timestamp | Literal["latest"]): The start date for the
+                data request. Use "latest" for most recent data.
+            end (pd.Timestamp | None): The end date for the data request. Only
+                used if date is not "latest".
+            verbose (bool): Whether to print verbose logging information.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing five-minute total demand data.
+        """
+        url = self._build_url("fiveminutesystemload", date)
+        response = self.make_api_call(url, verbose=verbose)
+
+        # /current returns {"FiveMinSystemLoad": [...]}; /day nests it under
+        # "FiveMinSystemLoads". Collapse both shapes to the inner container.
+        container = response.get("FiveMinSystemLoads", response)
+        records = self._prepare_records(container.get("FiveMinSystemLoad"))
+
+        if not records:
+            raise NoDataFoundException(
+                f"No five-minute system load data found for {date}",
+            )
+
+        df = pd.DataFrame(records)
+
+        df["Interval Start"] = pd.to_datetime(
+            df["BeginDate"],
+            utc=True,
+        ).dt.tz_convert(self.default_timezone)
+        df["Interval End"] = df["Interval Start"] + pd.Timedelta(minutes=5)
+
+        df = df.rename(
+            columns={
+                "LoadMw": "Total Load",
+                "NativeLoad": "Native Load",
+                "ArdDemand": "Storage Load",
+                "SystemLoadBtmPv": "Total Load With Estimated Solar",
+                "NativeLoadBtmPv": "Native Load With Estimated Solar",
+            },
+        )
+
+        for col in ISONE_TOTAL_DEMAND_COLUMNS[2:]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        return df[ISONE_TOTAL_DEMAND_COLUMNS].sort_values("Interval Start")
 
     @support_date_range("HOUR_START")
     def get_lmp_real_time_5_min_prelim(
@@ -1547,14 +2195,20 @@ class ISONEAPI:
         url = self._build_url("daasstrikeprices", date)
         response = self.make_api_call(url, verbose=verbose)
 
-        df = pd.json_normalize(
+        # ISO-NE returns day_ahead_strike_prices as a single object for one market
+        # day and as a list when several days are returned, so normalize both shapes.
+        strike_price_groups = self._prepare_records(
             self._safe_get(
                 response,
                 "isone_web_services",
                 "day_ahead_strike_prices",
-                "day_ahead_strike_price",
             ),
         )
+        records = []
+        for group in strike_price_groups:
+            records.extend(self._prepare_records(group.get("day_ahead_strike_price")))
+
+        df = pd.json_normalize(records)
 
         if df.empty:
             raise NoDataFoundException(

@@ -19,6 +19,7 @@ from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.typed_column import TypedColumn
 from snowflake.snowpark_connect.utils.context import (
     get_captured_attribute_names,
+    pivot_first_last_rewrite,
     push_evaluating_sql_scope,
     push_outer_dataframe,
     resolving_subquery_exp,
@@ -191,9 +192,10 @@ def map_extension(
             )
 
             attr_names = []
+            # A subquery inside a pivot aggregate is not part of the pivot.
             with push_evaluating_sql_scope(), push_outer_dataframe(
                 current_outer_df
-            ), resolving_subquery_exp():
+            ), resolving_subquery_exp(), pivot_first_last_rewrite(False):
                 df_container = map_relation(extension.subquery_expression.input)
                 df = df_container.dataframe
                 attr_names = get_captured_attribute_names()

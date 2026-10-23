@@ -12,10 +12,10 @@ from schemathesis.generation.case import Case
 from schemathesis.generation.stateful.control import TransitionController
 from schemathesis.generation.stateful.state_machine import (
     APIStateMachine,
+    RecordingStateMachine,
     StepInput,
     StepOutput,
     Transition,
-    _RecordingStateMachine,
 )
 from schemathesis.specs.graphql.handles import Handle, bundle_name, deleted_bundle_name
 from schemathesis.specs.graphql.stateful._rules import generate_rules_for
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from schemathesis.specs.graphql.stateful._transitions import GraphQLTransitions
 
 
-class GraphQLStateMachine(_RecordingStateMachine):
+class GraphQLStateMachine(RecordingStateMachine):
     """State machine for GraphQL stateful testing built around producer/consumer chains."""
 
     schema: GraphQLSchema  # set on the dynamically-built subclass
@@ -46,10 +46,12 @@ class GraphQLStateMachine(_RecordingStateMachine):
         super().__init__()
 
     def _add_result_to_targets(self, targets: tuple[str, ...], result: Any) -> None:
-        RuleBasedStateMachine._add_result_to_targets(self, targets, result)
+        # Hypothesis <=6.131.15 only; newer versions call `_add_results_to_targets`.
+        RuleBasedStateMachine._add_result_to_targets(self, targets, result)  # type: ignore[attr-defined]
 
     def _add_results_to_targets(self, targets: tuple[str, ...], results: list[Any]) -> None:
-        RuleBasedStateMachine._add_results_to_targets(self, targets, results)
+        # Private Hypothesis method without annotations.
+        RuleBasedStateMachine._add_results_to_targets(self, targets, results)  # type: ignore[no-untyped-call]
 
     def _run_case(
         self,

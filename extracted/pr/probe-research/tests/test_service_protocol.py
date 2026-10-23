@@ -89,6 +89,20 @@ def test_register_checks_its_params(service_home, params):
         (Method.EVENTS_SUBSCRIBE, {"topics": []}),
         (Method.STATUS_GET, {"refresh": "yes"}),
         (Method.SESSION_END, {"sid": "s"}),
+        (Method.RECORDERS_FINISH, {}),
+        (Method.RECORDERS_FINISH, {"harness": "claude_code", "wait": -1}),
+        (Method.RECORDERS_FINISH, {"harness": "claude_code", "wait": 61}),
+        (Method.RECORDERS_FINISH, {"harness": "claude_code", "wait": True}),
+        (Method.RUN_HOLD, {"run": "r"}),
+        (Method.RUN_HOLD, {"run": "r", "owner": None}),
+        (Method.RUN_HOLD, {"run": "r", "owner": {"pid": 1, "start_time": "x"}}),
+        (Method.RUN_HOLD, {"owner": {"pid": 4242, "start_time": "x"}}),
+        (Method.RUN_HOLD, {"run": "r" * 257, "owner": {"pid": 4242, "start_time": "x"}}),
+        (Method.RUN_RELEASE, {}),
+        (Method.RUN_RELEASE, {"run": "r", "owner": {"pid": "4242"}}),
+        (Method.MANIFEST_REFRESH, {"wait": "soon"}),
+        (Method.MANIFEST_REFRESH, {"context": {"PROBE_TOKEN": "x"}}),
+        (Method.MANIFEST_REFRESH, {"context": {"PROBE_BASE_URL": "http://api.example.test"}}),
     ],
 )
 def test_other_methods_check_their_params(service_home, method, params):
@@ -133,10 +147,12 @@ def test_response_shapes(service_home):
         status = conn.call(Method.STATUS)
         assert set(status) == {
             "service_version", "pid", "started_at", "state", "sessions", "app_clients", "update",
-            "actions", "discovering_until",
+            "actions", "discovering_until", "hook_hosts", "hook_queue", "recorders", "runs",
         }
+        assert status["runs"] == []
         assert set(status["update"]) == {
             "enabled", "last_check", "last_result", "next_check", "in_progress", "cycle_id", "step", "deferred",
+            "deferred_since", "guard",
         }
         assert status["actions"] == {"running": None}
         assert status["app_clients"] == 1
@@ -241,10 +257,11 @@ def test_a_peer_of_another_uid_is_refused(service_home, monkeypatch):
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
             sock.settimeout(2.0)
             sock.connect(str(path))
-            sock.sendall(HELLO)
             try:
+                # The server may close before the hello lands (EPIPE): refused all the same.
+                sock.sendall(HELLO)
                 answer = sock.recv(100)
-            except ConnectionResetError:
+            except (BrokenPipeError, ConnectionResetError):
                 answer = b""
             assert answer == b""  # closed without an answer
     finally:

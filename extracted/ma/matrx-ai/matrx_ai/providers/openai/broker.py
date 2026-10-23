@@ -13,7 +13,7 @@ custom ``model_providers.<id>`` with ``wire_api = "responses"`` — it POSTs
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -25,9 +25,15 @@ RESPONSES_URL = "https://api.openai.com/v1/responses"
 ADMIN_API_BASE_URL = "https://api.openai.com"
 
 
+#: The relay names the OPERATION; the endpoint stays inside the provider layer
+#: (the funnel). A caller never reads a URL constant (no-exemptions, 2026-10-22).
+BrokerEndpoint = Literal["responses"]
+_BROKER_ENDPOINTS: dict[str, str] = {"responses": RESPONSES_URL}
+
+
 async def open_broker_stream(
     *,
-    upstream_url: str,
+    endpoint: BrokerEndpoint,
     body: dict[str, Any],
     headers: Mapping[str, str],
     request_timeout: httpx.Timeout,
@@ -40,7 +46,7 @@ async def open_broker_stream(
     """
     client = httpx.AsyncClient(timeout=request_timeout)
     try:
-        upstream_request = client.build_request("POST", upstream_url, json=body, headers=headers)
+        upstream_request = client.build_request("POST", _BROKER_ENDPOINTS[endpoint], json=body, headers=headers)
         return client, await client.send(upstream_request, stream=True)
     except httpx.HTTPError:
         await client.aclose()

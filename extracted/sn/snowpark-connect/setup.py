@@ -87,6 +87,6 @@ setup(
             "jdk4py>=21.0.4.0 ; platform_system=='Linux' and platform_machine=='aarch64'",
             "jdk4py==17.0.9.2 ; platform_system!='Linux' or platform_machine!='aarch64'",
         ],
-        "iceberg": ["snowpark-connect-deps-iceberg>=1.0.3"],
+        "iceberg": ["snowpark-connect-deps-iceberg==1.0.3"],
     },
 )

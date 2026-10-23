@@ -34,8 +34,9 @@ class ActionName(StrEnum):
     #: A read, not an action: `probe status --json`'s object (API v1 `status.get`).
     STATUS = "status"
     #: A read, not an action: the installed CLI's version, as a fresh process
-    #: imports it (`{"cli_version": ...}`). The Probe service asks after an
-    #: update, because its own `probe.__version__` is the one it started with.
+    #: imports it (`{"cli_version", "cli_latest"}`). The Probe service asks after
+    #: an update, because its own `probe.__version__` is the one it started
+    #: with, and (`latest`) before it stops daemon workers for one (D7).
     VERSION = "version"
 
 
@@ -140,11 +141,22 @@ class StatusRequest:
 
 
 @dataclass(frozen=True)
+class VersionRequest:
+    """`version`; `latest`: also ask the release manifest (a network read) for
+    the newest CLI, instead of the cached manifest's answer. `refresh`: first
+    refresh the CLI's cached manifest as its own refresher does (the Probe
+    service's `manifest.refresh`), and say how that went."""
+
+    latest: bool = False
+    refresh: bool = False
+
+
+@dataclass(frozen=True)
 class EmptyRequest:
-    """logout, uninstall, update and version take no parameters."""
+    """logout, uninstall and update take no parameters."""
 
 
-Request = ConfigureRequest | RecorderRequest | SessionDefaultRequest | StatusRequest | EmptyRequest
+Request = ConfigureRequest | RecorderRequest | SessionDefaultRequest | StatusRequest | VersionRequest | EmptyRequest
 
 #: A configure request's capabilities: each is true, false or left out.
 CAPABILITIES = ("tracking", "capture", "auto_update", "agent_rules")
@@ -162,7 +174,7 @@ _FIELDS: dict[ActionName, dict[str, tuple[type, bool]]] = {
     ActionName.RECORDER: {"who_records": (str, True)},
     ActionName.SESSION_DEFAULT: {"state": (str, True)},
     ActionName.STATUS: {"refresh": (bool, False)},
-    ActionName.VERSION: {},
+    ActionName.VERSION: {"latest": (bool, False), "refresh": (bool, False)},
     ActionName.LOGOUT: {},
     ActionName.UNINSTALL: {},
     ActionName.UPDATE: {},
@@ -236,6 +248,8 @@ def parse(action: ActionName | str, payload: object) -> Request:
         return SessionDefaultRequest(_word(SessionState, "state", payload["state"]))
     if name is ActionName.STATUS:
         return StatusRequest(refresh=payload.get("refresh", False))
+    if name is ActionName.VERSION:
+        return VersionRequest(latest=payload.get("latest", False), refresh=payload.get("refresh", False))
     return EmptyRequest()
 
 

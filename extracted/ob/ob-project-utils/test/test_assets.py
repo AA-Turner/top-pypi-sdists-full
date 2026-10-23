@@ -24,10 +24,12 @@ from obproject.assets import (
     get_model_asset,
     delete_data_asset,
     delete_model_asset,
+    promote_assets,
     Asset,
     AssetInstance,
     EntityRef,
 )
+import obproject.assets as assets_mod
 from typing import Iterator
 
 
@@ -151,6 +153,124 @@ def test_metadata_sync_helpers_exist():
     print("PASS: test_metadata_sync_helpers_exist")
 
 
+def test_promote_default_kinds_skips_missing_kind():
+    """kinds defaulted + named asset: kinds it isn't registered as are skipped, not errors."""
+    from unittest import mock
+
+    fake = mock.MagicMock()
+    probed = []
+    promoted_kinds = []
+
+    def fake_exists(kind, name, branch=None):
+        probed.append((kind, name, branch))
+        return kind == "data"
+
+    def fake_promote(source_branch, target_branch, name, kind, instance,
+                     with_aliases=False, alias=None):
+        promoted_kinds.append(kind)
+
+    fake._asset_exists.side_effect = fake_exists
+    fake._promote_single.side_effect = fake_promote
+
+    with mock.patch.object(assets_mod, "Asset", return_value=fake):
+        result = promote_assets(
+            "proj", source="feature-v2", target="main", asset="my_asset"
+        )
+
+    assert result["promoted"] == [{"kind": "data", "name": "my_asset", "alias": "candidate"}]
+    assert result["errors"] == []
+    assert promoted_kinds == ["data"]
+    # Probes hit the sanitized source branch, not the target
+    assert probed and all(branch == "feature_v2" for _, _, branch in probed)
+    print("PASS: test_promote_default_kinds_skips_missing_kind")
+
+
+def test_promote_explicit_kinds_reports_missing_kind():
+    """Explicit kinds keeps strict behavior: a failing kind is an error entry."""
+    from unittest import mock
+    import requests
+
+    fake = mock.MagicMock()
+
+    def fake_promote(source_branch, target_branch, name, kind, instance,
+                     with_aliases=False, alias=None):
+        if kind == "models":
+            raise requests.HTTPError("404 Client Error: not found")
+
+    fake._promote_single.side_effect = fake_promote
+
+    with mock.patch.object(assets_mod, "Asset", return_value=fake):
+        result = promote_assets(
+            "proj", source="main", target="main",
+            asset="my_asset", kinds=["data", "models"],
+        )
+
+    assert result["promoted"] == [{"kind": "data", "name": "my_asset", "alias": "candidate"}]
+    assert len(result["errors"]) == 1
+    assert result["errors"][0]["kind"] == "models"
+    print("PASS: test_promote_explicit_kinds_reports_missing_kind")
+
+
+def test_promote_default_kinds_asset_missing_everywhere():
+    """kinds defaulted + asset registered as neither kind: one clear error, not silence."""
+    from unittest import mock
+
+    fake = mock.MagicMock()
+    fake._asset_exists.side_effect = lambda kind, name, branch=None: False
+    promoted_kinds = []
+    fake._promote_single.side_effect = (
+        lambda *a, **k: promoted_kinds.append(a[3])
+    )
+
+    with mock.patch.object(assets_mod, "Asset", return_value=fake):
+        result = promote_assets("proj", source="main", target="main", asset="nope")
+
+    assert result["promoted"] == []
+    assert promoted_kinds == []
+    assert len(result["errors"]) == 1
+    assert result["errors"][0]["name"] == "nope"
+    assert result["errors"][0]["kind"] is None
+    assert "not found on source branch" in result["errors"][0]["error"]
+    print("PASS: test_promote_default_kinds_asset_missing_everywhere")
+
+
+def test_promote_same_branch_default_does_not_copy_aliases():
+    """with_aliases auto-defaults to False when promoting within one branch."""
+    from unittest import mock
+
+    fake = mock.MagicMock()
+    with_aliases_seen = []
+    fake._asset_exists.side_effect = lambda kind, name, branch=None: kind == "data"
+    fake._promote_single.side_effect = (
+        lambda *a, **k: with_aliases_seen.append(k.get("with_aliases"))
+    )
+
+    with mock.patch.object(assets_mod, "Asset", return_value=fake):
+        promote_assets("proj", source="Main", target="main", asset="x")
+
+    # "Main" and "main" sanitize to the same branch, so no alias copy
+    assert with_aliases_seen == [False]
+    print("PASS: test_promote_same_branch_default_does_not_copy_aliases")
+
+
+def test_promote_cross_branch_default_copies_aliases():
+    """with_aliases auto-defaults to True across branches."""
+    from unittest import mock
+
+    fake = mock.MagicMock()
+    with_aliases_seen = []
+    fake._asset_exists.side_effect = lambda kind, name, branch=None: kind == "data"
+    fake._promote_single.side_effect = (
+        lambda *a, **k: with_aliases_seen.append(k.get("with_aliases"))
+    )
+
+    with mock.patch.object(assets_mod, "Asset", return_value=fake):
+        promote_assets("proj", source="feature-v2", target="main", asset="x")
+
+    assert with_aliases_seen == [True]
+    print("PASS: test_promote_cross_branch_default_copies_aliases")
+
+
 if __name__ == "__main__":
     print("=== Offline tests (no cluster needed) ===")
     test_sanitize_branch()
@@ -163,4 +283,9 @@ if __name__ == "__main__":
     test_iterator_interface()
     test_delete_asset_methods_exist()
     test_metadata_sync_helpers_exist()
+    test_promote_default_kinds_skips_missing_kind()
+    test_promote_explicit_kinds_reports_missing_kind()
+    test_promote_default_kinds_asset_missing_everywhere()
+    test_promote_same_branch_default_does_not_copy_aliases()
+    test_promote_cross_branch_default_copies_aliases()
     print("\nAll offline tests passed.")

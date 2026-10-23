@@ -30,7 +30,7 @@ from matrx_orm.core.expressions import (
     When,
 )
 from matrx_orm.operations.bulk_update_values import bulk_update_by_pk
-from matrx_orm import retry_on_transient
+from matrx_orm import JsonbMerge, JsonbRemoveKeys, retry_on_transient
 from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
 from matrx_orm.operations.conflict_writes import (
     bulk_insert_ignore,
@@ -371,6 +371,13 @@ def _observation_dedup_key(
 #: start_run refuses (an archival loop is a defect, never a normal state).
 _ARCHIVED_SUCCESSOR_LIMIT = 8
 
+
+
+#: ``seo.serp_mention.extras`` sub-key holding the SERP provider's own result fields
+#: (rank_group, breadcrumb, timestamp …), written whole on every collection.
+SERP_RESULT_EXTRAS_KEY = "serp_result"
+#: The same fields as written top-level before the sub-key existed; dropped on re-collection.
+LEGACY_SERP_RESULT_KEYS = ("rank_group", "breadcrumb", "timestamp")
 
 class OrmSeoRepository(SeoRepository):
     async def _claimed_row(self, run: CollectionRun) -> Any:
@@ -1808,7 +1815,10 @@ class OrmSeoRepository(SeoRepository):
                         "result_type": mention.result_type,
                         "observed_at": observation.observed_at,
                         "run_id": run.id,
-                        "extras": mention.extras,
+                        # The provider's own result fields live WHOLE under one sub-key, so a
+                        # re-collection replaces exactly its data (a field the provider stopped
+                        # sending goes) while other writers' keys (link_check …) stay.
+                        "extras": {SERP_RESULT_EXTRAS_KEY: dict(mention.extras or {})},
                     }
                     mention_row, mention_created = await m.SerpMention.get_or_create(
                         serp_opportunity_id=str(existing.id),
@@ -1824,7 +1834,19 @@ class OrmSeoRepository(SeoRepository):
                         },
                     )
                     if not mention_created:
-                        await mention_row.update(updated_at=now, **refresh)
+                        # MERGED around the provider's sub-key: the sub-key is replaced whole,
+                        # the pre-sub-key top-level copies of the same fields are dropped, and
+                        # every other writer's key (the link check's stamps) survives.
+                        await mention_row.update(
+                            updated_at=now,
+                            **{
+                                **refresh,
+                                "extras": JsonbMerge(
+                                    JsonbRemoveKeys("extras", list(LEGACY_SERP_RESULT_KEYS)),
+                                    refresh["extras"],
+                                ),
+                            },
+                        )
                 # Evidence is the source of truth for the aggregates.
                 all_mentions = await m.SerpMention.filter(
                     serp_opportunity_id=str(existing.id)
@@ -1929,7 +1951,7 @@ class OrmSeoRepository(SeoRepository):
             lease_owner=None,
             lease_expires_at=None,
             completed_at=now,
-            metadata={**(row.metadata if isinstance(row.metadata, dict) else {}), OBSERVATION_COUNT_KEY: total},
+            metadata=JsonbMerge("metadata", {OBSERVATION_COUNT_KEY: total}),  # merged in SQL, never a stale read-modify-write
             # Persist WHAT LANDED, not just that the run ended. Without this
             # `result` stayed NULL on every collection, so "did last night
             # actually ingest anything?" was unanswerable after the fact —

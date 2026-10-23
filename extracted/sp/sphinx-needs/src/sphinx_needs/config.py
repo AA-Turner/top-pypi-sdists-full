@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import copy
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import MISSING, Field, dataclass, field, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Final,
+    Literal,
+    NoReturn,
+    SupportsIndex,
+    TypedDict,
+    cast,
+)
 
 from sphinx.application import Sphinx
 from sphinx.config import Config as _SphinxConfig
@@ -45,8 +55,10 @@ class NewFieldParams:
         "add_extra_option",
         "add_field",
         "service",
+        "needs_types",
     ]
-    """Where the field was added from."""
+    """Where the field was added from (``needs_types``: declared on need types alone,
+    by their entries' ``fields``)."""
     description: str
     """A description of the field."""
     nullable: bool | None = None
@@ -86,6 +98,10 @@ class NewFieldParams:
 class NeedFunctionsType(TypedDict):
     name: str
     function: DynamicFunction
+    reads: NotRequired[Any]
+    """What the function reads (a ``Declaration`` of ``functions.order``), from
+    ``add_dynamic_function``'s ``reads`` or the function's own declaration, as its
+    registration checked it."""
 
 
 class _Config:
@@ -99,11 +115,21 @@ class _Config:
         self._warnings: dict[
             str, str | Callable[[NeedItem, SphinxLoggerAdapter], bool]
         ] = {}
+        self._types: dict[str, NeedType] = {}
+        self._layouts: dict[str, dict[str, Any]] = {}
+        self._builtin_types: dict[str, NeedType] = {}
+        self._builtin_layouts: dict[str, dict[str, Any]] = {}
+        self._builtin_services: list[str] = []
 
     def clear(self) -> None:
         self._fields = {}
         self._functions = {}
         self._warnings = {}
+        self._types = {}
+        self._layouts = {}
+        self._builtin_types = {}
+        self._builtin_layouts = {}
+        self._builtin_services = []
 
     @property
     def fields(self) -> Mapping[str, NewFieldParams]:
@@ -183,8 +209,20 @@ class _Config:
         """Dynamic functions that are added by the user."""
         return self._functions
 
-    def add_function(self, function: DynamicFunction, name: str | None = None) -> None:
+    def add_function(
+        self,
+        function: DynamicFunction,
+        name: str | None = None,
+        *,
+        reads: Any = None,
+    ) -> None:
         """Adds a dynamic function to the configuration.
+
+        :param reads: What the function reads (a ``Reads``), over the declaration it
+            carries itself (:func:`~sphinx_needs.api.configuration.reads`).
+            A declaration naming what is not a parameter of the function is one
+            ``needs.config`` warning, and the function is registered as one that
+            declares nothing.
 
         :raises NeedsApiConfigException: If ``name`` is not given and the function has
             no ``__name__`` to register it by, such as a ``functools.partial``.
@@ -209,6 +247,21 @@ class _Config:
                 None,
             )
         self._functions[func_name] = {"name": func_name, "function": function}
+        # it imports this module
+        from sphinx_needs.functions.functions import declaration_of
+
+        declaration = declaration_of(function, reads)
+        if isinstance(declaration, str):
+            log_warning(
+                LOGGER,
+                f"Dynamic function {func_name!r} declares what it reads, but "
+                f"{declaration}; it is computed after the built-in functions, as a "
+                "function that declares nothing",
+                "config",
+                None,
+            )
+        elif declaration is not None:
+            self._functions[func_name]["reads"] = declaration
 
     @property
     def warnings(
@@ -227,8 +280,141 @@ class _Config:
         """Adds a warning handler to the configuration."""
         self._warnings[name] = filter
 
+    @property
+    def types(self) -> Mapping[str, NeedType]:
+        """Need types added from code, by directive name, in the order they were added.
+
+        These are added with the ``add_need_type`` API function, by other extensions,
+        never written into the ``needs_types`` configuration value:
+        ``NeedsSphinxConfig.types`` reads them after the configured types.
+        """
+        return self._types
+
+    def add_need_type(self, need_type: NeedType) -> None:
+        """Adds a need type to the registry.
+
+        The registry keeps a deep copy, as :meth:`add_layout` and the two
+        ``add_builtin_*`` methods do: the views hand out the registry's own entries, so
+        a change through one never reaches the caller's value -- nor the GitHub
+        services' module constants, which survive :meth:`clear` -- and a later change
+        to that value never reaches the registry. A layout nests dicts and lists, which
+        a shallow copy would leave shared.
+
+        :raises NeedsApiConfigException: If a need type of its directive is already
+            registered.
+        """
+        directive = need_type["directive"]
+        if directive in self._types:
+            from sphinx_needs.exceptions import (
+                NeedsApiConfigException,  # avoid circular import
+            )
+
+            raise NeedsApiConfigException(f"{directive} already exists as need type")
+        self._types[directive] = copy.deepcopy(need_type)
+
+    @property
+    def layouts(self) -> Mapping[str, dict[str, Any]]:
+        """Need layouts added from code, by name, in the order they were added.
+
+        These are never written into the ``needs_layouts`` configuration value:
+        ``NeedsSphinxConfig.layouts`` reads them after the configured layouts.
+        """
+        return self._layouts
+
+    def add_layout(self, name: str, layout: dict[str, Any]) -> None:
+        """Adds a need layout to the registry.
+
+        :raises NeedsApiConfigException: If a layout of the name is already registered.
+        """
+        if name in self._layouts:
+            from sphinx_needs.exceptions import (
+                NeedsApiConfigException,  # avoid circular import
+            )
+
+            raise NeedsApiConfigException(f"{name} already exists as need layout")
+        self._layouts[name] = copy.deepcopy(layout)
+
+    @property
+    def builtin_services(self) -> Sequence[str]:
+        """The built-in GitHub services ``needs_services`` configures, by name, in the
+        order sphinx-needs registers them.
+
+        Decided once, at ``config-inited`` priority 12, together with their need types
+        and layout, and read when the services are registered, so the services and
+        their types cannot disagree.
+        """
+        return tuple(self._builtin_services)
+
+    def add_builtin_service(self, name: str) -> None:
+        """Records a built-in GitHub service as configured (see
+        :attr:`builtin_services`)."""
+        if name not in self._builtin_services:
+            self._builtin_services.append(name)
+
+    def add_builtin_need_type(self, need_type: NeedType) -> None:
+        """Adds a need type sphinx-needs itself provides (the configured GitHub
+        services' ones).
+
+        Built-in types are the lowest tier: read after the configured and the added
+        types, each only where no type of its directive is configured or added, and
+        never counted when ``add_need_type`` checks a directive is free.
+        """
+        self._builtin_types[need_type["directive"]] = copy.deepcopy(need_type)
+
+    def add_builtin_layout(self, name: str, layout: dict[str, Any]) -> None:
+        """Adds a need layout sphinx-needs itself provides (the configured GitHub
+        services' one), the lowest tier, as :meth:`add_builtin_need_type`."""
+        self._builtin_layouts[name] = copy.deepcopy(layout)
+
+    def merged_types(self, configured: list[NeedType]) -> list[NeedType]:
+        """The configured need types, then the added ones, then the built-in ones,
+        each tier without the directives an earlier one has."""
+        merged = list(configured)
+        seen = {need_type["directive"] for need_type in configured}
+        for tier in (self._types, self._builtin_types):
+            for directive, need_type in tier.items():
+                if directive not in seen:
+                    seen.add(directive)
+                    merged.append(need_type)
+        return merged
+
+    def merged_layouts(
+        self, configured: Mapping[str, dict[str, Any]]
+    ) -> dict[str, dict[str, Any]]:
+        """The configured need layouts, then the added ones, then the built-in ones,
+        each tier without the names an earlier one has."""
+        merged = dict(configured)
+        for tier in (self._layouts, self._builtin_layouts):
+            for name, layout in tier.items():
+                merged.setdefault(name, layout)
+        return merged
+
 
 _NEEDS_CONFIG = _Config()
+
+
+def type_field_names(config: _SphinxConfig) -> set[str]:
+    """The names the ``fields`` of the ``needs_types`` entries declare.
+
+    The configuration readers that run before the fields schema is built read them
+    beside the registered fields: a name only a need type declares is the name of a
+    field (declared on need types alone) once the schema is built. The value is read
+    as the configuration holds it, which is the list once ``config-inited`` has
+    resolved it; a configuration without ``needs_types`` declares none.
+    """
+    # the configured types only, not NeedsSphinxConfig.types: a type added from code
+    # (add_need_type, the GitHub services) cannot declare fields, as it takes none
+    need_types = getattr(config, "needs_types", [])
+    if not isinstance(need_types, list):
+        return set()
+    return {
+        name
+        for entry in need_types
+        if isinstance(entry, Mapping)
+        and isinstance(table := entry.get("fields"), Mapping)
+        for name in table
+        if isinstance(name, str)
+    }
 
 
 class ConstraintFailedType(TypedDict):
@@ -301,7 +487,11 @@ class NeedLinksConfig(TypedDict, total=False):
     outgoing: str
     """The outgoing link title. Default: '<name>'"""
     copy: bool
-    """Copy to common links data. Default: False"""
+    """Copy to common links data. Default: False
+
+    Deprecated, to be removed in 10.0: declare a link type deriving the ``union`` of
+    ``links`` and this link type instead, and read it where the copies were read.
+    """
     color: str
     """Used for needflow. Default: #000000"""
     style: str
@@ -314,6 +504,12 @@ class NeedLinksConfig(TypedDict, total=False):
     """Used for needflow. Default: '->'"""
     allow_dead_links: bool
     """If True, add a 'forbidden' class to dead links"""
+    target_types: NotRequired[list[str]]
+    """
+    The need types the links may point to, by directive name: a link to a need of
+    another type, other than a type inheriting from a listed one, is reported where
+    the links are resolved (``needs.link_target_type``). Unset: any type.
+    """
     schema: NotRequired[LinkSchemaType]
     """
     A JSON schema for the link option.
@@ -335,7 +531,10 @@ class NeedLinksConfig(TypedDict, total=False):
     derive: NotRequired[dict[str, Any]]
     """
     A rule computing the links of every need: a table naming a ``kind``
-    (``links`` or ``content_links``) and its roles.
+    (``links``, ``content_links`` or ``union``) and its roles; ``links`` takes a
+    ``where`` filter, a ``join`` (the needs whose field equals one of the need's
+    values), or both; ``union`` takes the link types whose links it holds, in
+    ``fields``.
 
     A derived link type cannot be set in a need or by a ``needextend``,
     and takes no ``default`` or ``predicates``.
@@ -373,6 +572,96 @@ class NeedType(TypedDict):
     If unset or empty, no color is applied and the diagram engine's default is used."""
     style: NotRequired[str]
     """The default node style to use in diagrams (default: "node")."""
+    inherits: NotRequired[str]
+    """The need type whose declarations of fields and link types this type starts from."""
+    fields: NotRequired[dict[str, NeedTypeFieldDeclaration]]
+    """The fields this type declares anew: field name to its declaration. A name
+    nothing else declares is a field of the types that declare it alone."""
+    links: NotRequired[dict[str, NeedTypeLinkDeclaration]]
+    """The link types this type declares anew: link type name to its declaration. A
+    name nothing else declares is a link type of the types that declare it alone."""
+
+
+#: The default need types: the value of ``needs_types`` when it is not configured.
+#:
+#: A configured ``needs_types`` none of whose entries gives a ``title`` or a ``prefix``
+#: keeps them all; an entry naming one of them with neither key narrows it, taking
+#: the ``title``, ``prefix``, ``color`` and ``style`` it leaves out
+#: (:func:`sphinx_needs.needs.normalise_need_types`).
+DEFAULT_NEED_TYPES: Final[tuple[NeedType, ...]] = (
+    {
+        "directive": "req",
+        "title": "Requirement",
+        "prefix": "R_",
+        "color": "#BFD8D2",
+        "style": "node",
+    },
+    {
+        "directive": "spec",
+        "title": "Specification",
+        "prefix": "S_",
+        "color": "#FEDCD2",
+        "style": "node",
+    },
+    {
+        "directive": "impl",
+        "title": "Implementation",
+        "prefix": "I_",
+        "color": "#DF744A",
+        "style": "node",
+    },
+    {
+        "directive": "test",
+        "title": "Test Case",
+        "prefix": "T_",
+        "color": "#DCB239",
+        "style": "node",
+    },
+    # Kept for backwards compatibility
+    {
+        "directive": "need",
+        "title": "Need",
+        "prefix": "N_",
+        "color": "#9856a5",
+        "style": "node",
+    },
+)
+
+
+class NeedTypeFieldDeclaration(TypedDict, total=False):
+    """A need type's declaration of a field: a narrowing of the field's declaration."""
+
+    description: str
+    schema: dict[str, Any]
+    nullable: bool
+    default: Any
+    predicates: list[tuple[str, Any]]
+    derive: dict[str, Any]
+
+
+class NeedTypeLinkDeclaration(TypedDict, total=False):
+    """A need type's declaration of a link type: a narrowing of its declaration.
+
+    The display, ``copy`` and ``allow_dead_links`` keys are a link type's on every need
+    type: a declaration gives them only of a link type declared on need types alone,
+    whose first root declaration sets them, as a ``needs_links`` entry would.
+    """
+
+    description: str
+    schema: dict[str, Any]
+    default: Any
+    predicates: list[tuple[str, Any]]
+    derive: dict[str, Any]
+    target_types: list[str]
+    incoming: str
+    outgoing: str
+    copy: bool
+    allow_dead_links: bool
+    color: str
+    style: str
+    style_part: str
+    style_start: str
+    style_end: str
 
 
 class NeedFields(TypedDict):
@@ -401,7 +690,8 @@ class NeedFields(TypedDict):
     """
     A rule computing the field for every need: a table naming a ``kind``
     (``copy``, ``sum``, ``count``, ``min``, ``max``, ``any``, ``all``, ``collect``,
-    ``hash`` or ``fingerprint``) and its roles.
+    ``hash`` or ``fingerprint``) and its roles; ``copy`` reads its own need, the
+    need ``from`` names, the needs ``over`` names, or the needs a ``join`` matches.
 
     A derived field cannot be set in a need or by a ``needextend``,
     and takes no ``default`` or ``predicates``.
@@ -488,6 +778,75 @@ def _abs_path_external_sources(
     return new_sources
 
 
+#: Why the need types every reader sees cannot be changed through the read
+TYPES_READ_ONLY = (
+    "NeedsSphinxConfig.types is read-only: configure need types with needs_types in "
+    "the project configuration, or add one from an extension with add_need_type"
+)
+
+#: Why the need layouts every reader sees cannot be changed through the read
+LAYOUTS_READ_ONLY = (
+    "NeedsSphinxConfig.layouts is read-only: configure need layouts with "
+    "needs_layouts in the project configuration, or add one from an extension with "
+    "add_need_layout"
+)
+
+
+def _read_only(message: str) -> NoReturn:
+    from sphinx_needs.exceptions import (
+        NeedsApiConfigException,  # avoid circular import
+    )
+
+    raise NeedsApiConfigException(message)
+
+
+class _ReadOnlyNeedTypes(list["NeedType"]):
+    """The need types as :attr:`NeedsSphinxConfig.types` reads them: a list every
+    change of which raises, as it would reach neither the configuration nor the
+    registry. A copy (``copy``, ``deepcopy``, ``pickle``, ``list(...)``) is a plain
+    list."""
+
+    def _refuse(self, *_args: object, **_kwargs: object) -> NoReturn:
+        _read_only(TYPES_READ_ONLY)
+
+    append = extend = insert = remove = pop = clear = sort = reverse = _refuse
+    __setitem__ = __delitem__ = __iadd__ = __imul__ = _refuse
+
+    def __copy__(self) -> list[NeedType]:
+        return list(self)
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> list[NeedType]:
+        return copy.deepcopy(list(self), memo)
+
+    def __reduce_ex__(self, _protocol: SupportsIndex) -> tuple[Any, ...]:
+        return (list, (list(self),))
+
+
+class _ReadOnlyLayouts(dict[str, dict[str, Any]]):
+    """The need layouts as :attr:`NeedsSphinxConfig.layouts` reads them: a dict every
+    change of which raises, as :class:`_ReadOnlyNeedTypes`. A copy is a plain dict."""
+
+    def _refuse(self, *_args: object, **_kwargs: object) -> NoReturn:
+        _read_only(LAYOUTS_READ_ONLY)
+
+    pop = popitem = clear = setdefault = update = _refuse
+    __setitem__ = __delitem__ = __ior__ = _refuse
+
+    def __copy__(self) -> dict[str, dict[str, Any]]:
+        return dict(self)
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> dict[str, dict[str, Any]]:
+        return copy.deepcopy(dict(self), memo)
+
+    def __reduce_ex__(self, _protocol: SupportsIndex) -> tuple[Any, ...]:
+        return (dict, (dict(self),))
+
+
+#: The attributes :class:`NeedsSphinxConfig` answers itself, rather than from a
+#: ``needs_*`` configuration value of the same name.
+_OWN_ATTRIBUTES = ("_config", "functions", "warnings", "types", "layouts")
+
+
 @dataclass
 class NeedsSphinxConfig:
     """A wrapper around the Sphinx configuration,
@@ -499,21 +858,24 @@ class NeedsSphinxConfig:
     # such that we simply redirect all attribute access to the
     # Sphinx config object, but in a manner where type annotations will work
     # for static type analysis.
-    # Note also that we treat `functions` and `warnings` as special-cases,
-    # since these configurations can also be added to dynamically via the API
+    # Note also that we treat `functions`, `warnings`, `types` and `layouts` as
+    # special-cases, since these configurations can also be added to via the API:
+    # each is a property reading sphinx-needs' own registry (`_NEEDS_CONFIG`), and the
+    # configuration value itself is the dataclass field of the same name with a
+    # leading underscore (`_types` is `needs_types`).
 
     def __init__(self, config: _SphinxConfig) -> None:
         super().__setattr__("_config", config)
 
     def __getattribute__(self, name: str) -> Any:
-        if name.startswith("__") or name in ("_config", "functions", "warnings"):
+        if name.startswith("__") or name in _OWN_ATTRIBUTES:
             return super().__getattribute__(name)
         if name.startswith("_"):
             name = name[1:]
         return getattr(super().__getattribute__("_config"), f"needs_{name}")
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if name.startswith("__") or name in ("_config", "functions", "warnings"):
+        if name.startswith("__") or name in _OWN_ATTRIBUTES:
             return super().__setattr__(name, value)
         if name.startswith("_"):
             name = name[1:]
@@ -657,48 +1019,49 @@ class NeedsSphinxConfig:
     )
     """List of scenarios that are ignored for dumping debug information."""
 
-    types: list[NeedType] = field(
-        default_factory=lambda: [
-            {
-                "directive": "req",
-                "title": "Requirement",
-                "prefix": "R_",
-                "color": "#BFD8D2",
-                "style": "node",
-            },
-            {
-                "directive": "spec",
-                "title": "Specification",
-                "prefix": "S_",
-                "color": "#FEDCD2",
-                "style": "node",
-            },
-            {
-                "directive": "impl",
-                "title": "Implementation",
-                "prefix": "I_",
-                "color": "#DF744A",
-                "style": "node",
-            },
-            {
-                "directive": "test",
-                "title": "Test Case",
-                "prefix": "T_",
-                "color": "#DCB239",
-                "style": "node",
-            },
-            # Kept for backwards compatibility
-            {
-                "directive": "need",
-                "title": "Need",
-                "prefix": "N_",
-                "color": "#9856a5",
-                "style": "node",
-            },
-        ],
+    _types: list[NeedType] = field(
+        default_factory=lambda: [need_type.copy() for need_type in DEFAULT_NEED_TYPES],
+        # "html", not "env" as ``_fields`` is: "env" compares this value alone, which
+        # holds the configured need types only; those added from code (``add_need_type``,
+        # the GitHub services) are kept in sphinx-needs' registry. The complete list,
+        # ``NeedsSphinxConfig.types``, is compared by ``reread_on_need_types_change``,
+        # which re-reads every document when it changed (#2287)
         metadata={"rebuild": "html", "types": ()},
     )
-    """Custom user need types"""
+    """Custom user need types.
+
+    A mapping from directive name to the other keys of a type is accepted too, and
+    resolved at ``config-inited`` (priority 12) to this list, in the mapping's order;
+    after that the value is always a list. Sphinx's own type check (at ``config-inited``
+    priority 800, inferred from the list default) sees the resolved list.
+    """
+
+    @property
+    def types(self) -> list[NeedType]:
+        """The need types: the configured ``needs_types``, then those added with the
+        ``add_need_type`` API function by other extensions, then the ``issue``, ``pr``
+        and ``commit`` of the GitHub services ``needs_services`` configures (from
+        sphinx-needs' own ``config-inited`` handler at priority 12 on, so from a handler
+        above 12); a type is read only where no earlier one has its directive.
+
+        A read-only list, made anew on each read: a change through it raises
+        ``NeedsApiConfigException``, as does assigning the attribute. A type is
+        configured with ``needs_types``, or added with ``add_need_type``. Read it from
+        a ``config-inited`` handler at a priority above 12, or later: before that, a
+        mapping-shaped ``needs_types`` is not yet resolved to its list, and is
+        returned as it is configured.
+        """
+        # the declared list type holds from config-inited priority 12, where
+        # resolve_need_types writes the list; before that, the value is as configured
+        configured = self._types
+        if not isinstance(configured, list):
+            return configured
+        return _ReadOnlyNeedTypes(_NEEDS_CONFIG.merged_types(configured))
+
+    @types.setter
+    def types(self, _value: object) -> None:
+        _read_only(TYPES_READ_ONLY)
+
     include_needs: bool = field(
         default=True, metadata={"rebuild": "html", "types": (bool,)}
     )
@@ -904,6 +1267,11 @@ class NeedsSphinxConfig:
         default=None, metadata={"rebuild": "html", "types": (type(None), int, float)}
     )
     """Warn if process_filter runs for longer than this time (in seconds)."""
+    derive_max_links_per_need: int = field(
+        default=100, metadata={"rebuild": "html", "types": (int,)}
+    )
+    """Warn of a link type whose computed lists hold more links than this number times
+    the needs of the project (``needs.derive_dense``); 0 never warns."""
     views_max_items: int = field(
         default=0, metadata={"rebuild": "html", "types": (int,)}
     )
@@ -974,10 +1342,29 @@ class NeedsSphinxConfig:
         default=False, metadata={"rebuild": "html", "types": (bool,)}
     )
     """If True, log individual warnings per warning check failed."""
-    layouts: dict[str, dict[str, Any]] = field(
+    _layouts: dict[str, dict[str, Any]] = field(
         default_factory=dict, metadata={"rebuild": "html", "types": ()}
     )
     """Defines custom layouts for needs rendering."""
+
+    @property
+    def layouts(self) -> dict[str, dict[str, Any]]:
+        """The need layouts: the configured ``needs_layouts`` -- which holds
+        sphinx-needs' own layouts and the compiled ``needs_card_layouts`` too, once
+        ``config-inited`` has run -- then those added from code, then the ``github``
+        layout of the configured GitHub services; a layout is read only where no earlier
+        one has its name.
+
+        A read-only dict, made anew on each read: a change through it raises
+        ``NeedsApiConfigException``, as does assigning the attribute. A layout is
+        configured with ``needs_layouts``, or added with ``add_need_layout``.
+        """
+        return _ReadOnlyLayouts(_NEEDS_CONFIG.merged_layouts(self._layouts))
+
+    @layouts.setter
+    def layouts(self, _value: object) -> None:
+        _read_only(LAYOUTS_READ_ONLY)
+
     card_layouts: dict[str, dict[str, Any]] = field(
         default_factory=dict, metadata={"rebuild": "html", "types": ()}
     )

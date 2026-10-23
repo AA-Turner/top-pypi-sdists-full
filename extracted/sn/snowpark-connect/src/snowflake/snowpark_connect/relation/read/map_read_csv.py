@@ -67,8 +67,11 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     populate_metadata,
 )
 from snowflake.snowpark_connect.relation.read.reader_config import (
+    add_null_if_tokens,
+    add_unloaded_default_null_token,
     apply_drop_malformed_on_error,
     apply_permissive_on_error,
+    remove_null_if_tokens,
 )
 from snowflake.snowpark_connect.relation.read.schema_name_duplication import (
     check_read_schema_column_name_duplication,
@@ -189,7 +192,6 @@ def _nss_read_csv(
     from snowflake.snowpark_connect.nss.nss_scan_options import (
         _nss_column_name,
         as_all_string_columns,
-        cache_if_corrupt_record_present,
         filter_reader_options,
         needs_locations,
         normalize_stage_paths,
@@ -339,13 +341,9 @@ def _nss_read_csv(
     ]
     # nss_read_via_stage_file_reader only builds SQL; session.sql() is lazy, so a LOCATIONS
     # rejection surfaces at the first materialization instead. That is here: the describe
-    # behind df.columns (and cache_result, when a corrupt-record column forces caching).
-    # Wrapping it is what covers the explicit-schema read, which skips inference entirely and
-    # would otherwise leak the raw GS error.
+    # behind df.columns. Wrapping it is what covers the explicit-schema read, which skips
+    # inference entirely and would otherwise leak the raw GS error.
     try:
-        df = cache_if_corrupt_record_present(
-            df, corrupt_record_column_name, nss_columns
-        )
         renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
             df, rel.common.plan_id
         )
@@ -372,7 +370,7 @@ def _nss_read_csv(
         # Report the Spark types NSS was given, not ones re-derived from the TVF's
         # Snowflake columns (SNOW-3891973).
         snowpark_column_types=snowpark_types_from_columns(nss_columns),
-    ).without_materialization()
+    ).materialize_on_request_only()
 
 
 def map_read_csv(
@@ -455,6 +453,12 @@ def map_read_csv(
             mode = "DROPMALFORMED"
 
         converted_snowpark_options = options.convert_to_snowpark_args()
+        # Reads SCOS's own quoted-write NULL back as NULL; see the helper.
+        add_unloaded_default_null_token(
+            converted_snowpark_options,
+            options.config.get("escape"),
+            null_value_set="nullvalue" in options.user_option_keys,
+        )
         parse_header = str_to_bool(
             str(converted_snowpark_options.get("PARSE_HEADER", "false"))
         )
@@ -472,15 +476,7 @@ def map_read_csv(
         # than one option (e.g. nanValue == positiveInf).
         nan_inf_tokens = list(dict.fromkeys(v for v in nan_inf_config.values() if v))
         if nan_inf_tokens:
-            existing_null_if = converted_snowpark_options.get("NULL_IF")
-            existing_seq = (
-                list(existing_null_if)
-                if isinstance(existing_null_if, (list, tuple))
-                else ([existing_null_if] if existing_null_if else [])
-            )
-            converted_snowpark_options["NULL_IF"] = tuple(
-                existing_seq + [t for t in nan_inf_tokens if t not in existing_seq]
-            )
+            add_null_if_tokens(converted_snowpark_options, nan_inf_tokens)
 
         # SNOW-3295571: Surface CSV column-count mismatches when the user asks
         # for strict parsing. The default (set by csv_convert_to_snowpark_args)
@@ -754,15 +750,7 @@ def map_read_csv(
             # and the CASE WHEN would never match). Non-nan/inf NULL_IF entries
             # (e.g. from nullValue) are preserved.
             if nan_inf_tokens and not positional_use_copy_cast:
-                token_set = set(nan_inf_tokens)
-                existing = csv_copy_file_format_options.get("NULL_IF", ())
-                if isinstance(existing, str):
-                    existing = (existing,)
-                filtered = tuple(t for t in existing if t not in token_set)
-                if filtered:
-                    csv_copy_file_format_options["NULL_IF"] = filtered
-                elif "NULL_IF" in csv_copy_file_format_options:
-                    del csv_copy_file_format_options["NULL_IF"]
+                remove_null_if_tokens(csv_copy_file_format_options, nan_inf_tokens)
             csv_copy_file_format_options["PARSE_HEADER"] = False
             csv_copy_file_format_options["SKIP_HEADER"] = 1
 
@@ -894,10 +882,15 @@ def map_read_csv(
             df = df.select(*select_names)
 
         # SNOW-3389610: when the user sets `emptyValue`, rewrite non-NULL ""
-        # in string columns to that token. NULL stays NULL. COPY keeps Snowflake's
-        # default EMPTY_FIELD_AS_NULL=TRUE (see csv_convert_to_snowpark_args):
-        # bare `,,` -> NULL (matches Spark default nullValue=""); quoted `""` ->
-        # "" in `df`, then this projection maps it to emptyValue.
+        # in string columns to that token. NULL stays NULL. COPY keeps
+        # EMPTY_FIELD_AS_NULL=TRUE, so a bare `,,` is already NULL. A quoted
+        # `""` is '' here only when it was not put in NULL_IF. With
+        # snowpark.connect.csv.readQuotedEmptyAsNull on (SNOW-4222766, default
+        # off), the read path adds '' to NULL_IF when emptyValue equals
+        # nullValue and removes it when they differ, so this projection is the
+        # case where they differ: quoted `""` becomes emptyValue and the bare
+        # field stays NULL. With it off, an explicit nullValue="" still nulls a
+        # quoted `""` before this projection.
         empty_value = options.config.get("emptyvalue")
         if empty_value is not None:
             from snowflake.snowpark.functions import col, lit, when
@@ -952,7 +945,7 @@ def map_read_csv(
                 )
                 for f in df.schema.fields
             ],
-        ).without_materialization()
+        ).already_materialized()
 
 
 _csv_file_format_allowed_options = {

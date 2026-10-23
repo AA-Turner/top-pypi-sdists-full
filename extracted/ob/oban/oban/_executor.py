@@ -1,22 +1,43 @@
 from __future__ import annotations
 
+import asyncio
 import time
 import traceback
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import telemetry
 from ._backoff import jittery_clamped
 from ._extensions import use_ext
 from .job import Cancel, Record, Snooze
-from .worker import resolve_worker
+from .worker import JobTimeoutError, resolve_worker
 
 if TYPE_CHECKING:
     from .job import Job
 
 _current_job: ContextVar[Job | None] = ContextVar("oban_current_job", default=None)
+
+
+def current_job() -> Job | None:
+    """Return the job currently executing in this context.
+
+    The job is available from the moment execution starts until it is recorded, including within
+    `oban.job.start`, `oban.job.stop`, and `oban.job.exception` telemetry handlers. Outside of
+    job execution it returns `None`.
+
+    This is primarily useful for function workers defined with `@job`, which don't receive the job
+    as an argument.
+
+    Example:
+        >>> from oban import current_job, job
+        >>>
+        >>> @job()
+        ... def send_digest(user_id):
+        ...     print(current_job().attempt)
+    """
+    return _current_job.get()
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +52,10 @@ class AckAction:
     @property
     def id(self) -> int | None:
         return self.job.id
+
+    @property
+    def attempted_at(self) -> datetime | None:
+        return self.job.attempted_at
 
 
 class Executor:
@@ -47,13 +72,19 @@ class Executor:
 
     @staticmethod
     def current_job() -> Job | None:
-        return _current_job.get()
+        return current_job()
 
     async def execute(self) -> Executor:
-        self._report_started()
-        await self._process()
-        self._record_stopped()
-        self._report_stopped()
+        token = _current_job.set(self.job)
+
+        try:
+            self._report_started()
+            await self._process()
+            self._record_stopped()
+            self._report_stopped()
+        finally:
+            _current_job.reset(token)
+
         self._reraise_unsafe()
 
         return self
@@ -70,16 +101,30 @@ class Executor:
         )
 
     async def _process(self) -> None:
-        token = _current_job.set(self.job)
-
         try:
             self.worker = resolve_worker(self.job.worker)()
-            self.result = await self.worker.process(self.job)
+            self.result = await self._perform(self.worker)
         except Exception as error:
             self.result = error
             self._traceback = traceback.format_exc()
-        finally:
-            _current_job.reset(token)
+
+    async def _perform(self, worker: Any) -> Any:
+        seconds = self._timeout()
+
+        try:
+            async with asyncio.timeout(seconds) as deadline:
+                return await worker.process(self.job)
+        except TimeoutError as error:
+            if deadline.expired():
+                raise JobTimeoutError(
+                    f"{self.job.worker} timed out after {seconds}s"
+                ) from error
+
+            raise
+
+    def _timeout(self) -> float | None:
+        if hasattr(self.worker, "timeout"):
+            return self.worker.timeout(self.job)
 
     def _record_stopped(self) -> None:
         # This is largely for type checking, as executing an unpersisted job wouldn't happen

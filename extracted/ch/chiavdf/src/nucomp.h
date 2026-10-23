@@ -38,6 +38,15 @@ limitations under the License.
 
 #include "xgcd_partial.c"
 
+#include "chiavdf_profile.h"
+
+#if defined(VDF_TEST)
+#include <chrono>
+#endif
+
+#include <cstdlib>
+#include <cstring>
+
 #define LOG2(X) (63 - __builtin_clzll((X)))
 //using namespace std;
 
@@ -51,32 +60,77 @@ typedef struct qfb
 typedef qfb qfb_t[1];
 
 // From Antic using Flint (works!)
+// MSVC link-time optimization miscompiles this function when it is inlined,
+// and the Windows package then divides by zero. Moving this scratch into
+// another file does not stop that inlining, and the inlined build still
+// divides by zero. The fence below is what makes the Windows package pass.
+// Other compilers are unchanged.
+#if defined(_MSC_VER)
+__declspec(noinline)
+#endif
 void qfb_nucomp(qfb_t r, const qfb_t f, const qfb_t g, mpz_t const& D, mpz_t const& L)
 {
-   mpz_t a1, a2, c2, ca, cb, cc, k, s, sp, ss, m, t, u2, v1, v2;
-
+   // Order the inputs once. A recursive call would re-enter the thread-local
+   // scratch below if this block were ever moved under that scratch.
+   const qfb* left = f;
+   const qfb* right = g;
    if (mpz_cmp(f->a, g->a) > 0)
    {
-      qfb_nucomp(r, g, f, D, L);
-      return;
+      left = g;
+      right = f;
    }
 
-   mpz_init(a1); mpz_init(a2); mpz_init(c2);
-   mpz_init(ca); mpz_init(cb); mpz_init(cc);
-   mpz_init(k); mpz_init(m);
-   mpz_init(s); mpz_init(sp); mpz_init(ss);
-   mpz_init(t); mpz_init(u2); mpz_init(v1); mpz_init(v2);
+   // Same approach as qfb_nudupl: keep GMP temporaries for the life of the thread.
+   struct qfb_nucomp_ctx {
+      mpz_t a1, a2, c2, ca, cb, cc, k, s, sp, ss, m, t, u2, v1, v2;
+      mpz_t m1, m2, r1, r2, co1, co2, temp;
+
+      qfb_nucomp_ctx() {
+         mpz_inits(a1, a2, c2, ca, cb, cc, k, s, sp, ss, m, t, u2, v1, v2,
+            m1, m2, r1, r2, co1, co2, temp, nullptr);
+      }
+      ~qfb_nucomp_ctx() {
+         mpz_clears(a1, a2, c2, ca, cb, cc, k, s, sp, ss, m, t, u2, v1, v2,
+            m1, m2, r1, r2, co1, co2, temp, nullptr);
+      }
+      qfb_nucomp_ctx(const qfb_nucomp_ctx&) = delete;
+      qfb_nucomp_ctx& operator=(const qfb_nucomp_ctx&) = delete;
+   };
+   static thread_local qfb_nucomp_ctx ctx;
+
+   mpz_t& a1 = ctx.a1;
+   mpz_t& a2 = ctx.a2;
+   mpz_t& c2 = ctx.c2;
+   mpz_t& ca = ctx.ca;
+   mpz_t& cb = ctx.cb;
+   mpz_t& cc = ctx.cc;
+   mpz_t& k = ctx.k;
+   mpz_t& s = ctx.s;
+   mpz_t& sp = ctx.sp;
+   mpz_t& ss = ctx.ss;
+   mpz_t& m = ctx.m;
+   mpz_t& t = ctx.t;
+   mpz_t& u2 = ctx.u2;
+   mpz_t& v1 = ctx.v1;
+   mpz_t& v2 = ctx.v2;
+   mpz_t& m1 = ctx.m1;
+   mpz_t& m2 = ctx.m2;
+   mpz_t& r1 = ctx.r1;
+   mpz_t& r2 = ctx.r2;
+   mpz_t& co1 = ctx.co1;
+   mpz_t& co2 = ctx.co2;
+   mpz_t& temp = ctx.temp;
 
    /* nucomp calculation */
 
-   mpz_set(a1, f->a);
-   mpz_set(a2, g->a);
-   mpz_set(c2, g->c);
+   mpz_set(a1, left->a);
+   mpz_set(a2, right->a);
+   mpz_set(c2, right->c);
 
-   mpz_add(ss, f->b, g->b);
+   mpz_add(ss, left->b, right->b);
    mpz_fdiv_q_2exp(ss, ss, 1);
 
-   mpz_sub(m, f->b, g->b);
+   mpz_sub(m, left->b, right->b);
    mpz_fdiv_q_2exp(m, m, 1);
 
    mpz_fdiv_r(t, a2, a1);
@@ -116,20 +170,15 @@ void qfb_nucomp(qfb_t r, const qfb_t f, const qfb_t g, mpz_t const& D, mpz_t con
       mpz_mul(ca, a2, a1);
 
       mpz_mul_2exp(cb, t, 1);
-      mpz_add(cb, cb, g->b);
+      mpz_add(cb, cb, right->b);
 
-      mpz_add(cc, g->b, t);
+      mpz_add(cc, right->b, t);
       mpz_mul(cc, cc, k);
       mpz_add(cc, cc, c2);
 
       mpz_divexact(cc, cc, a1);
    } else
    {
-      mpz_t m1, m2, r1, r2, co1, co2, temp;
-
-      mpz_init(m1); mpz_init(m2); mpz_init(r1); mpz_init(r2);
-      mpz_init(co1); mpz_init(co2); mpz_init(temp);
-
       mpz_set(r2, a1);
       mpz_set(r1, k);
 
@@ -155,12 +204,12 @@ void qfb_nucomp(qfb_t r, const qfb_t f, const qfb_t g, mpz_t const& D, mpz_t con
       else
          mpz_sub(ca, temp, ca);
 
-      /* cb = (2 * (t - ca*co2) / co1 - g->b) % (2*ca) */
+      /* cb = (2 * (t - ca*co2) / co1 - right->b) % (2*ca) */
       mpz_mul(cb, ca, co2);
       mpz_sub(cb, t, cb);
       mpz_mul_2exp(cb, cb, 1);
       mpz_divexact(cb, cb, co1);
-      mpz_sub(cb, cb, g->b);
+      mpz_sub(cb, cb, right->b);
       mpz_mul_2exp(temp, ca, 1);
       mpz_fdiv_r(cb, cb, temp);
 
@@ -175,26 +224,19 @@ void qfb_nucomp(qfb_t r, const qfb_t f, const qfb_t g, mpz_t const& D, mpz_t con
          mpz_neg(ca, ca);
          mpz_neg(cc, cc);
       }
-
-      mpz_clear(m1); mpz_clear(m2); mpz_clear(r1); mpz_clear(r2);
-      mpz_clear(co1); mpz_clear(co2); mpz_clear(temp);
    }
 
    mpz_set(r->a, ca);
    mpz_set(r->b, cb);
    mpz_set(r->c, cc);
-
-   mpz_clear(ca); mpz_clear(cb); mpz_clear(cc);
-   mpz_clear(k); mpz_clear(m);
-   mpz_clear(s); mpz_clear(sp); mpz_clear(ss);
-   mpz_clear(t); mpz_clear(u2); mpz_clear(v1); mpz_clear(v2);
-   mpz_clear(a1); mpz_clear(a2); mpz_clear(c2);
 }
 
 // a = b * c
 void nucomp_form(form &a, form const& b, form const& c, integer const& D, integer const& L) {
     qfb fr, fr2, fr3;
 
+    // Copies the mpz header only. fr, fr2, and fr3 share limb storage with the
+    // source form. Do not clear, free, or reallocate them.
     *fr.a = *a.a.impl;
     *fr.b = *a.b.impl;
     *fr.c = *a.c.impl;
@@ -212,15 +254,43 @@ void nucomp_form(form &a, form const& b, form const& c, integer const& D, intege
     *a.c.impl = *fr.c;
 }
 
-void qfb_nudupl(qfb_t r, qfb_t f, mpz_t D, mpz_t L)
+void qfb_nudupl(qfb_t r, qfb_t f, mpz_t const& D, mpz_t const& L)
 {
-    mpz_t a1, c1, cb, k, s, t, u2, v2;
+#if defined(VDF_TEST)
+    chiavdf_nudupl_profile_stats* prof = chiavdf_nudupl_profile_sink;
+    const bool timing = (prof != nullptr) && chiavdf_nudupl_profile_timing_enabled;
+    if (prof != nullptr) {
+        ++prof->qfb_nudupl_calls;
+    }
+#else
+#endif
+    // Performance note:
+    // This function is on the hot path for ARM `square_vdf` (NUDUPL). Avoid per-iteration
+    // `mpz_init/mpz_clear` churn by reusing a thread-local scratch context.
+    struct qfb_nudupl_ctx {
+        mpz_t a1, c1, cb, k, s, t, u2, v2;
+        mpz_t b_abs;
+        mpz_t m2, r1, r2, co1, co2, temp;  // only used in the "a1 >= L" branch
 
-    mpz_init(a1); mpz_init(c1);
-    mpz_init(cb);
-    mpz_init(k);
-    mpz_init(s);
-    mpz_init(t); mpz_init(u2); mpz_init(v2);
+        qfb_nudupl_ctx() {
+            mpz_inits(a1, c1, cb, k, s, t, u2, v2, b_abs, m2, r1, r2, co1, co2, temp, nullptr);
+        }
+        ~qfb_nudupl_ctx() {
+            mpz_clears(a1, c1, cb, k, s, t, u2, v2, b_abs, m2, r1, r2, co1, co2, temp, nullptr);
+        }
+        qfb_nudupl_ctx(const qfb_nudupl_ctx&) = delete;
+        qfb_nudupl_ctx& operator=(const qfb_nudupl_ctx&) = delete;
+    };
+    static thread_local qfb_nudupl_ctx ctx;
+
+    mpz_t& a1 = ctx.a1;
+    mpz_t& c1 = ctx.c1;
+    mpz_t& cb = ctx.cb;
+    mpz_t& k  = ctx.k;
+    mpz_t& s  = ctx.s;
+    mpz_t& t  = ctx.t;
+    mpz_t& v2 = ctx.v2;
+    mpz_t& b_abs = ctx.b_abs;
 
     /* nucomp calculation */
 
@@ -229,29 +299,66 @@ void qfb_nudupl(qfb_t r, qfb_t f, mpz_t D, mpz_t L)
     /* c1 = c */
     mpz_set(c1, f->c);
 
-    /* b < 0 */
-    if (mpz_sgn(f->b) < 0) {
-        mpz_neg(f->b, f->b);
-        /* s = gcd(abs(b), a); v2 = inv(b) (mod a) */
-        mpz_gcdext(s, v2, NULL, f->b, a1);
-        mpz_neg(f->b, f->b);
-        mpz_neg(v2, v2);
+    const int b_sgn = mpz_sgn(f->b);
+
+    if (b_sgn < 0) {
+#if defined(VDF_TEST)
+        if (prof != nullptr) ++prof->b_negative;
+        std::chrono::steady_clock::time_point t_g0;
+        if (timing) t_g0 = std::chrono::steady_clock::now();
+#endif
+        // Use |b| for gcdext/invert and apply sign afterwards; avoids mutating f->b in-place.
+        mpz_neg(b_abs, f->b);
+        /* s = gcd(|b|, a); v2 = coefficient for |b| (mod a) */
+        mpz_gcdext(s, v2, NULL, b_abs, a1);
+        mpz_neg(v2, v2); // convert coefficient for |b| into coefficient for b (negative)
+#if defined(VDF_TEST)
+        if (timing) {
+            const auto t_g1 = std::chrono::steady_clock::now();
+            prof->gcdext_time_ns += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(t_g1 - t_g0).count());
+        }
+#endif
     } else {
-        mpz_gcdext(s, v2, NULL, f->b, a1);
+#if defined(VDF_TEST)
+        std::chrono::steady_clock::time_point t_g0;
+        if (timing) t_g0 = std::chrono::steady_clock::now();
+#endif
+        mpz_set(b_abs, f->b);
+        mpz_gcdext(s, v2, NULL, b_abs, a1);
+#if defined(VDF_TEST)
+        if (timing) {
+            const auto t_g1 = std::chrono::steady_clock::now();
+            prof->gcdext_time_ns += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(t_g1 - t_g0).count());
+        }
+#endif
     }
 
     mpz_mul(k, v2, c1);
     mpz_neg(k, k);
 
-    if (mpz_cmp_ui(s, 1)) {
+    const bool s_is_1 = (mpz_cmp_ui(s, 1) == 0);
+#if defined(VDF_TEST)
+    if (prof != nullptr) {
+        if (s_is_1) ++prof->gcdext_s_eq_1;
+        else ++prof->gcdext_s_ne_1;
+    }
+#endif
+
+    if (!s_is_1) {
         mpz_fdiv_q(a1, a1, s);
         mpz_mul(c1, c1, s);
     }
 
     /* k = -(c*inv(b)) (mod a) */
-    mpz_fdiv_r(k, k, a1);
+    // `mpz_fdiv_r` implements a floor-remainder; for positive modulus `a1`, we can
+    // compute the (typically faster) trunc-remainder and fix up negative results.
+    mpz_tdiv_r(k, k, a1);
+    if (mpz_sgn(k) < 0) mpz_add(k, k, a1);
 
     if (mpz_cmp(a1, L) < 0) {
+#if defined(VDF_TEST)
+        if (prof != nullptr) ++prof->branch_a_lt_L;
+#endif
         mpz_mul(t, a1, k);
 
         mpz_mul(r->a, a1, a1);
@@ -265,17 +372,34 @@ void qfb_nudupl(qfb_t r, qfb_t f, mpz_t D, mpz_t L)
 
         mpz_fdiv_q(r->c, r->c, a1);
     } else {
-        mpz_t m2, r1, r2, co1, co2, temp;
-
-        mpz_init(m2); mpz_init(r1); mpz_init(r2);
-        mpz_init(co1); mpz_init(co2); mpz_init(temp);
+#if defined(VDF_TEST)
+        if (prof != nullptr) ++prof->branch_a_ge_L;
+        std::chrono::steady_clock::time_point t_else0;
+        if (timing) t_else0 = std::chrono::steady_clock::now();
+#endif
+        mpz_t& m2 = ctx.m2;
+        mpz_t& r1 = ctx.r1;
+        mpz_t& r2 = ctx.r2;
+        mpz_t& co1 = ctx.co1;
+        mpz_t& co2 = ctx.co2;
+        mpz_t& temp = ctx.temp;
 
         mpz_set(r2, a1);
         /* r1 = k */
         mpz_swap(r1, k);
 
         /* Satisfies co2*r1 - co1*r2 == +/- r2_orig */
+#if defined(VDF_TEST)
+        std::chrono::steady_clock::time_point t_x0;
+        if (timing) t_x0 = std::chrono::steady_clock::now();
+#endif
         mpz_xgcd_partial(co2, co1, r2, r1, L);
+#if defined(VDF_TEST)
+        if (timing) {
+            const auto t_x1 = std::chrono::steady_clock::now();
+            prof->xgcd_partial_time_ns += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(t_x1 - t_x0).count());
+        }
+#endif
 
         /* m2 = b * r1 */
         mpz_mul(m2, f->b, r1);
@@ -310,25 +434,24 @@ void qfb_nudupl(qfb_t r, qfb_t f, mpz_t D, mpz_t L)
             mpz_neg(r->a, r->a);
             mpz_neg(r->c, r->c);
         }
-
-        mpz_clear(m2); mpz_clear(r1); mpz_clear(r2);
-        mpz_clear(co1); mpz_clear(co2); mpz_clear(temp);
+#if defined(VDF_TEST)
+        if (timing) {
+            const auto t_else1 = std::chrono::steady_clock::now();
+            prof->else_branch_time_ns += uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(t_else1 - t_else0).count());
+        }
+#endif
     }
 
     mpz_set(r->b, cb);
-
-    mpz_clear(cb);
-    mpz_clear(k);
-    mpz_clear(s);
-    mpz_clear(t); mpz_clear(u2); mpz_clear(v2);
-    mpz_clear(a1); mpz_clear(c1);
 }
 
 // a = b * b
-void nudupl_form(form &a, form &b, integer &D, integer &L)
+void nudupl_form(form &a, form &b, const integer &D, const integer &L)
 {
     qfb fr, fr2;
 
+    // Copies the mpz header only. fr and fr2 share limb storage with the
+    // source form. Do not clear, free, or reallocate them.
     *fr.a = *a.a.impl;
     *fr.b = *a.b.impl;
     *fr.c = *a.c.impl;

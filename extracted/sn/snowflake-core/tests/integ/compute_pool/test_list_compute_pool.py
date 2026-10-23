@@ -28,9 +28,9 @@ def test_iter(compute_pools, temp_cp, instance_family):
         assert cp.active_nodes == 0
         assert cp.idle_nodes is None
         assert cp.target_nodes == 1
-        assert cp.created_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.timezone.utc)
-        assert cp.resumed_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.timezone.utc)
-        assert cp.updated_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.timezone.utc)
+        assert cp.created_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.UTC)
+        assert cp.resumed_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.UTC)
+        assert cp.updated_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.UTC)
         assert cp.owner == "ACCOUNTADMIN"
         assert cp.is_exclusive is False
         assert cp.application is None

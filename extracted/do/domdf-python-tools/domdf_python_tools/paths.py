@@ -56,6 +56,7 @@ import stat
 import sys
 import tempfile
 import urllib.parse
+import warnings
 from collections import defaultdict, deque
 from operator import methodcaller
 from typing import (
@@ -142,7 +143,7 @@ A list of directories which will likely be unwanted when searching directory tre
 """
 
 
-def append(var: str, filename: PathLike, **kwargs) -> int:
+def append(var: str, filename: PathLike, **kwargs) -> int:  # noqa: PRM002
 	"""
 	Append ``var`` to the file ``filename`` in the current directory.
 
@@ -204,7 +205,7 @@ def copytree(
 	return dst
 
 
-def delete(filename: PathLike, **kwargs):
+def delete(filename: PathLike, **kwargs) -> None:  # noqa: PRM002
 	"""
 	Delete the file in the current directory.
 
@@ -216,7 +217,7 @@ def delete(filename: PathLike, **kwargs):
 	os.remove(os.path.join(os.getcwd(), filename), **kwargs)
 
 
-def maybe_make(directory: PathLike, mode: int = 0o777, parents: bool = False):
+def maybe_make(directory: PathLike, mode: int = 0o777, parents: bool = False) -> None:
 	"""
 	Create a directory at the given path, but only if the directory does not already exist.
 
@@ -260,7 +261,7 @@ def parent_path(path: PathLike) -> pathlib.Path:
 	return path.parent
 
 
-def read(filename: PathLike, **kwargs) -> str:
+def read(filename: PathLike, **kwargs) -> str:  # noqa: PRM002
 	"""
 	Read a file in the current directory (in text mode).
 
@@ -307,7 +308,7 @@ def relpath(path: PathLike, relative_to: Optional[PathLike] = None) -> pathlib.P
 		return abs_path
 
 
-def write(var: str, filename: PathLike, **kwargs) -> None:
+def write(var: str, filename: PathLike, **kwargs) -> None:  # noqa: PRM002
 	"""
 	Write a variable to file in the current directory.
 
@@ -354,7 +355,7 @@ def make_executable(filename: PathLike) -> None:
 
 
 @contextlib.contextmanager
-def in_directory(directory: PathLike):
+def in_directory(directory: PathLike) -> Iterator[None]:
 	"""
 	Context manager to change into the given directory for the
 	duration of the ``with`` block.
@@ -388,19 +389,19 @@ class PathPlus(pathlib.Path):
 	__slots__ = ()
 
 	if sys.version_info < (3, 11):
-		_accessor = pathlib._normal_accessor  # type: ignore
+		_accessor = pathlib._normal_accessor  # type: ignore[attr-defined]
 	_closed = False
 
-	def _init(self, *args, **kwargs):
+	def _init(self, *args, **kwargs) -> None:
 		pass
 
 	@classmethod
-	def _from_parts(cls, args, init=True):
-		return super()._from_parts(args)  # type: ignore
+	def _from_parts(cls, args, init=True):  # noqa: MAN001,MAN002
+		return super()._from_parts(args)  # type: ignore[misc]
 
 	def __new__(cls: Type[_PP], *args, **kwargs) -> _PP:  # noqa: D102
 		if cls is PathPlus:
-			cls = WindowsPathPlus if os.name == "nt" else PosixPathPlus  # type: ignore
+			cls = WindowsPathPlus if os.name == "nt" else PosixPathPlus  # type: ignore[assignment]
 
 		return super().__new__(cls, *args, **kwargs)
 
@@ -418,7 +419,7 @@ class PathPlus(pathlib.Path):
 			string: str,
 			encoding: Optional[str] = "UTF-8",
 			errors: Optional[str] = None,
-			):
+			) -> None:
 		"""
 		Write to the file without trailing whitespace, and with a newline at the end of the file.
 
@@ -436,7 +437,7 @@ class PathPlus(pathlib.Path):
 			self,
 			mode: int = 0o777,
 			parents: bool = False,
-			):
+			) -> None:
 		"""
 		Create a directory at this path, but only if the directory does not already exist.
 
@@ -457,6 +458,11 @@ class PathPlus(pathlib.Path):
 
 		"""
 
+		if isinstance(mode, bool):
+			warnings.warn(
+					f"Boolean {mode} passed as mode argument, which was probably unintended. You probably wanted 'parents={mode}'",
+					)
+
 		try:
 			self.mkdir(mode, parents, exist_ok=True)
 		except FileExistsError:
@@ -467,7 +473,7 @@ class PathPlus(pathlib.Path):
 			string: str,
 			encoding: Optional[str] = "UTF-8",
 			errors: Optional[str] = None,
-			):
+			) -> None:
 		"""
 		Open the file in text mode, append the given string to it, and close the file.
 
@@ -517,7 +523,7 @@ class PathPlus(pathlib.Path):
 			encoding: Optional[str] = "UTF-8",
 			errors: Optional[str] = None,
 			*,
-			trailing_whitespace: bool = False
+			trailing_whitespace: bool = False,
 			) -> None:
 		"""
 		Write the given list of lines to the file without trailing whitespace.
@@ -531,6 +537,12 @@ class PathPlus(pathlib.Path):
 
 		.. versionchanged:: 2.4.0  Added the ``trailing_whitespace`` option.
 		"""
+
+		if isinstance(data, str):
+			warnings.warn(
+					"Passing a string to PathPlus.write_lines writes each character to its own line.\n"
+					"That probably isn't what you intended.",
+					)
 
 		if trailing_whitespace:
 			data = list(data)
@@ -578,14 +590,14 @@ class PathPlus(pathlib.Path):
 
 		return self.read_text(encoding=encoding, errors=errors).split('\n')
 
-	def open(  # type: ignore  # noqa: A003  # pylint: disable=redefined-builtin
+	def open(  # type: ignore[override]  # noqa: A003  # pylint: disable=redefined-builtin
 		self,
 		mode: str = 'r',
 		buffering: int = -1,
 		encoding: Optional[str] = "UTF-8",
 		errors: Optional[str] = None,
 		newline: Optional[str] = NEWLINE_DEFAULT,
-		) -> IO[Any]:
+	) -> IO[Any]:
 		"""
 		Open the file pointed by this path and return a file object, as
 		the built-in :func:`open` function does.
@@ -630,7 +642,7 @@ class PathPlus(pathlib.Path):
 			data: Any,
 			encoding: Optional[str] = "UTF-8",
 			errors: Optional[str] = None,
-			json_library: JsonLibrary = json,  # type: ignore
+			json_library: JsonLibrary = json,  # type: ignore[assignment]
 			*,
 			compress: bool = False,
 			**kwargs,
@@ -674,7 +686,7 @@ class PathPlus(pathlib.Path):
 			self,
 			encoding: Optional[str] = "UTF-8",
 			errors: Optional[str] = None,
-			json_library: JsonLibrary = json,  # type: ignore
+			json_library: JsonLibrary = json,  # type: ignore[assignment]
 			*,
 			decompress: bool = False,
 			**kwargs,
@@ -783,6 +795,8 @@ class PathPlus(pathlib.Path):
 
 			If the path is a directory, use :meth:`~domdf_python_tools.paths.PathPlus.rmdir()` instead.
 
+			:param missing_ok:
+
 			.. versionadded:: 0.3.8 for Python 3.8 and above
 			.. versionadded:: 0.11.0 for Python 3.6 and Python 3.7
 			"""
@@ -793,7 +807,7 @@ class PathPlus(pathlib.Path):
 				if not missing_ok:
 					raise
 
-	def __enter__(self):
+	def __enter__(self):  # noqa: MAN002
 		return self
 
 	def __exit__(self, t, v, tb):
@@ -991,21 +1005,21 @@ class WindowsPathPlus(PathPlus, pathlib.PureWindowsPath):
 
 	__slots__ = ()
 
-	def owner(self):  # pragma: no cover
+	def owner(self):  # pragma: no cover  # noqa: MAN002
 		"""
 		Unsupported on Windows.
 		"""
 
 		raise NotImplementedError("Path.owner() is unsupported on this system")
 
-	def group(self):  # pragma: no cover
+	def group(self):  # pragma: no cover  # noqa: MAN002
 		"""
 		Unsupported on Windows.
 		"""
 
 		raise NotImplementedError("Path.group() is unsupported on this system")
 
-	def is_mount(self):  # pragma: no cover
+	def is_mount(self):  # pragma: no cover  # noqa: MAN002
 		"""
 		Unsupported on Windows.
 		"""
@@ -1118,6 +1132,10 @@ class TemporaryPathPlus(tempfile.TemporaryDirectory):
 
 	Unlike :func:`tempfile.TemporaryDirectory` this class is based around a :class:`~.PathPlus` object.
 
+	:param suffix: A str suffix for the directory name.
+	:param prefix: A str prefix for the directory name.
+	:param dir: A directory to create this temp dir in.
+
 	.. versionadded:: 2.4.0
 	.. autosummary-widths:: 6/16
 	"""
@@ -1163,12 +1181,12 @@ class TemporaryPathPlus(tempfile.TemporaryDirectory):
 
 
 def sort_paths(*paths: PathLike) -> List[PathPlus]:
-	"""
+	r"""
 	Sort the ``paths`` by directory, then by file.
 
 	.. versionadded:: 2.6.0
 
-	:param paths:
+	:param \*paths:
 	"""
 
 	directories: Dict[str, List[PathPlus]] = defaultdict(list)
@@ -1252,10 +1270,10 @@ class DirComparator(filecmp.dircmp):
 			"left_only": filecmp.dircmp.phase1,
 			"right_only": filecmp.dircmp.phase1,
 			"left_list": filecmp.dircmp.phase0,
-			"right_list": filecmp.dircmp.phase0
+			"right_list": filecmp.dircmp.phase0,
 			}
 
-	methodmap = _methodmap  # type: ignore
+	methodmap = _methodmap  # type: ignore[assignment]
 
 
 def compare_dirs(a: PathLike, b: PathLike) -> bool:

@@ -24,6 +24,7 @@ import plistlib
 import re
 import subprocess
 import sys
+import threading
 import unittest.mock
 from dataclasses import dataclass, field
 from functools import partial
@@ -40,7 +41,7 @@ from extra_platforms import (
     is_unix_not_macos,
     is_windows,
 )
-from extra_platforms.pytest import unless_unix_not_macos
+from extra_platforms.pytest import skip_windows, unless_unix_not_macos
 from wcmatch import fnmatch, glob
 
 from click_extra import (
@@ -484,6 +485,11 @@ def make_sqlite_config(
         connection.execute(
             f"CREATE TABLE {SQLITE_CONFIG_TABLE} (key TEXT PRIMARY KEY, value TEXT)"
         )
+    else:
+        # A table of another name makes the file a database with no configuration
+        # table, where a connection that writes nothing leaves a blank file, which
+        # loads as an empty configuration.
+        connection.execute("CREATE TABLE harvest (crop TEXT)")
     if data:
         for key, value in flatten_sqlite_keys(data).items():
             connection.execute(
@@ -714,9 +720,54 @@ def test_conf_unparsable(invoke, simple_config_cli, create_config):
     assert result.exit_code == 2
 
 
-def test_conf_empty_file(invoke, simple_config_cli, create_config):
-    """Explicit --config pointing to an empty file."""
-    conf_path = create_config("empty.toml", "")
+@pytest.mark.parametrize(
+    ("filename", "content"),
+    [
+        pytest.param(None, None, id="null-device"),
+        pytest.param("empty.toml", "", id="empty-file"),
+        pytest.param("blank.yaml", "\n  \n", id="whitespace-only"),
+        pytest.param("empty.json", "", id="empty-json"),
+        pytest.param("empty.plist", "", id="empty-plist"),
+        pytest.param("empty.sqlite", "", id="empty-sqlite"),
+    ],
+)
+def test_conf_blank_source(invoke, simple_config_cli, create_config, filename, content):
+    """Explicit --config with nothing to read loads an empty configuration.
+
+    `/dev/null` (`nul` on Windows) is the Unix way to point a tool at no
+    configuration. An empty file means the same, even where its format calls it
+    invalid, like JSON, and where its parser reads the file from its path, like
+    plist and SQLite. Every parameter then keeps its default.
+    """
+    conf_path = (
+        os.devnull if filename is None else str(create_config(filename, content))
+    )
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        conf_path,
+        "default",
+        color=False,
+    )
+    assert result.stdout == "dummy_flag = False\nmy_list = ()\nint_parameter = 10\n"
+    assert result.stderr == f"Load configuration matching {conf_path}\n"
+    assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("filename", "content", "label"),
+    [
+        pytest.param("comments.toml", "# Nothing here.\n", "TOML", id="toml-comments"),
+        pytest.param("comments.yaml", "# Nothing here.\n", "YAML", id="yaml-comments"),
+        pytest.param("braces.json", "{}\n", "JSON", id="json-empty-object"),
+        pytest.param("null.json", "null\n", "JSON", id="json-null"),
+    ],
+)
+def test_conf_parses_to_nothing(
+    invoke, simple_config_cli, create_config, filename, content, label
+):
+    """Explicit --config parsing to nothing names its format, not a parse error."""
+    conf_path = create_config(filename, content)
     result = invoke(
         simple_config_cli,
         "--config",
@@ -725,9 +776,58 @@ def test_conf_empty_file(invoke, simple_config_cli, create_config):
         color=False,
     )
     assert not result.stdout
-    assert f"Load configuration matching {conf_path}\n" in result.stderr
-    assert "critical: Error parsing file as" in result.stderr
+    assert result.stderr == (
+        f"Load configuration matching {conf_path}\n"
+        f"critical: {conf_path.resolve()} parses as {label} "
+        "but holds no configuration.\n"
+    )
     assert result.exit_code == 2
+
+
+@pytest.mark.parametrize("explicit", [True, False], ids=["explicit", "autodiscovery"])
+def test_conf_blank_file_never_shadows_a_configuration(invoke, tmp_path, explicit):
+    """A blank file loses to a configuration the same pattern matches after it."""
+    (tmp_path / "a.toml").write_text("", encoding="utf-8")
+    (tmp_path / "b.toml").write_text("[orchard]\napples = 42\n", encoding="utf-8")
+    pattern = str(tmp_path / "*.toml")
+
+    @click.command
+    @option("--apples", type=int, default=0)
+    @config_option(default=pattern)
+    def orchard(apples):
+        echo(f"apples = {apples!r}")
+
+    args = ["--config", pattern] if explicit else []
+    result = invoke(orchard, args, color=False)
+    assert result.stdout == "apples = 42\n"
+    assert result.exit_code == 0
+
+
+@skip_windows(reason="os.mkfifo() does not exist on Windows.")
+def test_conf_named_pipe(invoke, simple_config_cli, tmp_path):
+    """A named pipe is read like a file: its content is the configuration."""
+    pipe = tmp_path / "configuration.toml"
+    os.mkfifo(pipe)
+    # Opening the pipe for writing blocks until the CLI opens it for reading.
+    writer = threading.Thread(
+        target=pipe.write_text,
+        args=(TOML_FILE,),
+        kwargs={"encoding": "utf-8"},
+        daemon=True,
+    )
+    writer.start()
+    result = invoke(
+        simple_config_cli,
+        "--config",
+        str(pipe),
+        "default",
+        color=False,
+    )
+    writer.join(timeout=10)
+    assert result.stdout == (
+        "dummy_flag = True\nmy_list = ('pip', 'npm', 'gem')\nint_parameter = 3\n"
+    )
+    assert result.exit_code == 0
 
 
 def test_no_config_option(invoke, simple_config_cli, create_config):
@@ -1902,15 +2002,23 @@ def test_argfile_unknown_option_ignored_when_not_strict(invoke, create_config):
 
 
 @pytest.mark.parametrize(
-    "conf_text",
+    ("conf_text", "message"),
     [
-        pytest.param("--name\n", id="missing-value"),
-        pytest.param("# Only a comment.\n", id="comment-only"),
-        pytest.param("key = value\n", id="foreign-ini-style"),
+        pytest.param("--name\n", "Error parsing file as", id="missing-value"),
+        pytest.param(
+            "# Only a comment.\n",
+            "{path} parses as Argfile but holds no configuration.",
+            id="comment-only",
+        ),
+        pytest.param(
+            "key = value\n",
+            "{path} parses as Argfile but holds no configuration.",
+            id="foreign-ini-style",
+        ),
     ],
 )
-def test_argfile_unparsable_conf(invoke, create_config, conf_text):
-    """An argfile that produces no option is skipped like any other format."""
+def test_argfile_unparsable_conf(invoke, create_config, conf_text, message):
+    """An argfile that produces no option is rejected, saying how it was read."""
 
     @command
     @option("--name", default="nobody")
@@ -1920,7 +2028,7 @@ def test_argfile_unparsable_conf(invoke, create_config, conf_text):
     conf_path = create_config("broken.conf", conf_text)
     result = invoke(argfile_cli, "--config", str(conf_path), color=False)
     assert not result.stdout
-    assert "critical: Error parsing file as" in result.stderr
+    assert f"critical: {message.format(path=conf_path.resolve())}" in result.stderr
     assert result.exit_code == 2
 
 
@@ -2006,14 +2114,18 @@ def test_sqlite_read_and_parse_conf(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "make_db",
+    ("make_db", "message"),
     [
-        pytest.param("garbage", id="garbage-content"),
-        pytest.param("missing-table", id="missing-table"),
-        pytest.param("empty-table", id="empty-table"),
+        pytest.param("garbage", "Error parsing file as", id="garbage-content"),
+        pytest.param("missing-table", "Error parsing file as", id="missing-table"),
+        pytest.param(
+            "empty-table",
+            "{path} parses as SQLite but holds no configuration.",
+            id="empty-table",
+        ),
     ],
 )
-def test_sqlite_conf_unparsable(invoke, simple_config_cli, tmp_path, make_db):
+def test_sqlite_conf_unparsable(invoke, simple_config_cli, tmp_path, make_db, message):
     """A SQLite file that cannot yield a configuration is rejected."""
     conf_path = tmp_path / "configuration.sqlite"
     if make_db == "garbage":
@@ -2029,7 +2141,7 @@ def test_sqlite_conf_unparsable(invoke, simple_config_cli, tmp_path, make_db):
         color=False,
     )
     assert result.exit_code == 2
-    assert "critical: Error parsing file as" in result.stderr
+    assert f"critical: {message.format(path=conf_path.resolve())}" in result.stderr
 
 
 SPLITTABLE_STDLIB_MODULES = frozenset((
@@ -2639,6 +2751,171 @@ def test_lazy_group_config_no_config_flag(invoke, create_config, tmp_path):
         sys.path.remove(str(tmp_path))
         for name in module_names:
             sys.modules.pop(name, None)
+
+
+@pytest.fixture
+def orchard_modules(tmp_path):
+    """Put the `orchard_apple` and `orchard_banana` command modules on `sys.path`.
+
+    Both modules leave `sys.modules` before and after the test, so the test sees
+    which of them its CLI imports.
+    """
+    for fruit in ("apple", "banana"):
+        (tmp_path / f"orchard_{fruit}.py").write_text(
+            dedent(f"""\
+                import click
+
+                @click.command()
+                @click.option("--ripeness", default="green")
+                def {fruit}_cli(ripeness):
+                    click.echo(f"ripeness={{ripeness!r}}")
+                """),
+            encoding="utf-8",
+        )
+    module_names = ("orchard_apple", "orchard_banana")
+    for name in module_names:
+        sys.modules.pop(name, None)
+    sys.path.insert(0, str(tmp_path))
+    yield
+    sys.path.remove(str(tmp_path))
+    for name in module_names:
+        sys.modules.pop(name, None)
+
+
+@pytest.mark.parametrize(
+    ("included_params", "expected_stdout"),
+    [
+        pytest.param((), "dry_run=False\nripeness='green'\n", id="empty"),
+        pytest.param(
+            ("orchard.dry_run",), "dry_run=True\nripeness='green'\n", id="root_only"
+        ),
+        pytest.param(
+            ("orchard.apple.ripeness",),
+            "dry_run=False\nripeness='ripe'\n",
+            id="lazy_subcommand",
+        ),
+    ],
+)
+def test_lazy_group_included_params_imports(
+    invoke, create_config, orchard_modules, included_params, expected_stdout
+):
+    """A configuration loads without importing the lazy subcommands the allowlist
+    leaves out.
+
+    The walk building the parameter template skips each subcommand no allowed ID
+    lies under. The section of a subcommand the allowlist leaves out does not
+    reach it either, when the invocation imports it later.
+    """
+    conf_path = create_config(
+        "orchard.toml",
+        dedent("""\
+            [orchard]
+            dry_run = true
+
+            [orchard.apple]
+            ripeness = "ripe"
+
+            [orchard.banana]
+            ripeness = "ripe"
+            """),
+    )
+
+    @group(
+        cls=LazyGroup,
+        lazy_subcommands={
+            "apple": "orchard_apple.apple_cli",
+            "banana": "orchard_banana.banana_cli",
+        },
+        included_params=included_params,
+    )
+    @option("--dry-run", is_flag=True)
+    def orchard(dry_run):
+        echo(f"dry_run={dry_run!r}")
+
+    result = invoke(orchard, "--config", str(conf_path), "apple", color=False)
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout == expected_stdout
+    assert "orchard_apple" in sys.modules
+    assert "orchard_banana" not in sys.modules
+
+
+def test_lazy_group_empty_allowlist_imports_no_subcommand(
+    invoke, create_config, orchard_modules
+):
+    """`included_params=()` loads a configuration without importing any lazy
+    subcommand.
+
+    The group runs on its own, so no dispatch imports a subcommand behind the
+    walk's back: a module in `sys.modules` is one the configuration load brought
+    in.
+    """
+    conf_path = create_config("orchard.toml", "[orchard]\ndry_run = true\n")
+
+    @group(
+        cls=LazyGroup,
+        invoke_without_command=True,
+        lazy_subcommands={
+            "apple": "orchard_apple.apple_cli",
+            "banana": "orchard_banana.banana_cli",
+        },
+        included_params=(),
+    )
+    @option("--dry-run", is_flag=True)
+    def orchard(dry_run):
+        echo(f"dry_run={dry_run!r}")
+
+    result = invoke(orchard, "--config", str(conf_path), color=False)
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout == "dry_run=False\n"
+    assert "orchard_apple" not in sys.modules
+    assert "orchard_banana" not in sys.modules
+
+
+def test_lazy_group_included_params_introspection(
+    invoke, create_config, orchard_modules
+):
+    """`--params`, `--export-config` and `--validate-config` honor an allowlist
+    for the subcommands its template walk skips.
+
+    The walk skips `banana`, so `excluded_params` lists none of its parameters.
+    """
+
+    @group(
+        cls=LazyGroup,
+        lazy_subcommands={
+            "apple": "orchard_apple.apple_cli",
+            "banana": "orchard_banana.banana_cli",
+        },
+        included_params=("orchard.apple.ripeness",),
+    )
+    @option("--dry-run", is_flag=True)
+    def orchard(dry_run):
+        echo(f"dry_run={dry_run!r}")
+
+    result = invoke(orchard, "--params", "--table-format", "json", color=False)
+    assert result.exit_code == 0, result.stderr
+    allowed = {row["ID"]: row["Allowed in conf?"] for row in json.loads(result.stdout)}
+    assert allowed["orchard.apple.ripeness"] is True
+    assert allowed["orchard.banana.ripeness"] is False
+    assert allowed["orchard.dry_run"] is False
+
+    result = invoke(orchard, "--export-config", "json", color=False)
+    assert result.exit_code == 0, result.stderr
+    assert json.loads(result.stdout) == {"orchard": {"apple": {"ripeness": "green"}}}
+
+    conf_path = create_config(
+        "orchard.toml",
+        dedent("""\
+            [orchard]
+            dry_run = true
+            """),
+    )
+    result = invoke(orchard, "--validate-config", str(conf_path), color=False)
+    assert result.exit_code == 1
+    assert (
+        "Configuration validation error: Configuration key 'dry_run' "
+        "is not allowed in configuration files." in result.stderr
+    )
 
 
 @pytest.mark.parametrize(
@@ -3568,12 +3845,19 @@ def test_multiple_files_matching_glob(invoke, create_config, tmp_path):
 
 
 def test_forced_flags_warnings(caplog):
-    """Warnings fire when SPLIT, BRACE or NODIR flags are missing."""
+    """Warnings fire when SPLIT, BRACE or NODIR flags are missing.
+
+    The flags resolve on first use, not at construction, so reading them is
+    what fires the warnings.
+    """
+    option = ConfigOption(
+        file_pattern_flags=fnmatch.NEGATE,  # missing SPLIT
+        search_pattern_flags=glob.GLOBSTAR | glob.FOLLOW,  # missing BRACE and NODIR
+    )
     with caplog.at_level(logging.WARNING, logger="click_extra"):
-        ConfigOption(
-            file_pattern_flags=fnmatch.NEGATE,  # missing SPLIT
-            search_pattern_flags=glob.GLOBSTAR | glob.FOLLOW,  # missing BRACE and NODIR
-        )
+        assert option.file_pattern_flags & fnmatch.SPLIT
+        assert option.search_pattern_flags & glob.BRACE
+        assert option.search_pattern_flags & glob.NODIR
 
     assert "Forcing SPLIT flag" in caplog.text
     assert "Forcing BRACE flag" in caplog.text
@@ -3811,6 +4095,21 @@ def test_validate_config_accepts_a_url(invoke, httpserver):
     assert "is valid" in result.stderr
 
 
+def test_validate_config_accepts_the_null_device(invoke):
+    """`/dev/null` is a valid configuration, as `--config` loads it."""
+
+    @click.command
+    @option("--dummy-flag/--no-flag")
+    @config_option
+    @validate_config_option
+    def validate_cli(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    result = invoke(validate_cli, "--validate-config", os.devnull, color=False)
+    assert result.stderr == f"Configuration file {os.devnull} is valid.\n"
+    assert result.exit_code == 0
+
+
 def test_validate_config_invalid_keys(invoke, create_config):
     """--validate-config with unrecognized keys exits 1."""
     conf_text = dedent("""\
@@ -3908,6 +4207,24 @@ def test_validate_config_unparsable(invoke, create_config):
     result = invoke(validate_cli, "--validate-config", str(conf_path), color=False)
     assert result.exit_code == 2
     assert "Error parsing" in result.stderr
+
+
+def test_validate_config_parses_to_nothing(invoke, create_config):
+    """--validate-config names the format a file parses to nothing with."""
+    conf_path = create_config("comments.toml", "# Nothing here.\n")
+
+    @click.command
+    @option("--dummy-flag/--no-flag")
+    @config_option
+    @validate_config_option
+    def validate_cli(dummy_flag):
+        echo(f"dummy_flag = {dummy_flag!r}")
+
+    result = invoke(validate_cli, "--validate-config", str(conf_path), color=False)
+    assert result.stderr == (
+        f"{conf_path.resolve()} parses as TOML but holds no configuration.\n"
+    )
+    assert result.exit_code == 2
 
 
 def test_validate_config_missing_file(invoke, tmp_path):
@@ -5108,8 +5425,9 @@ def test_sanity_checks(caplog, default, file_format_patterns, flags, present, ab
     if default is not _NO_DEFAULT:
         kwargs["default"] = default
 
+    # The check runs on the first configuration load, not at construction.
     with caplog.at_level(logging.DEBUG, logger="click_extra"):
-        ConfigOption(**kwargs)
+        ConfigOption(**kwargs)._check_pattern_sanity()
 
     for fragment in present:
         assert fragment in caplog.text

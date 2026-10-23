@@ -87,7 +87,7 @@ class FilesResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._get(
-            path_template("/files/{id}", id=id),
+            path_template("/v1/files/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -106,7 +106,7 @@ class FilesResource(SyncAPIResource):
     ) -> FileList:
         """List the metadata for all uploaded data files."""
         return self._get(
-            "/files",
+            "/v1/files",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -141,7 +141,7 @@ class FilesResource(SyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return self._delete(
-            path_template("/files/{id}", id=id),
+            path_template("/v1/files/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -172,7 +172,7 @@ class FilesResource(SyncAPIResource):
 
         try:
             upload_manager = UploadManager(self._client)
-            result = upload_manager.upload("/files", file, purpose, progress_callback=progress_callback)
+            result = upload_manager.upload("/v1/files", file, purpose, progress_callback=progress_callback)
 
             return FileResponse(
                 id=result.id,
@@ -181,7 +181,7 @@ class FilesResource(SyncAPIResource):
                 filename=result.filename,
                 FileType=result.file_type,
                 object=result.object,
-                Processed=result.processed,
+                processing_status=result.processing_status,
                 purpose=result.purpose,
             )
         except FileAlreadyExistsError as e:
@@ -218,7 +218,7 @@ class FilesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "application/binary", **(extra_headers or {})}
         return self._get(
-            path_template("/files/{id}/content", id=id),
+            path_template("/v1/files/{id}/content", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -274,7 +274,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._get(
-            path_template("/files/{id}", id=id),
+            path_template("/v1/files/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -293,7 +293,7 @@ class AsyncFilesResource(AsyncAPIResource):
     ) -> FileList:
         """List the metadata for all uploaded data files."""
         return await self._get(
-            "/files",
+            "/v1/files",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -328,7 +328,7 @@ class AsyncFilesResource(AsyncAPIResource):
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         return await self._delete(
-            path_template("/files/{id}", id=id),
+            path_template("/v1/files/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -359,7 +359,7 @@ class AsyncFilesResource(AsyncAPIResource):
 
         try:
             upload_manager = AsyncUploadManager(self._client)
-            result = await upload_manager.upload("/files", file, purpose, progress_callback=progress_callback)
+            result = await upload_manager.upload("/v1/files", file, purpose, progress_callback=progress_callback)
 
             return FileResponse(
                 id=result.id,
@@ -368,7 +368,7 @@ class AsyncFilesResource(AsyncAPIResource):
                 filename=result.filename,
                 FileType=result.file_type,
                 object=result.object,
-                Processed=result.processed,
+                processing_status=result.processing_status,
                 purpose=result.purpose,
             )
         except FileAlreadyExistsError as e:
@@ -405,7 +405,7 @@ class AsyncFilesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
         extra_headers = {"Accept": "application/binary", **(extra_headers or {})}
         return await self._get(
-            path_template("/files/{id}/content", id=id),
+            path_template("/v1/files/{id}/content", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),

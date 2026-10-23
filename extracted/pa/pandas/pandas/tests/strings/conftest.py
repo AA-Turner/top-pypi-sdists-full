@@ -1,11 +1,11 @@
 import pytest
 
-from pandas import Series
+import pandas as pd
 from pandas.core.strings.accessor import StringMethods
 
 _any_string_method = [
     ("cat", (), {"sep": ","}),
-    ("cat", (Series(list("zyx")),), {"sep": ",", "join": "left"}),
+    ("cat", (pd.Series(list("zyx")),), {"sep": ",", "join": "left"}),
     ("center", (10,), {}),
     ("contains", ("a",), {}),
     ("count", ("a",), {}),
@@ -91,11 +91,12 @@ _any_string_method = [
             "upper",
             "casefold",
         ],
-        [()] * 100,
-        [{}] * 100,
+        [()] * 28,
+        [{}] * 28,
+        strict=True,
     ),
 ]
-ids, _, _ = zip(*_any_string_method)  # use method name as fixture-id
+ids, _, _ = zip(*_any_string_method, strict=True)  # use method name as fixture-id
 missing_methods = {f for f in dir(StringMethods) if not f.startswith("_")} - set(ids)
 
 # test that the above list captures all methods of StringMethods

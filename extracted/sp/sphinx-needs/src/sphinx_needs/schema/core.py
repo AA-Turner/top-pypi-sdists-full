@@ -35,7 +35,11 @@ from sphinx_needs.views import NeedsView
 if TYPE_CHECKING:
     from typing import NotRequired
 
-    from sphinx_needs.needs_schema import FieldSchema, FieldsSchema
+    from sphinx_needs.needs_schema import (
+        FieldSchema,
+        FieldsSchema,
+        TypeFieldsSchema,
+    )
 
 # TODO(Marco): error for conflicting unevaluatedProperties
 
@@ -47,6 +51,71 @@ The implementation requires at least draft 2019-09 as unevaluatedProperties was 
 """
 
 
+@dataclass(frozen=True, slots=True)
+class _FieldValidation:
+    """The validator of the fields and link types of one fields schema."""
+
+    validator: SchemaValidator
+    link_names: frozenset[str]
+    #: the "no value" of a field an author cannot set, that is not nullable
+    placeholders: dict[str, Any]
+    with_off_type_default: dict[str, FieldSchema]
+
+
+def _field_validation(fields_schema: TypeFieldsSchema) -> _FieldValidation | None:
+    """Compile the validator of every field and link type of ``fields_schema``.
+
+    :return: ``None`` if the schema has no field.
+    """
+    # Build combined properties from all field and link schemas
+    combined_properties: dict[str, Any] = {}
+    link_names: set[str] = set()
+    # the placeholder a field an author cannot set holds, if it is not nullable --
+    # a derived field until its rule computes it -- is its "no value" (its empty
+    # value), as None is for a nullable field: it is not validated. On a need of a
+    # type a derived field has no rule for, a field with a default holds that
+    # default, which is a value and is validated, also where it equals the empty
+    # value. A link type's ``default = []`` is its "no links", exempt as no default is
+    # (the two cannot be told apart)
+    placeholders: dict[str, Any] = {
+        field.name: typed_empty(field.type)
+        for field in (
+            *fields_schema.iter_extra_fields(),
+            *fields_schema.iter_link_fields(),
+        )
+        if not field.directive_option and not field.nullable
+    }
+    with_off_type_default: dict[str, FieldSchema] = {
+        field.name: field
+        for field in fields_schema.iter_extra_fields()
+        if field.name in placeholders
+        and field.derived
+        and field.derive is None
+        and field.default is not None
+    }
+    for field in fields_schema.iter_core_fields():
+        combined_properties[field.name] = field.schema
+    for field in fields_schema.iter_extra_fields():
+        combined_properties[field.name] = field.schema
+    for link in fields_schema.iter_link_fields():
+        combined_properties[link.name] = link.schema
+        link_names.add(link.name)
+
+    if not combined_properties:
+        return None
+
+    schema: NeedFieldsSchemaType = {
+        "type": "object",
+        "properties": combined_properties,
+    }
+    return _FieldValidation(
+        validator=compile_validator(schema),
+        link_names=frozenset(link_names),
+        placeholders=placeholders,
+        with_off_type_default=with_off_type_default,
+    )
+
+
 def validate_field_link_schemas(
     config: NeedsSphinxConfig,
     fields_schema: FieldsSchema,
@@ -56,6 +125,9 @@ def validate_field_link_schemas(
 
     Builds a single JSON Schema validator from all field and link schemas
     defined in ``fields_schema``, then validates each need against it.
+    A need of a type that declares fields anew
+    (:meth:`~sphinx_needs.needs_schema.FieldsSchema.for_type`) is validated against
+    the fields of its type instead, one validator per such type.
     For each need, only the properties present in the schema are included
     (excluding ``None`` values, and the empty value a derived field holds until its
     rule computes it), so the validator only sees relevant fields.
@@ -69,50 +141,31 @@ def validate_field_link_schemas(
     :param needs: The needs view to validate.
     :return: Mapping of need ID to list of validation warnings.
     """
-    # Build combined properties from all field and link schemas
-    combined_properties: dict[str, Any] = {}
-    link_names: set[str] = set()
-    # the placeholder a derived field that is not nullable holds until its rule
-    # computes it (its empty value) is its "no value", as None is for a nullable
-    # field: it is not validated. On a need of a type the field has no rule for, a
-    # field with a default holds that default, which is a value and is validated, also
-    # where it equals the empty value. A link type's ``default = []`` is its "no
-    # links", exempt as no default is (the two cannot be told apart)
-    placeholders: dict[str, Any] = {
-        field.name: typed_empty(field.type)
-        for field in (
-            *fields_schema.iter_extra_fields(),
-            *fields_schema.iter_link_fields(),
-        )
-        if field.derived and not field.nullable
-    }
-    with_off_type_default: dict[str, FieldSchema] = {
-        field.name: field
-        for field in fields_schema.iter_extra_fields()
-        if field.name in placeholders
-        and field.derive is None
-        and field.default is not None
-    }
-    for field in fields_schema.iter_core_fields():
-        combined_properties[field.name] = field.schema
-    for field in fields_schema.iter_extra_fields():
-        combined_properties[field.name] = field.schema
-    for link in fields_schema.iter_link_fields():
-        combined_properties[link.name] = link.schema
-        link_names.add(link.name)
-
-    if not combined_properties:
+    # the global view: the fields every need type without overlays reads
+    global_view = fields_schema.for_type(None)
+    if (every_type := _field_validation(global_view)) is None:
         return {}
+    #: need type -> the validation of its needs
+    by_type: dict[str, _FieldValidation] = {}
 
-    schema: NeedFieldsSchemaType = {
-        "type": "object",
-        "properties": combined_properties,
-    }
     need_2_warnings: dict[str, list[OntologyWarning]] = {}
-    validator = compile_validator(schema)
-    schema_properties = validator.properties
 
     for need in needs.values():
+        if (validation := by_type.get(need["type"])) is None:
+            type_schema = fields_schema.for_type(need["type"])
+            if type_schema is global_view:
+                validation = every_type
+            else:
+                validation = _field_validation(type_schema)
+                # a need type's schema has the names of the schema it is resolved from
+                assert validation is not None
+            by_type[need["type"]] = validation
+        validator = validation.validator
+        schema_properties = validator.properties
+        placeholders = validation.placeholders
+        with_off_type_default = validation.with_off_type_default
+        link_names = validation.link_names
+
         # Project the need to only the properties present in the schema,
         # excluding None values (we don't allow {"type": ["string", "null"]})
         # and a derived field's placeholder
@@ -670,6 +723,27 @@ class SchemaValidator:
     raw: NeedFieldsSchemaWithVersionType
     compiled: Validator
     properties: set[str]
+
+
+def value_problem(name: str, schema: Any, value: Any) -> str | None:
+    """Why ``value`` is not valid against ``schema``, the schema of the field ``name``:
+    the first message, ``None`` if it is valid.
+
+    One validator is compiled per call, as :func:`validate_object_schema_compiles`
+    compiles one.
+    """
+    validator = jsonschema_rs.validator_for(
+        {
+            "$schema": _SCHEMA_VERSION,
+            "type": "object",
+            "properties": {name: schema},
+        },
+        validate_formats=True,
+        pattern_options=jsonschema_rs.RegexOptions(),
+    )
+    for error in validator.iter_errors({name: value}):
+        return error.message
+    return None
 
 
 def compile_validator(schema: NeedFieldsSchemaType) -> SchemaValidator:

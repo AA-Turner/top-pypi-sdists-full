@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,13 +54,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .tableau_related import RelatedTableauMetric, RelatedTableauProject
 
 # =============================================================================
@@ -638,6 +638,7 @@ def _tableau_metric_to_nested(tableau_metric: TableauMetric) -> TableauMetricNes
         is_incomplete=tableau_metric.is_incomplete,
         provenance_type=tableau_metric.provenance_type,
         home_id=tableau_metric.home_id,
+        delete_handler=tableau_metric.delete_handler,
         depth=tableau_metric.depth,
         immediate_upstream=tableau_metric.immediate_upstream,
         immediate_downstream=tableau_metric.immediate_downstream,
@@ -686,6 +687,7 @@ def _tableau_metric_from_nested(nested: TableauMetricNested) -> TableauMetric:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -711,10 +713,7 @@ def _tableau_metric_from_nested_bytes(data: bytes, serde: Serde) -> TableauMetri
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 TableauMetric.SITE_QUALIFIED_NAME = KeywordField(
     "siteQualifiedName", "siteQualifiedName"

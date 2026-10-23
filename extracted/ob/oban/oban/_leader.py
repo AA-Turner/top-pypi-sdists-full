@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import telemetry
 from ._looper import Looper, sleep_until_stopped, stop_gracefully
@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from ._notifier import Notifier
     from ._query import Query
+
+
+def build_leader(
+    config: dict[str, Any], *, name: str, node: str, notifier: Notifier, query: Query
+) -> Leader:
+    """Build the leader for an Oban instance, with ``enabled`` from its ``leadership`` option.
+
+    The default for the ``leader.build`` extension.
+    """
+    return Leader(name=name, node=node, notifier=notifier, query=query, **config)
 
 
 class Leader(Looper):
@@ -83,8 +93,8 @@ class Leader(Looper):
         if self._is_leader:
             payload = {"action": "resign", "node": self._node, "name": self._name}
 
-            await self._notifier.notify("leader", payload)
             await self._query.resign_leader(self._name, self._node)
+            await self._notifier.notify("leader", payload)
 
     async def _loop(self) -> None:
         while not self._stopping.is_set():

@@ -40,7 +40,7 @@ def extract_text_from_pdf_bytes_or_reason(pdf_bytes: bytes) -> tuple[str | None,
     is a deployment defect, not "this PDF has no text".
     """
     try:
-        from matrx_files.specific_handlers.pdf_handler import (
+        from matrx_files.specific_handlers.pdf import (
             extract_text_from_pdf_bytes_sync,
         )
     except ImportError as e:

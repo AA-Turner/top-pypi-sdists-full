@@ -1739,9 +1739,16 @@ async def test_a_context_that_closes_on_its_own_is_a_crash_not_healthy(monkeypat
 
     assert worker.health == "browser_crashed"
     assert worker.queue_state == "closed"
+    # Not yet relaunched: the next command is admitted so it can relaunch the
+    # browser once and retry (test_cloud_browser_zombie_browser.py) ...
+    worker._controller = worker._controller.model_copy(update={"state": "agent_control"})
+    worker._guard_command_admission("agent")
+    # ... and once that one relaunch failed, every command is refused.
+    worker._browser_down_reason = "The browser stopped and could not be restarted."
     with pytest.raises(WorkerProtocolError) as refused:
         worker._guard_command_admission("agent")
     assert refused.value.code == "browser_crashed"
+    worker._browser_down_reason = None
     # The checkpoint that repairs it does not try to close the dead handle.
     assert await worker._close_context_cleanly() is True
     assert worker._context is None

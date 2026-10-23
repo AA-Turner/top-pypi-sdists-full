@@ -36,18 +36,20 @@ import os
 import re
 import shutil
 import sys
+import warnings
 from html import escape, unescape
 from itertools import combinations, pairwise
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import pytest
 from extra_platforms.pytest import skip_windows
 
-from click_extra import SPINNERS, Spinner, Style, unstyle
-from click_extra.cli_capture import screenshot_cmd
+from click_extra import SPINNERS, Spinner, Style, screenshot_presets, unstyle
+from click_extra.cli_capture import deliver_capture, screenshot_cmd
 from click_extra.execution import PROMPT
 from click_extra.layout import PADDING, cell_width, fit_columns, grid, number_lines
+from click_extra.output import STDOUT_SENTINEL
 from click_extra.recording import TerminalScreen, record_and_render
 from click_extra.screenshot import (
     AUTO_COLUMNS,
@@ -58,7 +60,6 @@ from click_extra.screenshot import (
     CHROME_FIELDS,
     DEFAULT_COLUMNS,
     MIN_COLUMNS,
-    STDOUT_PATH,
     TRUNCATION_LABEL,
     TRUNCATION_RULE,
     CaptureFormat,
@@ -66,17 +67,18 @@ from click_extra.screenshot import (
     append_prompt,
     auto_columns,
     capture,
+    capture_environment,
     capture_output,
     format_from_path,
+    parse_columns,
+    parse_hold,
+    parse_pause,
     render,
     trim_lines,
 )
+from click_extra.screenshot_html import render_html
 from click_extra.screenshot_presets import (
-    CAPTURE_BACKGROUND,
-    CAPTURE_FOREGROUND,
     CAPTURE_PALETTES,
-    LIGHT_CAPTURE_BACKGROUND,
-    LIGHT_CAPTURE_FOREGROUND,
     PRESETS,
     CaptureBackground,
     Cursor,
@@ -200,6 +202,9 @@ the tutorial's own `click:run` blocks at documentation-build time, and guarded
 by `tests/test_sphinx_crossrefs.py` instead.
 """
 
+
+DARK_PALETTE = CAPTURE_PALETTES[CaptureBackground.DARK]
+LIGHT_PALETTE = CAPTURE_PALETTES[CaptureBackground.LIGHT]
 
 SAMPLE_CAPTURE = (
     "\x1b[1mFruit\x1b[0m   Colour\nbanana  yellow\nkiwi    green\n\n2 fruits\n"
@@ -498,8 +503,8 @@ def test_animation_windows_tile_the_cycle(name):
         windows.append((opens, closes))
 
     windows.sort()
-    assert windows[0][0] == 0.0, f"{name}: the cycle opens on no frame"
-    assert windows[-1][1] == 100.0, f"{name}: the cycle ends on no frame"
+    assert windows[0][0] == pytest.approx(0.0), f"{name}: the cycle opens on no frame"
+    assert windows[-1][1] == pytest.approx(100.0), f"{name}: the cycle ends on no frame"
     for (_, closes), (opens, _) in pairwise(windows):
         assert closes == opens, f"{name}: {closes}% to {opens}% is a gap or an overlap"
 
@@ -1237,6 +1242,57 @@ def test_animated_capture_rejects_an_unknown_hold_word():
         )
 
 
+@pytest.mark.parametrize(
+    "pause",
+    (
+        pytest.param({"hold": -0.05}, id="hold"),
+        pytest.param({"blank": -1}, id="blank"),
+    ),
+)
+def test_animated_capture_rejects_a_negative_pause(pause):
+    """A pause runs forward or not at all, whichever end of the cycle it sits on."""
+    with pytest.raises(ValueError, match="is not a pause, which is never negative"):
+        render_svg(columns=20, frames=("one pear", "two pears"), interval=0.1, **pause)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        ("auto", AUTO_HOLD),
+        (" Auto ", AUTO_HOLD),
+        ("2.5", 2.5),
+        ("0", 0.0),
+    ),
+)
+def test_parse_hold(value, expected):
+    """A hold is seconds, or the one word asking the final screen to decide."""
+    assert parse_hold(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    (
+        ("forever", "'forever' is not a hold, which is seconds or 'auto'."),
+        ("-1", "-1.0 is not a pause, which is never negative."),
+    ),
+)
+def test_parse_hold_rejects(value, message):
+    """A hold that is neither seconds nor `auto` says what it would take."""
+    with pytest.raises(ValueError, match=re.escape(message)):
+        parse_hold(value)
+
+
+@pytest.mark.parametrize(("value", "expected"), (("0.5", 0.5), ("0", 0.0)))
+def test_parse_pause(value, expected):
+    """A pause is seconds, zero included."""
+    assert parse_pause(value) == expected
+
+
+def test_parse_pause_rejects_a_negative_one():
+    with pytest.raises(ValueError, match="is not a pause, which is never negative"):
+        parse_pause("-0.5")
+
+
 def test_html_capture_does_not_animate():
     """An HTML capture is selectable text, which has no frame to hide."""
     with pytest.raises(ValueError, match="do not animate"):
@@ -1554,7 +1610,7 @@ def test_committed_capture_matches_cli(committed):
         ("shot.htm", CaptureFormat.HTML),
         ("shot.ansi", CaptureFormat.ANSI),
         # The one destination stating no extension: the terminal itself.
-        (STDOUT_PATH, CaptureFormat.ANSI),
+        (STDOUT_SENTINEL, CaptureFormat.ANSI),
     ),
 )
 def test_format_from_path(filename, expected):
@@ -1569,18 +1625,48 @@ def test_format_from_path_rejects_an_unknown_extension(filename):
         format_from_path(Path(filename))
 
 
+def test_format_from_path_reads_a_file_named_dash_as_a_file(tmp_path):
+    """Only a bare `-` is the terminal: a file called `-` has an extension to lack.
+
+    `--output ./-` reaches here resolved to an absolute path, and the file it
+    names is as nameable as any other.
+    """
+    with pytest.raises(ValueError, match="Cannot tell the capture format of '-'"):
+        format_from_path(tmp_path / "-")
+
+
+def test_deliver_capture_writes_a_file_named_dash(tmp_path, capsys):
+    """A resolved `-` is a file to write, not the terminal to print on."""
+    target = tmp_path / "-"
+    deliver_capture("one pear\n", target)
+    assert target.read_text(encoding="utf-8") == "one pear\n"
+    assert capsys.readouterr().out == f"Wrote {target}\n"
+
+
+def test_screenshot_does_not_print_a_resolved_dash(invoke):
+    """`--output ./-` is a file in the working directory, which names no format.
+
+    Click resolves it to an absolute path whose last component is `-`, which is
+    not the bare `-` naming the terminal.
+    """
+    result = invoke(screenshot_cmd, ["--output", "./-", "--", "echo", "pear"])
+    assert result.exit_code != 0
+    assert "Cannot tell the capture format of '-'" in result.output
+    assert "pear" not in result.stdout
+
+
 @pytest.mark.parametrize(
     ("background", "expected", "unwanted"),
     (
         (
             CaptureBackground.DARK,
-            (CAPTURE_BACKGROUND, CAPTURE_FOREGROUND),
-            (LIGHT_CAPTURE_BACKGROUND,),
+            (DARK_PALETTE.background, DARK_PALETTE.foreground),
+            (LIGHT_PALETTE.background,),
         ),
         (
             CaptureBackground.LIGHT,
-            (LIGHT_CAPTURE_BACKGROUND, LIGHT_CAPTURE_FOREGROUND),
-            (CAPTURE_BACKGROUND,),
+            (LIGHT_PALETTE.background, LIGHT_PALETTE.foreground),
+            (DARK_PALETTE.background,),
         ),
     ),
     ids=("dark", "light"),
@@ -1817,10 +1903,14 @@ def test_palette_color(color, expected):
     assert palette_color(color, PRESETS["windows"].dark) == expected
 
 
-def test_palette_color_rejects_a_value_naming_no_color():
-    """A value that is not a color cannot silently paint something."""
+@pytest.mark.parametrize("color", (object(), True, False))
+def test_palette_color_rejects_a_value_naming_no_color(color):
+    """A value that is not a color cannot silently paint something.
+
+    A `bool` is an `int`, and names no palette slot for all that.
+    """
     with pytest.raises(ValueError, match="Cannot resolve color"):
-        palette_color(object(), PRESETS["windows"].dark)
+        palette_color(color, PRESETS["windows"].dark)
 
 
 @pytest.mark.parametrize(
@@ -2014,8 +2104,8 @@ def test_watermark_sits_where_the_margin_is():
     box = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
     mark = re.search(r'<text class="watermark" x="([\d.]+)" y="([\d.]+)"', svg)
     assert box and mark
-    assert float(mark[1]) == float(box[1]) - WATERMARK_INSET
-    assert float(mark[2]) == float(box[2]) - WATERMARK_INSET
+    assert float(mark[1]) == pytest.approx(float(box[1]) - WATERMARK_INSET)
+    assert float(mark[2]) == pytest.approx(float(box[2]) - WATERMARK_INSET)
 
 
 def test_render_draws_neither_when_asked_for_neither():
@@ -2093,8 +2183,8 @@ def test_render_html_fragment_is_self_contained():
     assert fragment.endswith("</pre>")
     assert "<!doctype" not in fragment.lower()
     # Inline styling means a host page needs to supply no stylesheet.
-    assert CAPTURE_BACKGROUND in fragment
-    assert CAPTURE_FOREGROUND in fragment
+    assert DARK_PALETTE.background in fragment
+    assert DARK_PALETTE.foreground in fragment
 
 
 def test_render_html_document_wraps_the_fragment():
@@ -2167,7 +2257,73 @@ def test_screenshot_rejects_an_unusable_width(invoke, tmp_path, value, message):
         ["--columns", value, "--output", str(tmp_path / "shot.svg"), "--", "echo"],
     )
     assert result.exit_code != 0
+    assert "Invalid value for '--columns': " in result.output
     assert message in result.output
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        ("auto", AUTO_COLUMNS),
+        (" Auto ", AUTO_COLUMNS),
+        ("80", 80),
+        (str(MIN_COLUMNS), MIN_COLUMNS),
+    ),
+)
+def test_parse_columns(value, expected):
+    """A width is an integer, or the one word leaving it to the text."""
+    assert parse_columns(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    (
+        ("wide", f"'wide' is neither an integer nor {AUTO_COLUMNS!r}."),
+        ("4", f"4 is narrower than the {MIN_COLUMNS}-column floor."),
+        (str(MIN_COLUMNS - 1), f"{MIN_COLUMNS - 1} is narrower than"),
+    ),
+)
+def test_parse_columns_rejects(value, message):
+    """A width that is neither says what it would take."""
+    with pytest.raises(ValueError, match=re.escape(message)):
+        parse_columns(value)
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    (
+        ("wide", "'wide' is not a hold, which is seconds or 'auto'."),
+        ("-1", "is not a pause, which is never negative."),
+    ),
+)
+def test_screenshot_rejects_an_unusable_hold(invoke, tmp_path, value, message):
+    """A bad `--hold` is reported against the option, like a bad `--columns`.
+
+    The prefix is what tells a reader which of a dozen options to fix.
+    """
+    result = invoke(
+        screenshot_cmd,
+        [f"--hold={value}", "--output", str(tmp_path / "shot.svg"), "--", "echo"],
+    )
+    assert result.exit_code != 0
+    assert "Invalid value for '--hold': " in result.output
+    assert message in result.output
+
+
+@pytest.mark.parametrize(
+    ("columns", "pinned"),
+    (
+        pytest.param(100, {"COLUMNS": "100"}, id="pinned-width"),
+        pytest.param(AUTO_COLUMNS, {}, id="auto-pins-nothing"),
+    ),
+)
+def test_capture_environment(columns, pinned):
+    """The command is told the chrome, denied the terminal, and given its width."""
+    assert capture_environment(CaptureBackground.LIGHT, columns) == {
+        **CAPTURE_TERMINAL_HINTS[CaptureBackground.LIGHT],
+        **dict.fromkeys(CAPTURE_HIDDEN_TERMINAL_VARS),
+        **pinned,
+    }
 
 
 @pytest.mark.parametrize(
@@ -2384,3 +2540,47 @@ def test_ansi_capture_does_not_animate():
     """There is no frame to hide in a stream a terminal paints as it arrives."""
     with pytest.raises(ValueError, match="do not animate"):
         render("mango", format=CaptureFormat.ANSI, frames=("a", "b"), interval=1)
+
+
+@pytest.mark.parametrize(
+    ("name", "background", "field"),
+    (
+        ("CAPTURE_BACKGROUND", CaptureBackground.DARK, "background"),
+        ("CAPTURE_FOREGROUND", CaptureBackground.DARK, "foreground"),
+        ("LIGHT_CAPTURE_BACKGROUND", CaptureBackground.LIGHT, "background"),
+        ("LIGHT_CAPTURE_FOREGROUND", CaptureBackground.LIGHT, "foreground"),
+    ),
+)
+def test_retired_palette_constants_warn_and_resolve(name, background, field):
+    """Each retired color constant still answers, with a deprecation warning."""
+    with pytest.deprecated_call(
+        match=rf"click_extra\.screenshot_presets\.{name} is deprecated"
+    ):
+        value = getattr(screenshot_presets, name)
+    assert value == getattr(CAPTURE_PALETTES[background], field)
+
+
+def test_screenshot_presets_unknown_attribute_raises():
+    """A name the hook does not serve still raises a standard AttributeError."""
+    with pytest.raises(AttributeError, match="has no attribute 'DOES_NOT_EXIST'"):
+        _ = screenshot_presets.DOES_NOT_EXIST
+
+
+@pytest.mark.parametrize(
+    "argument", ("buttons", "buttons_color", "titlebar", "collapse_titlebar")
+)
+def test_render_html_warns_on_a_window_argument(argument):
+    """The window decorations are the SVG's: passing one to the HTML renderer warns."""
+    window: dict[str, Any] = {argument: None}
+    with pytest.deprecated_call(
+        match=rf"render_html\({argument}=\.\.\.\) is deprecated"
+    ):
+        html = render_html(SAMPLE_CAPTURE, **window)
+    assert html == render_html(SAMPLE_CAPTURE)
+
+
+def test_render_keeps_the_window_arguments_from_html():
+    """A preset dresses the SVG window, and leaves the HTML capture unwarned."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        render(SAMPLE_CAPTURE, format=CaptureFormat.HTML, preset=PRESETS["macos"])

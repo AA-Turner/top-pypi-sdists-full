@@ -108,10 +108,12 @@ from ..storage import (
     FileStorage,
     ObjectStorage,
     SQLStorage,
+    acquire_storage,
     get_storage,
     mtime_from_uri,
     parse_storage,
     register_storage,
+    release_storage,
 )
 from ..structures.core import Spec, StructureFamily
 from ..utils import (
@@ -146,6 +148,12 @@ logger = logging.getLogger(__name__)
 # modified within this many seconds. This distinguishes an in-progress
 # streaming append from a write that was aborted and left at rest.
 ARRAY_NOT_READY_WINDOW = float(os.getenv("TILED_ARRAY_NOT_READY_WINDOW", "10.0"))
+
+# work_mem granted (per transaction, PostgreSQL only) to the asset
+# garbage-collection query in delete_tree. Its hash joins cover the deleted
+# subtree's closure and asset associations, which spill to disk at the server
+# default (typically 4 MB) when deleting large subtrees.
+DELETE_ASSETS_WORK_MEM = os.getenv("TILED_DELETE_ASSETS_WORK_MEM", "256MB")
 
 # When data is uploaded, how is it saved?
 # TODO: Make this configurable at Catalog construction time.
@@ -285,9 +293,12 @@ class Context:
         # Writable storage should also be readable.
         self.readable_storage.update(self.writable_storage)
         # Register all storage in a registry that enables Adapters to access
-        # credentials (if applicable).
+        # credentials (if applicable). This makes storage usable even if this
+        # Context is never started; startup() additionally takes references,
+        # which shutdown() releases to close connections.
         for item in self.readable_storage.values():
             register_storage(item)
+        self._acquired_storage = []
 
         self.key_maker = key_maker
         adapters_by_mimetype = adapters_by_mimetype or {}
@@ -341,10 +352,38 @@ class Context:
             )
             await self.webhook_dispatcher.startup()
 
+        self._acquire_storage()
+
+    def _acquire_storage(self):
+        "Take a reference to each storage; see release_storage."
+        if self._acquired_storage:
+            return  # already started
+        # Keyed by id(): not all Storage types are hashable.
+        canonical = {}
+        try:
+            for storage in self.readable_storage.values():
+                canonical[id(storage)] = acquire_storage(storage)
+                self._acquired_storage.append(canonical[id(storage)])
+        except Exception:
+            self._release_storage()
+            raise
+        # If a previous shutdown released (and closed) this storage, an equal
+        # instance may since have been created; use that one, so that this
+        # Context shares its pool.
+        for mapping in (self.writable_storage, self.readable_storage):
+            for uri, storage in mapping.items():
+                mapping[uri] = canonical[id(storage)]
+
+    def _release_storage(self):
+        while self._acquired_storage:
+            release_storage(self._acquired_storage.pop())
+
     async def shutdown(self):
         if self.webhook_dispatcher is not None:
             await self.webhook_dispatcher.shutdown()
         await close_database_connection_pool(self.database_settings)
+        # Close storage connections once no started Context uses them.
+        self._release_storage()
 
 
 class CatalogNodeAdapter:
@@ -1541,10 +1580,11 @@ class CatalogNodeAdapter:
                     FROM data_source_asset_association daa2
                     JOIN data_sources ds2 ON ds2.id = daa2.data_source_id
                     WHERE daa2.asset_id = daa.asset_id
-                    AND ds2.node_id NOT IN (
-                        SELECT descendant
-                        FROM nodes_closure
-                        WHERE ancestor = :node_id
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM nodes_closure nc2
+                        WHERE nc2.ancestor = :node_id
+                        AND nc2.descendant = ds2.node_id
                     )
                 )
             )
@@ -1553,6 +1593,13 @@ class CatalogNodeAdapter:
             WHERE assets.id = da.id
             RETURNING assets.id, assets.data_uri, assets.is_directory, da.management;
                     """
+                )
+                # Grant this transaction more work memory. set_config(..., is_local=true)
+                # is SET LOCAL: it reverts at commit/rollback and affects nothing else.
+                await db.execute(
+                    text("SELECT set_config('work_mem', :mem, true)").bindparams(
+                        mem=DELETE_ASSETS_WORK_MEM
+                    )
                 )
                 deleted_asset_records = (
                     await db.execute(delete_assets_stmt.params(node_id=self.node.id))
@@ -2973,8 +3020,8 @@ def from_uri(
             logger.info(f"Subprocess stderr: {process.stderr.decode()}")
 
         except CalledProcessError as cpe:
-            cpe.__cause__ = DatabaseInitializationError(cpe.stderr.decode())
-            raise
+            # Drop cpe: its message echoes cmd, which holds the URI and password.
+            raise DatabaseInitializationError(cpe.stderr.decode()) from None
 
     database_settings = DatabaseSettings(
         uri=uri,

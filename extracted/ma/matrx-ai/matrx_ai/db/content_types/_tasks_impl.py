@@ -107,7 +107,9 @@ _MUTABLE_FIELDS = frozenset(
 )
 
 TaskStatus = Literal["incomplete", "completed"]
-TaskPriority = Literal["low", "medium", "high", "urgent"]
+# Mirrors the DB enum public.task_priority (db-contract/projects.json). "urgent" was
+# advertised here but refused by the DB (2026-10-22, tracker e329e182).
+TaskPriority = Literal["low", "medium", "high"]
 
 
 # ---------------------------------------------------------------------------

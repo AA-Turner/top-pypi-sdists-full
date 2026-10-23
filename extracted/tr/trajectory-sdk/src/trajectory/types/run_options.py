@@ -70,6 +70,35 @@ class RunOptions(BaseModel):
     without effort levels, and null preserves the model default.
     """
 
+  temperature: float | None = None
+  """Sampling temperature; null preserves the model default."""
+
+  top_p: float | None = None
+  """Nucleus sampling probability; null preserves the model default."""
+
+  top_k: int | None = None
+  """
+    Sample from the top k tokens; -1 disables the limit, and null preserves the model
+    default.
+    """
+
+  evaluation_reasoning_effort: (
+    Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
+  ) = None
+  """Evaluation reasoning effort; null preserves the evaluation default."""
+
+  evaluation_temperature: float | None = None
+  """Evaluation sampling temperature; null preserves the evaluation default."""
+
+  evaluation_top_p: float | None = None
+  """Evaluation nucleus sampling probability; null preserves the evaluation default."""
+
+  evaluation_top_k: int | None = None
+  """
+    Evaluation top-k token limit; -1 disables the limit, and null preserves the evaluation
+    default.
+    """
+
   num_steps: int | None = None
   """Number of optimizer steps to run."""
 
@@ -116,7 +145,8 @@ class RunOptions(BaseModel):
   max_total_tokens_per_trajectory: int | None = None
   """
     On an endpoint created for the run, maximum assistant output tokens across all steps of
-    one trajectory. Reaching this cap during a reply can end the trajectory as LIMIT_REACHED
+    one trajectory, including steps after context compaction, so it can exceed the model's
+    context window. Reaching this cap during a reply can end the trajectory as LIMIT_REACHED
     before the harness logs reward.
     """
 

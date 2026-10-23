@@ -20,6 +20,14 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -42,20 +50,13 @@ from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
+from .power_bi_related import RelatedPowerBIDataflow, RelatedPowerBIDataflowEntityColumn
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .power_bi_related import RelatedPowerBIDataflow, RelatedPowerBIDataflowEntityColumn
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -289,7 +290,7 @@ class PowerBIDataflowEntityColumn(Asset):
     # =========================================================================
 
     _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
+        r"^.+/[^/]+/[^/]+/[^/]+/[^/]+$"
     )
 
     def validate(self, for_creation: bool = False) -> None:
@@ -367,6 +368,46 @@ class PowerBIDataflowEntityColumn(Asset):
         if self.guid is not UNSET:
             return RelatedPowerBIDataflowEntityColumn(guid=self.guid)
         return RelatedPowerBIDataflowEntityColumn(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        power_bi_dataflow_qualified_name: str,
+        entity_name: str,
+        column_name: str,
+        name: Union[str, None] = None,
+    ) -> "PowerBIDataflowEntityColumn":
+        validate_required_fields(
+            ["power_bi_dataflow_qualified_name", "entity_name", "column_name"],
+            [power_bi_dataflow_qualified_name, entity_name, column_name],
+        )
+        fields = power_bi_dataflow_qualified_name.split("/")
+        if len(fields) != 5 or not all(fields):
+            raise ValueError("power_bi_dataflow_qualified_name is invalid")
+        return cls(
+            name=name if name is not None else f"{entity_name} -> {column_name}",
+            qualified_name=(
+                f"{power_bi_dataflow_qualified_name}/{entity_name}/{column_name}"
+            ),
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            power_bi_workspace_qualified_name="/".join(fields[:4]),
+            power_bi_dataflow_qualified_name=power_bi_dataflow_qualified_name,
+            power_bi_dataflow_entity_name=entity_name,
+            power_bi_dataflow=RelatedPowerBIDataflow(
+                unique_attributes={"qualifiedName": power_bi_dataflow_qualified_name}
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "PowerBIDataflowEntityColumn":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "PowerBIDataflowEntityColumn":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -737,6 +778,7 @@ def _power_bi_dataflow_entity_column_to_nested(
         is_incomplete=power_bi_dataflow_entity_column.is_incomplete,
         provenance_type=power_bi_dataflow_entity_column.provenance_type,
         home_id=power_bi_dataflow_entity_column.home_id,
+        delete_handler=power_bi_dataflow_entity_column.delete_handler,
         depth=power_bi_dataflow_entity_column.depth,
         immediate_upstream=power_bi_dataflow_entity_column.immediate_upstream,
         immediate_downstream=power_bi_dataflow_entity_column.immediate_downstream,
@@ -787,6 +829,7 @@ def _power_bi_dataflow_entity_column_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

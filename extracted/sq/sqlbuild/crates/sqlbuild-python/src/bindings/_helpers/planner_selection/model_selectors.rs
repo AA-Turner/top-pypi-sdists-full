@@ -13,6 +13,7 @@ use sqlbuild_analysis::planner_selection::models::{
 };
 
 use crate::bindings::_helpers::boundary::python_calls::imported;
+use crate::bindings::_helpers::compiled_views::project_reads;
 use crate::bindings::_helpers::model_config::typed_config::{config_value, model_values};
 use crate::bindings::_helpers::planner_selection::carrier::Carrier;
 use crate::bindings::_helpers::records::construct::new_record_with;
@@ -81,14 +82,12 @@ fn selectable_model(model: &Bound<'_, PyAny>) -> PyResult<SelectableModel> {
 }
 
 /// One SQLBuild-owned model selector core's model names, and its path selector when translated.
-#[pyfunction]
-#[pyo3(signature = (*, project, term))]
 pub(crate) fn resolve_sqlbuild_model_selector_names<'py>(
     project: &Bound<'py, PyAny>,
     term: &Bound<'py, PyString>,
 ) -> PyResult<Bound<'py, PyTuple>> {
     let py: Python<'py> = project.py();
-    let models: Vec<SelectableModel> = native_field(project, "models")?
+    let models: Vec<SelectableModel> = project_reads::models(project)?
         .try_iter()?
         .map(|model| selectable_model(&model?))
         .collect::<PyResult<_>>()?;
@@ -116,8 +115,5 @@ pub(crate) fn resolve_sqlbuild_model_selector_names<'py>(
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(split_selector_expansion, module)?)?;
-    module.add_function(wrap_pyfunction!(
-        resolve_sqlbuild_model_selector_names,
-        module
-    )?)
+    Ok(())
 }

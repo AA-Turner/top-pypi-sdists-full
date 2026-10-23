@@ -30,8 +30,8 @@ class AgentListItem(BaseModel):
   benchmark_count: int
   """Number of benchmark snapshots owned by the agent."""
 
-  model_slug: str | None
-  """The agent's stable serving model slug."""
+  production_model_slug: str | None
+  """The agent production model slug; independent of its display name."""
 
   is_deployed: bool
   """Whether the agent owns an active deployed model."""

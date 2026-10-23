@@ -15,6 +15,7 @@ import geopandas
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import sparse, spatial
 from shapely import Point
 
 from libpysal.graph import Graph
@@ -385,6 +386,29 @@ def test_coplanar_clique_duplicate_labels():
     assert neighbors_0 == neighbors_1
 
 
+def test_coplanar_clique_adaptive_bandwidth():
+    """bandwidth='adaptive' + coplanar='clique' used to crash with
+    'ValueError: array is not broadcastable to correct shape', because the
+    clique-induced zero-distance edges between coincident points are stored
+    explicitly (not eliminated), so d_csr.nonzero() disagreed in length with
+    d_csr.data. See GH issue for the adaptive-bandwidth + clique interaction.
+    """
+    gs = geopandas.GeoSeries(
+        [
+            Point(0, 0),
+            Point(0, 0),
+            Point(1, 0),
+            Point(2, 0),
+            Point(3, 0),
+        ]
+    )
+    g = Graph.build_kernel(
+        gs, k=1, bandwidth="adaptive", kernel="gaussian", coplanar="clique"
+    )
+    assert np.isfinite(g.sparse.data).all()
+    assert (g.sparse.data > 0).all()
+
+
 def test_shape_preservation():
     coordinates = np.vstack(
         [np.repeat(np.arange(10), 10), np.tile(np.arange(10), 10)]
@@ -502,6 +526,7 @@ def test__kernel_precomputed_exclude_self_weights_affects_ranking():
         assert len(set(neigh_i.tolist())) == k
 
 
+@pytest.mark.network
 def test_tree_parameter_knn(grocs):
     """Test that passing a pre-built tree produces the same results."""
     from scipy import spatial
@@ -521,6 +546,7 @@ def test_tree_parameter_knn(grocs):
     np.testing.assert_array_equal(g1[2], g2[2])  # weight
 
 
+@pytest.mark.network
 @pytest.mark.skipif(not HAS_SKLEARN, reason="scikit-learn not installed")
 def test_tree_parameter_sklearn(grocs):
     """Test that passing a pre-built sklearn tree works."""
@@ -539,6 +565,7 @@ def test_tree_parameter_sklearn(grocs):
     assert len(g[2]) > 0
 
 
+@pytest.mark.network
 def test_tree_parameter_distance_band(grocs):
     """Test that passing a pre-built tree to distance_band works."""
     from scipy import spatial
@@ -690,3 +717,29 @@ def test_gaussian_taper_sparse_path_matches_dense():
     np.testing.assert_array_almost_equal(
         np.sort(sparse_weights), np.sort(dense_weights)
     )
+
+
+def test_precomputed_coincident():
+    # three coincident points at the origin, plus four outlying points
+    coords = np.array(
+        [[0, 0], [0, 0], [0, 0], [1, 0.1], [0.35, 1.1], [-1, 0.45], [0.1, -1.05]]
+    )
+    tree = spatial.KDTree(coords)
+    sp = sparse.csr_array(tree.sparse_distance_matrix(tree, 10))
+    head, _, _ = _kernel(
+        sp,
+        bandwidth=5,
+        metric="precomputed",
+        kernel="exponential",
+        exclude_self_weights=True,
+    )
+    np.testing.assert_array_equal(head, np.repeat(np.arange(7), 6))
+
+    head, _, _ = _kernel(
+        sp,
+        bandwidth=5,
+        metric="precomputed",
+        kernel="exponential",
+        exclude_self_weights=False,
+    )
+    np.testing.assert_array_equal(head, np.repeat(np.arange(7), 7))

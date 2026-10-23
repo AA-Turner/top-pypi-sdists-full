@@ -40,7 +40,10 @@ from snowflake.snowpark_connect.type_mapping import (
     SnowparkToArrowMapper,
     snowpark_to_proto_type,
 )
-from snowflake.snowpark_connect.utils.context import set_execute_root_plan_id
+from snowflake.snowpark_connect.utils.context import (
+    set_execute_root_plan_id,
+    window_chain_materialization_allowed,
+)
 from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 
 QueryResult = namedtuple("QueryResult", ["query_id", "arrow_schema", "spark_schema"])
@@ -216,7 +219,8 @@ def map_execution_root(
         "plan_id"
     ):
         set_execute_root_plan_id(request.plan.root.common.plan_id)
-    result: DataFrameContainer | pandas.DataFrame = map_relation(request.plan.root)
+    with window_chain_materialization_allowed():
+        result: DataFrameContainer | pandas.DataFrame = map_relation(request.plan.root)
     if isinstance(result, pandas.DataFrame):
         pandas_df = result
         data_bytes = pandas_to_arrow_batches_bytes(pandas_df)

@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +43,11 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .fabric_related import (
+    RelatedFabricActivity,
+    RelatedFabricDataPipeline,
+    RelatedFabricWorkspace,
+)
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,18 +60,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .fabric_related import (
-    RelatedFabricActivity,
-    RelatedFabricDataPipeline,
-    RelatedFabricWorkspace,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -312,6 +313,44 @@ class FabricDataPipeline(Asset):
         if self.guid is not UNSET:
             return RelatedFabricDataPipeline(guid=self.guid)
         return RelatedFabricDataPipeline(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        workspace_qualified_name: str,
+        data_pipeline_id: str,
+    ) -> "FabricDataPipeline":
+        validate_required_fields(
+            ["name", "workspace_qualified_name", "data_pipeline_id"],
+            [name, workspace_qualified_name, data_pipeline_id],
+        )
+        fields = workspace_qualified_name.split("/")
+        if len(fields) != 4:
+            raise ValueError(
+                f"Invalid workspace_qualified_name: {workspace_qualified_name}. "
+                "Expected format: default/fabric/<epoch>/<workspace_id>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{workspace_qualified_name}/{data_pipeline_id}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            asset_space_qualified_name=workspace_qualified_name,
+            fabric_workspace=RelatedFabricWorkspace(
+                qualified_name=workspace_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "FabricDataPipeline":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "FabricDataPipeline":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -619,6 +658,7 @@ def _fabric_data_pipeline_to_nested(
         is_incomplete=fabric_data_pipeline.is_incomplete,
         provenance_type=fabric_data_pipeline.provenance_type,
         home_id=fabric_data_pipeline.home_id,
+        delete_handler=fabric_data_pipeline.delete_handler,
         depth=fabric_data_pipeline.depth,
         immediate_upstream=fabric_data_pipeline.immediate_upstream,
         immediate_downstream=fabric_data_pipeline.immediate_downstream,
@@ -669,6 +709,7 @@ def _fabric_data_pipeline_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -23,10 +23,12 @@ Usage::
         GetNetworkResourceCountsPaginator,
         GetNetworkResourceRelationshipsPaginator,
         GetNetworkResourcesPaginator,
+        GetNetworkRoutesPaginator,
         GetNetworkTelemetryPaginator,
         GetSitesPaginator,
         GetTransitGatewayConnectPeerAssociationsPaginator,
         GetTransitGatewayRegistrationsPaginator,
+        ListAttachmentNatConfigurationsPaginator,
         ListAttachmentRoutingPolicyAssociationsPaginator,
         ListAttachmentsPaginator,
         ListConnectPeersPaginator,
@@ -53,10 +55,12 @@ Usage::
     get_network_resource_counts_paginator: GetNetworkResourceCountsPaginator = client.get_paginator("get_network_resource_counts")
     get_network_resource_relationships_paginator: GetNetworkResourceRelationshipsPaginator = client.get_paginator("get_network_resource_relationships")
     get_network_resources_paginator: GetNetworkResourcesPaginator = client.get_paginator("get_network_resources")
+    get_network_routes_paginator: GetNetworkRoutesPaginator = client.get_paginator("get_network_routes")
     get_network_telemetry_paginator: GetNetworkTelemetryPaginator = client.get_paginator("get_network_telemetry")
     get_sites_paginator: GetSitesPaginator = client.get_paginator("get_sites")
     get_transit_gateway_connect_peer_associations_paginator: GetTransitGatewayConnectPeerAssociationsPaginator = client.get_paginator("get_transit_gateway_connect_peer_associations")
     get_transit_gateway_registrations_paginator: GetTransitGatewayRegistrationsPaginator = client.get_paginator("get_transit_gateway_registrations")
+    list_attachment_nat_configurations_paginator: ListAttachmentNatConfigurationsPaginator = client.get_paginator("list_attachment_nat_configurations")
     list_attachment_routing_policy_associations_paginator: ListAttachmentRoutingPolicyAssociationsPaginator = client.get_paginator("list_attachment_routing_policy_associations")
     list_attachments_paginator: ListAttachmentsPaginator = client.get_paginator("list_attachments")
     list_connect_peers_paginator: ListConnectPeersPaginator = client.get_paginator("list_connect_peers")
@@ -82,10 +86,12 @@ from .paginator import (
     GetNetworkResourceCountsPaginator,
     GetNetworkResourceRelationshipsPaginator,
     GetNetworkResourcesPaginator,
+    GetNetworkRoutesPaginator,
     GetNetworkTelemetryPaginator,
     GetSitesPaginator,
     GetTransitGatewayConnectPeerAssociationsPaginator,
     GetTransitGatewayRegistrationsPaginator,
+    ListAttachmentNatConfigurationsPaginator,
     ListAttachmentRoutingPolicyAssociationsPaginator,
     ListAttachmentsPaginator,
     ListConnectPeersPaginator,
@@ -113,10 +119,12 @@ __all__ = (
     "GetNetworkResourceCountsPaginator",
     "GetNetworkResourceRelationshipsPaginator",
     "GetNetworkResourcesPaginator",
+    "GetNetworkRoutesPaginator",
     "GetNetworkTelemetryPaginator",
     "GetSitesPaginator",
     "GetTransitGatewayConnectPeerAssociationsPaginator",
     "GetTransitGatewayRegistrationsPaginator",
+    "ListAttachmentNatConfigurationsPaginator",
     "ListAttachmentRoutingPolicyAssociationsPaginator",
     "ListAttachmentsPaginator",
     "ListConnectPeersPaginator",

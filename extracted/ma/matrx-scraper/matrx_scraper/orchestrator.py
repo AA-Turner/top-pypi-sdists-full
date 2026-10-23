@@ -744,9 +744,11 @@ async def _maybe_retry_with_stealth(
 
     from matrx_scraper.stealth_browser import (
         current_read_deadline,
+        release_stealth_slot,
         stealth_available,
         stealth_retry_enabled,
         stealth_retry_min_seconds,
+        try_acquire_stealth_slot,
         use_stealth,
     )
 
@@ -773,6 +775,10 @@ async def _maybe_retry_with_stealth(
         proxy_ok = use_proxy and not (result.proxy_bypassed or proxy_health.pool_refuses(url))
     except Exception:  # noqa: BLE001 - a health probe never blocks the retry
         pass
+    # `knowledge.scraper.stealth_max_concurrent`: every slot busy -> skip the stealth step, never queue behind it.
+    if not try_acquire_stealth_slot():
+        logger.info("stealth retry skipped for %s: every stealth slot is busy", redact_url_secrets(url))
+        return result
     try:
         retry = _fetch_and_parse(
             url,
@@ -787,6 +793,8 @@ async def _maybe_retry_with_stealth(
     except Exception as exc:  # noqa: BLE001 - announced; the original answer stands
         logger.warning("stealth retry FAILED for %s: %s", redact_url_secrets(url), redact_url_secrets(repr(exc)))
         return result
+    finally:
+        release_stealth_slot()
     _apply_content_sanity(rendered)
     rendered.browser_attempted = True
     if _usable(rendered) and not _read_failed(rendered) and rendered.content_chars > result.content_chars:
@@ -1121,8 +1129,12 @@ def _seal_ladder(
     policy: LadderPolicy,
     organization_id: str | None = None,
     residential_entry: dict[str, Any] | None = None,
+    announce_wall: bool = True,
 ) -> ScrapeResult:
     """Write the rung trail and, on an unusable result, what comes next.
+
+    `announce_wall=False` — the caller already judged (off the event loop, with
+    `is_a_wall`) that this unusable result is a page it keeps, not a wall.
 
     THE LADDER LAW lives here: the trail is built through `LadderTrail`, which
     refuses a skipped rung at the moment it would happen, and the verdict type
@@ -1209,8 +1221,28 @@ def _seal_ladder(
     # is the one place the wall is announced — every content-sanity refusal, every proxy
     # refusal, every bad status, with the trail exactly as it stands. The host decides whether
     # anything is written; announcing never raises and never waits.
-    _announce_the_wall(result, verdict=verdict, organization_id=organization_id)
+    # A caller that KEEPS app shells and soft 404s as pages (the crawler,
+    # `seo_audit.keepable_failed_read`) has not met a wall there: never a block row.
+    if announce_wall:
+        _announce_the_wall(result, verdict=verdict, organization_id=organization_id)
     return result
+
+
+def is_a_wall(result: ScrapeResult, *, keeps_failed_reads: bool) -> bool:
+    """Whether an unusable result is announced as a block. A caller that keeps app
+    shells and soft 404s as pages (`seo_audit.keepable_failed_read`) has not met a
+    wall there."""
+    if not keeps_failed_reads:
+        return True
+    from matrx_scraper.seo_audit import keepable_failed_read
+
+    return not keepable_failed_read(
+        failure_reason=result.failure_reason,
+        status=result.status_code,
+        html=result.raw_html,
+        url=result.response_url or result.url,
+        title=result.title,
+    )
 
 
 def _announce_the_wall(
@@ -1264,8 +1296,12 @@ async def scrape(
     acting_user_id: str | None = None,
     deadline: float | None = None,
     stealth_retry: bool | None = None,
+    keeps_failed_reads: bool = False,
 ) -> ScrapeResult:
     """Fetch and fully parse a single URL. Always async — never blocks.
+
+    `keeps_failed_reads` — the caller keeps app shells and soft 404s as pages
+    (the crawler), so those are never announced as blocks.
 
     `deadline` (a `time.monotonic()` value) is the caller's time budget, e.g. a chat turn. When
     little is left, the optional stealth retry is skipped; nothing else changes.
@@ -1469,6 +1505,14 @@ async def scrape(
         proxy_forbidden_by_policy=proxy_forbidden_by_policy,
     )
 
+    # Whether an unusable result is a wall reads the whole page (`is_a_wall` runs
+    # `audit_html`): CPU work, so it runs off the event loop, and only for a
+    # caller that keeps shells and soft 404s.
+    announce_wall = True
+    if keeps_failed_reads and not _usable(result):
+        from matrx_scraper.cpu_lane import run_cpu
+
+        announce_wall = await run_cpu(is_a_wall, result, keeps_failed_reads=True)
     result = _seal_ladder(
         result,
         request_type=request_type,
@@ -1478,6 +1522,7 @@ async def scrape(
         policy=ladder_policy,
         organization_id=organization_id,
         residential_entry=residential_entry,
+        announce_wall=announce_wall,
     )
 
     # The site's own markdown, when it has one — an addition, bounded, never raises.

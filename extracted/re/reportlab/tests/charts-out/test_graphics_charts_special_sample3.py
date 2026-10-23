@@ -7,9 +7,9 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		Drawing.__init__(self,width,height,*args,**kw)
 		self.transform = (1,0,0,1,0,0)
 		self.add(Rect(80,150,10,10,rx=0,ry=0,fillColor=Color(1,0,0,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		self.add(String(100,151.585,'before',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(100,151.41,'before',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		self.add(Rect(80,130,10,10,rx=0,ry=0,fillColor=Color(0,.501961,0,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		self.add(String(100,131.585,'after',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(100,131.41,'after',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS

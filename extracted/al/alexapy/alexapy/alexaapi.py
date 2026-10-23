@@ -2419,6 +2419,66 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
+    async def get_notification_states(
+        login: AlexaLogin,
+    ) -> list[dict[str, Any]] | None:
+        """Get the alarm, timer and notification volume of all devices.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+
+        Returns list of device states with volumeLevel
+
+        """
+        response = await AlexaAPI._static_request(
+            "get", login, "/api/device-notification-state"
+        )
+        states, valid = await get_json_value(response, "deviceNotificationStates", list)
+        return states if valid else None
+
+    @staticmethod
+    @_catch_all_exceptions
+    async def set_notification_volume(
+        login: AlexaLogin,
+        serial: str,
+        device_type: str,
+        software_version: str,
+        volume: int,
+    ) -> bool:
+        """Set the "Alarms, Timers and Notifications" volume of a device.
+
+        Args:
+        login (AlexaLogin): Successfully logged in AlexaLogin
+        serial (str): Device serial number
+        device_type (str): Device type
+        software_version (str): Device software version
+        volume (int): Volume from 0 to 100
+
+        Returns True if successful
+
+        """
+        data = {
+            "deviceSerialNumber": serial,
+            "deviceType": device_type,
+            "softwareVersion": software_version,
+            "volumeLevel": volume,
+        }
+        _LOGGER.debug(
+            "%s: Setting notification volume of %s to %s",
+            hide_email(login.email),
+            hide_serial(serial),
+            volume,
+        )
+        response = await AlexaAPI._static_request(
+            "put",
+            login,
+            f"/api/device-notification-state/{device_type}/{software_version}/{serial}",
+            data=data,
+        )
+        return response is not None
+
+    @staticmethod
+    @_catch_all_exceptions
     async def clear_history(login: AlexaLogin, items: int = 50) -> bool:
         """Clear entries in history."""
         email = login.email

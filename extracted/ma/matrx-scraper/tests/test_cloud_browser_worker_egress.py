@@ -256,13 +256,24 @@ async def test_launch_context_really_hands_chromium_the_loopback_proxy(
 async def test_launch_context_keeps_a_credentialed_proxys_credentials(
     monkeypatch: pytest.MonkeyPatch, recording_adapter
 ):
+    """A credentialed http proxy reaches Chrome through the worker's loopback
+    byte meter (the paid exit is metered to points): Chrome gets only the
+    loopback address, and the meter carries the credentials upstream."""
+    from matrx_scraper.upstream_proxy_meter import MeteredUpstreamProxy
+
+    started: list[tuple[str, str | None, str | None]] = []
+    real_start = MeteredUpstreamProxy.start
+
+    async def recording_start(upstream, username=None, password=None):  # noqa: ANN001
+        started.append((upstream, username, password))
+        return await real_start(upstream, username, password)
+
+    monkeypatch.setattr(MeteredUpstreamProxy, "start", staticmethod(recording_start))
     kwargs = await _launch_and_capture(
         monkeypatch, policy(proxy="http://bob:s3cr3t@proxy.example:8080")
     )
 
-    assert kwargs["proxy"] == {
-        "server": "http://proxy.example:8080",
-        "username": "bob",
-        "password": "s3cr3t",
-    }
+    assert set(kwargs["proxy"]) == {"server"}
+    assert kwargs["proxy"]["server"].startswith("http://127.0.0.1:")
+    assert started == [("http://proxy.example:8080", "bob", "s3cr3t")]
     assert recording_adapter.instances == []

@@ -35,6 +35,7 @@ from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlparse
 
 from lazr.uri import URI
 from wadllib.application import Resource as WadlResource
+from wadllib.application import UnsupportedMediaTypeError
 
 from lazr.restfulclient import __version__
 from lazr.restfulclient._browser import Browser, RestfulHttp
@@ -155,24 +156,23 @@ class Resource(RestfulBase):
                     break
         return names
 
-    @property
-    def __members__(self):
-        """A hook into dir() that returns web service-derived members."""
-        return self._get_parameter_names(
-            self.FIND_COLLECTIONS, self.FIND_ENTRIES, self.FIND_ATTRIBUTES
-        )
-
-    __methods__ = lp_operations
-
     def __dir__(self):
         """Include web service-derived members in dir() output."""
-        base = set(object.__dir__(self))
+        names = set(super().__dir__())
+        # dir() must never raise, and a partially described resource
+        # would otherwise break completion entirely.
         try:
-            base |= set(self.__members__)
-            base |= set(self.lp_operations)
+            names.update(
+                self._get_parameter_names(
+                    self.FIND_COLLECTIONS,
+                    self.FIND_ENTRIES,
+                    self.FIND_ATTRIBUTES,
+                )
+            )
+            names.update(self.lp_operations)
         except Exception:
             pass
-        return sorted(base)
+        return sorted(names)
 
     def _get_parameter_names(self, *kinds):
         """Retrieve some subset of the resource's parameters."""
@@ -219,6 +219,11 @@ class Resource(RestfulBase):
                  Resource object, whose resource is bound to a
                  representation, if the parameter is a link.
         """
+        # Rule the parameter out against the cached WADL before fetching a
+        # representation
+        if self._wadl_resource.representation is None:
+            if not self.lp_has_parameter(param_name):
+                raise KeyError("No such parameter: %s" % param_name)
         self._ensure_representation()
         for suffix in ["_link", "_collection_link"]:
             param = self._wadl_resource.get_parameter(param_name + suffix)
@@ -347,8 +352,11 @@ class Resource(RestfulBase):
         try:
             return self.lp_get_parameter(attr)
         except KeyError:
+            # An Entry stringifies to its self_link,
+            # which would fetch a representation
             raise AttributeError(
-                "{} object has no attribute '{}'".format(self, attr)
+                "'%s' object has no attribute '%s'"
+                % (self.__class__.__name__, attr)
             )
 
     def lp_values_for(self, param_name):
@@ -365,7 +373,15 @@ class Resource(RestfulBase):
         """What's this parameter's name in the underlying representation?"""
         for suffix in ["_link", "_collection_link", ""]:
             name = param_name + suffix
-            if self._wadl_resource.get_parameter(name):
+            try:
+                parameter = self._wadl_resource.get_parameter(
+                    name, self.JSON_MEDIA_TYPE
+                )
+            except UnsupportedMediaTypeError:
+                # The resource has no JSON representation at all (a hosted
+                # file, say), so it has no parameters to find.
+                return None
+            if parameter:
                 return name
         return None
 

@@ -246,6 +246,26 @@ class TestTerraformParser(TestCase):
 
 
     @patch.object(TerraformParser, '_read_file', return_value={})
+    def test_parse_configurations_outputs_non_dict_is_skipped(self, *args):
+        # seek_key_in_dict matches every key named 'outputs' anywhere in the
+        # configuration, so a resource/attribute called 'outputs' that holds a
+        # list (rather than a map of output declarations) used to reach
+        # .items() and raise AttributeError. Such matches should be skipped.
+        obj = TerraformParser('somefile', parse_it=False)
+        obj.raw['configuration'] = {
+            'root_module': {
+                'resources': [
+                    {
+                        'address': 'aws_s3_bucket.example',
+                        'expressions': {'outputs': ['not', 'a', 'dict']}
+                    }
+                ]
+            }
+        }
+        obj._parse_configurations()
+        self.assertEqual(obj.configuration['outputs'], {})
+
+    @patch.object(TerraformParser, '_read_file', return_value={})
     def test_parse_configurations_providers(self, *args):
         obj = TerraformParser('somefile', parse_it=False)
         obj.raw['configuration'] = {
@@ -454,6 +474,53 @@ class TestTerraformParser(TestCase):
         }
         self.assertEqual(obj._find_resource_from_name('module.module_name.my_expression'),
                          ['module.module_name.aws_resource.example'])
+
+    @patch.object(TerraformParser, '_read_file', return_value={})
+    def test_find_resource_from_name_skips_bare_module_reference_in_module_output(self, *args):
+        # Regression: terraform lists both 'module.inner.value' and the bare
+        # parent 'module.inner' in an output's references. The bare one carries
+        # no output id, so there is nothing to resolve and it must be skipped
+        # instead of blowing up while unpacking module_name/output_id.
+        obj = TerraformParser('somefile', parse_it=False)
+        obj.raw['configuration'] = {
+            "root_module": {
+                "module_calls": {
+                    "outer": {
+                        "module": {
+                            "outputs": {
+                                "forwarded_value": {
+                                    "expression": {
+                                        "references": [
+                                            "module.inner.value",
+                                            "module.inner"
+                                        ]
+                                    }
+                                }
+                            },
+                            "module_calls": {
+                                "inner": {
+                                    "module": {
+                                        "outputs": {
+                                            "value": {
+                                                "expression": {
+                                                    "references": [
+                                                        "var.value"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        # Neither module declares a managed resource, so the child scan finds
+        # nothing and resolution falls through to the bare reference.
+        obj.resources = {}
+        self.assertEqual(obj._find_resource_from_name('module.outer.forwarded_value'), [])
 
     @patch.object(TerraformParser, '_read_file', return_value={})
     def test_find_resource_from_name_resolves_output_from_nested_module_in_iterated_parent(self, *args):

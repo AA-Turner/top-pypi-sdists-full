@@ -13,7 +13,32 @@ from rpy2.robjects import r as R
 from scipy import sparse
 
 import prince
-from tests import load_df_from_R
+from prince import ca
+from tests import DATAFRAME_IMPLEMENTATIONS, assert_dataframe_implementation_matches, load_df_from_R
+
+
+@pytest.mark.parametrize("shape", [(12, 4), (4, 12)], ids=["tall", "wide"])
+def test_smallest_gram_matrix(shape):
+    rng = np.random.default_rng(42)
+    residuals = rng.normal(size=shape)
+
+    gram = ca._smallest_gram_matrix(residuals)
+
+    smallest_dimension = min(shape)
+    assert gram.shape == (smallest_dimension, smallest_dimension)
+    singular_values = np.linalg.svd(residuals, compute_uv=False)
+    np.testing.assert_allclose(
+        np.einsum("ij,ij->", gram, gram),
+        np.sum(singular_values**4),
+    )
+
+
+@pytest.mark.parametrize("implementation", DATAFRAME_IMPLEMENTATIONS)
+def test_dataframe_input(implementation):
+    X_pandas = pd.DataFrame([[12, 5, 8], [4, 15, 6], [9, 7, 11]], columns=["a", "b", "c"])
+    assert_dataframe_implementation_matches(
+        prince.CA(n_components=2, engine="scipy"), X_pandas, implementation
+    )
 
 
 @pytest.mark.parametrize(
@@ -48,7 +73,7 @@ class TestCA:
             active = active.drop("Île-de-France")
         if self.sup_cols:
             active = active.drop(columns=["Abstention", "Blank"])
-        self.ca = prince.CA(n_components=n_components)
+        self.ca = prince.CA(n_components=n_components, random_state=42)
         self.ca.fit(active)
 
         # Fit FactoMineR
@@ -141,3 +166,68 @@ class TestCA:
             F = pd.concat((F, load_df_from_R(f"ca${self._col_name}.sup$cos2")))
         P = self.ca.column_cosine_similarities(self.dataset)
         np.testing.assert_allclose(F, P)
+
+
+def test_row_order_and_duplicate_row_labels():
+    """Row outputs follow the order of X, even with duplicated row labels."""
+    dataset = prince.datasets.load_french_elections()
+    ca = prince.CA(n_components=2, random_state=42).fit(dataset)
+
+    shuffled = dataset.sample(frac=1, random_state=42)
+    pd.testing.assert_frame_equal(
+        ca.row_cosine_similarities(shuffled),
+        ca.row_cosine_similarities(dataset).loc[shuffled.index],
+    )
+
+    duplicated = dataset.reset_index(drop=True)
+    duplicated.index = duplicated.index % 3
+    ca_dup = prince.CA(n_components=2, random_state=42).fit(duplicated)
+    for method in (
+        "row_coordinates",
+        "row_cosine_similarities",
+        "column_coordinates",
+        "column_cosine_similarities",
+    ):
+        np.testing.assert_allclose(
+            getattr(ca_dup, method)(duplicated).to_numpy(),
+            getattr(ca, method)(dataset).to_numpy(),
+        )
+
+    permutation = np.random.default_rng(42).permutation(len(duplicated))
+    reordered = duplicated.iloc[permutation]
+    np.testing.assert_allclose(
+        ca_dup.row_cosine_similarities(reordered).to_numpy(),
+        ca_dup.row_cosine_similarities(duplicated).to_numpy()[permutation],
+    )
+    for method in ("column_coordinates", "column_cosine_similarities"):
+        with pytest.raises(ValueError, match="Cannot align active rows"):
+            getattr(ca_dup, method)(reordered)
+
+
+def test_duplicate_labels_across_active_and_supplementary_rows():
+    dataset = prince.datasets.load_french_elections().reset_index(drop=True)
+    split = len(dataset) // 2
+    ca = prince.CA(n_components=2, random_state=42).fit(dataset.iloc[:split])
+
+    expected = ca.row_cosine_similarities(dataset)
+    duplicated = dataset.copy()
+    duplicated.index = duplicated.index % split
+    np.testing.assert_allclose(ca.row_cosine_similarities(duplicated), expected)
+    np.testing.assert_allclose(
+        ca.column_coordinates(duplicated),
+        ca.column_coordinates(dataset),
+    )
+    np.testing.assert_allclose(
+        ca.column_cosine_similarities(duplicated),
+        ca.column_cosine_similarities(dataset),
+    )
+
+    permutation = np.arange(len(duplicated)).reshape(2, -1).T.ravel()
+    interleaved = duplicated.iloc[permutation]
+    np.testing.assert_allclose(
+        ca.row_cosine_similarities(interleaved),
+        expected.iloc[permutation],
+    )
+    for method in ("column_coordinates", "column_cosine_similarities"):
+        with pytest.raises(ValueError, match="Cannot align active rows"):
+            getattr(ca, method)(interleaved)

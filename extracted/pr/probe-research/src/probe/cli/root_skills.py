@@ -57,15 +57,10 @@ def installed_plugin_root(prefer: "str | None" = None, env: "dict[str, str] | No
     ledger names the copy Claude Code loads. Fail-soft to None -- a machine
     driving Probe from Codex has no such file, which is normal.
     """
-    from probe.cli.capabilities import DAEMON_PLUGIN_NAME, TRACKING_PLUGIN_NAME
+    from probe.cli.capabilities import DAEMON_PLUGIN_NAME, TRACKING_PLUGIN_NAME, claude_plugin_ledger
 
-    values = os.environ if env is None else env
-    override = (values.get("PROBE_INSTALLED_PLUGINS_JSON") or "").strip()
-    home = (values.get("CLAUDE_CONFIG_DIR") or "").strip()
-    ledger = (
-        Path(override) if override
-        else (Path(home).expanduser() if home else Path.home() / ".claude") / "plugins" / "installed_plugins.json"
-    )
+    # The hooks' `dispatch._ledger` reads the same place.
+    ledger = claude_plugin_ledger(env)
     try:
         raw = json.loads(ledger.read_text(encoding="utf-8"))
         plugins = raw["plugins"]
@@ -105,13 +100,21 @@ def installed_plugin_root(prefer: "str | None" = None, env: "dict[str, str] | No
 
 
 def apply(
-    source: str, plugin_root: "Path | None", env: "dict[str, str] | None" = None
+    source: str,
+    plugin_root: "Path | None",
+    env: "dict[str, str] | None" = None,
+    prefer: "str | None" = None,
 ) -> list[str]:
     """Install/refresh the installed plugin's skills for `source`.
 
     `plugin_root` None means the installed plugin was not found, so there is
     nothing to copy FROM. Reported, never guessed: the alternative is writing a
     copy out of the wheel and calling it the plugin's.
+
+    `prefer`: the plugin `plugin_root` was looked up as (`installed_plugin_root`).
+    The lookup is made again once the copy lock is held, and a `plugin_root` the
+    ledger has moved past by then writes nothing: an update that landed in
+    between must not have its newer text overwritten with this one's.
     """
     root = skills_root(source, env)
     if root is None:
@@ -122,7 +125,15 @@ def apply(
         # Silent on purpose -- the wizard already reports what it installed, and
         # the SessionStart hook installs these the moment a plugin arrives.
         return []
-    report = core.apply(root, plugin_root, core.slugs(plugin_root))
+    still_installed = None
+    if prefer is not None:
+        here = os.path.realpath(plugin_root)
+
+        def still_installed() -> bool:
+            now = installed_plugin_root(prefer, env)
+            return now is not None and os.path.realpath(now) == here
+
+    report = core.apply(root, plugin_root, core.slugs(plugin_root), still_installed=still_installed)
     # No `!`: the wizard reads that prefix as a failed step (`_FAILURE_MARKERS`),
     # and "you already have a skill called probe" is a statement, not a fault.
     lines = list(report["notes"])
@@ -132,6 +143,26 @@ def apply(
                 f"{kind.capitalize()} {len(report[kind])} skill(s) in {root}: {', '.join(report[kind])}"
             )
     return lines
+
+
+def refresh(source: str, env: "dict[str, str] | None" = None) -> list[str]:
+    """After a plugin update: the agent's skills folder brought to the plugin
+    now installed for `source`'s profile.
+
+    `probe update` and the Probe service's updater call this right after the
+    plugin moves. Claude Code re-reads its skills folder when a file there
+    changes, so every session already open reads the new text on its next skill
+    call; before this, only a session START refreshed the copies, and a machine
+    with one long-lived session kept the old text for days. Fail-open, as
+    the wizard's install is: a skills folder that cannot be written never fails
+    the update."""
+    from probe.cli.capabilities import tracking_plugin_name
+
+    try:
+        plugin = tracking_plugin_name(source)
+        return apply(source, installed_plugin_root(plugin, env), env, prefer=plugin)
+    except Exception as exc:  # noqa: BLE001 - never fail the update after its plugin step
+        return [f"! could not refresh Probe's skills: {exc}"]
 
 
 def remove(source: str, env: "dict[str, str] | None" = None) -> list[str]:

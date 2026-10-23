@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: Scweet
-Version: 5.8.1
+Version: 5.8.2
 Summary: Scrape tweets, profiles, followers and more from Twitter/X — no API key needed
 Home-page: https://github.com/Altimis/Scweet
-Download-URL: https://github.com/Altimis/Scweet/archive/v5.8.1.tar.gz
+Download-URL: https://github.com/Altimis/Scweet/archive/v5.8.2.tar.gz
 Author: Yassine AIT JEDDI
 Author-email: aitjeddiyassine@gmail.com
 License: MIT
@@ -380,7 +380,7 @@ Never use your personal account — use dedicated accounts only. To reduce risk 
 No. Only publicly visible content is accessible.
 
 **Does it still work in 2025 / 2026?**
-Yes — last verified with the 5.8.1 release (2026-09-28) against X's current GraphQL API.
+Yes — last verified with the 5.8.2 release (2026-10-22) against X's current GraphQL API.
 
 </details>
 

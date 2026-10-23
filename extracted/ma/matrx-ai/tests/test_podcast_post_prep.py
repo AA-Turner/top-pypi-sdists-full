@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import asyncio
 
-import matrx_ai.agent_runners.podcast_generator as pg
 from matrx_ai.agent_runners.podcast_generator import (
     PostPrepOption,
     _apply_post_prep,
 )
+from matrx_ai.testing.holders import install_named_runner
 
 
 class _FakeResult:
@@ -44,7 +44,7 @@ def test_each_option_runs_its_own_mandated_agent(monkeypatch):
         seen.append((agent_cls.mandate_key, kwargs["inputs"].model_dump()))
         return _FakeResult(success=True, output="x" * 3000)
 
-    monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
     content = "y" * 3000
     for option, mandate_key in [
         (PostPrepOption.TRANSLATION, "podcast.post_prep_translation"),
@@ -65,7 +65,7 @@ def test_agent_failure_is_soft(monkeypatch):
     async def fake_run_mandated(agent_cls, **kwargs):
         return _FakeResult(success=False, error="provider exploded")
 
-    monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
     result = _run(
         _apply_post_prep("z" * 3000, PostPrepOption.SUMMARIZATION, language="English")
     )
@@ -77,7 +77,7 @@ def test_resolver_exception_is_soft(monkeypatch):
     async def fake_run_mandated(agent_cls, **kwargs):
         raise RuntimeError("mandate resolution broke")
 
-    monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
     result = _run(
         _apply_post_prep("z" * 3000, PostPrepOption.EXPANSION, language="English")
     )
@@ -89,7 +89,7 @@ def test_degenerate_short_output_is_rejected(monkeypatch):
     async def fake_run_mandated(agent_cls, **kwargs):
         return _FakeResult(success=True, output="tiny")
 
-    monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
     result = _run(
         _apply_post_prep("z" * 3000, PostPrepOption.TRANSLATION, language="French")
     )
@@ -103,7 +103,7 @@ def test_short_input_keeps_scaled_floor(monkeypatch):
     async def fake_run_mandated(agent_cls, **kwargs):
         return _FakeResult(success=True, output="w" * 300)
 
-    monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
     result = _run(
         _apply_post_prep("z" * 400, PostPrepOption.TRANSLATION, language="German")
     )
@@ -129,13 +129,13 @@ def test_every_outcome_reports_the_started_stage_key(monkeypatch):
             async def fake_run_mandated(agent_cls, _make=make, **kwargs):
                 return _make()
 
-            monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+            install_named_runner(monkeypatch, fake_run_mandated)
             result = _run(_apply_post_prep("y" * 3000, option, language="English"))
             assert result.stage == "post_prep", (option, name, result.stage)
 
         async def raising(agent_cls, **kwargs):
             raise RuntimeError("resolver broke")
 
-        monkeypatch.setattr(pg, "_run_mandated", raising)
+        install_named_runner(monkeypatch, raising)
         result = _run(_apply_post_prep("y" * 3000, option, language="English"))
         assert result.stage == "post_prep", (option, "exception", result.stage)

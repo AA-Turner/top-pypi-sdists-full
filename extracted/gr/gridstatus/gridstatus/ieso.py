@@ -1,5 +1,3 @@
-# flake8: noqa: E501
-
 import datetime
 import http.client
 import os
@@ -8,7 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from io import StringIO
-from typing import Literal, Optional
+from typing import Literal
 from urllib.error import HTTPError
 from warnings import warn
 from xml.etree import ElementTree
@@ -74,11 +72,11 @@ class SurplusState(str, Enum):
 
 
 def _safe_find_text(
-    element: Optional[Element],
+    element: Element | None,
     tag: str,
-    namespaces: Optional[dict[str, str]] = None,
-    default: Optional[str] = None,
-) -> Optional[str]:
+    namespaces: dict[str, str] | None = None,
+    default: str | None = None,
+) -> str | None:
     """Safely find and extract text from an XML element.
 
     Args:
@@ -101,11 +99,11 @@ def _safe_find_text(
 
 
 def _safe_find_int(
-    element: Optional[Element],
+    element: Element | None,
     tag: str,
-    namespaces: Optional[dict[str, str]] = None,
-    default: Optional[int] = None,
-) -> Optional[int]:
+    namespaces: dict[str, str] | None = None,
+    default: int | None = None,
+) -> int | None:
     """Safely find and extract integer from an XML element.
 
     Args:
@@ -128,11 +126,11 @@ def _safe_find_int(
 
 
 def _safe_find_float(
-    element: Optional[Element],
+    element: Element | None,
     tag: str,
-    namespaces: Optional[dict[str, str]] = None,
-    default: Optional[float] = None,
-) -> Optional[float]:
+    namespaces: dict[str, str] | None = None,
+    default: float | None = None,
+) -> float | None:
     """Safely find and extract float from an XML element.
 
     Args:
@@ -290,6 +288,7 @@ class IESO(ISOBase):
         else:
             data = (
                 self._retrieve_fuel_mix(date, end, verbose)
+                .query("`Fuel Type` != 'CONTROL ACTIONS'")
                 .groupby(["Fuel Type", "Interval Start", "Interval End"])
                 .sum(numeric_only=True)
                 .reset_index()
@@ -782,10 +781,10 @@ class IESO(ISOBase):
 
         if utils.is_today(date, tz=self.default_timezone):
             # This file always contains the most recent file for today
-            url = "https://reports-public.ieso.ca/public/DispUnconsHOEP/PUB_DispUnconsHOEP.csv"  # noqa: E501
+            url = "https://reports-public.ieso.ca/public/DispUnconsHOEP/PUB_DispUnconsHOEP.csv"
         else:
             # The most recent file for a give date does not have a version number
-            url = f"https://reports-public.ieso.ca/public/DispUnconsHOEP/PUB_DispUnconsHOEP_{date.strftime('%Y%m%d')}.csv"  # noqa: E501
+            url = f"https://reports-public.ieso.ca/public/DispUnconsHOEP/PUB_DispUnconsHOEP_{date.strftime('%Y%m%d')}.csv"
 
         # Data is only available for a limited number of days through this method
         try:
@@ -799,7 +798,7 @@ class IESO(ISOBase):
         except HTTPError as e:
             if e.code == 404:
                 raise NotSupported(
-                    f"HOEP data is not available for the requested date {date}. Try using the historical method.",  # noqa: E501
+                    f"HOEP data is not available for the requested date {date}. Try using the historical method.",
                 )
             raise
 
@@ -822,7 +821,7 @@ class IESO(ISOBase):
     ):
         retired_data_warning()
 
-        url = f"https://reports-public.ieso.ca/public/PriceHOEPPredispOR/PUB_PriceHOEPPredispOR_{date.year}.csv"  # noqa: E501
+        url = f"https://reports-public.ieso.ca/public/PriceHOEPPredispOR/PUB_PriceHOEPPredispOR_{date.year}.csv"
 
         data = pd.read_csv(url, skiprows=1, header=2)
 
@@ -972,7 +971,7 @@ class IESO(ISOBase):
                 dfs.append(df)
             except Exception as e:
                 logger.warning(
-                    f"Failed to parse resource adequacy report: {str(e)}",
+                    f"Failed to parse resource adequacy report: {e!s}",
                 )
                 continue
 
@@ -1169,17 +1168,17 @@ class IESO(ISOBase):
                         retries += 1
                         if retries == max_retries:
                             logger.error(
-                                f"Remote connection closed for file {file}: {str(e)}",
+                                f"Remote connection closed for file {file}: {e!s}",
                             )
                             break
                         logger.warning(
-                            f"Remote connection closed for file {file}: {str(e)}. Retrying in {retry_delay} seconds...",
+                            f"Remote connection closed for file {file}: {e!s}. Retrying in {retry_delay} seconds...",
                         )
                         time.sleep(retry_delay)
                         retry_delay *= 2
                     except Exception as e:
                         logger.error(
-                            f"Unexpected error processing file {file}: {str(e)}",
+                            f"Unexpected error processing file {file}: {e!s}",
                         )
                         break
 
@@ -1262,15 +1261,15 @@ class IESO(ISOBase):
                             2 ** (retries - 1)
                         )  # Exponential backoff
                         logger.warning(
-                            f"Connection error for file {file}: {str(e)}. Retrying in {wait_time} seconds... (attempt {retries + 1})",
+                            f"Connection error for file {file}: {e!s}. Retrying in {wait_time} seconds... (attempt {retries + 1})",
                         )
                         time.sleep(wait_time)
                     else:
                         logger.error(
-                            f"Failed to fetch file {file} after {max_retries} retries: {str(e)}",
+                            f"Failed to fetch file {file} after {max_retries} retries: {e!s}",
                         )
                 except Exception as e:
-                    logger.error(f"Unexpected error processing file {file}: {str(e)}")
+                    logger.error(f"Unexpected error processing file {file}: {e!s}")
                     break  # Don't retry for unexpected errors
 
         return json_data_with_times
@@ -1849,9 +1848,11 @@ class IESO(ISOBase):
         df["Metric"] = df["Metric"].replace({"Imp": "Import", "Exp": "Export"})
 
         df["Zone"] = df["Zone"].apply(
-            lambda x: x.replace(".", "")
-            if isinstance(x, str) and x.startswith("PQ")
-            else (x.replace("-", " ").title() if isinstance(x, str) else x),
+            lambda x: (
+                x.replace(".", "")
+                if isinstance(x, str) and x.startswith("PQ")
+                else (x.replace("-", " ").title() if isinstance(x, str) else x)
+            ),
         )
 
         df = df.pivot_table(
@@ -2868,7 +2869,7 @@ class IESO(ISOBase):
                     ):
                         nisl_values[interval_num] = lmp_value
 
-            for interval_num in lmp_values.keys():
+            for interval_num, lmp in lmp_values.items():
                 if (
                     interval_num in loss_values
                     and interval_num in energy_congestion_values
@@ -2880,7 +2881,6 @@ class IESO(ISOBase):
                     )
                     interval_end = interval_start + pd.Timedelta(minutes=5)
 
-                    lmp = lmp_values[interval_num]
                     congestion = energy_congestion_values[interval_num]
                     loss = loss_values[interval_num]
                     external_congestion = external_congestion_values[interval_num]
@@ -3395,7 +3395,7 @@ class IESO(ISOBase):
                     file_data = future.result()
                     data_list.append(file_data)
                 except Exception as e:
-                    logger.error(f"Error processing {url}: {str(e)}")
+                    logger.error(f"Error processing {url}: {e!s}")
                     continue
 
         if not data_list:
@@ -4045,7 +4045,7 @@ class IESO(ISOBase):
                             (json_data, pd.Timestamp(time, tz=self.default_timezone)),
                         )
                     except Exception as e:
-                        logger.error(f"Error processing file {file}: {str(e)}")
+                        logger.error(f"Error processing file {file}: {e!s}")
             logger.info(
                 f"Found {len(json_data_with_times)} variable generation forecast files for {date_str}",
             )
@@ -4278,8 +4278,13 @@ class IESO(ISOBase):
         if date == "latest":
             base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeConstrShadowPrices"
             file = "PUB_RealtimeConstrShadowPrices.xml"
+            file_last_modified = self._get_shadow_prices_file_last_modified(
+                base_url,
+                file,
+            )
             json_data = self._fetch_and_parse_shadow_prices_file(base_url, file)
             df = self._parse_real_time_shadow_prices_report(json_data)
+            df["Publish Time"] = file_last_modified
             df.sort_values(
                 ["Interval Start", "Publish Time", "Constraint"],
                 inplace=True,
@@ -4302,7 +4307,7 @@ class IESO(ISOBase):
         dfs = []
         for json_data, file_last_modified in json_data_with_times:
             df = self._parse_real_time_shadow_prices_report(json_data)
-            df["Last Modified"] = file_last_modified
+            df["Publish Time"] = file_last_modified
             dfs.append(df)
         df = pd.concat(dfs)
         df = utils.move_cols_to_front(
@@ -4341,8 +4346,13 @@ class IESO(ISOBase):
         if date == "latest":
             base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/DAConstrShadowPrices"
             file = "PUB_DAConstrShadowPrices.xml"
+            file_last_modified = self._get_shadow_prices_file_last_modified(
+                base_url,
+                file,
+            )
             json_data = self._fetch_and_parse_shadow_prices_file(base_url, file)
             df = self._parse_day_ahead_shadow_prices_report(json_data)
+            df["Publish Time"] = file_last_modified
             df.sort_values(
                 ["Interval Start", "Publish Time", "Constraint"],
                 inplace=True,
@@ -4363,8 +4373,9 @@ class IESO(ISOBase):
             last_modified=last_modified,
         )
         dfs = []
-        for json_data, _ in json_data_with_times:
+        for json_data, file_last_modified in json_data_with_times:
             df = self._parse_day_ahead_shadow_prices_report(json_data)
+            df["Publish Time"] = file_last_modified
             dfs.append(df)
         df = pd.concat(dfs)
         df = utils.move_cols_to_front(
@@ -4395,6 +4406,23 @@ class IESO(ISOBase):
         r = self._request(url)
         json_data = xmltodict.parse(r.text)
         return json_data
+
+    def _get_shadow_prices_file_last_modified(
+        self,
+        base_url: str,
+        file: str,
+    ) -> pd.Timestamp:
+        r = self._request(base_url)
+        pattern = (
+            rf'<a href="{re.escape(file)}">.*?</a>'
+            r"\s+(\d{2}-\w{3}-\d{4} \d{2}:\d{2})"
+        )
+        match = re.search(pattern, r.text)
+        if not match:
+            raise FileNotFoundError(
+                f"Could not find {file} in index at {base_url}",
+            )
+        return pd.Timestamp(match.group(1), tz=self.default_timezone)
 
     def _get_all_shadow_prices_jsons(
         self,
@@ -4450,7 +4478,8 @@ class IESO(ISOBase):
             return "connection reset" in msg or "connection aborted" in msg
 
         def _fetch_with_retries(
-            file: str, last_modified_time: str
+            file: str,
+            last_modified_time: str,
         ) -> tuple[dict, pd.Timestamp]:
             # small stagger based on filename hash so not all tasks start at once
             initial_delay = (hash(file) % 2000) / 1000.0  # 0–2s
@@ -4488,7 +4517,7 @@ class IESO(ISOBase):
                 for file, last_modified_time in filtered_files
             }
             for future in as_completed(future_to_file):
-                file, last_modified_time = future_to_file[future]
+                file, _ = future_to_file[future]
                 try:
                     json_data, ts = future.result()
                     json_data_with_times.append((json_data, ts))

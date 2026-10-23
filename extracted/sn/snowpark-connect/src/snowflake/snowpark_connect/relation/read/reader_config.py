@@ -8,7 +8,18 @@ from typing import Any
 
 from pyspark.errors.exceptions.base import IllegalArgumentException
 
-from snowflake.snowpark_connect.config import global_config, is_nss_enabled, str_to_bool
+from snowflake.snowpark._internal.analyzer.analyzer_utils import (
+    convert_value_to_sql_option,
+)
+from snowflake.snowpark_connect.config import (
+    CSV_LEGACY_NULL_IF_TOKEN_CONFIG,
+    CSV_READ_QUOTED_EMPTY_AS_NULL_CONFIG,
+    get_boolean_session_config_param,
+    global_config,
+    is_csv_write_spark_timestamp_format_enabled,
+    is_nss_enabled,
+    str_to_bool,
+)
 from snowflake.snowpark_connect.date_time_format_mapping import (
     convert_java_datetime_format_for_fileformat,
 )
@@ -17,6 +28,7 @@ from snowflake.snowpark_connect.error.error_utils import (
     UnsupportedCharsetException,
     attach_custom_error_code,
 )
+from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 DEFAULT_ROWS_TO_INFER_SCHEMA = 20000
@@ -217,6 +229,11 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
         "negativeInf",
         "dateFormat",
         "timestampFormat",
+        # timestampNTZFormat is not a COPY file-format parameter. CSV reads
+        # leave it unsupported (CsvReaderConfig still warns). With
+        # snowpark.connect.csv.writeSparkTimestampFormat on, CSV writes
+        # consume it in rewrite_df; CsvWriterConfig._INTERNALLY_CONSUMED_OPTIONS
+        # suppresses the ignored-option warning without forwarding the key.
         # "maxColumns",
         # "maxCharsPerColumn",
         # "maxMalformedLogPerPartition",
@@ -255,6 +272,11 @@ CSV_READ_SUPPORTED_OPTIONS = lowercase_set(
     }
 )
 
+SPARK_CSV_WRITE_TIMESTAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
+# Spark's timestampNTZFormat default is yyyy-MM-dd'T'HH:mm:ss[.SSS]; Spark
+# prints the optional [.SSS] section when formatting.
+SPARK_CSV_WRITE_TIMESTAMP_NTZ_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS"
+
 # Config has to be lowercased, because it is publicly available
 CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
     {
@@ -265,10 +287,17 @@ CSV_READ_DEFAULT_CONFIG = lowercase_dict_keys(
         # quoting even when it is not necessary.
         "quote": '"',
         "comment": "#",
-        # TODO nullValue of "" is correct for Spark, Snowflake's default is \N.
-        # However, Snowflake will refuse to write when nullValue is empty and fields aren't
-        # optionally enclosed. Hence, we are not changing the default nullValue.
-        # We need to look more to see if this is a good default for both write+read, or if we need to adjust.
+        # Spark's nullValue default is "". The CSV write path applies that in
+        # get_param_from_options (SNOW-4209027) only with
+        # snowpark.connect.csv.writeNullAsEmpty on (default off) and when
+        # fields are not enclosed: NULL_IF='' plus EMPTY_FIELD_AS_NULL=FALSE. A
+        # quote option sets FIELD_OPTIONALLY_ENCLOSED_BY, and the empty-field
+        # encoding is skipped there because Snowflake would write "" and the
+        # reader would keep it as data. NULL_IF='' alone is rejected on unload
+        # (100093) unless fields are optionally enclosed. Do not seed
+        # nullValue="" here: this config is shared with reads, and reads keep
+        # EMPTY_FIELD_AS_NULL=TRUE so a bare ,, is NULL while a quoted "" stays
+        # an empty string (see csv_convert_to_snowpark_args).
         # "nullValue": "",
         # SNOW-3245116: nanValue/positiveInf/negativeInf have no default here;
         # they are only applied when the user explicitly supplies them.
@@ -437,6 +466,253 @@ def translate_csv_escape_literal(s: str | None) -> str | None:
     return "".join(out)
 
 
+def csv_null_if_sql_literal(token: str) -> str:
+    """The ``NULL_IF`` option value that makes Snowflake see exactly ``token``.
+
+    Snowpark renders a string option as ``'<value>'``. It doubles single
+    quotes but not backslashes, and a value that already starts and ends with
+    ``'`` is passed through as a finished literal. In a Snowflake string
+    literal a backslash starts an escape sequence, so ``nullValue='\\N'``
+    rendered as ``NULL_IF=('\\N')`` is the one-character token ``N``: a cell
+    holding ``N`` reads as NULL and the real ``\\N`` does not. Doubling each
+    backslash gives ``'\\\\N'``, which is ``\\N``. A single-quoted token is
+    rendered here as a complete literal so Snowpark does not drop its quotes.
+    """
+    escaped = token.replace("\\", "\\\\")
+    if len(escaped) > 1 and escaped.startswith("'") and escaped.endswith("'"):
+        return "'" + escaped.replace("'", "''") + "'"
+    return escaped
+
+
+def csv_legacy_null_if_token_enabled() -> bool:
+    """``snowpark.connect.csv.legacyNullIfToken``. Default true."""
+    if get_spark_session_id() is None:
+        return True
+    return get_boolean_session_config_param(CSV_LEGACY_NULL_IF_TOKEN_CONFIG)
+
+
+def _end_of_sql_string_literal(sql: str, start: int) -> int | None:
+    """Index just past the Snowflake string literal opening at ``start``.
+
+    Inside the quotes ``''`` and a backslash escape (``\\'``, ``\\\\``) each
+    stand for one character; any other ``'`` is the closing quote. ``None``
+    when ``sql[start]`` is not ``'`` or the literal is not closed.
+    """
+    if sql[start : start + 1] != "'":
+        return None
+    i = start + 1
+    while i < len(sql):
+        ch = sql[i]
+        if ch == "\\":
+            i += 2
+        elif ch == "'":
+            if sql[i + 1 : i + 2] == "'":
+                i += 2
+            else:
+                return i + 1
+        else:
+            i += 1
+    return None
+
+
+def _skip_sql_whitespace(sql: str, i: int) -> int:
+    while i < len(sql) and sql[i] in " \t\r\n":
+        i += 1
+    return i
+
+
+def _is_sql_string_literal_list(sql: str) -> bool:
+    """Whether ``sql`` is one or more string literals separated by commas."""
+    i = 0
+    while True:
+        end = _end_of_sql_string_literal(sql, i)
+        if end is None:
+            return False
+        i = _skip_sql_whitespace(sql, end)
+        if i == len(sql):
+            return True
+        if sql[i] != ",":
+            return False
+        i = _skip_sql_whitespace(sql, i + 1)
+
+
+def _raw_null_if_is_safe(token: str) -> bool:
+    # Earlier releases sent the raw token, which Snowpark renders as-is when it
+    # is wrapped in ' and quotes otherwise. Keep that rendering when it is valid
+    # SQL: one literal ('a''b', 'a\'b', \N) or a list of them ('NULL','N/A',
+    # which NULL_IF reads as two tokens). A malformed one ('a'b', a\, a\')
+    # would break the statement, so it falls back to the exact literal.
+    return _is_sql_string_literal_list(convert_value_to_sql_option(token))
+
+
+def csv_null_if_token(token: str) -> str:
+    """The ``NULL_IF`` value a CSV read or write sends for a Spark null token.
+
+    With ``legacyNullIfToken`` (default) the token is sent as earlier releases
+    sent it: raw, so Snowflake parses its backslash escapes (``\\N`` is the
+    one-character token ``N``) and a token wrapped in ``'`` is a finished
+    literal. Read and write then agree with files those releases wrote. With
+    the flag false the exact token is sent (``csv_null_if_sql_literal``), as
+    Spark compares it. Tokens where the two forms are equal are unaffected.
+    """
+    exact = csv_null_if_sql_literal(token)
+    if (
+        token != exact
+        and csv_legacy_null_if_token_enabled()
+        and _raw_null_if_is_safe(token)
+    ):
+        return token
+    return exact
+
+
+# Snowflake's default CSV NULL token is the two characters ``\`` and ``N``,
+# already in the form ``csv_null_if_sql_literal`` returns for it.
+_SNOWFLAKE_DEFAULT_NULL_IF_TOKEN = csv_null_if_sql_literal("\\N")
+
+
+def _logical_csv_escape(escape: str | None) -> str:
+    """One escape character. The reader config stores ``\\`` as two backslashes."""
+    if escape in (None, "", "\\", "\\\\"):
+        return "\\"
+    return escape
+
+
+def add_unloaded_default_null_token(
+    snowpark_config: dict[str, Any], escape: str | None, *, null_value_set: bool
+) -> None:
+    """Also read Snowflake's default NULL token in the form a SCOS unload writes.
+
+    Only for a read that falls back to Snowflake's ``\\N`` (no ``nullValue``).
+    A SCOS CSV write with an explicit ``quote`` keeps ``ESCAPE`` and that
+    default token, and the unload escapes the token like any other
+    unenclosed value: with ``ESCAPE='\\'`` the file holds ``\\\\N``. The
+    reader keeps ``ESCAPE_UNENCLOSED_FIELD=NONE`` (as Spark does), so that
+    field is never unescaped and would read back as text. This adds the token
+    with each escape character doubled, which is how the unload wrote it.
+
+    An enclosed ``"\\\\N"`` needs no entry: Snowflake removes ``ESCAPE`` from
+    an enclosed field before it compares ``NULL_IF``. An escape that does not
+    occur in ``\\N`` (``#``, ``'``) adds nothing. A caller ``nullValue`` is
+    left exact. Not added under ``legacyNullIfToken`` (default), so a legacy
+    read keeps reading that cell as text, as earlier releases did.
+    """
+    null_if = snowpark_config.get("NULL_IF")
+    if (
+        null_value_set
+        or csv_legacy_null_if_token_enabled()
+        or not isinstance(null_if, tuple)
+        or _SNOWFLAKE_DEFAULT_NULL_IF_TOKEN not in null_if
+    ):
+        return
+    logical_escape = _logical_csv_escape(escape)
+    unloaded = csv_null_if_sql_literal(
+        "\\N".replace(logical_escape, logical_escape + logical_escape)
+    )
+    if unloaded not in null_if:
+        snowpark_config["NULL_IF"] = null_if + (unloaded,)
+
+
+def _null_if_tuple(snowpark_config: dict[str, Any]) -> tuple:
+    existing = snowpark_config.get("NULL_IF")
+    if isinstance(existing, (list, tuple)):
+        return tuple(existing)
+    return (existing,) if existing else ()
+
+
+def add_null_if_tokens(snowpark_config: dict[str, Any], tokens: list[str]) -> None:
+    """Append Spark tokens (``nanValue`` and the like) to ``NULL_IF``.
+
+    Each token goes through ``csv_null_if_token``, like ``nullValue``.
+    ``NULL_IF`` becomes a tuple: it feeds the ``cached_file_format`` hash key.
+    """
+    existing = _null_if_tuple(snowpark_config)
+    added = [csv_null_if_token(t) for t in tokens]
+    snowpark_config["NULL_IF"] = existing + tuple(
+        dict.fromkeys(t for t in added if t not in existing)
+    )
+
+
+def remove_null_if_tokens(snowpark_config: dict[str, Any], tokens: list[str]) -> None:
+    """Remove the entries ``add_null_if_tokens`` added for ``tokens``."""
+    removed = {csv_null_if_token(t) for t in tokens}
+    kept = tuple(t for t in _null_if_tuple(snowpark_config) if t not in removed)
+    if kept:
+        snowpark_config["NULL_IF"] = kept
+    else:
+        snowpark_config.pop("NULL_IF", None)
+
+
+def quoted_empty_field_is_null(null_value: str | None, empty_value: str | None) -> bool:
+    """Whether Spark reads a quoted ``""`` as SQL NULL.
+
+    Univocity maps a quoted empty field to ``emptyValue`` (default ``""``) and
+    a bare ``,,`` to ``nullValue`` (default ``""``). The token is then NULL when
+    it equals ``nullValue``. Quoted ``""`` is therefore NULL exactly when the
+    effective empty value equals the effective null value. ``None`` means the
+    caller did not set the option.
+    """
+    effective_null = "" if null_value is None else null_value
+    effective_empty = "" if empty_value is None else empty_value
+    return effective_empty == effective_null
+
+
+def csv_read_quoted_empty_as_null_enabled() -> bool:
+    """``snowpark.connect.csv.readQuotedEmptyAsNull`` (SNOW-4222766).
+
+    Default false (opt-in). With no Spark session (unit tests of the
+    translator) the same default applies, so the previous read is kept.
+    """
+    if get_spark_session_id() is None:
+        return False
+    return get_boolean_session_config_param(CSV_READ_QUOTED_EMPTY_AS_NULL_CONFIG)
+
+
+def apply_csv_read_quoted_empty_null_if(
+    snowpark_config: dict[str, Any],
+    *,
+    null_value: str | None,
+    empty_value: str | None,
+    enabled: bool,
+) -> None:
+    """Make read-path ``NULL_IF`` null a quoted ``""`` exactly when Spark does.
+
+    ``INFER_SCHEMA`` and COPY share this file format. A projection after COPY
+    is too late: a quoted ``""`` left as an empty string makes ``INFER_SCHEMA``
+    return TEXT for an otherwise numeric, date or timestamp column. Measured:
+    ``NULL_IF=('\\\\N', '')`` with ``EMPTY_FIELD_AS_NULL`` left TRUE is accepted
+    and infers NUMBER / TIMESTAMP_NTZ.
+
+    When quoted empty is NULL (``emptyValue`` equals ``nullValue``), ``''`` is
+    added. If the user did not set ``nullValue``, Snowflake's ``\\N`` token stays
+    in the list. When they differ, ``''`` is removed: an explicit
+    ``nullValue=""`` would otherwise null the quoted field before the
+    ``emptyValue`` projection in ``map_read_csv`` sees it. A bare ``,,`` stays
+    NULL through ``EMPTY_FIELD_AS_NULL``. Read path only, and a no-op unless
+    ``enabled`` (``snowpark.connect.csv.readQuotedEmptyAsNull``, default off).
+    """
+    if not enabled:
+        return
+    existing = snowpark_config.get("NULL_IF")
+    if existing is None:
+        tokens: list[Any] = []
+    elif isinstance(existing, (list, tuple)):
+        tokens = list(existing)
+    else:
+        tokens = [existing]
+    if quoted_empty_field_is_null(null_value, empty_value):
+        if existing is None:
+            tokens.append(_SNOWFLAKE_DEFAULT_NULL_IF_TOKEN)
+        if "" not in tokens:
+            tokens.append("")
+    elif "" in tokens:
+        # An empty tuple, not a deleted key: deleting it would bring back
+        # Snowflake's default \N token, which an explicit nullValue replaced.
+        tokens = [t for t in tokens if t != ""]
+    else:
+        return
+    snowpark_config["NULL_IF"] = tuple(tokens)
+
+
 def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, Any]:
     renamed_args = {
         "inferSchema": "INFER_SCHEMA",
@@ -538,16 +814,14 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
     # accessible via `CsvReaderConfig.config["emptyvalue"]` /
     # `write_op.options["emptyValue"]` for the projection step.
     #
-    # We intentionally do NOT flip EMPTY_FIELD_AS_NULL: with the default
-    # (TRUE), Snowflake distinguishes a bare `,,` (-> NULL) from a quoted
-    # `""` (-> empty string). That distinction matches Spark's behavior
-    # under the default `nullValue=""`: the bare `,,` is treated as NULL
-    # (matching nullValue), while `""` is the empty string that gets
-    # rewritten to emptyValue by the projection. Forcing
-    # EMPTY_FIELD_AS_NULL=FALSE would erase the distinction and rewrite
-    # bare `,,` cells to emptyValue too, which Spark would not do.
+    # EMPTY_FIELD_AS_NULL stays TRUE. That makes a bare `,,` NULL and leaves a
+    # quoted `""` as ''. Spark nulls the quoted form too when emptyValue equals
+    # nullValue (both default to ""). That case is `NULL_IF` on the read path
+    # (`apply_csv_read_quoted_empty_null_if`, SNOW-4222766, only when
+    # snowpark.connect.csv.readQuotedEmptyAsNull is on), not a flip of
+    # EMPTY_FIELD_AS_NULL: FALSE would also turn a bare `,,` into '' before a
+    # distinct emptyValue projection, which Spark does not do.
     snowpark_config.pop("emptyvalue", None)
-    # snowpark_config["EMPTY_FIELD_AS_NULL"] = True
 
     # Fix the escape character if it is provided.
     # TODO SNOW-2081726: This seems to be a Snowpark bug
@@ -644,7 +918,7 @@ class CsvReaderConfig(ReaderWriterConfig):
         # fractional seconds). The original Spark-default strings (yyyy-MM-dd,
         # yyyy-MM-dd HH:mm:ss.SSSSSS) would translate to strict Snowflake
         # format tokens and reject common layouts like "2023-01-01 10:30:00".
-        # The writer keeps CSV_READ_DEFAULT_CONFIG unchanged.
+        # CsvWriterConfig sets its own timestampFormat default.
         read_default_config = {
             **CSV_READ_DEFAULT_CONFIG,
             "dateformat": "auto",
@@ -729,7 +1003,27 @@ class CsvReaderConfig(ReaderWriterConfig):
                 )
         for key in snowpark_config.keys():
             snowpark_config[key] = self._get_config_setting(key)
-        return csv_convert_to_snowpark_args(snowpark_config)
+        converted = csv_convert_to_snowpark_args(snowpark_config)
+        null_value_set = "nullvalue" in self.user_option_keys
+        if null_value_set and isinstance(converted.get("NULL_IF"), str):
+            converted["NULL_IF"] = csv_null_if_token(converted["NULL_IF"])
+        # Read path only. CsvWriterConfig shares csv_convert_to_snowpark_args
+        # and must not inherit NULL_IF='' (unload rejects it).
+        apply_csv_read_quoted_empty_null_if(
+            converted,
+            null_value=(
+                self.config.get("nullvalue")
+                if "nullvalue" in self.user_option_keys
+                else None
+            ),
+            empty_value=(
+                self.config.get("emptyvalue")
+                if "emptyvalue" in self.user_option_keys
+                else None
+            ),
+            enabled=csv_read_quoted_empty_as_null_enabled(),
+        )
+        return converted
 
 
 # TODO: This is just a first pass, we need to differentiate more clearly between read and write configs.
@@ -742,9 +1036,20 @@ class CsvWriterConfig(ReaderWriterConfig):
     # They are pulled in via ``CSV_READ_SUPPORTED_OPTIONS`` above, so exclude
     # them here so a write does not forward them to Snowflake as unknown
     # file-format parameters.
+    #
+    # SNOW-4215403: timestampNTZFormat is not a Snowflake file-format option.
+    # With snowpark.connect.csv.writeSparkTimestampFormat on, rewrite_df reads
+    # it from the write options and formats TIMESTAMP_NTZ with TO_CHAR. Mark it
+    # consumed then, so convert_to_snowpark_args does not log that the option
+    # is unsupported and will be ignored. With the flag off it is ignored.
     _INTERNALLY_CONSUMED_OPTIONS = frozenset({"nanvalue", "positiveinf", "negativeinf"})
 
     def __init__(self, options: dict[str, str]) -> None:
+        spark_timestamp_format = is_csv_write_spark_timestamp_format_enabled()
+        if spark_timestamp_format:
+            self._INTERNALLY_CONSUMED_OPTIONS = (
+                CsvWriterConfig._INTERNALLY_CONSUMED_OPTIONS | {"timestampntzformat"}
+            )
         super().__init__(
             _Config(
                 default_config=dict(
@@ -762,8 +1067,15 @@ class CsvWriterConfig(ReaderWriterConfig):
                     },
                     **(
                         {
-                            "compression": "none"  # When writing files compression should be provided by the user
+                            "compression": "none",  # When writing files compression should be provided by the user
                         }
+                    ),
+                    # Spark's CSV write default (SNOW-4215403); the shared
+                    # CSV_READ_DEFAULT_CONFIG value is not Spark's.
+                    **(
+                        {"timestampformat": SPARK_CSV_WRITE_TIMESTAMP_FORMAT}
+                        if spark_timestamp_format
+                        else {}
                     ),
                 ),
                 supported_options=CSV_READ_SUPPORTED_OPTIONS - {"inferSchema"},
@@ -1119,7 +1431,6 @@ class XmlReaderConfig(ReaderWriterConfig):
                     # TODO: timestampNTZFormat: yyyy-MM-dd'T'HH:mm:ss[.SSS],
                     # TODO: dateFormat: yyyy-MM-dd,
                     # TODO: locale: en-US,
-                    # TODO: wildcardColName: xs_any,
                 },
                 supported_options={
                     "rowTag",
@@ -1136,20 +1447,23 @@ class XmlReaderConfig(ReaderWriterConfig):
                     "rowValidationXSDPath",
                     "ignoreNamespace",
                     # "timeZone",
-                    # date/timestamp formats: NSS forwards them via
+                    # date/timestamp formats, treatEmptyValuesAsNulls and
+                    # wildcardColName: NSS forwards them via
                     # ``filter_reader_options`` / ``_SPARK_XML_READ_OPTIONS``.
                     # Leave them out of supported_options so the UDTF path
                     # still warns "not supported and will be ignored"
-                    # (Snowpark XML has no Java→Snowflake token translation).
+                    # (Snowpark XML has no Java→Snowflake token translation,
+                    # and no equivalent of the other two).
                     # "timestampFormat",
                     # "timestampNTZFormat",
                     # "dateFormat",
+                    # "treatEmptyValuesAsNulls",
+                    # "wildcardColName",
                     # "locale",
                     # "rootTag",
                     # "declaration",
                     # "arrayElementName",
                     "nullValue",
-                    # "wildcardColName",
                     "compression",  # not supported when rowTag is specified
                     # "validateName",
                     "pathGlobFilter",

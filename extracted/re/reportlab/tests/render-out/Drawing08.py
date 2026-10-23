@@ -23,7 +23,7 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		v0.add(Line(70,0,70,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(80,0,80,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(90,0,90,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
+		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,2,150,10)
 		v0.add(Line(0,0,100,0,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
@@ -41,7 +41,7 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		v0.add(Line(70,0,70,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(80,0,80,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(90,0,90,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
+		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (2,0,0,1,10,125)
 		v0.add(Line(0,0,100,0,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
@@ -59,7 +59,7 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		v0.add(Line(70,0,70,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(80,0,80,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(90,0,90,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
+		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,.57735,1,250,125)
 		v0.add(Line(0,0,100,0,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
@@ -77,7 +77,7 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		v0.add(Line(70,0,70,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(80,0,80,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		v0.add(Line(90,0,90,10,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
+		v0.add(String(20,35,'Axes',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1),fill=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS

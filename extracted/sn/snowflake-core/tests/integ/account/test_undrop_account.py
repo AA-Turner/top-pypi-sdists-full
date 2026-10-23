@@ -10,7 +10,7 @@ from tests.integ.account.utils import assert_account_existence, cleanup_accounts
 from ..utils import backup_role
 
 
-pytestmark = [pytest.mark.internal_only, pytest.mark.skip_notebook]
+pytestmark = [pytest.mark.internal_only]
 
 
 def test_undrop_account(temp_customer_account_accounts, sf_cursor, temp_customer_account_cursor):

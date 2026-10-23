@@ -48,7 +48,10 @@ import os
 import re
 from typing import Any, Literal, NamedTuple
 
-from snowflake.snowpark_connect.config import is_anchor_stage_paths_enabled
+from snowflake.snowpark_connect.config import (
+    is_anchor_stage_paths_enabled,
+    is_text_spark_glob_semantics_enabled,
+)
 from snowflake.snowpark_connect.relation.io_utils import (
     convert_file_prefix_path,
     is_cloud_path,
@@ -199,23 +202,147 @@ def _scan_prefix_stage_relative(scan_prefix: str) -> str:
     return _local_path_stage_relative_suffix(cleaned)
 
 
+def glob_stage_relative_scan_prefix(clean_glob_path: str) -> str:
+    """Stage-relative LIST prefix of a glob path.
+
+    Depends only on ``clean_glob_path``. Callers that match many listed files
+    should compute this once and pass it as ``stage_rel_scan``.
+    """
+    scan_prefix, _ = split_glob_scan_prefix(clean_glob_path)
+    return _scan_prefix_stage_relative(scan_prefix)
+
+
+def _glob_scan_tail(
+    listed_relative_path: str,
+    clean_glob_path: str,
+    *,
+    stage_rel_scan: str | None = None,
+) -> str | None:
+    """Part of a LIST-relative path below the glob's scan prefix, or ``None``.
+
+    ``stage_rel_scan`` is the result of :func:`glob_stage_relative_scan_prefix`.
+    When omitted, it is derived from ``clean_glob_path``.
+    """
+    if stage_rel_scan is None:
+        stage_rel_scan = glob_stage_relative_scan_prefix(clean_glob_path)
+    if not stage_rel_scan:
+        return listed_relative_path
+    prefix = stage_rel_scan.rstrip("/") + "/"
+    if not listed_relative_path.startswith(prefix):
+        return None
+    return listed_relative_path[len(prefix) :]
+
+
 def listed_path_matches_glob_suffix(
     listed_relative_path: str,
     clean_glob_path: str,
     glob_regex: str,
+    *,
+    stage_rel_scan: str | None = None,
 ) -> bool:
     """Return whether a LIST-relative path matches a glob read path."""
-    scan_prefix, _ = split_glob_scan_prefix(clean_glob_path)
-    stage_rel_scan = _scan_prefix_stage_relative(scan_prefix)
-    if stage_rel_scan:
-        prefix = stage_rel_scan.rstrip("/") + "/"
-        if listed_relative_path.startswith(prefix):
-            tail = listed_relative_path[len(prefix) :]
-        else:
-            return False
-    else:
-        tail = listed_relative_path
+    tail = _glob_scan_tail(
+        listed_relative_path,
+        clean_glob_path,
+        stage_rel_scan=stage_rel_scan,
+    )
+    if tail is None:
+        return False
     return re.fullmatch(f"{glob_regex}$", tail) is not None
+
+
+def _shallowest_glob_matching_ancestor_depth(
+    parts: list[str],
+    glob_regex: str,
+    *,
+    match_empty_child: bool = False,
+) -> int | None:
+    """Depth of the shallowest directory in ``parts`` that ``glob_regex`` matches.
+
+    ``parts`` is a file path below the scan prefix, split on ``/``. Depth ``d``
+    is the directory ``parts[:d]``, for ``d`` from 1 to the file's parent. With
+    ``match_empty_child``, a directory also matches when the glob matches it
+    followed by an empty name, so a trailing ``*`` matches the directory itself.
+    Returns ``None`` when no directory matches.
+    """
+    pattern = re.compile(f"{glob_regex}$")
+    for depth in range(1, len(parts)):
+        directory = "/".join(parts[:depth])
+        if pattern.fullmatch(directory) or (
+            match_empty_child and pattern.fullmatch(directory + "/")
+        ):
+            return depth
+    return None
+
+
+def listed_path_glob_base_partition_names(
+    listed_relative_path: str,
+    clean_glob_path: str,
+    glob_regex: str,
+    *,
+    stage_rel_scan: str | None = None,
+) -> tuple[str, ...]:
+    """Partition column names Spark infers for one listed file of a glob read.
+
+    Spark's base path is the parent of a matched file and the directory
+    itself when the match is a directory
+    (``PartitioningAwareFileIndex.basePaths``). Partition columns are only
+    the ``k=v`` segments below that base. The base here is the shallowest
+    directory above the file that the glob full-matches, or the file's
+    parent when none does. Unlike :func:`listed_path_glob_matches_parent_dir`,
+    a trailing ``*`` does not match the empty name after a directory, so
+    ``date=*/*`` names files, while ``part4/*`` names ``sub`` above
+    ``k=1/a.txt``.
+
+    ``**`` compiles to ``.*``, which full-matches every ancestor. The
+    shallowest one is the directory Hadoop's glob returns, since ``**``
+    matches one path segment there: ``part5/**`` over ``k=1/sub/a.txt``
+    has base ``k=1`` and no partition column, while ``part3/**`` over
+    ``t/k=1/a.txt`` has base ``t`` and infers ``k``.
+    """
+    tail = _glob_scan_tail(
+        listed_relative_path,
+        clean_glob_path,
+        stage_rel_scan=stage_rel_scan,
+    )
+    if tail is None:
+        return ()
+    parts = tail.split("/")
+    depth = _shallowest_glob_matching_ancestor_depth(parts, glob_regex)
+    if depth is None:
+        return ()
+    return tuple(
+        segment.split("=", 1)[0]
+        for segment in parts[depth:-1]
+        if "=" in segment and segment.split("=", 1)[0]
+    )
+
+
+def listed_path_glob_matches_parent_dir(
+    listed_relative_path: str,
+    clean_glob_path: str,
+    glob_regex: str,
+    *,
+    stage_rel_scan: str | None = None,
+) -> bool:
+    """Return whether the glob matches a directory above a LIST-relative path.
+
+    LIST returns files only, so a glob such as ``logs/0929-*/driver`` that
+    names directories matches no listed path, although the path exists.
+    """
+    tail = _glob_scan_tail(
+        listed_relative_path,
+        clean_glob_path,
+        stage_rel_scan=stage_rel_scan,
+    )
+    if tail is None:
+        return False
+    return (
+        _shallowest_glob_matching_ancestor_depth(
+            tail.split("/"), glob_regex, match_empty_child=True
+        )
+        is not None
+    )
 
 
 def _basename_is_pattern_safe(basename: str) -> bool:
@@ -264,6 +391,99 @@ def _stage_relative_glob_path(glob_path: str) -> str:
     """Return the glob suffix matched by PATTERN under the scan prefix."""
     _, glob_suffix = split_glob_scan_prefix(glob_path)
     return glob_suffix
+
+
+def _matching_close_brace(glob_pattern: str, open_idx: int) -> int:
+    """Index of the ``}`` closing the ``{`` at ``open_idx``, or ``-1`` if unbalanced.
+
+    Nesting-aware like Hadoop's ``GlobPattern`` ``curlyOpen`` counter; a
+    backslash-escaped character never opens or closes a group.
+    """
+    depth = 0
+    j = open_idx
+    pattern_len = len(glob_pattern)
+    while j < pattern_len:
+        if glob_pattern[j] == "\\" and j + 1 < pattern_len:
+            j += 2
+            continue
+        if glob_pattern[j] == "{":
+            depth += 1
+        elif glob_pattern[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return j
+        j += 1
+    return -1
+
+
+def _split_top_level_commas(body: str) -> list[str]:
+    """Split a brace-group body on commas outside any nested ``{...}``.
+
+    Escape sequences are kept verbatim so callers can translate them.
+    """
+    parts: list[str] = []
+    buf: list[str] = []
+    inner = 0
+    k = 0
+    while k < len(body):
+        ch = body[k]
+        if ch == "\\" and k + 1 < len(body):
+            buf.append(body[k : k + 2])
+            k += 2
+            continue
+        if ch == "{":
+            inner += 1
+        elif ch == "}":
+            inner -= 1
+        if ch == "," and inner == 0:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+        k += 1
+    parts.append("".join(buf))
+    return parts
+
+
+def expand_glob_braces(glob_pattern: str) -> list[str]:
+    """Expand ``{a,b}`` alternation into the concrete glob patterns it denotes.
+
+    Python's ``glob`` has no brace support -- it matches ``{``/``}`` literally,
+    so a local ``{a,b}.csv`` read found nothing. This returns the cartesian
+    product of every brace group (``{a,b}/{x,y}.csv`` -> four patterns), with
+    nested groups flattened (``{a,{b,c}}`` -> ``a``, ``b``, ``c``), using the
+    same brace scanning as :func:`spark_glob_to_snowflake_regex`. Other glob
+    syntax is left in place for ``glob`` to interpret. Escaped braces,
+    braces inside ``[...]`` classes and unbalanced braces stay literal. A
+    pattern without braces is returned unchanged as the only element.
+    Duplicates are dropped, keeping first-seen order.
+    """
+    pattern_len = len(glob_pattern)
+    i = 0
+    while i < pattern_len:
+        current_char = glob_pattern[i]
+        if current_char == "\\" and i + 1 < pattern_len:
+            i += 2
+            continue
+        if current_char == "[":
+            close_bracket_idx = glob_pattern.find("]", i + 1)
+            i = i + 1 if close_bracket_idx == -1 else close_bracket_idx + 1
+            continue
+        if current_char == "{":
+            close_brace_idx = _matching_close_brace(glob_pattern, i)
+            if close_brace_idx == -1:
+                i += 1
+                continue
+            prefix = glob_pattern[:i]
+            suffixes = expand_glob_braces(glob_pattern[close_brace_idx + 1 :])
+            expanded: dict[str, None] = {}
+            for part in _split_top_level_commas(glob_pattern[i + 1 : close_brace_idx]):
+                for alternative in expand_glob_braces(part):
+                    for suffix in suffixes:
+                        expanded[prefix + alternative + suffix] = None
+            return list(expanded)
+        i += 1
+    return [glob_pattern]
 
 
 def spark_glob_to_snowflake_regex(glob_pattern: str) -> str:
@@ -353,45 +573,14 @@ def spark_glob_to_snowflake_regex(glob_pattern: str) -> str:
             # NOTHING, not even the outer ``csv`` branch, because the trailing ``\}`` demands a
             # literal brace. A silently empty read, from a glob the user reasonably expects to
             # work.
-            depth, close_brace_idx, j = 0, -1, i
-            while j < pattern_len:
-                if glob_pattern[j] == "\\" and j + 1 < pattern_len:
-                    j += 2
-                    continue
-                if glob_pattern[j] == "{":
-                    depth += 1
-                elif glob_pattern[j] == "}":
-                    depth -= 1
-                    if depth == 0:
-                        close_brace_idx = j
-                        break
-                j += 1
+            close_brace_idx = _matching_close_brace(glob_pattern, i)
             if close_brace_idx == -1:
                 # Unbalanced: Hadoop raises here; keep the pre-existing lenient behaviour of
                 # treating the brace as a literal rather than failing the read.
                 out.append(re.escape(current_char))
                 i += 1
             else:
-                body = glob_pattern[i + 1 : close_brace_idx]
-                parts, buf, inner = [], [], 0
-                k = 0
-                while k < len(body):
-                    ch = body[k]
-                    if ch == "\\" and k + 1 < len(body):
-                        buf.append(body[k : k + 2])
-                        k += 2
-                        continue
-                    if ch == "{":
-                        inner += 1
-                    elif ch == "}":
-                        inner -= 1
-                    if ch == "," and inner == 0:
-                        parts.append("".join(buf))
-                        buf = []
-                    else:
-                        buf.append(ch)
-                    k += 1
-                parts.append("".join(buf))
+                parts = _split_top_level_commas(glob_pattern[i + 1 : close_brace_idx])
                 out.append(
                     "(?:"
                     + "|".join(spark_glob_to_snowflake_regex(p) for p in parts)
@@ -776,6 +965,12 @@ def _non_recursive_read_is_explicit_file(
     read_path: str, classification: PathClassification
 ) -> bool:
     """True when ``read_path`` names one file, not a directory to list."""
+    # A glob is not one file. The dotted-basename heuristic below would
+    # otherwise treat ``.../log.txt`` as an explicit file even though
+    # ``classification.basename`` is None (SNOW-4222758). Off by default:
+    # snowpark.connect.text.sparkGlobSemantics false keeps the heuristic.
+    if classification.kind == "glob" and is_text_spark_glob_semantics_enabled():
+        return False
     raw = read_path.strip("'\"")
     stripped = raw.rstrip("/")
     if raw.endswith("/"):
@@ -797,18 +992,71 @@ def _non_recursive_read_is_explicit_file(
     return bool(parts) and parts[-1] == basename and len(parts) >= 3
 
 
+def is_spark_data_file_basename(path: str) -> bool:
+    """True when Spark would read the file at ``path`` as data (SNOW-4222758).
+
+    Combines ``HadoopFSUtils.shouldFilterOutPathName`` and
+    ``PartitioningAwareFileIndex.isDataPath``: names starting with ``.``,
+    names starting with ``_`` unless they contain ``=``, and names ending in
+    ``._COPYING_`` are not data. ``_metadata`` and ``_common_metadata``
+    survive the first check but fail the second.
+    """
+    base = os.path.basename(path)
+    return not (
+        (base.startswith("_") and "=" not in base)
+        or base.startswith(".")
+        or base.endswith("._COPYING_")
+    )
+
+
 def filter_list_paths_for_non_recursive_read(
     file_paths: list[str],
     read_path: str,
+    *,
+    stage_rel_scan: str | None = None,
 ) -> list[str]:
     """Keep LIST paths allowed under Spark ``recursiveFileLookup=false`` (SNOW-3566246).
 
     Mirrors :func:`compute_non_recursive_pattern`: depth-0 data files plus
     arbitrary-depth Hive ``key=value/`` segments, while rejecting hidden
     basenames and non-partition subtrees such as ``sub/nested/file.txt``.
+
+    Glob paths are not depth-filtered. The glob regex is matched against
+    the listed files, and ``compute_non_recursive_pattern`` likewise emits
+    no depth-0 branch for ``kind="glob"``. Matches Spark would not read as
+    data are dropped (:func:`is_spark_data_file_basename`). Treating a
+    dotted final component (``log.txt``) as an explicit file asserts,
+    because a glob's basename is None (SNOW-4222758).
+
+    Known limitation: LIST returns files only, so a glob match that is a
+    directory (``driver/*`` matching ``driver/nested/``) is dropped. Spark
+    reads that directory's files one level deep.
+
+    With snowpark.connect.text.sparkGlobSemantics off (the default), a glob
+    takes the explicit-file and directory rules below, as before SNOW-4222758.
     """
     stripped = read_path.strip("'\"").rstrip("/")
     classification = classify_source_path(stripped)
+    if (
+        classification.kind == "glob"
+        and classification.regex is not None
+        and is_text_spark_glob_semantics_enabled()
+    ):
+        # ``read_text`` already parsed this prefix for the same glob. Direct
+        # callers that omit it still parse once; an empty listing never does.
+        if stage_rel_scan is None and file_paths:
+            stage_rel_scan = glob_stage_relative_scan_prefix(stripped)
+        return [
+            fp
+            for fp in file_paths
+            if listed_path_matches_glob_suffix(
+                fp,
+                stripped,
+                classification.regex,
+                stage_rel_scan=stage_rel_scan,
+            )
+            and is_spark_data_file_basename(fp)
+        ]
     if _non_recursive_read_is_explicit_file(read_path, classification):
         basename = classification.basename
         assert basename is not None

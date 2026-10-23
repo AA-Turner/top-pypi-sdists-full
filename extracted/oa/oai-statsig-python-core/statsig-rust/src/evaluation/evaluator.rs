@@ -15,7 +15,8 @@ use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluation_data::{InternedStrRef, RuleRef, SpecAccess, SpecView};
 use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluator_context::{
-    EvaluatorContext, IdListResolution, NestedExperimentExposure,
+    EvaluatorContext, IdListResolution, NestedExperimentExposure, NestedGateMemoEntry,
+    NestedGateSamplingMetadata,
 };
 use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueRef};
 use crate::evaluation::get_unit_id::get_unit_id;
@@ -764,12 +765,19 @@ fn evaluate_nested_gate<'a>(
     };
 
     match ctx.nested_gate_memo.get(gate_name) {
-        Some((previous_bool, previous_rule_id, previous_secondary_exposures)) => {
-            ctx.result.bool_value = *previous_bool;
-            ctx.result.rule_id = previous_rule_id.clone();
+        Some(previous) => {
+            ctx.result.bool_value = previous.bool_value;
+            ctx.result.rule_id = previous.rule_id.clone();
             ctx.result
                 .secondary_exposures
-                .extend_from_slice(previous_secondary_exposures);
+                .extend_from_slice(&previous.secondary_exposures);
+            ctx.result.has_seen_analytical_gates = merge_analytical_gate_flags(
+                ctx.result.has_seen_analytical_gates,
+                previous.has_seen_analytical_gates,
+            );
+            if let Some(metadata) = previous.sampling_metadata {
+                ctx.set_sampling_metadata(metadata.sampling_rate, metadata.forward_all_exposures);
+            }
         }
         None => {
             let parent_nested_count = ctx.nested_count;
@@ -779,9 +787,14 @@ fn evaluate_nested_gate<'a>(
             }
 
             let parent_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
+            let parent_analytical_gates = ctx.result.has_seen_analytical_gates.take();
+            let sampling_metadata_revision = ctx.sampling_metadata_revision;
 
             let recognition = Evaluator::evaluate_with_name(ctx, gate_name, &SpecType::Gate);
             ctx.nested_count = parent_nested_count;
+            let nested_analytical_gates = ctx.result.has_seen_analytical_gates;
+            ctx.result.has_seen_analytical_gates =
+                merge_analytical_gate_flags(parent_analytical_gates, nested_analytical_gates);
 
             let recognition = match recognition {
                 Ok(recognition) => recognition,
@@ -804,13 +817,23 @@ fn evaluate_nested_gate<'a>(
             }
 
             if !gate_name.as_str().is_empty() {
+                // Overrides and missing gates may leave the caller's sampling fields
+                // untouched. Only replay metadata initialized by this evaluation.
+                let sampling_metadata = (ctx.sampling_metadata_revision
+                    != sampling_metadata_revision)
+                    .then_some(NestedGateSamplingMetadata {
+                        sampling_rate: ctx.result.sampling_rate,
+                        forward_all_exposures: ctx.result.forward_all_exposures,
+                    });
                 ctx.nested_gate_memo.insert(
                     gate_name.clone(),
-                    (
-                        ctx.result.bool_value,
-                        ctx.result.rule_id.clone(),
-                        nested_exposures.clone(),
-                    ),
+                    NestedGateMemoEntry {
+                        bool_value: ctx.result.bool_value,
+                        rule_id: ctx.result.rule_id.clone(),
+                        secondary_exposures: nested_exposures.clone(),
+                        sampling_metadata,
+                        has_seen_analytical_gates: nested_analytical_gates,
+                    },
                 );
             }
 
@@ -856,6 +879,13 @@ fn evaluate_nested_gate<'a>(
         ctx.result.bool_value = !ctx.result.bool_value;
     }
     Ok(())
+}
+
+fn merge_analytical_gate_flags(parent: Option<bool>, nested: Option<bool>) -> Option<bool> {
+    match (parent, nested) {
+        (Some(true), _) | (_, Some(true)) => Some(true),
+        _ => nested.or(parent),
+    }
 }
 
 fn evaluate_config_delegate<'a>(

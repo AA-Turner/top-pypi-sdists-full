@@ -4,6 +4,9 @@ from datetime import (
     timedelta,
     timezone,
 )
+import importlib.resources
+import io
+from pathlib import Path
 import struct
 import subprocess
 import sys
@@ -22,15 +25,9 @@ from pandas.compat import (
     IS64,
     is_platform_windows,
 )
+from pandas.errors import OutOfBoundsDatetime
 
 import pandas as pd
-from pandas import (
-    Index,
-    Timedelta,
-    Timestamp,
-    date_range,
-    to_datetime,
-)
 import pandas._testing as tm
 
 
@@ -74,7 +71,7 @@ def test_cache_keys_are_distinct_for_pytz_vs_dateutil():
 
 def test_tzlocal_repr():
     # see gh-13583
-    ts = Timestamp("2011-01-01", tz=dateutil.tz.tzlocal())
+    ts = pd.Timestamp("2011-01-01", tz=dateutil.tz.tzlocal())
     assert ts.tz == dateutil.tz.tzlocal()
     assert "tz='tzlocal()')" in repr(ts)
 
@@ -89,12 +86,12 @@ def test_tzlocal_offset():
     # see gh-13583
     #
     # Get offset using normal datetime for test.
-    ts = Timestamp("2011-01-01", tz=dateutil.tz.tzlocal()).as_unit("s")
+    ts = pd.Timestamp("2011-01-01", tz=dateutil.tz.tzlocal()).as_unit("s")
 
     offset = dateutil.tz.tzlocal().utcoffset(datetime(2011, 1, 1))
     offset = offset.total_seconds()
 
-    assert ts._value + offset == Timestamp("2011-01-01").as_unit("s")._value
+    assert ts._value + offset == pd.Timestamp("2011-01-01").as_unit("s")._value
 
 
 def test_tzlocal_is_not_utc():
@@ -151,7 +148,7 @@ def test_infer_tz_compat(infer_setup):
 
 def test_infer_tz_utc_localize(infer_setup):
     _, _, start, end, start_naive, end_naive = infer_setup
-    utc = timezone.utc
+    utc = UTC
 
     start = start_naive.astimezone(utc)
     end = end_naive.astimezone(utc)
@@ -164,7 +161,7 @@ def test_infer_tz_mismatch(infer_setup, ordered):
     eastern, _, _, _, start_naive, end_naive = infer_setup
     msg = "Inputs must both have the same timezone"
 
-    utc = timezone.utc
+    utc = UTC
     start = start_naive.astimezone(utc)
     end = conversion.localize_pydatetime(end_naive, eastern)
 
@@ -183,7 +180,7 @@ def test_maybe_get_tz_invalid_types():
 
     msg = "<class 'pandas.Timestamp'>"
     with pytest.raises(TypeError, match=msg):
-        timezones.maybe_get_tz(Timestamp("2021-01-01", tz="UTC"))
+        timezones.maybe_get_tz(pd.Timestamp("2021-01-01", tz="UTC"))
 
 
 @pytest.mark.parametrize("tz_name", ["UTC", "GMT", "Etc/GMT+1", "Etc/GMT-5"])
@@ -205,7 +202,7 @@ def test_maybe_get_tz_offset_only():
     # see gh-36004
 
     # timezone.utc
-    tz = timezones.maybe_get_tz(timezone.utc)
+    tz = timezones.maybe_get_tz(UTC)
     assert tz == timezone(timedelta(hours=0, minutes=0))
 
     # without UTC+- prefix
@@ -227,12 +224,12 @@ def test_zoneinfo_utc_to_local_post_2037():
     # GH#64363 - verify that ZoneInfo DST transitions after 2037
     # (generated from POSIX TZ string rules) produce correct local times.
     tz = zoneinfo.ZoneInfo("US/Pacific")
-    utc_times = date_range("2040-07-01", periods=24, freq="h", tz="UTC")
+    utc_times = pd.date_range("2040-07-01", periods=24, freq="h", tz="UTC")
     local = utc_times.tz_convert(tz)
 
     expected_hours = np.array(
         [
-            datetime(2040, 7, 1, hour, tzinfo=timezone.utc).astimezone(tz).hour
+            datetime(2040, 7, 1, hour, tzinfo=UTC).astimezone(tz).hour
             for hour in range(24)
         ],
         dtype=np.int32,
@@ -256,22 +253,57 @@ def test_zoneinfo_utc_to_local_post_2100(tz_name):
         "2200-01-01", "2200-07-01",
     ]
     # fmt: on
-    utc_times = to_datetime(data, utc=True)
+    utc_times = pd.to_datetime(data, utc=True)
     local = utc_times.tz_convert(tz)
 
     expected = [
-        datetime.fromisoformat(date).replace(tzinfo=timezone.utc).astimezone(tz)
-        for date in data
+        datetime.fromisoformat(date).replace(tzinfo=UTC).astimezone(tz) for date in data
     ]
 
     tm.assert_numpy_array_equal(local.to_pydatetime(), np.array(expected))
     assert [ts.utcoffset() for ts in local] == [dt.utcoffset() for dt in expected]
 
 
+@pytest.mark.parametrize("tz_name", ["Africa/Casablanca", "Africa/El_Aaiun"])
+def test_zoneinfo_negative_dst_distant_dates(tz_name):
+    # GH#65712, GH#65733 - zones whose Ramadan-based rule keeps the DST offset
+    # in effect for nearly the whole year have per-year (start, end) intervals
+    # that overlap across calendar years, so flattening them into a sorted
+    # transition list yields wrong offsets. Depending on the tzdata build the
+    # POSIX rule may or may not resemble ordinary DST, so the flattened
+    # transitions are verified against zoneinfo directly (rather than inferring
+    # validity from the offsets) and, if any disagree, dropped so that dates in
+    # the window between the last cached transition and 2100 fall back to
+    # zoneinfo's Python API rather than the unreliable fast path.
+    tz = zoneinfo.ZoneInfo(tz_name)
+    # fmt: off
+    data = [
+        "2085-01-01", "2085-07-01",  # cached/historical range
+        "2088-01-01", "2088-07-01",  # start of the previously-broken window
+        "2099-01-01", "2099-07-01",  # end of the previously-broken window
+        "2100-01-01", "2100-07-01",  # beyond the cached range (already fell back)
+    ]
+    # fmt: on
+    utc_times = pd.to_datetime(data, utc=True)
+
+    expected = [
+        datetime.fromisoformat(date).replace(tzinfo=UTC).astimezone(tz) for date in data
+    ]
+
+    # UTC -> local matches zoneinfo and is internally consistent
+    local = utc_times.tz_convert(tz)
+    tm.assert_numpy_array_equal(local.to_pydatetime(), np.array(expected))
+    assert [ts.utcoffset() for ts in local] == [dt.utcoffset() for dt in expected]
+
+    # local -> UTC round-trips back to the original UTC values
+    roundtrip = local.tz_localize(None).tz_localize(tz).tz_convert("UTC")
+    tm.assert_numpy_array_equal(roundtrip.to_pydatetime(), utc_times.to_pydatetime())
+
+
 def test_zoneinfo_utc_to_local_far_future_seconds_resolution():
     # GH#65712 - for dates beyond cached transition data, we should fall back
     # to zoneinfo's API and preserve correct DST offsets.
-    utc_times = to_datetime(
+    utc_times = pd.to_datetime(
         np.array(["3000-01-01T00:00:00", "3000-07-01T00:00:00"], dtype="M8[s]"),
         utc=True,
     )
@@ -279,8 +311,8 @@ def test_zoneinfo_utc_to_local_far_future_seconds_resolution():
 
     tz = zoneinfo.ZoneInfo("Europe/Brussels")
     expected = [
-        datetime(3000, 1, 1, tzinfo=timezone.utc).astimezone(tz),
-        datetime(3000, 7, 1, tzinfo=timezone.utc).astimezone(tz),
+        datetime(3000, 1, 1, tzinfo=UTC).astimezone(tz),
+        datetime(3000, 7, 1, tzinfo=UTC).astimezone(tz),
     ]
 
     assert local.dtype == "datetime64[s, Europe/Brussels]"
@@ -290,7 +322,7 @@ def test_zoneinfo_utc_to_local_far_future_seconds_resolution():
 def test_zoneinfo_local_to_utc_far_future_seconds_resolution():
     # GH#65712 - localize should also preserve future DST rules when converting
     # from local wall times to UTC beyond cached transition data.
-    local_times = to_datetime(
+    local_times = pd.to_datetime(
         np.array(["3000-01-01T00:00:00", "3000-07-01T00:00:00"], dtype="M8[s]")
     )
     localized = local_times.tz_localize("Europe/Brussels")
@@ -298,8 +330,8 @@ def test_zoneinfo_local_to_utc_far_future_seconds_resolution():
 
     tz = zoneinfo.ZoneInfo("Europe/Brussels")
     expected_utc = [
-        datetime(3000, 1, 1, tzinfo=tz).astimezone(timezone.utc),
-        datetime(3000, 7, 1, tzinfo=tz).astimezone(timezone.utc),
+        datetime(3000, 1, 1, tzinfo=tz).astimezone(UTC),
+        datetime(3000, 7, 1, tzinfo=tz).astimezone(UTC),
     ]
 
     assert result_utc.dtype == "datetime64[s, UTC]"
@@ -322,12 +354,12 @@ def test_zoneinfo_boundary_at_last_cached_transition(tz_name):
     from zoneinfo._zoneinfo import ZoneInfo
 
     trans = datetime.fromtimestamp(max(ZoneInfo(tz_name)._tz_after.transitions(2099)))
-    start = (trans - timedelta(days=1)).replace(tzinfo=timezone.utc)
+    start = (trans - timedelta(days=1)).replace(tzinfo=UTC)
     expected_utc = [(start + timedelta(minutes=30 * i)) for i in range(24 * 2 * 2)]
     expected_tz = [ts.astimezone(tz) for ts in expected_utc]
     expected_str = [str(ts) for ts in expected_tz]
 
-    local = to_datetime([v[:-6] for v in expected_str])
+    local = pd.to_datetime([v[:-6] for v in expected_str])
 
     # ambiguous keyword only needed for timezones of northern hemisphere, ignored for
     # the others
@@ -338,7 +370,7 @@ def test_zoneinfo_boundary_at_last_cached_transition(tz_name):
         result.tz_convert("UTC").to_pydatetime(), np.array(expected_utc, dtype="O")
     )
     # verify UTC to local by converting to pydatetime/str repr of underlying UTC value
-    tm.assert_equal(result.astype(str), Index(expected_str))
+    tm.assert_equal(result.astype(str), pd.Index(expected_str))
     tm.assert_equal(result.to_pydatetime(), np.array(expected_tz, dtype="O"))
 
 
@@ -356,7 +388,7 @@ def test_zoneinfo_nonexistent_at_last_cached_transition(tz_name):
     start, end = ZoneInfo(tz_name)._tz_after.transitions(2099)
     if start > end:
         # to-dst nonexistent transition at the end of the year
-        ts = Timestamp(start, unit="s") + Timedelta(minutes=30)
+        ts = pd.Timestamp(start, unit="s") + pd.Timedelta(minutes=30)
 
         with pytest.raises(ValueError, match="nonexistent time"):
             ts.tz_localize(tz_name)
@@ -376,7 +408,7 @@ def test_zoneinfo_nonexistent_at_last_cached_transition(tz_name):
 
     else:
         # to-std ambiguous transition at the end of the year
-        ts = Timestamp(end, unit="s") - Timedelta(minutes=30)
+        ts = pd.Timestamp(end, unit="s") - pd.Timedelta(minutes=30)
 
         with pytest.raises(ValueError, match="Cannot infer dst time"):
             ts.tz_localize(tz_name)
@@ -400,23 +432,23 @@ def test_zoneinfo_utc_to_local_pre_first_transition(key):
     # offset must be utcoff[0] from the TZ data (matching CPython's C
     # implementation), NOT the first non-DST transition offset.
     tz = zoneinfo.ZoneInfo(key)
-    ts = Timestamp("1850-01-01", tz="UTC").tz_convert(tz)
+    ts = pd.Timestamp("1850-01-01", tz="UTC").tz_convert(tz)
 
-    expected = datetime(1850, 1, 1, tzinfo=timezone.utc).astimezone(tz)
+    expected = datetime(1850, 1, 1, tzinfo=UTC).astimezone(tz)
     assert ts.minute == expected.minute
 
 
 def test_zoneinfo_conversion_outside_range_stdlib():
     # GH#65733 - verify that datetimes outside the range of Python's standard
     # library (year > 9999) raises a proper error message
-    ts = Timestamp(np.datetime64("10000-01-01T09:00:00", "us"))
+    ts = pd.Timestamp(np.datetime64("10000-01-01T09:00:00", "us"))
 
     msg = "Localizing Timestamps which are outside the range of Python"
     with pytest.raises(NotImplementedError, match=msg):
         ts.tz_localize("Europe/Brussels")
 
     with pytest.raises(NotImplementedError, match=msg):
-        ts = Timestamp(ts._value, unit="us", tz="Europe/Brussels")
+        ts = pd.Timestamp(ts._value, unit="us", tz="Europe/Brussels")
 
 
 def test_normalize_pytz_timezone():
@@ -425,13 +457,174 @@ def test_normalize_pytz_timezone():
     from pandas.io._util import _normalize_pytz_timezone
 
     for tz, expected in [
-        (pytz.UTC, timezone.utc),
+        (pytz.UTC, UTC),
         (pytz.FixedOffset(90), timezone(timedelta(minutes=90))),
         (pytz.timezone("America/New_York"), zoneinfo.ZoneInfo("America/New_York")),
         (pytz.timezone("Etc/GMT+1"), zoneinfo.ZoneInfo("Etc/GMT+1")),
     ]:
         result = _normalize_pytz_timezone(tz)
         assert result == expected
+
+
+def _tzdata_bytes(key):
+    """
+    Read the installed tzdata file for the given IANA key.
+    """
+    for base in zoneinfo.TZPATH:
+        path = Path(base).joinpath(*key.split("/"))
+        if path.exists():
+            return path.read_bytes()
+
+    pytest.importorskip("tzdata")
+    package = ".".join(["tzdata", "zoneinfo", *key.split("/")[:-1]])
+    resource = importlib.resources.files(package).joinpath(key.split("/")[-1])
+    return resource.read_bytes()
+
+
+def _zoneinfo_from_file(key, new_key=None):
+    """
+    Build a ZoneInfo from the tzdata file for `key`, labelled with `new_key`.
+
+    `new_key` defaults to None, i.e. ``ZoneInfo.key is None``.
+    """
+    return zoneinfo.ZoneInfo.from_file(io.BytesIO(_tzdata_bytes(key)), key=new_key)
+
+
+@pytest.mark.parametrize(
+    "data_key, new_key",
+    [
+        ("Europe/Amsterdam", None),
+        ("US/Eastern", None),
+        ("UTC", None),
+        ("US/Eastern", "my/custom"),
+        ("US/Eastern", 5),
+        # a key naming an installed zone with different data, e.g. when pinning
+        #  a tzdb release; the installed rules must not be used
+        ("Asia/Tokyo", "US/Eastern"),
+        ("US/Eastern", "Etc/GMT+5"),
+    ],
+)
+def test_zoneinfo_from_file(data_key, new_key):
+    # GH#64379 a from_file key need not exist, name an installed zone, or match
+    #  the data, so the cached transition fast path cannot rebuild from it.
+    expected_tz = zoneinfo.ZoneInfo(data_key)
+    tz = _zoneinfo_from_file(data_key, new_key=new_key)
+
+    naive = pd.date_range("2025-01-01", "2025-12-31", freq="7h")
+    kwargs = {"ambiguous": True, "nonexistent": "shift_forward"}
+    tm.assert_numpy_array_equal(
+        naive.tz_localize(tz, **kwargs).tz_convert("UTC").asi8,
+        naive.tz_localize(expected_tz, **kwargs).tz_convert("UTC").asi8,
+    )
+
+    utc = pd.date_range("2025-01-01", "2025-12-31", freq="7h", tz="UTC")
+    assert [ts.utcoffset() for ts in utc.tz_convert(tz)] == [
+        ts.utcoffset() for ts in utc.tz_convert(expected_tz)
+    ]
+
+    ts = pd.Timestamp("2025-06-15 12:00")
+    assert ts.tz_localize(tz).utcoffset() == ts.tz_localize(expected_tz).utcoffset()
+
+    # every comparison above runs both sides through pandas, so it cannot see a
+    #  wrong answer the two paths share; the stdlib is an outside oracle.
+    wall = datetime(2025, 6, 15, 12)
+    assert ts.tz_localize(tz).timestamp() == wall.replace(tzinfo=tz).timestamp()
+
+    result = pd.date_range("2025-06-15", periods=3, freq="h", tz=tz)
+    assert result.tz is tz
+    expected = pd.date_range("2025-06-15", periods=3, freq="h", tz=expected_tz)
+    tm.assert_numpy_array_equal(
+        result.tz_convert("UTC").asi8, expected.tz_convert("UTC").asi8
+    )
+
+
+@pytest.mark.parametrize(
+    "start, ambiguous, nonexistent",
+    [
+        ("2025-11-02", True, "raise"),
+        ("2025-11-02", False, "raise"),
+        ("2025-11-02", "NaT", "raise"),
+        ("2025-03-09", "raise", "shift_forward"),
+        ("2025-03-09", "raise", "shift_backward"),
+        ("2025-03-09", "raise", "NaT"),
+        ("2025-03-09", "raise", pd.Timedelta("1h")),
+    ],
+)
+@pytest.mark.parametrize("unit", ["s", "ns"])
+def test_zoneinfo_from_file_without_key_dst_transition(
+    start, ambiguous, nonexistent, unit
+):
+    # GH#64379 the keyless fallback must handle ambiguous/nonexistent wall
+    #  times the same way the keyed fast path does.
+    keyed = zoneinfo.ZoneInfo("US/Eastern")
+    keyless = _zoneinfo_from_file("US/Eastern")
+
+    naive = pd.date_range(start, periods=48, freq="h").as_unit(unit)
+    expected = naive.tz_localize(keyed, ambiguous=ambiguous, nonexistent=nonexistent)
+    result = naive.tz_localize(keyless, ambiguous=ambiguous, nonexistent=nonexistent)
+    tm.assert_numpy_array_equal(
+        result.tz_convert("UTC").asi8, expected.tz_convert("UTC").asi8
+    )
+
+
+def test_zoneinfo_from_file_without_key_ambiguous_infer():
+    # GH#64379 ambiguous="infer" needs the repeated-hour detection, which runs
+    #  off the same code path as the keyed fast path.
+    keyed = zoneinfo.ZoneInfo("US/Eastern")
+    keyless = _zoneinfo_from_file("US/Eastern")
+
+    times = pd.to_datetime(
+        [
+            "2025-11-02 00:00",
+            "2025-11-02 01:00",
+            "2025-11-02 01:00",
+            "2025-11-02 02:00",
+            "2025-11-02 03:00",
+        ]
+    )
+    expected = times.tz_localize(keyed, ambiguous="infer")
+    result = times.tz_localize(keyless, ambiguous="infer")
+    tm.assert_numpy_array_equal(
+        result.tz_convert("UTC").asi8, expected.tz_convert("UTC").asi8
+    )
+
+
+def test_zoneinfo_fast_path_detection():
+    # GH#64379 is_fixed_offset needs the pure-python twin, so it shows which
+    #  ZoneInfo objects keep the cached transition fast path.
+    assert timezones.is_fixed_offset(zoneinfo.ZoneInfo("Etc/GMT+5"))
+    assert timezones.is_fixed_offset(zoneinfo.ZoneInfo.no_cache("Etc/GMT+5"))
+    assert not timezones.is_fixed_offset(_zoneinfo_from_file("Etc/GMT+5"))
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{}, {"nonexistent": "NaT"}, {"nonexistent": "shift_forward"}]
+)
+def test_zoneinfo_from_file_shift_onto_nat_sentinel(kwargs):
+    # GH#64379 a UTC instant landing on the NaT sentinel is an underflow, not
+    #  a nonexistent time; see GH#66550 for the keyed-zone version.
+    lmt = (9 * 3600 + 18 * 60 + 59) * 10**9  # Asia/Tokyo's pre-1888 LMT offset
+    dti = pd.DatetimeIndex([np.datetime64(-(2**63) + lmt, "ns")])
+    with pytest.raises(OutOfBoundsDatetime, match="underflows past"):
+        dti.tz_localize(_zoneinfo_from_file("Asia/Tokyo"), **kwargs)
+
+
+def test_zoneinfo_from_file_timedelta_shift_onto_nat_sentinel():
+    # GH#64379 a no-twin zone has no transition table, so a nonexistent
+    #  shift that lands on the sentinel must stay on the tzinfo-API arm; the
+    #  cached arm would bisect through a NULL pointer.
+    tz = _zoneinfo_from_file("US/Eastern")
+    val = pd.Timestamp("1918-03-31 02:30").value  # a US/Eastern gap
+    # two values: at length one DatetimeIndex boxes the result and raises
+    #  before we get to see what the shift returned
+    dti = pd.DatetimeIndex(np.array([val, val], dtype="i8").view("M8[ns]"))
+    result = dti.tz_localize(tz, nonexistent=pd.Timedelta(-(2**63) - val))
+
+    # the sentinel is 1677-09-21 00:12:43.145224192 as a wall time, before
+    #  US/Eastern's first transition, so the stdlib gives it the LMT offset
+    offset = datetime(1677, 9, 21, 0, 12, 43, 145224).replace(tzinfo=tz).utcoffset()
+    expected = -(2**63) - int(offset.total_seconds()) * 10**9
+    assert result.asi8.tolist() == [expected, expected]
 
 
 def _write_big_bang_tzif(path):
@@ -482,7 +675,7 @@ def test_zoneinfo_big_bang_transition(tmp_path):
     try:
         tz = zoneinfo.ZoneInfo("Test/BigBang")
         data = ["1850-01-01", "1900-01-01", "1918-07-01", "1920-01-01"]
-        utc_times = to_datetime(data, utc=True)
+        utc_times = pd.to_datetime(data, utc=True)
         local = utc_times.tz_convert(tz)
 
         expected = [
@@ -502,7 +695,7 @@ def test_zoneinfo_posix_rule_transitions_cached():
     # GH#67826 - the POSIX-rule transitions must survive validation on 32-bit,
     # where the platform time_t overflows past 2038. A no-op on 64-bit.
     tz = zoneinfo.ZoneInfo("US/Eastern")
-    Timestamp("2020-01-01", tz=tz)
+    pd.Timestamp("2020-01-01", tz=tz)
 
     trans = timezones.dst_cache["zoneinfo/US/Eastern"][0]
-    assert trans[-1] > Timestamp("2038-01-01").value
+    assert trans[-1] > pd.Timestamp("2038-01-01").value

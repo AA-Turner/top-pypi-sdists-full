@@ -29,5 +29,5 @@ class AgentResponse(BaseModel):
   benchmark_count: int
   """Number of benchmark snapshots owned by the agent."""
 
-  model_slug: str | None
-  """The agent's stable serving model slug."""
+  production_model_slug: str | None
+  """The agent production model slug; independent of its display name."""

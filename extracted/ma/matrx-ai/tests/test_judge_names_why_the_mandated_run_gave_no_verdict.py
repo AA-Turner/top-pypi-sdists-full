@@ -38,6 +38,11 @@ class _Inputs(BaseModel):
 class _JudgeAgent:
     Inputs = _Inputs
     mandate_key = "tests.judge"
+    variable_map: dict[str, str] = {}
+
+    @classmethod
+    def prepare_variables(cls, inputs: Any) -> dict[str, Any]:
+        return inputs.model_dump()
 
 
 _CONTRACT = JudgeContract(
@@ -53,17 +58,24 @@ _CONTRACT = JudgeContract(
 
 
 async def _judge_with(result: AgentRunResult) -> str:
+    import pytest as _pytest
+
+    from matrx_ai.testing.holders import install_named_runner
+
     async def _runner(_cls: Any, **_kw: Any) -> AgentRunResult:
         return result
 
-    judge = Judge(_CONTRACT, agent_cls=_JudgeAgent, mandate_runner=_runner)  # type: ignore[arg-type]
-    with pytest.raises(JudgeError) as caught:
-        await judge._run_mandated(
-            JudgeSubject(label="candidate", content="a"),
-            JudgeSubject(label="live", content="b"),
-            context=None,
-            user_id="u",
-        )
+    # The judge's mandated path runs through the ONE runner (runner plan 25 step 5).
+    with _pytest.MonkeyPatch.context() as monkeypatch:
+        install_named_runner(monkeypatch, _runner)
+        judge = Judge(_CONTRACT, agent_cls=_JudgeAgent)  # type: ignore[arg-type]
+        with pytest.raises(JudgeError) as caught:
+            await judge._run_holder_agent(
+                JudgeSubject(label="candidate", content="a"),
+                JudgeSubject(label="live", content="b"),
+                context=None,
+                user_id=None,
+            )
     return str(caught.value)
 
 

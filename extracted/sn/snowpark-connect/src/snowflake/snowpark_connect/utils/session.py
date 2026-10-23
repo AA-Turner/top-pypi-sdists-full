@@ -30,6 +30,7 @@ from snowflake.snowpark_connect.utils.describe_query_cache import (
 from snowflake.snowpark_connect.utils.internal_query import collect_without_telemetry
 from snowflake.snowpark_connect.utils.scos_query_tag import (
     instrument_session_for_scos_query_tag,
+    scos_internal_query_tag,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import (
@@ -63,12 +64,26 @@ logging.getLogger("snowflake.snowpark").addFilter(_filter_experimental_warnings)
 
 # Sentinel returned by ``_get_connector_current_database`` when the
 # connector chain is reachable but ``connection.database`` is currently
-# ``None`` (transient state during a reconnect, session reset, …). This is
-# distinct from ``None`` (the chain itself is unreachable, e.g. a mocked
-# session or a future connector refactor that removed the private chain).
-# Keeping the two cases distinguishable lets the cache layer decide whether
-# a Snowpark round-trip is justified.
+# ``None``. In SCOS this means exactly one thing: the attribute was never
+# seeded, because nothing fed this connection a ``finalDatabaseName`` (the
+# stored-procedure case — see ``_seed_connector_session_context``). It cannot
+# mean "cleared by a reconnect": every authenticator SCOS uses stubs
+# ``reauthenticate()`` to ``{"success": False}``, so the login handler that
+# would null it is unreachable. Revisit if SCOS ever adopts the browser /
+# id-token / OAuth code-grant authenticators, which do implement it.
+#
+# This is distinct from ``None`` (the chain itself is unreachable, e.g. a
+# mocked session or a future connector refactor that removed the private
+# chain), which is the one case where a Snowpark round-trip is justified.
 _CONNECTOR_DB_PRESENT_BUT_UNSET = ""
+
+# Attribute holding a database resolved without the connector's help: ``None``
+# when the seed found no current database to assert, or whatever
+# ``_resolve_database_from_snowpark`` last returned. Read only while the
+# connector attribute is empty, so in the overwhelmingly common case (the seed
+# issued a ``USE``) it is never consulted at all. Absent means "no answer yet".
+_CACHED_DB_ATTR = "_sas_cached_db"
+_UNSET = object()
 
 
 def _get_connector_current_database(
@@ -77,10 +92,12 @@ def _get_connector_current_database(
     """Best-effort, no-round-trip read of the Snowflake connector's view of
     the current database, normalized to match ``Session.get_current_database()``.
 
-    The Snowflake connector updates ``connection.database`` synchronously
-    after any ``USE DATABASE`` statement, so this attribute is the cheapest
-    source of truth for "has the session moved to a different database
-    since we last cached it?".
+    The connector refreshes ``connection.database`` from the
+    ``finalDatabaseName`` of every query response (``connection.py:1917``), so
+    once it holds a value it tracks the session for free — through explicit
+    ``USE DATABASE`` and through implicit moves such as ``CREATE DATABASE``.
+    That makes it the authoritative source of truth, not merely a hint,
+    provided it has been seeded; see ``_seed_connector_session_context``.
 
     Two normalizations vs the raw attribute matter:
 
@@ -100,7 +117,7 @@ def _get_connector_current_database(
         * The quoted current database name when the chain reads cleanly.
         * ``_CONNECTOR_DB_PRESENT_BUT_UNSET`` (the empty string) when the
           chain is reachable but the database attribute is itself ``None``
-          / empty (transient reconnect-style state).
+          / empty (never seeded — the stored-procedure case).
         * ``None`` when the chain itself is unreachable (mocked session,
           alt session impl, connector refactor, …).
     """
@@ -125,101 +142,148 @@ def _get_connector_current_database(
     return quote_name_without_upper_casing(raw)
 
 
-def _get_session_cached_database(session: snowpark.Session) -> str | None:
-    """Return the session's current database, cached on the session itself,
-    with drift detection against the Snowflake connector.
+def _seed_connector_session_context(session: snowpark.Session) -> None:
+    """Make the connector's ``database`` / ``schema`` attributes usable for the
+    life of the session, so reading them never costs a Snowflake round-trip.
 
-    `Session.get_current_database()` resolves to the connector's `database`
-    attribute when it's set, but falls back to `SELECT CURRENT_DATABASE()`
-    (a Snowflake round-trip) if that attribute is transiently `None`. With
-    ~60+ session-fetch call sites firing per RPC, even a low-probability
-    round-trip on the hot path would dominate latency.
+    A normal client gets these populated from its login response. A SCOS server
+    hosted in a stored procedure (code bundles, ``snowpark-submit`` SPROC
+    workloads, TCM) does not: nothing feeds that connection a
+    ``finalDatabaseName``, so the attributes stay ``None`` for the whole run.
+    ``Session.get_current_database()`` is then no longer a free attribute read
+    — it silently degrades to ``SELECT CURRENT_DATABASE()``. SCOS calls it (and
+    ``get_current_schema()``) from ~20 call sites, roughly seven times per
+    Spark Connect request, which measured as 73 metadata queries and 8.1 s of a
+    17.5 s code-bundle run (SNOW-4231647). Full analysis in
+    ``docs/perf-rca/sproc-current-database-round-trips.md``.
 
-    The cache (`session._sas_cached_db`) is invalidated when the connector's
-    own view of the current database has moved past it. This handles the
-    case where the user switches the underlying Snowflake database after
-    session attach via:
+    Re-asserting the context with ``USE SCHEMA`` fixes it at the root: the
+    statement is a semantic no-op, but unlike ``SELECT`` it comes back with a
+    ``finalDatabaseName`` / ``finalSchemaName`` that the connector latches onto.
+    From that point the attributes track the session on their own, including
+    implicit moves such as ``CREATE DATABASE``.
 
-    * SCOS passthrough SQL — ``spark.sql("USE DATABASE x")`` with
-      ``snowpark.connect.sql.passthrough=true``
-    * Direct Snowpark — ``snowpark_session.sql("USE DATABASE x")`` against
-      the underlying session
-    * Snowpark helper APIs — ``session.use_database(...)`` /
-      ``session.use_schema("x.y")``
+    ``USE SCHEMA`` rather than ``USE DATABASE`` because ``USE DATABASE`` also
+    moves the current schema to ``PUBLIC``, which would relocate a session
+    sitting elsewhere.
 
-    Without drift detection, `_sas_cached_db` would stay stale after any of
-    those and `_ensure_cld_context_for_session` would keep emitting the
-    pre-switch CLD identifier-transform mode until the session was
-    recreated — silently breaking identifier casing on CLDs (or the
-    reverse, leaking CLD case-preservation rules into a non-CLD database).
+    Costs two queries, once, and only for sessions whose attribute is unset;
+    for every normal client this is a single attribute read and nothing else.
 
-    Three connector-view states are handled distinctly:
-
-    * Quoted name (e.g. ``"cldUnity"``) — drift compare against the cache.
-      Same-DB cache stays untouched; different-DB cache is refreshed.
-    * ``_CONNECTOR_DB_PRESENT_BUT_UNSET`` — the chain reads cleanly but the
-      database attribute is currently ``None`` (transient reconnect /
-      session reset). The cache is at risk of being stale relative to the
-      underlying session, so we verify via ``Session.get_current_database()``
-      (Snowflake round-trip) instead of trusting it.
-    * ``None`` — the chain itself is unreachable (mocked session,
-      alternative session implementation, …) AND no cache is available;
-      fall back to ``Session.get_current_database()``. If we do have a
-      cache and the chain is unreachable, keep the cache rather than
-      pessimistically round-tripping on every call.
-
-    Steady-state cost (chain readable + cache valid): one attribute read +
-    one cache compare. No Snowflake round-trip.
+    Not called when ``SKIP_SESSION_CONFIGURATION`` is set, because ``USE
+    SCHEMA`` changes session state and owner's-rights procedures forbid that.
+    The ``USE`` is still failure-tolerant for any environment that forbids it
+    without setting the flag.
     """
-    cached = getattr(session, "_sas_cached_db", None)
-    connector_db = _get_connector_current_database(session)
+    if _get_connector_current_database(session) != _CONNECTOR_DB_PRESENT_BUT_UNSET:
+        return
 
-    if cached is not None and connector_db:
-        if _normalize_database_name(cached) == _normalize_database_name(connector_db):
-            return cached
-        # Drift: the underlying session has moved to a new database
-        # (USE DATABASE, session.use_database, …). Fall through to refresh.
-
-    if connector_db:
-        session._sas_cached_db = connector_db
-        return connector_db
-
-    # connector_db is now either ``""`` (chain present, db attr currently None)
-    # or ``None`` (chain unreachable). Treat those differently: the first is
-    # the exact situation Felix flagged where keeping a stale cache can hold
-    # the wrong CLD context after a reconnect/session reset, so we verify
-    # against Snowpark. The second is the mocked-session case where there's
-    # no upstream value to verify against anyway.
-    if connector_db == _CONNECTOR_DB_PRESENT_BUT_UNSET:
-        verified = _refresh_database_from_snowpark(session)
-        if verified is not None:
-            return verified
-        # Snowpark returned ``None`` too (e.g. session has no database at
-        # all). Fall through to the cache as a last resort below.
-
-    if cached is not None:
-        return cached
-
-    return _refresh_database_from_snowpark(session)
-
-
-def _refresh_database_from_snowpark(session: snowpark.Session) -> str | None:
-    """Round-trip to ``Session.get_current_database()`` and refresh the
-    SCOS cache from the result. Returns ``None`` on error or when the
-    session has no current database.
-    """
     try:
-        current_db = session.get_current_database()
+        row = collect_without_telemetry(
+            session.sql("SELECT CURRENT_DATABASE(), CURRENT_SCHEMA()")
+        )[0]
+        database, schema = row[0], row[1]
     except Exception as exc:
         logger.debug(
-            "Session.get_current_database() failed (%s: %s); leaving SCOS "
-            "cache untouched.",
+            "Could not resolve session context to seed the connector "
+            "attributes (%s: %s); database reads will round-trip.",
+            type(exc).__name__,
+            exc,
+        )
+        return
+
+    if not database:
+        # Nothing to assert, but the absence is itself the answer. Recording it
+        # is what stops ``_get_session_cached_database`` re-asking forever.
+        # This is the case when the session is created without a database.
+        # Note it affects the corner case if the session was created with no database
+        # but the user workload itself created a database using SQL "CRETAT DATABASE".
+        # In this case, the older code without the negative caching of _CACHED_DB_ATTR
+        # will return new database as the current database. The trade-off of vastly
+        # reduced round-trips for SPROCs (aka Code Bundles) is deemed acceptable.
+        setattr(session, _CACHED_DB_ATTR, None)
+        return
+
+    if not schema:
+        # A current database without a current schema requires dropping the
+        # schema the session was sitting in, and there is no statement that
+        # re-asserts the database without also moving the schema. Leave the
+        # attribute unseeded; the reader resolves this once per session.
+        logger.debug(
+            "Session has database %s but no current schema; skipping the "
+            "connector seed.",
+            database,
+        )
+        return
+
+    qualified = (
+        f"{quote_name_without_upper_casing(database)}."
+        f"{quote_name_without_upper_casing(schema)}"
+    )
+    try:
+        collect_without_telemetry(session.sql(f"USE SCHEMA {qualified}"))
+    except Exception as exc:
+        logger.debug(
+            "USE SCHEMA %s failed while seeding the connector attributes "
+            "(%s: %s); database reads will round-trip.",
+            qualified,
+            type(exc).__name__,
+            exc,
+        )
+
+
+def _get_session_cached_database(session: snowpark.Session) -> str | None:
+    """Return the session's current database without a Snowflake round-trip.
+
+    The connector attribute is authoritative in both directions once
+    ``_seed_connector_session_context`` has run: a value means that database,
+    and empty means the seed found none to assert. It also self-maintains, so
+    there is nothing to invalidate when the user switches database via
+    passthrough ``spark.sql("USE DATABASE x")``, ``session.use_database(...)``
+    or direct Snowpark — the next read simply returns the new value.
+
+    Two cases do not resolve from the attribute:
+
+    * The session has no current database, so there was nothing to assert and
+      the attribute stays empty. ``_CACHED_DB_ATTR`` records that, and because
+      it is consulted only while the attribute is empty, a later ``USE`` takes
+      precedence automatically and it cannot go stale.
+    * The seed never ran or could not assert the context — the session skipped
+      ``configure_snowpark_session``, or the connector chain is unreachable
+      (mocked session, alternative session implementation, connector
+      refactor). Here there is no free signal, so resolve via Snowpark once
+      and memoize, including a ``None`` result: that is a legitimate answer
+      rather than a failure.
+
+    Steady-state cost: one attribute read. No Snowflake round-trip.
+    """
+    connector_db = _get_connector_current_database(session)
+    if connector_db:
+        return connector_db
+
+    seeded = getattr(session, _CACHED_DB_ATTR, _UNSET)
+    if seeded is not _UNSET:
+        return seeded
+
+    return _resolve_database_from_snowpark(session)
+
+
+def _resolve_database_from_snowpark(session: snowpark.Session) -> str | None:
+    """Round-trip to ``Session.get_current_database()`` and memoize the answer
+    on the session. Returns ``None`` when the session has no current database
+    (memoized) or when the call failed (not memoized, so it is retried).
+    """
+    try:
+        with scos_internal_query_tag():
+            current_db = session.get_current_database()
+    except Exception as exc:
+        logger.debug(
+            "Session.get_current_database() failed (%s: %s); not memoizing.",
             type(exc).__name__,
             exc,
         )
         return None
-    if current_db:
-        session._sas_cached_db = current_db
+    setattr(session, _CACHED_DB_ATTR, current_db)
     return current_db
 
 
@@ -285,7 +349,36 @@ def configure_snowpark_session(session: snowpark.Session):
 
     global SKIP_SESSION_CONFIGURATION
 
-    logger.info(f"Configuring session {session}")
+    # Instrument the snowpark session to use a cache for describe queries.
+    instrument_session_for_describe_cache(session)
+    instrument_session_for_table_metadata_cache(session)
+    instrument_session_for_scos_query_tag(session)
+    # Installed first, before anything here issues SQL. Everything below --
+    # the ``Session.__str__`` lookups in the log line, the ALTER SESSIONs, the
+    # seeding -- is SCOS plumbing that query history otherwise cannot tell from
+    # user SQL, and the statement-level QUERY_TAG only exists once these hooks
+    # are in place. Tag building issues no queries of its own (the base tag is
+    # an attribute read, the caller frame is thread-local), so running it this
+    # early cannot re-enter the connection.
+    #
+    # ``telemetry.report_query`` runs inside the describe-cache wrapper and is
+    # a no-op until a request is in flight, which is what makes this safe ahead
+    # of ``telemetry.initialize`` below. Keep that property if it changes.
+
+    # Lazy ``%s``: ``Session.__str__`` interpolates five ``CURRENT_*`` lookups,
+    # which are Snowflake round-trips until the connector attributes are
+    # seeded below. An f-string would pay for them even when the record is
+    # filtered out — and at INFO they are paid for regardless, which is why the
+    # tag instrumentation above has to already be in place.
+    #
+    # Tagged internal: the probes belong to this log statement, not to anything
+    # the user asked for. ``configure_snowpark_session`` runs more than once per
+    # process (the ``_scos_configured`` guard below only skips the ALTER
+    # SESSION block, not this line), so without the wrapper each call leaves an
+    # unattributable ``CURRENT_DATABASE()``/``CURRENT_SCHEMA()`` pair in query
+    # history.
+    with scos_internal_query_tag():
+        logger.info("Configuring session %s", session)
 
     telemetry.initialize(session)
     session._sprocs = set()
@@ -428,7 +521,8 @@ def configure_snowpark_session(session: snowpark.Session):
         )
     elif already_configured:
         logger.debug(
-            f"Session {session} already configured; skipping ALTER SESSION reconfiguration."
+            "Session %s already configured; skipping ALTER SESSION reconfiguration.",
+            session,
         )
     else:
         collect_without_telemetry(
@@ -466,19 +560,45 @@ def configure_snowpark_session(session: snowpark.Session):
         except SnowparkSQLException:
             session._enable_scos_feature = False
 
-    # SNOW-3484790: Kick off aggregation metadata prefetch in SCOS session initialization.
+    # SNOW-3484790: Drain the aggregation metadata prefetch (SHOW FUNCTIONS)
+    # synchronously so it completes inside session configuration rather than
+    # bleeding into the first filter() call. Session.__init__() already fired
+    # the async query; _retrieve harvests the in-flight result (blocking on
+    # job.result()) and publishes the aggregation function set. On a cold GS
+    # function-catalog cache this takes up to 20s — without the drain, the
+    # first filter() in caller code blocks on the leftover wait, silently
+    # inflating measured query time.
     # SNOW-3619967: user might have snowpark version that don't have this function.
+    #
+    # Tagged internal: when the async job fired by ``Session.__init__()`` is
+    # unavailable or failed, ``_retrieve`` falls back to a synchronous metadata
+    # query (``show functions ->> select ... is_aggregate``, or an
+    # ``information_schema.functions`` variant depending on the Snowpark
+    # version). That runs here, after the tag hooks are installed, so without
+    # the wrapper it lands in query history as plain SCOS query text. The async
+    # query itself is issued inside ``Session.__init__()``, before SCOS can
+    # instrument the session, and keeps the bare session-level tag.
     try:
-        session._start_async_aggregation_prefetch_if_needed()
+        with scos_internal_query_tag():
+            session._retrieve_aggregation_function_list()
     except AttributeError as e:
         logger.warning(
             f"aggregation metadata prefetch is skipped because: {e}, please update snowpark version"
         )
 
-    # Instrument the snowpark session to use a cache for describe queries.
-    instrument_session_for_describe_cache(session)
-    instrument_session_for_table_metadata_cache(session)
-    instrument_session_for_scos_query_tag(session)
+    # Populate the connector's database/schema attributes before
+    # anything reads them, so every later `get_current_database()` /
+    # `get_current_schema()` is an attribute read instead of a query. No-op
+    # outside a stored procedure, where login already populated them.
+    #
+    # Gated on the same flag as the ALTER SESSION above, and for the same
+    # reason (SNOW-2245971): the seed works by re-asserting the context with
+    # `USE SCHEMA`, and owner's-rights procedures — Native Apps, Data Clean
+    # Rooms — reject any statement that changes session state. Those sessions
+    # keep resolving the database through Snowpark, which costs one query per
+    # session rather than one per call.
+    if not SKIP_SESSION_CONFIGURATION:
+        _seed_connector_session_context(session)
 
     # Detect CLD context from the session's current database. `get_cld_info`
     # caches the answer so subsequent per-request re-establishment via

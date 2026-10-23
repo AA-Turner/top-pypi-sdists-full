@@ -1025,7 +1025,8 @@ def test_a_clean_document_passes_every_check_end_to_end():
       <meta property="og:type" content="article">
       <meta name="twitter:card" content="summary_large_image">
       <link rel="canonical" href="https://example.com/page">
-    </head><body><h1>Heading</h1><img src="/a.webp" alt="described" width="800" height="600"><p>{body}</p></body></html>
+    </head><body><h1>Heading</h1><img src="/a.webp" alt="described" width="800" height="600"><p>{body}</p>
+        <p><a href="/guides">Read our other guides</a></p></body></html>
     """
     evidence = evidence_from_audit(
         audit_html(html, "https://example.com/page"),

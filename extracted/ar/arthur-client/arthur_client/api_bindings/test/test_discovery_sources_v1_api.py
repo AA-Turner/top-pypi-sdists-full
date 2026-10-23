@@ -68,6 +68,13 @@ class TestDiscoverySourcesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_discovery_scan_targets(self) -> None:
+        """Test case for get_discovery_scan_targets
+
+        Get Discovery Scan Targets
+        """
+        pass
+
     def test_get_discovery_source(self) -> None:
         """Test case for get_discovery_source
 
@@ -149,6 +156,13 @@ class TestDiscoverySourcesV1Api(unittest.TestCase):
         """Test case for trigger_discovery_scan
 
         Scan Now
+        """
+        pass
+
+    def test_trigger_discovery_scan_batch(self) -> None:
+        """Test case for trigger_discovery_scan_batch
+
+        Scan Now In A Scope
         """
         pass
 

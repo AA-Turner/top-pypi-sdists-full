@@ -14,10 +14,20 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, Dict, List, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.dbt_utils import dbt_env_qualified_name
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -35,6 +45,12 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .dbt_related import (
+    RelatedDbtModel,
+    RelatedDbtModelColumn,
+    RelatedDbtSource,
+    RelatedDbtTest,
+)
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -48,19 +64,6 @@ from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_related import RelatedSQL
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .dbt_related import (
-    RelatedDbtModel,
-    RelatedDbtModelColumn,
-    RelatedDbtSource,
-    RelatedDbtTest,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -355,6 +358,10 @@ class DbtTest(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
+        r"^.+/account/[^/]+/project/[^/]+/env/[^/]+/[^/]+$"
+    )
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this DbtTest instance.
@@ -379,6 +386,11 @@ class DbtTest(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"DbtTest validation failed: {errors}")
 
@@ -410,6 +422,38 @@ class DbtTest(Asset):
         if self.guid is not UNSET:
             return RelatedDbtTest(guid=self.guid)
         return RelatedDbtTest(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        account_id: str,
+        project_id: str,
+        environment_id: str,
+        unique_id: str,
+    ) -> "DbtTest":
+        validate_required_fields(["name"], [name])
+        qualified_name, connector_name = dbt_env_qualified_name(
+            connection_qualified_name, account_id, project_id, environment_id, unique_id
+        )
+        return cls(
+            name=name,
+            qualified_name=qualified_name,
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            asset_dbt_unique_id=unique_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DbtTest":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DbtTest":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -839,6 +883,7 @@ def _dbt_test_to_nested(dbt_test: DbtTest) -> DbtTestNested:
         is_incomplete=dbt_test.is_incomplete,
         provenance_type=dbt_test.provenance_type,
         home_id=dbt_test.home_id,
+        delete_handler=dbt_test.delete_handler,
         depth=dbt_test.depth,
         immediate_upstream=dbt_test.immediate_upstream,
         immediate_downstream=dbt_test.immediate_downstream,
@@ -883,6 +928,7 @@ def _dbt_test_from_nested(nested: DbtTestNested) -> DbtTest:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

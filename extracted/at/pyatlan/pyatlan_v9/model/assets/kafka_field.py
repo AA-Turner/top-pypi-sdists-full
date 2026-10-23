@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -37,6 +44,7 @@ from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
+from .kafka_related import RelatedKafkaField, RelatedKafkaTopic
 from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
@@ -47,14 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .kafka_related import RelatedKafkaField, RelatedKafkaTopic
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -718,6 +718,7 @@ def _kafka_field_to_nested(kafka_field: KafkaField) -> KafkaFieldNested:
         is_incomplete=kafka_field.is_incomplete,
         provenance_type=kafka_field.provenance_type,
         home_id=kafka_field.home_id,
+        delete_handler=kafka_field.delete_handler,
         depth=kafka_field.depth,
         immediate_upstream=kafka_field.immediate_upstream,
         immediate_downstream=kafka_field.immediate_downstream,
@@ -764,6 +765,7 @@ def _kafka_field_from_nested(nested: KafkaFieldNested) -> KafkaField:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -74,6 +74,7 @@ def test_every_unified_config_field_is_read_by_from_dict_unless_it_is_runtime_on
         "matrx_model_name",
         "runtime_offering_id",
         "prompt_cache_key",  # stamped at the send boundary
+        "prompt_cache_marks",  # stamped at the send boundary (config/cache_plan.py)
         "dynamic_tools_withheld",
         "prompt_block_texts",
         "tool_authority_filter_applied_runtime",

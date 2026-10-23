@@ -21,6 +21,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass
 
+from matrx_scraper.app_shell import SHELL_HTML_MARKERS, SHELL_TEXT_MARKERS
 from matrx_scraper.scraper import (
     CHALLENGE_FAILURE_REASONS,
     SHORT_PAGE_CHARS,
@@ -52,16 +53,8 @@ REASON_WORDS = {
 #: The content-sanity gate's own boundary between "thin" and "nothing" (``content_sanity``).
 JS_SHELL_TEXT_CHARS = 200
 
-_SHELL_TEXT_MARKERS = (
-    "enable javascript",
-    "javascript is required",
-    "javascript is disabled",
-    "requires javascript",
-    "turn on javascript",
-    "please enable js",
-    "you need to enable javascript",
-    "this app works best with javascript",
-)
+#: The app-shell markers are app_shell's (one list, shared with the SEO audit's ``is_js_shell``).
+_SHELL_TEXT_MARKERS = SHELL_TEXT_MARKERS
 #: HTTP statuses that mean the page does not exist (anywhere): a different reader cannot find it either.
 MISSING_EVERYWHERE = frozenset({404, 410})
 #: Unrendered shells and wait screens whose whole text is one of these (short pages only).
@@ -98,14 +91,7 @@ _SOFT_404_TITLE_LEAD = re.compile(
     r"^(oops[!,.]?\s*)?((error\s*)?(404|410)|(page\s*)?not found)(?![a-z0-9])(?!\s+(ways|tips|things|reasons|best|facts|tricks|ideas))"
 )
 _SIGN_IN_HEADINGS = ("# sign in", "# log in", "# login")
-_SHELL_HTML_MARKERS = (
-    '<div id="root"></div>',
-    "<div id='root'></div>",
-    '<div id="app"></div>',
-    '<div id="__next"></div>',
-    "<app-root",
-    '<div id="__nuxt"></div>',
-)
+_SHELL_HTML_MARKERS = SHELL_HTML_MARKERS
 _SIGN_IN_TITLES = ("log in", "login", "sign in", "sign-in", "signin", "log in or sign up")
 _SIGN_IN_MARKERS = (
     "log in to continue",

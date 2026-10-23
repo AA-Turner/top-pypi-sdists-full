@@ -9,10 +9,6 @@
                 "1"
             ],
             [
-                "HB_EXPERIMENTAL_API",
-                "1"
-            ],
-            [
                 "HB_HAS_SUBSET",
                 "1"
             ],

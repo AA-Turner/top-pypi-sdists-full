@@ -61,3 +61,10 @@ async def create_live_auth_token(
         expires_at=int(expires.timestamp()),
         new_session_expires_at=int(new_session.timestamp()),
     )
+
+
+def client_connect_url() -> str:
+    """The endpoint the BROKERED CLIENT opens with a minted credential (handed out with the credential).
+
+    The platform sends nothing there itself; the provider layer still owns the address."""
+    return LIVE_CONSTRAINED_WSS_URL

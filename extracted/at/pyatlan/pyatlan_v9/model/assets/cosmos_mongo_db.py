@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -32,6 +39,7 @@ from .asset import (
     _populate_asset_attrs,
 )
 from .context_related import RelatedContextRepository
+from .cosmos_mongo_db_related import RelatedCosmosMongoDB
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
@@ -47,14 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cosmos_mongo_db_related import RelatedCosmosMongoDB
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -569,6 +569,7 @@ def _cosmos_mongo_db_to_nested(cosmos_mongo_db: CosmosMongoDB) -> CosmosMongoDBN
         is_incomplete=cosmos_mongo_db.is_incomplete,
         provenance_type=cosmos_mongo_db.provenance_type,
         home_id=cosmos_mongo_db.home_id,
+        delete_handler=cosmos_mongo_db.delete_handler,
         depth=cosmos_mongo_db.depth,
         immediate_upstream=cosmos_mongo_db.immediate_upstream,
         immediate_downstream=cosmos_mongo_db.immediate_downstream,
@@ -617,6 +618,7 @@ def _cosmos_mongo_db_from_nested(nested: CosmosMongoDBNested) -> CosmosMongoDB:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -642,10 +644,7 @@ def _cosmos_mongo_db_from_nested_bytes(data: bytes, serde: Serde) -> CosmosMongo
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 CosmosMongoDB.NO_SQL_SCHEMA_DEFINITION = KeywordField(
     "noSQLSchemaDefinition", "noSQLSchemaDefinition"

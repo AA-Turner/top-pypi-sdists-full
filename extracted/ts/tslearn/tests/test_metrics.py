@@ -1,3 +1,4 @@
+import random
 import warnings
 
 import numpy as np
@@ -30,18 +31,10 @@ def test_dtw_accumulated_matrix():
             s1 = cast([1, 2, 3], array_type)
             s2 = cast([1.0, 2.0, 2.0, 3.0], array_type)
             mask = tslearn.metrics.compute_mask(s1, s2, be=be)
-            matrix_1 = tslearn.metrics.dtw_accumulated_matrix(s1, s2, mask,  be=be)
-            with pytest.deprecated_call():
-                matrix_2 = tslearn.metrics.dtw_variants.accumulated_matrix(
-                    to_time_series(s1),
-                    to_time_series(s2),
-                    tslearn.metrics.compute_mask(s1, s2, be=be),
-                    be=be
-                )
+            matrix = tslearn.metrics.dtw_accumulated_matrix(s1, s2, mask,  be=be)
             expected = backend.array([[0.0, 1.0, 2.0, 6.0], [1.0, 0.0, 0.0, 1.0], [5.0, 1.0, 1.0, 0.0]])
-            for matrix in [matrix_1, matrix_2]:
-                assert backend.belongs_to_backend(matrix)
-                np.testing.assert_array_equal(matrix, expected)
+            assert backend.belongs_to_backend(matrix)
+            np.testing.assert_array_equal(matrix, expected)
 
 
 def test_dtw():
@@ -69,24 +62,10 @@ def test_dtw():
             if not backend.is_numpy:
                 assert backend.belongs_to_backend(dist)
 
-            with pytest.deprecated_call():
-                deprecated_path, deprecated_dist = tslearn.metrics.dtw_variants.dtw_path(
-                    cast([1, 2, 3], array_type),
-                    cast([1.0, 2.0, 2.0, 3.0, 4.0], array_type),
-                    be=be
-                )
-                assert deprecated_path == path
-                assert deprecated_dist == dist
-
             with pytest.raises(ValueError):
                 tslearn.metrics.dtw_path([], [], be=be)
             with pytest.raises(ValueError):
                 tslearn.metrics.dtw_path([1], [[1, 2]], be=be)
-            with warnings.catch_warnings():
-                with pytest.raises(ValueError):
-                    tslearn.metrics.dtw_variants.dtw_path([], [], be=be)
-                with pytest.raises(ValueError):
-                    tslearn.metrics.dtw_variants.dtw_path([1], [[1, 2]], be=be)
 
             # dtw
             n1, n2, d = 15, 10, 3
@@ -103,23 +82,10 @@ def test_dtw():
                 wrong_feature_size_y = cast(np.random.randn(n2, 2), array_type)
                 tslearn.metrics.dtw(x, wrong_feature_size_y, be=be)
 
-            with pytest.deprecated_call():
-                deprecated_dist = tslearn.metrics.dtw_variants.dtw(
-                    cast([1, 2, 3], array_type),
-                    cast([1.0, 2.0, 2.0, 3.0, 4.0], array_type),
-                    be=be
-                )
-                assert deprecated_dist == dist
-
             with pytest.raises(ValueError):
                 tslearn.metrics.dtw([], [], be=be)
             with pytest.raises(ValueError):
                 tslearn.metrics.dtw([1], [[1, 2]], be=be)
-            with warnings.catch_warnings():
-                with pytest.raises(ValueError):
-                    tslearn.metrics.dtw_variants.dtw([], [], be=be)
-                with pytest.raises(ValueError):
-                    tslearn.metrics.dtw_variants.dtw([1], [[1, 2]], be=be)
 
             # cdist_dtw
             dists = tslearn.metrics.cdist_dtw(
@@ -145,15 +111,6 @@ def test_dtw():
             )
             np.testing.assert_array_equal(dists, parallel_dists)
             assert backend.belongs_to_backend(parallel_dists)
-
-            with pytest.deprecated_call():
-                deprecated_dists = tslearn.metrics.dtw_variants.cdist_dtw(
-                    cast([[1, 2, 2, 3], [1.0, 2.0, 3.0, 4.0]], array_type),
-                    [[1, 2, 3], [2, 3, 4, 5]],  # The second dataset can not be cast to array because of its shape
-                    be=be
-                )
-                np.testing.assert_allclose(deprecated_dists, dists)
-                assert backend.belongs_to_backend(deprecated_dists)
 
 
 def test_ctw():
@@ -274,6 +231,22 @@ def test_lcss():
             np.testing.assert_equal(sim, 1.0)
 
 
+def test_lcss_sakoe_chiba_constraint():
+    # A Sakoe-Chiba band must actually restrict the matched pairs. The two
+    # matches giving 0.5 sit two steps off the diagonal, so a radius-1 band
+    # forbids one of them and the similarity drops to 0.25.
+    s1 = [2.0, 0.0, 2.0, 0.0]
+    s2 = [0.0, 0.0, 1.0, 1.0]
+    for be in backends:
+        sim = tslearn.metrics.lcss(s1, s2, eps=0, be=be)
+        np.testing.assert_equal(sim, 0.5)
+
+        sim = tslearn.metrics.lcss(
+            s1, s2, eps=0, global_constraint="sakoe_chiba", sakoe_chiba_radius=1, be=be
+        )
+        np.testing.assert_equal(sim, 0.25)
+
+
 def test_lcss_path():
     for be in backends:
         for array_type in array_types:
@@ -351,16 +324,31 @@ def test_constrained_paths():
             rng = np.random.RandomState(0)
             x = cast(rng.randn(n, d), array_type)
             y = cast(rng.randn(n, d), array_type)
+
+            backend = instantiate_backend(be, array_type)
+
+            # DTW
             dtw_sakoe = tslearn.metrics.dtw(
                 x, y, global_constraint="sakoe_chiba", sakoe_chiba_radius=0, be=be
             )
             dtw_itak = tslearn.metrics.dtw(
                 x, y, global_constraint="itakura", itakura_max_slope=1.0, be=be
             )
-            backend = instantiate_backend(be, array_type)
             euc_dist = backend.linalg.norm(backend.array(x) - backend.array(y))
             np.testing.assert_allclose(dtw_sakoe, euc_dist, atol=1e-5)
             np.testing.assert_allclose(dtw_itak, euc_dist, atol=1e-5)
+            assert backend.is_float(dtw_sakoe)
+            assert backend.is_float(dtw_itak)
+
+            # SOFT DTW
+            dtw_sakoe = tslearn.metrics.soft_dtw(
+                x, y, gamma=1, global_constraint="sakoe_chiba", sakoe_chiba_radius=0, be=be
+            )
+            dtw_itak = tslearn.metrics.soft_dtw(
+                x, y, gamma=1, global_constraint="itakura", itakura_max_slope=1.0, be=be
+            )
+            np.testing.assert_allclose(dtw_sakoe, euc_dist ** 2, atol=1e-5)
+            np.testing.assert_allclose(dtw_itak, euc_dist ** 2, atol=1e-5)
             backend = instantiate_backend(be, array_type)
             assert backend.is_float(dtw_sakoe)
             assert backend.is_float(dtw_itak)
@@ -431,97 +419,90 @@ def test_masks():
         for array_type in array_types:
             backend = instantiate_backend(be)
 
-            for sakoe_chiba_mask in [tslearn.metrics.sakoe_chiba_mask,
-                                     tslearn.metrics.dtw_variants.sakoe_chiba_mask]:
+            sk_mask = tslearn.metrics.sakoe_chiba_mask(4, 4, 1, be=be)
+            reference_mask = np.array(
+                [
+                    [True, True, False, False],
+                    [True, True, True, False],
+                    [False, True, True, True],
+                    [False, False, True, True],
+                ]
+            )
+            np.testing.assert_allclose(sk_mask, reference_mask)
+            assert backend.belongs_to_backend(sk_mask)
 
-                sk_mask = sakoe_chiba_mask(4, 4, 1, be=be)
-                reference_mask = np.array(
-                    [
-                        [True, True, False, False],
-                        [True, True, True, False],
-                        [False, True, True, True],
-                        [False, False, True, True],
-                    ]
-                )
-                np.testing.assert_allclose(sk_mask, reference_mask)
-                assert backend.belongs_to_backend(sk_mask)
+            sk_mask = tslearn.metrics.sakoe_chiba_mask(7, 3, 1, be=be)
+            reference_mask = np.array(
+                [
+                    [True, True, False],
+                    [True, True, True],
+                    [True, True, True],
+                    [True, True, True],
+                    [True, True, True],
+                    [True, True, True],
+                    [False, True, True],
+                ]
+            )
+            np.testing.assert_allclose(sk_mask, reference_mask)
+            assert backend.belongs_to_backend(sk_mask)
 
-                sk_mask = sakoe_chiba_mask(7, 3, 1, be=be)
-                reference_mask = np.array(
-                    [
-                        [True, True, False],
-                        [True, True, True],
-                        [True, True, True],
-                        [True, True, True],
-                        [True, True, True],
-                        [True, True, True],
-                        [False, True, True],
-                    ]
-                )
-                np.testing.assert_allclose(sk_mask, reference_mask)
-                assert backend.belongs_to_backend(sk_mask)
+            i_mask = tslearn.metrics.itakura_mask(6, 6, be=be)
+            reference_mask = np.array(
+                [
+                    [True, False, False, False, False, False],
+                    [False, True, True, False, False, False],
+                    [False, True, True, True, False, False],
+                    [False, False, True, True, True, False],
+                    [False, False, False, True, True, False],
+                    [False, False, False, False, False, True],
+                ]
+            )
+            np.testing.assert_allclose(i_mask, reference_mask)
+            assert backend.belongs_to_backend(i_mask)
 
-            for itakura_mask in [tslearn.metrics.itakura_mask,
-                                 tslearn.metrics.dtw_variants.itakura_mask]:
-                i_mask = itakura_mask(6, 6, be=be)
-                reference_mask = np.array(
-                    [
-                        [True, False, False, False, False, False],
-                        [False, True, True, False, False, False],
-                        [False, True, True, True, False, False],
-                        [False, False, True, True, True, False],
-                        [False, False, False, True, True, False],
-                        [False, False, False, False, False, True],
-                    ]
-                )
-                np.testing.assert_allclose(i_mask, reference_mask)
-                assert backend.belongs_to_backend(i_mask)
+            backend = instantiate_backend(be, array_type)
 
-            for compute_mask in [tslearn.metrics.compute_mask,
-                                 tslearn.metrics.dtw_variants.compute_mask]:
-                backend = instantiate_backend(be, array_type)
+            # Test masks for different combinations of global_constraints /
+            # sakoe_chiba_radius / itakura_max_slope
+            sz = 10
+            mask_no_constraint = tslearn.metrics.compute_mask(sz, sz, be=be)
+            np.testing.assert_array_equal(mask_no_constraint, np.full((sz, sz), True))
 
-                # Test masks for different combinations of global_constraints /
-                # sakoe_chiba_radius / itakura_max_slope
-                sz = 10
-                mask_no_constraint = compute_mask(sz, sz, be=be)
-                np.testing.assert_array_equal(mask_no_constraint, np.full((sz, sz), True))
+            ts0 = cast(np.empty((sz, 1)), array_type)
+            ts1 = cast(np.empty((sz, 1)), array_type)
+            mask_no_constraint = tslearn.metrics.compute_mask(
+                ts0, ts1, global_constraint=0, be=be
+            )
+            np.testing.assert_array_equal(mask_no_constraint, np.full((sz, sz), True))
+            assert backend.belongs_to_backend(mask_no_constraint)
 
-                ts0 = cast(np.empty((sz, 1)), array_type)
-                ts1 = cast(np.empty((sz, 1)), array_type)
-                mask_no_constraint = compute_mask(
-                    ts0, ts1, global_constraint=0, be=be
-                )
-                np.testing.assert_array_equal(mask_no_constraint, np.full((sz, sz), True))
-                assert backend.belongs_to_backend(mask_no_constraint)
+            mask_itakura = tslearn.metrics.compute_mask(
+                ts0, ts1, global_constraint=1, be=be
+            )
+            mask_itakura_bis = tslearn.metrics.compute_mask(
+                ts0, ts1, itakura_max_slope=2.0, be=be
+            )
+            np.testing.assert_allclose(mask_itakura, mask_itakura_bis)
+            assert backend.belongs_to_backend(mask_itakura)
 
-                mask_itakura = compute_mask(
-                    ts0, ts1, global_constraint=1, be=be
-                )
-                mask_itakura_bis = compute_mask(
-                    ts0, ts1, itakura_max_slope=2.0, be=be
-                )
-                np.testing.assert_allclose(mask_itakura, mask_itakura_bis)
-                assert backend.belongs_to_backend(mask_itakura)
+            mask_sakoe = tslearn.metrics.compute_mask(
+                ts0, ts1, global_constraint=2, be=be
+            )
+            mask_sakoe_bis = tslearn.metrics.compute_mask(
+                ts0, ts1, sakoe_chiba_radius=1, be=be
+            )
+            np.testing.assert_allclose(mask_sakoe, mask_sakoe_bis)
+            assert backend.belongs_to_backend(mask_sakoe)
 
-                mask_sakoe = compute_mask(
-                    ts0, ts1, global_constraint=2, be=be
-                )
-                mask_sakoe_bis = compute_mask(
-                    ts0, ts1, sakoe_chiba_radius=1, be=be
-                )
-                np.testing.assert_allclose(mask_sakoe, mask_sakoe_bis)
-                assert backend.belongs_to_backend(mask_sakoe)
-
-                np.testing.assert_raises(
-                    RuntimeWarning,
-                    compute_mask,
-                    ts0,
-                    ts1,
-                    sakoe_chiba_radius=1,
-                    itakura_max_slope=2.0,
-                    be=be,
-                )
+            np.testing.assert_raises(
+                RuntimeWarning,
+                tslearn.metrics.compute_mask,
+                ts0,
+                ts1,
+                sakoe_chiba_radius=1,
+                itakura_max_slope=2.0,
+                be=be,
+            )
 
             # Tests for estimators that can set masks through metric_params
             n, sz, d = 15, 10, 3
@@ -555,6 +536,70 @@ def test_masks():
                 estimator1.fit(time_series).labels_, estimator3.fit(time_series).labels_
             )
 
+            estimator1.set_params(metric="softdtw")
+            estimator3.set_params(metric="softdtw")
+            np.testing.assert_allclose(
+                estimator1.fit(time_series).labels_, estimator2.labels_
+            )
+            np.testing.assert_allclose(
+                estimator3.fit(time_series).labels_, estimator2.labels_
+            )
+
+
+def test_gak_log_and_linear_recursions_agree():
+    # The log-space recursion is only used when the linear one overflows, so
+    # check that both give the same answer on inputs where both are valid.
+    from tslearn.metrics._gak import (
+        _njit_gak_from_gram_matrix,
+        _njit_log_gak_from_gram_matrix,
+    )
+
+    rng = np.random.RandomState(0)
+    for sz1, sz2 in [(1, 1), (1, 7), (7, 1), (5, 5), (30, 20)]:
+        log_gram = -np.abs(rng.randn(sz1, sz2))
+        np.testing.assert_allclose(
+            _njit_log_gak_from_gram_matrix(log_gram),
+            np.log(_njit_gak_from_gram_matrix(np.exp(log_gram))),
+            rtol=1e-10,
+        )
+
+
+def test_gak_long_time_series():
+    # Non-regression test for
+    # https://github.com/tslearn-team/tslearn/issues/450
+    # The unnormalized GAK recursion sums over every alignment path, so it
+    # grows like the central Delannoy numbers and leaves the range of a
+    # 64-bit float for time series longer than about 405 samples. The
+    # normalization used to be computed from those overflowed values, which
+    # turned every GAK value into NaN past that length.
+    sz = 500
+    rng = np.random.RandomState(0)
+    s1 = np.zeros((sz, 1))
+    s2 = rng.randn(sz, 1) * 0.01
+
+    # The unnormalized kernel really is beyond float64 range here, so this
+    # test does exercise the overflow.
+    assert np.isinf(tslearn.metrics.unnormalized_gak(s1, s1, sigma=2.0))
+
+    # The normalized kernel, however, is perfectly well defined.
+    np.testing.assert_allclose(tslearn.metrics.gak(s1, s1, sigma=2.0), 1.0)
+    np.testing.assert_allclose(tslearn.metrics.gak(s2, s2, sigma=2.0), 1.0)
+
+    value = tslearn.metrics.gak(s1, s2, sigma=2.0)
+    assert np.isfinite(value)
+    assert 0.0 < value <= 1.0
+
+    dataset = np.stack([s1, s2])
+    matrix = tslearn.metrics.cdist_gak(dataset, sigma=2.0)
+    assert np.isfinite(matrix).all()
+    np.testing.assert_allclose(np.diag(matrix), 1.0)
+    np.testing.assert_allclose(matrix, matrix.T)
+
+    # The one-dataset and two-dataset code paths must agree.
+    np.testing.assert_allclose(
+        matrix, tslearn.metrics.cdist_gak(dataset, dataset, sigma=2.0)
+    )
+
 
 def test_gak():
 
@@ -580,34 +625,14 @@ def test_gak():
                 be=be
             )
             np.testing.assert_allclose(s, 2.0, atol=1e-5)
-            with pytest.deprecated_call():
-                backend.testing.assert_allclose(
-                    s,
-                    tslearn.metrics.softdtw_variants.sigma_gak(
-                        dataset,
-                        n_samples=200,
-                        random_state=0,
-                        be=be
-                    )
-                )
 
             # GAK
             s1, s2 = cast([1, 2, 2, 3], array_type), cast([1.0, 2.0, 3.0, 4.0], array_type)
             g = tslearn.metrics.gak(s1, s2, sigma=2, be=be)
             np.testing.assert_allclose(g, 0.656297, atol=1e-5)
-            with pytest.deprecated_call():
-                backend.testing.assert_allclose(
-                    g,
-                    tslearn.metrics.softdtw_variants.gak(s1, s2, sigma=2, be=be)
-                )
 
             g = tslearn.metrics.unnormalized_gak(s1, s2, be=be)
             np.testing.assert_allclose(g, 3.745675, atol=1e-5)
-            with pytest.deprecated_call():
-                backend.testing.assert_allclose(
-                    g,
-                    tslearn.metrics.softdtw_variants.unnormalized_gak(s1, s2, be=be)
-                )
 
             g = tslearn.metrics.cdist_gak(
                 dataset, sigma=2.0, be=be
@@ -616,11 +641,7 @@ def test_gak():
                 g, np.array([[1.0, 0.656297], [0.656297, 1.0]]), atol=1e-5
             )
             assert backend.belongs_to_backend(g)
-            with pytest.deprecated_call():
-                backend.testing.assert_allclose(
-                    g,
-                    tslearn.metrics.softdtw_variants.cdist_gak(dataset, sigma=2, be=be)
-                )
+
             g = tslearn.metrics.cdist_gak(
                 [[1, 2, 2], [1.0, 2.0, 3.0, 4.0]],  # Can not be cast to array because of its shape
                 cast([[1, 2, 2, 3], [1.0, 2.0, 3.0, 4.0]], array_type),
@@ -744,13 +765,6 @@ def test_dtw_path_from_metric():
             # Use dtw_path as a reference
             path_ref, dist_ref = tslearn.metrics.dtw_path(s1, s2, be=be)
 
-            with pytest.deprecated_call():
-                deprecated_path, deprecated_dist = tslearn.metrics.dtw_variants.dtw_path_from_metric(
-                    s1, s2,  metric="sqeuclidean", be=be
-                )
-                np.testing.assert_equal(path_ref, deprecated_path)
-                np.testing.assert_allclose(backend.sqrt(deprecated_dist), dist_ref)
-
             # Test of using a scipy distance function
             path, dist = tslearn.metrics.dtw_path_from_metric(
                 s1, s2, metric="sqeuclidean", be=be
@@ -787,10 +801,26 @@ def test_dtw_path_from_metric():
 def test_softdtw():
     for be in backends:
         for array_type in array_types:
+
             rng = np.random.RandomState(0)
+            backend = instantiate_backend(be, array_type)
+
+            with pytest.raises(ValueError):
+                tslearn.metrics.soft_dtw(backend.array([]), rng.rand(10, 1))
+            with pytest.raises(ValueError):
+                tslearn.metrics.soft_dtw_normalized(rng.rand(10, 2), backend.array([]))
+            with pytest.raises(ValueError):
+                tslearn.metrics.soft_dtw_alignment(backend.array([]), backend.array([]))
+
+            with pytest.raises(ValueError):
+                tslearn.metrics.soft_dtw(rng.rand(10, 2), rng.rand(10, 1))
+            with pytest.raises(ValueError):
+                tslearn.metrics.soft_dtw_normalized(rng.rand(10, 2), rng.rand(10, 1))
+            with pytest.raises(ValueError):
+                tslearn.metrics.soft_dtw_alignment(rng.rand(10, 2), rng.rand(10, 1))
+
             s1 = cast(rng.rand(10, 2), array_type)
             s2 = cast(rng.rand(30, 2), array_type)
-            backend = instantiate_backend(be, array_type)
 
             # Use dtw_path as a reference
             path_ref, dist_ref = tslearn.metrics.dtw_path(s1, s2, be=be)
@@ -810,12 +840,46 @@ def test_softdtw():
             backend.testing.assert_equal(dist, dist_ref**2)
             backend.testing.assert_allclose(matrix_path, mat_path_ref)
 
+            dist = tslearn.metrics.soft_dtw_normalized(s1, s1, gamma=random.random(), be=be)
+            assert dist == 0
+
+            dist = tslearn.metrics.soft_dtw_normalized(s1, s2, gamma=0.0, be=be)
+            backend.testing.assert_equal(dist, dist_ref ** 2)
+
+            dist = tslearn.metrics.soft_dtw(s1, s2, gamma=0.0, be=be)
+            backend.testing.assert_equal(dist, dist_ref ** 2)
+
             ts1 = cast([[0.0]], array_type)
             ts2 = cast([[1.0]], array_type)
-            sim = tslearn.metrics.soft_dtw(
-                ts1=ts1, ts2=ts2, gamma=1.0, be=be, compute_with_backend=True
-            )
+            sim = tslearn.metrics.soft_dtw(s1=ts1, s2=ts2, gamma=1.0, be=be)
             assert sim == 1.0
+
+            masked_sim = tslearn.metrics.soft_dtw(s1=ts1, s2=ts2, gamma=1.0, global_constraint="itakura", be=be)
+            assert masked_sim == sim
+            masked_sim = tslearn.metrics.soft_dtw(s1=ts1, s2=ts2, gamma=1.0, global_constraint="sakoe_chiba", be=be)
+            assert masked_sim == sim
+
+
+def test_cdist_soft_dtw():
+    rng = np.random.RandomState(0)
+    dataset1 = rng.rand(2, 10, 2)
+    dataset2 = rng.rand(2, 10, 2)
+
+    # Gamma = 0, dtw
+    res1 = tslearn.metrics.cdist_dtw(dataset1, dataset2)
+    res2 = tslearn.metrics.cdist_soft_dtw(dataset1, dataset2, gamma=0)
+    res3 = tslearn.metrics.cdist_soft_dtw_normalized(dataset1, dataset2, gamma=0)
+    np.testing.assert_array_equal(res1, res2, res3)
+
+    # Parallel computation
+    np.testing.assert_array_equal(
+        tslearn.metrics.cdist_soft_dtw(dataset1, dataset2),
+        tslearn.metrics.cdist_soft_dtw(dataset1, dataset2, n_jobs=2)
+    )
+    np.testing.assert_array_equal(
+        tslearn.metrics.cdist_soft_dtw_normalized(dataset1, dataset2),
+        tslearn.metrics.cdist_soft_dtw_normalized(dataset1, dataset2, n_jobs=2)
+    )
 
 
 def test_dtw_path_with_empty_or_nan_inputs():
@@ -915,16 +979,16 @@ def test_soft_dtw_loss_pytorch():
             np.reshape(
                 np.array(
                     [
-                        -0.244445577,
-                        -0.244445756,
-                        -0.244445294,
-                        -0.244443387,
-                        -0.244441003,
-                        -0.244441897,
-                        -0.244444370,
-                        -0.244441718,
-                        -0.244441971,
-                        -0.200000003,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
+                        -0.239999,
                     ]
                 ),
                 (1, m, 1),
@@ -942,18 +1006,18 @@ def test_soft_dtw_loss_pytorch():
             np.reshape(
                 np.array(
                     [
-                        0.2000008374,
-                        0.2000008225,
-                        0.2000010014,
-                        0.2000009865,
-                        0.1999993920,
-                        0.1999970675,
-                        0.1999994069,
-                        0.1999980807,
-                        0.1999983191,
-                        0.1999950409,
-                        0.2000000030,
-                        0.2000000030,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
+                        0.20000,
                     ]
                 ),
                 (1, n, 1),
@@ -1118,3 +1182,145 @@ def test_sax():
         dataset2=[[-1, 0, 1], [1, 0, 1]],
     )
     np.testing.assert_equal(dists, expected)
+
+
+def test_soft_dtw_alignment():
+    for be in backends:
+        for array_type in array_types:
+            backend = instantiate_backend(be, array_type)
+            s1 = cast([1, 2, 3, 3, 3], array_type)
+            s2 = cast([1.0, 2, 2, 2, 3], array_type)
+            m = n = 5
+
+            alignment, dist = tslearn.metrics.soft_dtw_alignment(s1, s2, global_constraint="sakoe_chiba",
+                                                                 sakoe_chiba_radius=0)
+            np.testing.assert_array_equal(alignment, backend.eye(m, n))
+            assert dist == 2
+            alignment, dist = tslearn.metrics.soft_dtw_alignment(s1, s2, global_constraint="itakura",
+                                                                 itakura_max_slope=1)
+            np.testing.assert_array_equal(alignment, backend.eye(m, n))
+            assert dist == 2
+
+            alignment, dist = tslearn.metrics.soft_dtw_alignment(s1, s2, global_constraint="sakoe_chiba",
+                                                                 sakoe_chiba_radius=1)
+            np.testing.assert_array_almost_equal(
+                alignment,
+                backend.array([
+                    [1., 0.28475467, 0., 0., 0.],
+                    [0.21504583, 0.86822574, 0.57606858, 0., 0.],
+                    [0., 0.17745379, 0.65508576, 0.50110876, 0.],
+                    [0., 0., 0.21572603, 0.66813014, 0.54997981],
+                    [0., 0., 0., 0.16785627, 1.]
+                ])
+            )
+            np.testing.assert_almost_equal(dist, -1.65, decimal=2)
+            alignment, dist = tslearn.metrics.soft_dtw_alignment(s1, s2, global_constraint="itakura",
+                                                                 itakura_max_slope=2)
+            np.testing.assert_almost_equal(dist, 0.299, decimal=2)
+            np.testing.assert_array_almost_equal(
+                alignment,
+                backend.array([
+                    [1., 0., 0., 0., 0.],
+                    [0., 1., 0.49941315, 0. , 0.],
+                    [0., 0.18372383, 0.75029342, 0.34156849, 0.],
+                    [0., 0., 0.2261748 , 1., 0.],
+                    [0., 0., 0., 0., 1.]])
+            )
+
+
+def test_softdtw_migration():
+
+    from tslearn.metrics import _soft_dtw as new
+    from tslearn.metrics import softdtw_variants as old
+
+    rng = np.random.default_rng(0)
+    s1 = rng.random((10, 2))
+    s2 = rng.random((8, 2))
+    X = rng.random((2, 10, 2))
+    Y = rng.random((3, 11, 2))
+    X[1, -1, :] = np.nan
+    Y[-1, -3:, :] = np.nan
+
+    random.seed(0)
+    gamma = random.random()
+
+    for array_type in array_types:
+        s1 = cast(s1, array_type)
+        s2 = cast(s2, array_type)
+        X = cast(X, array_type)
+        Y = cast(Y, array_type)
+
+        # Soft-dtw
+        new_dist = new.soft_dtw(s1, s2, gamma)
+        with pytest.deprecated_call():
+            old_dist = old.soft_dtw(s1, s2, gamma, compute_with_backend=True)
+        np.testing.assert_allclose(new_dist, old_dist)
+
+        # soft-dtw alignment
+        new_alignment, new_dist = new.soft_dtw_alignment(s1, s2, gamma)
+        with pytest.deprecated_call():
+            old_alignment, old_dist = old.soft_dtw_alignment(s1, s2, gamma, compute_with_backend=True)
+        np.testing.assert_allclose(new_dist, old_dist)
+        np.testing.assert_allclose(new_alignment, new_alignment)
+
+        new_alignment, new_dist = new.soft_dtw_alignment(s1, s2, 0)
+        with pytest.deprecated_call():
+            old_alignment, old_dist = old.soft_dtw_alignment(s1, s2, 0)
+        np.testing.assert_allclose(new_dist, old_dist)
+        np.testing.assert_allclose(new_alignment, new_alignment)
+
+        # Cdist (warning old cdist with pytorch uses float32, may induce small differences )
+
+        # Cdist X Y
+        with pytest.deprecated_call():
+            old_cdist = old.cdist_soft_dtw(X, Y, gamma, compute_with_backend=True)
+        np.testing.assert_allclose(
+            new.cdist_soft_dtw(X, Y, gamma),
+            old_cdist,
+            rtol=1e-06
+        )
+
+        # Cdist normalized X Y
+        with pytest.deprecated_call():
+            old_cdist_normalized = old.cdist_soft_dtw_normalized(X, Y, gamma, compute_with_backend=True)
+        np.testing.assert_allclose(
+            new.cdist_soft_dtw_normalized(X, Y, gamma),
+            old_cdist_normalized,
+            rtol=1e-06
+        )
+
+        # Cdist X
+        with pytest.deprecated_call():
+            old_cdist = old.cdist_soft_dtw(X, gamma=gamma, compute_with_backend=True)
+        np.testing.assert_allclose(
+            new.cdist_soft_dtw(X, gamma=gamma),
+            old_cdist,
+            rtol=1e-06
+        )
+
+        # Cdist normalized X
+        with pytest.deprecated_call():
+            old_cdist_normalized = old.cdist_soft_dtw_normalized(X, gamma=gamma, compute_with_backend=True)
+        np.testing.assert_allclose(
+            new.cdist_soft_dtw_normalized(X, gamma=gamma),
+            old_cdist_normalized,
+            rtol=1e-06
+        )
+
+
+def test_cdist_frechet_honours_global_constraint():
+    # `cdist_frechet` must apply the constraint the same way scalar `frechet` does.
+    rng = np.random.RandomState(0)
+    dataset1 = rng.randn(3, 10, 1)
+    dataset2 = rng.randn(2, 10, 1)
+
+    expected = np.array([[
+        tslearn.metrics.frechet(ts1, ts2, global_constraint="sakoe_chiba",
+                                sakoe_chiba_radius=1)
+        for ts2 in dataset2
+    ] for ts1 in dataset1])
+    actual = tslearn.metrics.cdist_frechet(dataset1, dataset2,
+                                           global_constraint="sakoe_chiba",
+                                           sakoe_chiba_radius=1)
+
+    np.testing.assert_allclose(actual, expected)

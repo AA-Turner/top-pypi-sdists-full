@@ -986,11 +986,11 @@ class CustomGradientFunction(torch.autograd.Function):
         """
         ctx.forward_fn = forward_fn
         ctx.save_for_backward(*args)
-        try:
-            output, ctx.grad_fn = forward_fn(*args, **kwargs)
-        except:
-            output = forward_fn(*args, **kwargs)
-            ctx.grad_fn = lambda *args, **kwargs: torch.full((), float("nan"))
+        result = forward_fn(*args, **kwargs)
+        if isinstance(result, (list, tuple)) and len(result) == 2:
+            output, ctx.grad_fn = result
+        else:
+            output, ctx.grad_fn = result, None
         return output
 
     @staticmethod
@@ -1008,7 +1008,13 @@ class CustomGradientFunction(torch.autograd.Function):
         grads = grad_fn(*args, upstream=grad_output)
         if not isinstance(grads, tuple):
             grads = (grads,)
-        return (None,) + grads
+        # Keras ops compute the gradients on `get_device()`, but autograd
+        # needs each gradient on the device of its input.
+        grads = list(grads)
+        for i, (grad, x) in enumerate(zip(grads, args)):
+            if isinstance(grad, torch.Tensor) and x is not None:
+                grads[i] = grad.to(x.device)
+        return (None,) + tuple(grads)
 
 
 def grad(f, argnums=0):

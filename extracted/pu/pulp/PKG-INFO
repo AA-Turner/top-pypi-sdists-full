@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PuLP
-Version: 4.1.0
+Version: 4.2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -12,9 +12,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Dist: orloge>=1.0.0
-Requires-Dist: cbcbox ; extra == 'cbc'
+Requires-Dist: cbcbox<2.931 ; extra == 'cbc'
 Requires-Dist: coptpy ; python_full_version < '3.14' and extra == 'copt'
 Requires-Dist: cplex ; (sys_platform != 'darwin' and extra == 'cplex') or (platform_machine == 'arm64' and extra == 'cplex')
+Requires-Dist: cylp ; sys_platform != 'win32' and extra == 'cylp'
 Requires-Dist: swiglpk ; extra == 'glpk'
 Requires-Dist: gurobipy ; extra == 'gurobi'
 Requires-Dist: highspy ; extra == 'highs'
@@ -22,7 +23,7 @@ Requires-Dist: highsbox ; extra == 'highs-cmd'
 Requires-Dist: mosek ; extra == 'mosek'
 Requires-Dist: highspy ; extra == 'open-py'
 Requires-Dist: pyscipopt ; extra == 'open-py'
-Requires-Dist: cbcbox ; extra == 'open-py'
+Requires-Dist: cbcbox<2.931 ; extra == 'open-py'
 Requires-Dist: swiglpk ; extra == 'open-py'
 Requires-Dist: ortools ; extra == 'ortools'
 Requires-Dist: gurobipy ; extra == 'public-py'
@@ -34,6 +35,7 @@ Requires-Dist: xpress ; extra == 'xpress'
 Provides-Extra: cbc
 Provides-Extra: copt
 Provides-Extra: cplex
+Provides-Extra: cylp
 Provides-Extra: glpk
 Provides-Extra: gurobi
 Provides-Extra: highs

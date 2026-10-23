@@ -55,7 +55,7 @@ class Selection(metaclass=abc.ABCMeta):
     raise NotImplementedError()
 
   @abc.abstractmethod
-  def set(self, **kwargs) -> None:
+  def set(self, /, **kwargs) -> None:
     """Sets attributes on nodes matching this selection.
 
     Args:
@@ -122,7 +122,7 @@ class NodeSelection(Selection):
             self.match_subclasses  #
             and isinstance(self.fn_or_cls, type)  #
             and isinstance(config_lib.get_callable(node), type)  #
-            and issubclass(config_lib.get_callable(node), self.fn_or_cls))
+            and issubclass(config_lib.get_callable(node), self.fn_or_cls))  # pyrefly: ignore[bad-argument-type]
         if not is_subclass:
           return False
 
@@ -171,7 +171,7 @@ class NodeSelection(Selection):
     mutate_buildable.move_buildable_internals(
         source=new_config, destination=self.cfg)
 
-  def set(self, **kwargs) -> None:
+  def set(self, /, **kwargs) -> None:
     """Sets multiple attributes on nodes matching this selection.
 
     Args:
@@ -208,7 +208,7 @@ class TagSelection(Selection):
       if isinstance(value, config_lib.Buildable):
         for name, tags in value.__argument_tags__.items():
           if any(issubclass(tag, self.tag) for tag in tags):
-            yield getattr(value, name, tagging.NO_VALUE)
+            yield getattr(value, name, tagging.NO_VALUE)  # pyrefly: ignore[no-matching-overload]
 
   def replace(self, value: Any, deepcopy: bool = True) -> None:
 
@@ -217,17 +217,18 @@ class TagSelection(Selection):
         for name, tags in node_value.__argument_tags__.items():
           if any(issubclass(tag, self.tag) for tag in tags):
             to_set = value if not deepcopy else copy.deepcopy(value)
-            setattr(node_value, name, to_set)
+            setattr(node_value, name, to_set)  # pyrefly: ignore[bad-argument-type]
 
   def get(self, name: str) -> Iterator[Any]:
     raise NotImplementedError(
         "To iterate through values of a TagSelection, use __iter__ instead "
         "of get().")
 
-  def set(self, **kwargs) -> None:
+  def set(self, /, **kwargs) -> None:
     raise NotImplementedError(
         "You can't set named attributes on tagged values, you can only replace "
         "them. Please call replace() instead of set().")
+
 
 _missing = object()
 

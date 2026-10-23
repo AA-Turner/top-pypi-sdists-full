@@ -47,9 +47,8 @@ def test_model_endpoint_deployment_preserves_checkpoint_and_agent_ownership() ->
   ):
     result = client.deployments.create(
       checkpoint_id="checkpoint-fixture",
-      model_slug="model-fixture",
+      test_model_slug="model-fixture",
       agent_id="agent-fixture",
-      role="test",
     )
 
   assert result.deployment_id == "deployment-fixture"
@@ -59,9 +58,8 @@ def test_model_endpoint_deployment_preserves_checkpoint_and_agent_ownership() ->
   assert request.url.path == "/api/v1/deploy"
   assert json.loads(request.content) == {
     "checkpoint_id": "checkpoint-fixture",
-    "model_slug": "model-fixture",
+    "test_model_slug": "model-fixture",
     "agent_id": "agent-fixture",
-    "role": "test",
   }
 
 

@@ -14,7 +14,7 @@
 Connect to an OpenStack cloud.
 
 For a full guide see
-https://docs.openstack.org/openstacksdk/latest/user/guides/connect_from_config.html
+https://docs.openstack.org/openstacksdk/latest/user/guides/connect.html
 """
 
 import argparse
@@ -34,14 +34,6 @@ TEST_CLOUD = os.getenv('OS_TEST_CLOUD', 'devstack-admin')
 EXAMPLE_CONFIG_KEY = os.getenv('OPENSTACKSDK_EXAMPLE_CONFIG_KEY', 'example')
 config = loader.OpenStackConfig()
 cloud = openstack.connect(cloud=TEST_CLOUD)
-
-
-class Opts:
-    def __init__(self, cloud_name='devstack-admin', debug=False):
-        self.cloud = cloud_name
-        self.debug = debug
-        # Use identity v3 API for examples.
-        self.identity_api_version = '3'
 
 
 def _get_resource_value(resource_key, default):

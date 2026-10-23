@@ -131,6 +131,7 @@ from types_boto3_connectcampaignsv2.client import ConnectCampaignServiceV2Client
 from types_boto3_connectcases.client import ConnectCasesClient
 from types_boto3_connecthealth.client import ConnectHealthClient
 from types_boto3_connectparticipant.client import ConnectParticipantClient
+from types_boto3_continuum.client import ContinuumClient
 from types_boto3_controlcatalog.client import ControlCatalogClient
 from types_boto3_controltower.client import ControlTowerClient
 from types_boto3_cost_optimization_hub.client import CostOptimizationHubClient
@@ -2545,6 +2546,25 @@ class Session:
     ) -> ConnectParticipantClient:
         """
         Create client for ConnectParticipant service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["continuum"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ContinuumClient:
+        """
+        Create client for Continuum service.
         """
 
     @overload

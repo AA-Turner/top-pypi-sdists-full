@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import telemetry
 from ._extensions import use_ext
@@ -14,6 +14,20 @@ if TYPE_CHECKING:
     from ._notifier import Notifier
     from ._producer import Producer
     from ._query import Query
+
+
+def build_stager(
+    config: dict[str, Any],
+    *,
+    notifier: Notifier,
+    producers: dict[str, Producer],
+    query: Query,
+) -> Looper:
+    """Build the stager described by an Oban ``stager`` config.
+
+    The default for the ``stager.build`` extension.
+    """
+    return Stager(notifier=notifier, producers=producers, query=query, **config)
 
 
 class Stager(Looper):
@@ -83,6 +97,9 @@ class Stager(Looper):
                 break
             except Exception as error:
                 logger.warning("Stager failed to stage jobs: %s", error, exc_info=True)
+
+                for producer in self._producers.values():
+                    producer.notify()
 
             await sleep_until_stopped(self._stopping, self._interval)
 

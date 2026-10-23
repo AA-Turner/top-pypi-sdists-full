@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -31,6 +39,11 @@ from .asset import (
     AssetRelationshipAttributes,
     _extract_asset_attrs,
     _populate_asset_attrs,
+)
+from .cassandra_related import (
+    RelatedCassandraColumn,
+    RelatedCassandraKeyspace,
+    RelatedCassandraView,
 )
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
@@ -48,18 +61,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cassandra_related import (
-    RelatedCassandraColumn,
-    RelatedCassandraKeyspace,
-    RelatedCassandraView,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -409,6 +410,43 @@ class CassandraView(Asset):
         if self.guid is not UNSET:
             return RelatedCassandraView(guid=self.guid)
         return RelatedCassandraView(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        keyspace_qualified_name: str,
+        connection_qualified_name: str | None = None,
+    ) -> "CassandraView":
+        validate_required_fields(
+            ["name", "keyspace_qualified_name"], [name, keyspace_qualified_name]
+        )
+        fields = keyspace_qualified_name.split("/")
+        if len(fields) < 4:
+            raise ValueError(
+                "keyspace_qualified_name must be {connection_qualified_name}/{keyspace}"
+            )
+        connection_qualified_name = connection_qualified_name or "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{keyspace_qualified_name}/{name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            cassandra_keyspace_name=fields[-1],
+            cassandra_keyspace=RelatedCassandraKeyspace(
+                qualified_name=keyspace_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CassandraView":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CassandraView":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -844,6 +882,7 @@ def _cassandra_view_to_nested(cassandra_view: CassandraView) -> CassandraViewNes
         is_incomplete=cassandra_view.is_incomplete,
         provenance_type=cassandra_view.provenance_type,
         home_id=cassandra_view.home_id,
+        delete_handler=cassandra_view.delete_handler,
         depth=cassandra_view.depth,
         immediate_upstream=cassandra_view.immediate_upstream,
         immediate_downstream=cassandra_view.immediate_downstream,
@@ -892,6 +931,7 @@ def _cassandra_view_from_nested(nested: CassandraViewNested) -> CassandraView:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

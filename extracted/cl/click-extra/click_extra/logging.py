@@ -37,11 +37,12 @@ at `DEBUG`/`CRITICAL`.
 
 from __future__ import annotations
 
-import inspect
 import logging
 import sys
+import weakref
 from contextlib import nullcontext
 from enum import IntEnum
+from functools import partial
 from gettext import gettext as _
 from logging import (
     FileHandler,
@@ -51,7 +52,6 @@ from logging import (
 )
 
 import click
-from boltons.strutils import strip_ansi
 from click._utils import UNSET
 from click.types import IntRange
 
@@ -95,6 +95,14 @@ class LogLevel(IntEnum):
         return self.name
 
 
+DEFAULT_FORMAT = "{levelname}: {message}"
+"""Format of a log record, written in the style of {data}`DEFAULT_STYLE`.
+
+The default of {func}`basicConfig`, and the format of the handler an option of Click
+Extra attaches to the `root` logger for the time of a run.
+"""
+
+
 DEFAULT_LEVEL: LogLevel = LogLevel.WARNING
 """{data}`WARNING <logging.WARNING>` is the default level we expect any loggers to starts their lives at.
 
@@ -104,13 +112,21 @@ This value is also used as the default level for {class}`VerbosityOption` .
 """
 
 
-_RESET_REGISTERED: str = f"{context.META_NAMESPACE}_verbosity_reset_registered"
-"""Internal sentinel marking that `reset_loggers` was queued on the context.
+DEFAULT_STYLE: Literal["%", "{", "$"] = "{"
+"""Style of the format strings: ``{`` is the one of {meth}`str.format`.
 
-Lives in `ctx.meta` so the verbosity inheritance chain
+The default of {func}`basicConfig`, where {func}`logging.basicConfig` defaults to `%`.
+"""
+
+
+_LEVEL_TOKEN: str = f"{context.META_NAMESPACE}_log_level_token"
+"""Internal `ctx.meta` slot for the token a run owns its log levels with.
+
+Set by the first verbosity option that applies a level, which also queues the
+reset of the loggers. It lives in `ctx.meta` so the verbosity inheritance chain
 (`_VerbosityOption` / `VerbosityOption` / `VerboseOption` / `QuietOption`)
-registers the close callback at most once per invocation, even when several
-verbosity options are passed.
+queues that reset at most once per invocation, even when several verbosity
+options are passed. See `_level_owner`.
 """
 
 
@@ -123,6 +139,64 @@ reads the raw `--verbose`/`--quiet` repetition counts from the parsed
 way the option that fires first already reconciles the full counter and never
 applies an intermediate, louder level that a later `-q` would have to lower
 (which would leak its `Set ... DEBUG` debug trace).
+"""
+
+
+_CONFIGURED_HANDLERS: weakref.WeakSet[Handler] = weakref.WeakSet()
+"""Handlers {func}`basicConfig` attached, so the ones of {func}`new_logger` too.
+
+A logger holding one of them is set up the way its owner asked, whatever the
+classes involved, and `_hold_invocation_handler` leaves it alone. The set holds
+its handlers weakly, so it never keeps a discarded one alive.
+"""
+
+
+_HANDLER_TOKEN: str = f"{context.META_NAMESPACE}_log_handler_token"
+"""Internal `ctx.meta` slot for the token a run holds the log handler with.
+
+`ctx.meta` is shared down the context hierarchy, so the options of a command and
+of its subcommands find the same token there, and a run takes one hold however
+many of them it carries. See `_hold_invocation_handler`.
+"""
+
+
+_INVOCATION_HANDLERS: dict[str, Handler] = {}
+"""The handler the options of Click Extra gave a logger for the runs in progress.
+
+Keyed by logger name. Only the `root` logger gets one, and every run shares it:
+a run started from within another one prints its records once.
+
+A dict, for the two operations that keep it consistent when runs start and end
+at the same time, in several threads or from a finalizer: `setdefault()`
+installs a handler unless one is there, and `pop()` hands it to a single taker.
+"""
+
+
+_INVOCATION_HOLDERS: set[object] = set()
+"""One token for each run holding the handler of `_INVOCATION_HANDLERS`.
+
+The handler is detached when the last token is released. Counting the holders is
+what keeps the handler in place for a run when the previous one failed while
+parsing: the context of the failed run releases its token late, once it is
+collected, which may happen in the middle of the next run.
+"""
+
+
+_level_owner: object | None = None
+"""The token of the run that set the current log levels, until it gives them back.
+
+Compared by `_take_saved_levels`. The context of a run that failed while parsing
+is collected late, possibly in the middle of a later run, whose levels it must
+not touch.
+"""
+
+
+_level_saved: dict[str, int] = {}
+"""The level each logger had before a run changed it, by logger name.
+
+Filled by the run of `_level_owner`, which gives these levels back when it ends.
+A run that takes the levels over from another one keeps its entries: the levels
+to give back are the ones found before the first of the two.
 """
 
 
@@ -191,6 +265,9 @@ class StreamHandler(logging.StreamHandler):
             if line is not None:
                 # The live line's echo writes raw: strip what click.echo would.
                 if color is False:
+                    # Deferred import: keeps boltons off the startup path of every CLI.
+                    from boltons.strutils import strip_ansi
+
                     message = strip_ansi(message)
                 line.echo(message)
             else:
@@ -201,6 +278,21 @@ class StreamHandler(logging.StreamHandler):
         # If exception occurs, dump the traceback to stderr.
         except Exception:  # noqa: BLE001
             self.handleError(record)
+
+
+class _InvocationHandler(StreamHandler):
+    """The handler the options of Click Extra lend the `root` logger for a run.
+
+    It prints nothing once the last run let go of it. Code that saves the handlers
+    of a logger and puts them back later, as a fixture does to isolate a test, may
+    attach it again by then: each record of a later run would otherwise print a
+    second time, beside the handler of that run.
+    """
+
+    def emit(self, record: LogRecord) -> None:
+        """Print the record for as long as a run holds the handler."""
+        if self in _INVOCATION_HANDLERS.values():
+            super().emit(record)
 
 
 class Formatter(logging.Formatter):
@@ -262,9 +354,9 @@ def basicConfig(
     # Arguments from Python's standard library's basicConfig:
     filename: str | None = None,
     filemode: str = "a",
-    format: str | None = "{levelname}: {message}",
+    format: str | None = DEFAULT_FORMAT,
     datefmt: str | None = None,
-    style: Literal["%", "{", "$"] = "{",
+    style: Literal["%", "{", "$"] = DEFAULT_STYLE,
     level: int | str | None = None,
     stream: IO[Any] | None = None,
     handlers: Iterable[Handler] | None = None,
@@ -356,16 +448,39 @@ def basicConfig(
     standard library {func}`logging.basicConfig`.
     ```
     """
-    # Collect all arguments that are not None, because basicConfig is testing the
-    # presence of them instead of their values. So we'll add them conditionally to
-    # kwargs.
-    kwargs = {}
-    for arg_id in inspect.signature(basicConfig).parameters:
-        if arg_id in locals() and locals()[arg_id] is not None:
-            kwargs[arg_id] = locals()[arg_id]
+    # Only the arguments that are set are passed on: the standard library tests
+    # their presence, not their value.
+    kwargs: dict[str, Any] = {
+        name: value
+        for name, value in (
+            ("filename", filename),
+            ("filemode", filemode),
+            ("format", format),
+            ("datefmt", datefmt),
+            ("style", style),
+            ("level", level),
+            ("stream", stream),
+            ("handlers", handlers),
+            ("force", force),
+            ("encoding", encoding),
+            ("errors", errors),
+            ("stream_handler_class", stream_handler_class),
+            ("file_handler_class", file_handler_class),
+            ("formatter_class", formatter_class),
+        )
+        if value is not None
+    }
+    # The standard library reads filemode for the handler it creates itself, and
+    # rejects it as unrecognised beside handlers of the caller.
+    if handlers is not None:
+        kwargs.pop("filemode", None)
 
     call_str = ", ".join(f"{k}={v!r}" for k, v in kwargs.items())
     logger.debug(f"Call basicConfig({call_str})")
+
+    # The standard library sets handlers up when told to replace the existing ones,
+    # or when there is none. Every handler found afterwards is then one it attached.
+    configures = force or not logging.root.handlers
 
     # Consume along the way each kwargs' parameter not recognized by basicConfig.
     with (
@@ -374,6 +489,9 @@ def basicConfig(
         patch_attr(logging, "Formatter", kwargs.pop("formatter_class")),
     ):
         logging.basicConfig(**kwargs)
+
+    if configures:
+        _CONFIGURED_HANDLERS.update(logging.root.handlers)
 
 
 def new_logger(
@@ -396,9 +514,26 @@ def new_logger(
 
     This function is a wrapper around {func}`basicConfig` and takes the same keywords arguments.
 
-    :param name: ID of the logger to setup. If `None`, Python's `root`
-        logger will be used. If a logger with the provided name is not found in the
-        global registry, a new logger with that name will be created.
+    ```{warning}
+    The removal reaches every handler of the logger, not only the ones Click Extra
+    attached. Left on its default `name`, this function sets up the `root`
+    logger, which the whole process shares: the handlers an application or a test
+    runner attached to it are removed and closed.
+
+    Call it from the entry point of a program instead of at import time, or name
+    a logger of your own. With `force=False` the handlers stay, and the function
+    sets nothing up on a logger that already has one.
+    ```
+
+    ```{note}
+    The options of Click Extra do not call this function for the `root` logger.
+    They attach their handler beside the others, for the time of a run. See
+    {meth}`~click_extra.parameters.ExtraOption.add_to_parser`.
+    ```
+
+    :param name: ID of the logger to setup. Defaults to the name of Python's `root`
+        logger. If a logger with the provided name is not found in the global
+        registry, a new logger with that name will be created.
     :param propagate: Sets the logger's {attr}`propagate <logging.Logger.propagate>` attribute. Defaults to `False`.
     :param force: Same as the *force* parameter from {func}`logging.basicConfig` and {func}`basicConfig`. Defaults to `True`.
     :param kwargs: Any other keyword parameters supported by {func}`logging.basicConfig` and {func}`basicConfig`.
@@ -420,6 +555,126 @@ def new_logger(
         basicConfig(force=force, **kwargs)
 
     return logger
+
+
+def _hold_invocation_handler(ctx: click.Context) -> None:
+    """Give the `root` logger Click Extra's handler for the run `ctx` belongs to.
+
+    The handler goes beside the ones already attached, which stay in place. The
+    `root` logger belongs to the whole process: an application that embeds the
+    CLI, or a test runner that captures log records, has its own handlers there.
+
+    Nothing is attached when {func}`basicConfig` or {func}`new_logger` set the
+    `root` logger up already: the handlers and the format chosen there are kept.
+
+    One handler serves every run in progress, and each run holds it with a token
+    of its own: the subcommands of a run share its token, and a run started from
+    within another one adds a second. A record so prints once, and the handler
+    stays for as long as one run needs it.
+
+    A run releases its token when its root context closes, and through
+    `click_extra.context._queue_run_cleanup` when it fails while parsing.
+    """
+    if context.get(ctx, _HANDLER_TOKEN) in _INVOCATION_HOLDERS:
+        return
+
+    root = getLogger()
+    if any(handler in _CONFIGURED_HANDLERS for handler in tuple(root.handlers)):
+        return
+
+    token = object()
+    # Hold first: from here on, no release can take the handler away.
+    _INVOCATION_HOLDERS.add(token)
+    handler = _INVOCATION_HANDLERS.get(root.name)
+    if handler is None:
+        handler = _InvocationHandler()
+        handler.setFormatter(Formatter(fmt=DEFAULT_FORMAT, style=DEFAULT_STYLE))
+        # Another run may have installed one in the meantime: that one is used.
+        handler = _INVOCATION_HANDLERS.setdefault(root.name, handler)
+    # Take off the handler of an earlier run, which somebody put back after that
+    # run let go of it.
+    for other in tuple(root.handlers):
+        if isinstance(other, _InvocationHandler) and other is not handler:
+            root.removeHandler(other)
+    # A no-op when a run in progress attached it. A handler somebody else took off
+    # the logger in the meantime is put back.
+    root.addHandler(handler)
+
+    context.set(ctx, _HANDLER_TOKEN, token)
+    release = partial(_release_invocation_handler, token)
+    root_ctx = ctx.find_root()
+    root_ctx.call_on_close(release)
+    context._queue_run_cleanup(root_ctx, release)
+
+
+def _release_invocation_handler(token: object) -> None:
+    """Release the hold of a run, and detach the handler once no run holds it.
+
+    Safe to call more than once with the same token: the close callback, the
+    finalizer and the `_scoped_run` block of the command may each release the
+    same run.
+
+    A finalizer runs where Python collects the context, so in any thread and in
+    the middle of any call, the start of another run included. No lock guards
+    against that: a finalizer waiting for a lock its own thread holds never gets
+    it. Each step below is a single operation of a set or of a dict instead, in
+    an order that leaves a run starting at that moment with its handler.
+    """
+    _INVOCATION_HOLDERS.discard(token)
+    if _INVOCATION_HOLDERS:
+        return
+    root = getLogger()
+    handler = _INVOCATION_HANDLERS.pop(root.name, None)
+    if handler is None:
+        return
+    # A run that started since the check above may count on this handler. It is
+    # put back, unless that run installed one of its own.
+    if (
+        _INVOCATION_HOLDERS
+        and _INVOCATION_HANDLERS.setdefault(root.name, handler) is handler
+    ):
+        return
+    root.removeHandler(handler)
+    handler.close()
+
+
+def _take_saved_levels(token: object) -> dict[str, int] | None:
+    """Hand the levels to give back over to the run that owns them.
+
+    `None` for any other run: one whose levels a later run took over, or one that
+    gave them back already. The owner so gets them once, however many of its
+    cleanups ask.
+    """
+    global _level_owner, _level_saved
+    if _level_owner is not token:
+        return None
+    _level_owner = None
+    saved, _level_saved = _level_saved, {}
+    return saved
+
+
+def _expire_levels(token: object) -> None:
+    """Give the loggers of a run their levels back, if that run still owns them.
+
+    Called for a run whose context Click never closed, so whose
+    {meth}`_VerbosityOption.reset_loggers` never ran.
+
+    Silent, unlike that method: the call may come from a finalizer, in the middle
+    of a later run, and a debug record emitted there would print in its output.
+    """
+    for name, level in (_take_saved_levels(token) or {}).items():
+        getLogger(name).setLevel(level)
+
+
+def _resulting_level(managed_logger: Logger, level: int) -> str:
+    """Name the level `managed_logger` works at once its own is set to `level`.
+
+    A logger given back {data}`NOTSET <logging.NOTSET>` follows its parent again,
+    as the representation of a logger shows it: `<Logger almanac (WARNING)>`.
+    """
+    if not level and managed_logger.parent:
+        level = managed_logger.parent.getEffectiveLevel()
+    return logging.getLevelName(level)
 
 
 def _fold_level(
@@ -544,9 +799,11 @@ class _VerbosityOption(ExtraOption):
         for name in ("click_extra", self.logger_name):
             yield getLogger(name)
 
-    def reset_loggers(self) -> None:
-        """Forces all loggers managed by the option to be reset to
-        {const}`DEFAULT_LEVEL`.
+    def reset_loggers(self, levels: Mapping[str, int] | None = None) -> None:
+        """Gives all loggers managed by the option their level back.
+
+        At the end of a run, that is the level each logger had before the run: an
+        application that set its own level on the `root` logger finds it again.
 
         ```{important}
         Loggers are reset in reverse order to ensure the internal logger is changed
@@ -559,10 +816,35 @@ class _VerbosityOption(ExtraOption):
         global, loggers have tendency to leak and pollute their state between
         multiple test calls.
         ```
+
+        :param levels: The level to give back to each logger, by logger name. A
+            logger it does not name is reset to {const}`DEFAULT_LEVEL`, and so is
+            every logger when it is not provided.
         """
+        levels = levels or {}
         for managed_logger in list(self.all_loggers)[::-1]:
-            logger.debug(f"Reset {managed_logger} to {DEFAULT_LEVEL}.")
-            managed_logger.setLevel(DEFAULT_LEVEL.value)
+            level = levels.get(managed_logger.name, DEFAULT_LEVEL.value)
+            target = _resulting_level(managed_logger, level)
+            logger.debug(f"Reset {managed_logger} to {target}.")
+            managed_logger.setLevel(level)
+
+    def _reset_on_close(self, token: object) -> None:
+        """Give the loggers their levels back when the context of the run closes.
+
+        The close callback of a run that set levels. Does nothing for a run whose
+        levels a later run took over, and gave back. See `_expire_levels` for a
+        run whose context never closes.
+        """
+        saved = _take_saved_levels(token)
+        if saved is None:
+            return
+        self.reset_loggers(saved)
+        # The loggers of an earlier run that failed while parsing, whose levels
+        # this run took over: none of them is one this option reports on.
+        managed = {managed_logger.name for managed_logger in self.all_loggers}
+        for name, level in saved.items():
+            if name not in managed:
+                getLogger(name).setLevel(level)
 
     def handle_parse_result(
         self,
@@ -645,7 +927,18 @@ class _VerbosityOption(ExtraOption):
         {meth}`resolve_level`. The reconciled level is published on `ctx.meta` under
         {data}`~click_extra.context.VERBOSITY_LEVEL` and only (re)applied when it
         actually changes, to keep the debug trace free of redundant `Set` lines.
+
+        The loggers get the level they had before the run back when it ends: through
+        {meth}`reset_loggers` when its context closes, and through `_expire_levels`
+        when it fails while parsing, which leaves the context never closed.
+
+        ```{note}
+        A run started from within another one gives back the levels found before
+        the outer run, not the ones the outer run set: the outer run works at
+        those for the rest of its time.
+        ```
         """
+        global _level_owner
         # Skip logger reconfiguration during help rendering, shell completion,
         # and any `make_context(resilient_parsing=True)` path.
         if ctx.resilient_parsing:
@@ -660,16 +953,28 @@ class _VerbosityOption(ExtraOption):
 
         context.set(ctx, context.VERBOSITY_LEVEL, new_level)
 
+        # Own the levels before setting them. An earlier run that failed while
+        # parsing, if it gives its levels back now, then leaves these alone.
+        token = context.get(ctx, _LEVEL_TOKEN)
+        queued = token is not None
+        if not queued:
+            token = object()
+            context.set(ctx, _LEVEL_TOKEN, token)
+        _level_owner = token
+
         for managed_logger in self.all_loggers:
+            # Keep the level to give back, unless a run before this one did: the
+            # level found now is then one that run set.
+            _level_saved.setdefault(managed_logger.name, managed_logger.level)
             managed_logger.setLevel(new_level.value)
             logger.debug(f"Set {managed_logger} to {new_level}.")
 
-        # Register the close callback at most once per ctx. All verbosity options flow
-        # through this method, so without a guard the same `reset_loggers` would be
-        # queued more than once on Context._close_callbacks.
-        if not context.get(ctx, _RESET_REGISTERED):
-            ctx.call_on_close(self.reset_loggers)
-            context.set(ctx, _RESET_REGISTERED, True)
+        # Queue the reset at most once per ctx. All verbosity options flow through
+        # this method, so without a guard the same reset would be queued more than
+        # once on Context._close_callbacks.
+        if not queued:
+            ctx.call_on_close(partial(self._reset_on_close, token))
+            context._queue_run_cleanup(ctx, partial(_expire_levels, token))
 
     def set_level(self, ctx: click.Context, param: click.Parameter, value: Any) -> None:
         """Base callback: subclasses record their raw value first, then reconcile.
@@ -690,21 +995,28 @@ class _VerbosityOption(ExtraOption):
     ) -> None:
         """Set up a verbosity-altering option.
 
-        :param default_logger: If a {class}`logging.Logger` object is provided, that's
-            the instance to which we will set the level to. If the parameter is a string
-            and is found in the global registry, we will use it as the logger's ID.
-            Otherwise, we will create a new logger with {func}`new_logger`
-            Default to the global `root` logger.
+        :param default_logger: The logger the option sets the level of:
+
+            - A {class}`logging.Logger` object is used as it is.
+            - The name of the `root` logger, which is the default, selects it.
+            - A name found in the global registry selects that logger as it is.
+            - Any other name creates the logger with {func}`new_logger`.
+
+            Building the option never touches the `root` logger, which the whole
+            process shares. Whichever logger is selected, the `root` one gets Click
+            Extra's handler for the time of each run of the command: see
+            {meth}`~click_extra.parameters.ExtraOption.add_to_parser`.
         """
         # A logger object has been provided, fetch its name.
         if isinstance(default_logger, Logger):
             self.logger_name = default_logger.name
+        # The root logger is never found in Logger.manager.loggerDict.
+        elif default_logger in (None, logging.root.name):
+            self.logger_name = logging.root.name
         # Use the provided string if it is found in the registry.
         elif default_logger in Logger.manager.loggerDict:
             self.logger_name = default_logger
         # Create a new logger with Click Extra's default configuration.
-        # XXX That's also the case in which the root logger will fall into, because as
-        # a special case, it is not registered in Logger.manager.loggerDict.
         else:
             logger = new_logger(name=default_logger)
             self.logger_name = logger.name

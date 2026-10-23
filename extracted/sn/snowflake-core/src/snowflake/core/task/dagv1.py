@@ -715,8 +715,8 @@ class DAGTask:
                 return_type=self.definition._return_type,
                 input_types=self.definition._input_types,
                 stage_location=self.definition._stage_location or self.dag.stage_location,
-                imports=self.definition._imports or self.dag.imports,
-                packages=self.definition._packages or self.dag.packages,
+                imports=self.definition._imports if self.definition._imports is not None else self.dag.imports,
+                packages=self.definition._packages if self.definition._packages is not None else self.dag.packages,
             )
         elif isinstance(self.definition, Callable):  # type: ignore
             definition = StoredProcedureCall(

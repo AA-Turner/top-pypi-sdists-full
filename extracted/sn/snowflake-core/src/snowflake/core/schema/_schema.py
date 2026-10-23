@@ -27,7 +27,6 @@ from ..function import FunctionCollection
 from ..iceberg_table import IcebergTableCollection
 from ..image_repository import ImageRepositoryCollection
 from ..network_rule import NetworkRuleCollection
-from ..notebook import NotebookCollection
 from ..password_policy import PasswordPolicyCollection
 from ..procedure import ProcedureCollection
 from ..secret import SecretCollection
@@ -50,6 +49,7 @@ from ._generated.models.schema_clone import SchemaClone
 if TYPE_CHECKING:
     from .. import Root
     from ..database import DatabaseResource
+    from ..notebook import NotebookCollection
 
 
 class SchemaCollection(DatabaseObjectCollectionParent["SchemaResource"]):
@@ -632,8 +632,11 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
         return ServiceCollection(self)
 
     @cached_property
-    def notebooks(self) -> NotebookCollection:
+    def notebooks(self) -> "NotebookCollection":
         """The NotebookCollection of all notebooks contained in this schema.
+
+        ``snowflake.core.notebook`` is deprecated. Accessing this property imports that
+        package and emits a ``DeprecationWarning``.
 
         Examples
         ________
@@ -641,6 +644,8 @@ class SchemaResource(DatabaseObjectReferenceMixin[SchemaCollection]):
 
         >>> my_db.schemas["my_schema"].notebooks
         """
+        from ..notebook import NotebookCollection
+
         return NotebookCollection(self)
 
     @cached_property

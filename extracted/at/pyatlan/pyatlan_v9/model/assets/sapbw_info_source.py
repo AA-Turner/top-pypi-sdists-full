@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,21 +51,14 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sapbw_related import (
     RelatedSAPBWInfoArea,
     RelatedSAPBWInfoSource,
     RelatedSAPBWInfoSourceField,
 )
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -717,6 +717,7 @@ def _sapbw_info_source_to_nested(
         is_incomplete=sapbw_info_source.is_incomplete,
         provenance_type=sapbw_info_source.provenance_type,
         home_id=sapbw_info_source.home_id,
+        delete_handler=sapbw_info_source.delete_handler,
         depth=sapbw_info_source.depth,
         immediate_upstream=sapbw_info_source.immediate_upstream,
         immediate_downstream=sapbw_info_source.immediate_downstream,
@@ -765,6 +766,7 @@ def _sapbw_info_source_from_nested(nested: SAPBWInfoSourceNested) -> SAPBWInfoSo
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

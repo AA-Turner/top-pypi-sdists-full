@@ -31,8 +31,9 @@ to know what was said in the audio would not be.
 
 from __future__ import annotations
 
+import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from typing import Literal
 from urllib.parse import urlsplit
@@ -118,6 +119,10 @@ HIT_LINKED_POINTS = 20
 HIT_AUTHORITY_MAX_POINTS = 20
 
 
+#: How much of a source's summary a mention keeps as filing evidence.
+SOURCE_SUMMARY_MAX_CHARS = 2000
+
+
 def domain_of(url: str) -> str:
     """The article's host as a story key spells it (lower-cased, no ``www.``)."""
     return urlsplit(story_url_key(url)).hostname or ""
@@ -166,6 +171,9 @@ class TrackerSpec(BaseModel):
     tracker_id: str
     brand_key: str
     brand_terms: list[str] = Field(default_factory=list)
+    #: The brand terms (aliases) too ambiguous to name the brand alone — they count only alongside
+    #: another brand term in the same item (``term_hits(needs_company=…)``).
+    guarded_brand_terms: list[str] = Field(default_factory=list)
     exclude_terms: list[str] = Field(default_factory=list)
     competitors: list[CompetitorTerm] = Field(default_factory=list)
     language: str | None = None
@@ -207,24 +215,150 @@ class MentionCandidate(BaseModel):
     #: Which side of the share-of-voice ledger this lands on.
     is_competitor: bool = False
     competitor_key: str | None = None
-    #: Which of the tracker's terms actually matched, for the evidence drawer.
+    #: Which of the tracker's terms actually matched, for the evidence drawer — only terms found
+    #: in the headline or the source's summary, never the search's whole term list.
     matched_terms: list[str] = Field(default_factory=list)
+    #: The search returned it, but neither the headline nor the summary names a tracked term: the
+    #: row is filed (our crawler checks the page) and is NOT counted until a term is found on it.
+    term_check_pending: bool = False
+    #: When the source says the article was published (a provider date), if it gave one.
+    published_at: datetime | None = None
+    #: The source's own summary of the article, as given ("" when it gave none) — evidence the row was
+    #: filed on, kept so a later re-check reads the same evidence instead of the headline alone.
+    source_summary: str = ""
     dedupe_key: str = ""
     external_id: str | None = None
 
 
+#: What may sit between the parts of a name as people write it: nothing ("AllGreen"), spaces
+#: ("All Green") or a hyphen/dash ("All-Green"). Only BETWEEN the term's own parts — never inside one.
+_PART_GAP = r"[\s\-\u2010\u2011\u2012\u2013\u2014_]*"
+#: A camel-case seam inside one written word: "AllGreen" is the parts "All" + "Green".
+_CAMEL_SEAM = re.compile(r"(?<=[a-z])(?=[A-Z])")
+#: A host name written in text or an address ("allgreenrecycling.com", "www.all-green.co.uk").
+_HOST = re.compile(r"(?<![\w@.-])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,24})(?![\w-])", re.IGNORECASE)
+_HOST_NOISE_LABELS = frozenset({"www", "m", "amp", "news", "blog"})
+
+
+#: Every apostrophe people type (curly, modifier letter, prime-like accents) reads as the straight
+#: one, in the term and in the text: "Blanca’s" names "Blanca's".
+_APOSTROPHES = str.maketrans({c: "'" for c in "\u2019\u2018\u02bc\u02b9\u2032\u0060\u00b4\uff07"})
+
+#: The fewest letters a multi-word name needs before its parts written joined in lower case
+#: ("allgreenrecycling") still name it: "Every Day" never matches "Everyday", "All In" never
+#: "allin". Parts joined at a capital ("AllGreen") always do. The SEED of platform.feature_knob
+#: "seo.name_matching" "joined_name_min_chars"; the live value is the host's
+#: (:func:`configure_joined_name_min_chars`).
+JOINED_NAME_MIN_CHARS = 10
+_joined_min_chars_source: Callable[[], int] | None = None
+_joined_failures: set[str] = set()
+logger = logging.getLogger(__name__)
+
+
+def configure_joined_name_min_chars(source: Callable[[], int] | None) -> None:
+    """Install the host's reader of ``seo.name_matching.joined_name_min_chars`` (None clears)."""
+    global _joined_min_chars_source
+    _joined_min_chars_source = source
+
+
+def joined_name_min_chars() -> int:
+    """The joined-name floor in force: the host's knob row, else (logged) the seed."""
+    if _joined_min_chars_source is None:
+        return JOINED_NAME_MIN_CHARS
+    try:
+        value = int(_joined_min_chars_source())
+    except Exception as exc:  # noqa: BLE001 — a failing read never stops matching; it is logged
+        if type(exc).__name__ not in _joined_failures:
+            _joined_failures.add(type(exc).__name__)
+            logger.warning(
+                "matrx_seo.coverage: joined_name_min_chars could not be read (%r); using the seed "
+                "%d until it reads", exc, JOINED_NAME_MIN_CHARS,
+            )
+        return JOINED_NAME_MIN_CHARS
+    _joined_failures.clear()
+    return value
+
+
+def straight_apostrophes(text: str) -> str:
+    return (text or "").translate(_APOSTROPHES)
+
+
+def _term_parts(term: str) -> list[tuple[str, bool]]:
+    """The parts of a written name, each with whether it follows a camel-case seam: "AllGreen Recycling"
+    -> [("All", False), ("Green", True), ("Recycling", False)]."""
+    parts: list[tuple[str, bool]] = []
+    for word in term.strip().split():
+        pieces = [p for p in _CAMEL_SEAM.split(word) if p]
+        parts.extend((piece, i > 0) for i, piece in enumerate(pieces))
+    return parts
+
+
+def _squashed(text: str) -> str:
+    """A name with case, spaces, hyphens and punctuation gone: "All-Green Recycling" -> "allgreenrecycling"."""
+    return "".join(ch for ch in text.lower() if ch.isalnum())
+
+
 def _term_pattern(term: str) -> re.Pattern[str] | None:
-    words = term.strip().split()
-    if not words:
+    parts = _term_parts(term)
+    if not parts:
         return None
-    # Whole words only, any run of whitespace between them: "Arman" never matches "Armani",
-    # "Green" never matches "Greenpeace", and "All Green  Recycling" still matches itself.
-    body = r"\s+".join(re.escape(w) for w in words)
+    # Whole words only: "Arman" never matches "Armani", "Green" never matches "Greenpeace". Between the
+    # term's own parts any spelling people use matches — "AllGreen", "All Green", "All-Green", "ALL GREEN".
+    body = re.escape(parts[0][0])
+    for i, (part, _) in enumerate(parts[1:], start=1):
+        body += f"(?P<g{i}>{_PART_GAP})" + re.escape(part)
     return re.compile(r"(?<!\w)" + body + r"(?!\w)", re.IGNORECASE)
 
 
+def _capital_join(text: str, pos: int) -> bool:
+    """A part starts at a capital that reads as a word start inside a joined name: "AllGreen",
+    "AIMatrx" — never an all-capitals run ("EVERYDAY") or a lower-case word ("Everyday")."""
+    if not text[pos].isupper():
+        return False
+    return text[pos - 1].islower() or (pos + 1 < len(text) and text[pos + 1].islower())
+
+
+def _term_matches(term: str, haystack: str) -> bool:
+    """One term in the text as a whole name. A camel-case name split apart must still be written as a
+    name — "Linked In" names LinkedIn, "linked in the report" does not."""
+    parts = _term_parts(term)
+    pattern = _term_pattern(term)
+    if pattern is None:
+        return False
+    # Parts written joined in lower case name only a long name; joined at a capital, any name.
+    joined_ok = len(_squashed(term)) >= joined_name_min_chars()
+    for match in pattern.finditer(haystack or ""):
+        pos, ok = match.start(), True
+        for i, (part, seam) in enumerate(parts):
+            gap = match.group(f"g{i}") if i else ""
+            if seam and gap and not (haystack[pos + len(gap)].isupper() and haystack[match.start()].isupper()):
+                ok = False
+                break
+            if i and not seam and not gap and not joined_ok and not _capital_join(haystack, pos):
+                ok = False
+                break
+            pos += len(gap) + len(part)
+        if ok:
+            return True
+    return False
+
+
+def _host_names(haystack: str) -> set[str]:
+    """Every host label written in the text, squashed: "allgreenrecycling.com" -> {"allgreenrecycling"}."""
+    names: set[str] = set()
+    for match in _HOST.finditer(haystack or ""):
+        labels = match.group(1).lower().split(".")[:-1]  # the TLD is never a name
+        names.update(_squashed(label) for label in labels if label not in _HOST_NOISE_LABELS)
+    names.discard("")
+    return names
+
+
 def term_hits(
-    haystack: str, terms: Iterable[str], common_word_terms: Iterable[str] | None = None
+    haystack: str,
+    terms: Iterable[str],
+    common_word_terms: Iterable[str] | None = None,
+    *,
+    needs_company: Iterable[str] | None = None,
 ) -> list[str]:
     """The tracked terms that appear in ``haystack`` as WHOLE WORDS, case-insensitively.
 
@@ -232,18 +366,43 @@ def term_hits(
     came to match "Giorgio Armani" — word boundaries are the fix for the whole class. A name
     that is also an everyday word ("Square", "Stream") counts only as a proper name
     (:mod:`matrx_seo.name_matching`): "the town square" is no mention of Square.
+
+    The ways people write one name all match it: spacing, hyphens and joining between the term's own
+    parts ("AllGreen" = "All Green" = "All-Green"), and a host whose whole label is the name
+    ("allgreenrecycling.com" names "All Green Recycling"). Apostrophes are compared straight
+    ("Blanca’s" = "Blanca's"); parts joined in lower case name only a long name
+    (:data:`JOINED_NAME_MIN_CHARS`).
+
+    ``needs_company``: terms too ambiguous to name the brand alone (a short alias, an acronym, a
+    person's surname — "TRC", "angie"): each counts only when a term NOT in that set is found in
+    the same text.
     """
     from .name_matching import is_flagged, proper_name_match
 
+    guarded = {straight_apostrophes(str(t)).casefold() for t in (needs_company or [])}
     hits: list[str] = []
-    for term in terms:
-        if is_flagged(str(term), common_word_terms):
-            if proper_name_match(str(term), haystack or "") is not None:
-                hits.append(term)
+    hosts: set[str] | None = None
+    haystack = straight_apostrophes(haystack or "")
+    terms = list(terms)
+    # The other tracked names: one of them in the same text is the second signal a verb-cued
+    # everyday-word name needs ("Linear is fine … Jira").
+    co_terms = [straight_apostrophes(str(t)) for t in terms]
+    for original in terms:
+        term = straight_apostrophes(str(original))
+        if is_flagged(term, common_word_terms):
+            if proper_name_match(term, haystack, co_terms=co_terms) is not None:
+                hits.append(original)
             continue
-        pattern = _term_pattern(str(term))
-        if pattern is not None and pattern.search(haystack or ""):
-            hits.append(term)
+        if _term_matches(term, haystack):
+            hits.append(original)
+            continue
+        # A domain is the name written joined: "allgreenrecycling.com" names "All Green Recycling". The
+        # WHOLE label must be the name — "allgreenery.com" never names "AllGreen".
+        squashed = _squashed(term)
+        if squashed and squashed in (hosts if hosts is not None else (hosts := _host_names(haystack))):
+            hits.append(original)
+    if guarded and all(straight_apostrophes(str(h)).casefold() in guarded for h in hits):
+        return []  # only ambiguous names were found: nothing here names the brand
     return hits
 
 
@@ -258,6 +417,7 @@ def classify_candidate(
     external_id: str | None = None,
     extra_text: str = "",
     source_matched: SourceMatch | None = None,
+    published_at: datetime | None = None,
 ) -> MentionCandidate | None:
     """Turn a discovered article into a candidate, or decline it with silence.
 
@@ -276,10 +436,14 @@ def classify_candidate(
 
     So when the caller can say *"the source already applied these terms, and it
     was the brand query / this competitor's query that returned it"*, the
-    candidate is ACCEPTED on that basis and a local headline hit only enriches
-    `matched_terms`. The name-collision case — a different company with the same
-    name — is settled later by the analyst reading the actual page
-    (`is_about_brand`), which is the only place it can honestly be settled.
+    candidate is still FILED on that basis — but a search hit is not proof
+    (84% of one tracker's search-only rows named a different entity). Its
+    `matched_terms` are only the terms found in the headline or the source's
+    summary (`extra_text`), with the shared whole-word / proper-name matcher;
+    when none is, the row is `term_check_pending` with no matched terms: filed,
+    read by our crawler, and not counted until a tracked term is found on the
+    page. The name-collision case — a different company with the same name — is
+    settled later by the analyst reading the actual page (`is_about_brand`).
 
     With no `source_matched`, the strict local rule still applies: that is the
     right behavior for a manually pasted URL, where nothing has filtered
@@ -302,7 +466,7 @@ def classify_candidate(
     if term_hits(haystack, spec.exclude_terms):
         return None
 
-    brand_hits = term_hits(haystack, spec.brand_terms)
+    brand_hits = term_hits(haystack, spec.brand_terms, needs_company=spec.guarded_brand_terms)
     competitor_key: str | None = None
     competitor_hits: list[str] = []
     for competitor in spec.competitors:
@@ -320,11 +484,11 @@ def classify_candidate(
         matched, is_competitor = competitor_hits, True
     elif source_matched is not None:
         # The index matched the full text; the query that returned it decides
-        # the side. `matched_terms` records what the SOURCE matched, so the
-        # evidence drawer never implies we read something we did not.
+        # the side. Nothing we can see names a tracked term, so nothing is
+        # recorded as matched and the row waits for the page check.
         is_competitor = source_matched.competitor_key is not None
         competitor_key = source_matched.competitor_key
-        matched = list(source_matched.terms)
+        matched = []
     else:
         return None
 
@@ -341,6 +505,9 @@ def classify_candidate(
         is_competitor=is_competitor,
         competitor_key=competitor_key,
         matched_terms=matched,
+        term_check_pending=not matched,
+        published_at=published_at,
+        source_summary=(extra_text or "").strip()[:SOURCE_SUMMARY_MAX_CHARS],
         dedupe_key=mention_dedupe_key(spec.tracker_id, normalized),
         external_id=external_id,
     )
@@ -485,6 +652,7 @@ def share_of_voice(
 
 __all__ = [
     "HIT_AUTHORITY_MAX_POINTS",
+    "JOINED_NAME_MIN_CHARS",
     "HIT_LINKED_POINTS",
     "HIT_PROMINENCE_POINTS",
     "HIT_SENTIMENT_POINTS",
@@ -503,8 +671,11 @@ __all__ = [
     "VoiceRow",
     "VoiceShare",
     "classify_candidate",
+    "configure_joined_name_min_chars",
     "counts_as_mention",
     "detect_medium",
+    "joined_name_min_chars",
+    "straight_apostrophes",
     "domain_of",
     "hit_score",
     "mention_dedupe_key",

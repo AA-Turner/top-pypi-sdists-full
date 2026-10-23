@@ -13,6 +13,7 @@ from urllib3.response import HTTPResponse
 
 # Tests OAuth Flow
 from dropbox import DropboxOAuth2Flow, session, Dropbox, create_session
+from dropbox import auth
 from dropbox.base import DropboxBase
 from dropbox.common import PathRoot
 from dropbox.content_hash import content_hash
@@ -786,6 +787,74 @@ class TestClient:
             dbx.check_and_refresh_access_token()
         # Initial attempt + 2 retries.
         assert server_error_session_instance.post.call_count == 3
+
+    @pytest.mark.parametrize(
+        "raw_error, expected_tag",
+        [
+            ("other", "other"),
+            ({".tag": "other"}, "other"),
+            ("future_auth_error", "other"),
+            ({".tag": "future_auth_error", "details": "new server error"}, "other"),
+            ("invalid_access_token", "invalid_access_token"),
+            ({".tag": "invalid_access_token", "future_field": True}, "invalid_access_token"),
+            (
+                {
+                    ".tag": "missing_scope",
+                    "required_scope": "files.content.write",
+                    "future_field": True,
+                },
+                "missing_scope",
+            ),
+        ],
+    )
+    def test_upload_preserves_auth_errors(self, session_instance, mocker, raw_error, expected_tag):
+        response = requests.Response()
+        response.status_code = 401
+        response.headers = {
+            "content-type": "application/json",
+            "x-dropbox-request-id": "auth-request-id",
+        }
+        response._content = json.dumps(
+            {"error": raw_error, "error_summary": "authentication failed"}
+        ).encode("utf-8")
+        session_instance.post.return_value = response
+        dbx = Dropbox(ACCESS_TOKEN, session=session_instance)
+        refresh = mocker.patch.object(dbx, "refresh_access_token")
+
+        with pytest.raises(AuthError) as caught:
+            dbx.files_upload(b"contents", "/test.txt")
+
+        assert getattr(caught.value.error, "is_" + expected_tag)()
+        if expected_tag == "missing_scope":
+            assert caught.value.error.get_missing_scope().required_scope == "files.content.write"
+        assert caught.value.status_code == 401
+        assert caught.value.request_id == "auth-request-id"
+        assert caught.value.body == response.text
+        session_instance.post.assert_called_once()
+        refresh.assert_not_called()
+
+    def test_refresh_on_expired_access_token_uses_client_scope(self, session_instance, mocker):
+        # A 401 expired_access_token triggers a refresh, which must request the
+        # scope the client was configured with, like check_and_refresh_access_token.
+        dbx = Dropbox(
+            oauth2_access_token=ACCESS_TOKEN,
+            oauth2_refresh_token=REFRESH_TOKEN,
+            oauth2_access_token_expiration=EXPIRATION,
+            app_key=APP_KEY,
+            app_secret=APP_SECRET,
+            scope=SCOPE_LIST,
+            session=session_instance,
+        )
+        expired = AuthError("request-id", auth.AuthError.expired_access_token)
+        request = mocker.patch.object(dbx, "request_json_string", side_effect=[expired, "{}"])
+
+        result = dbx.request_json_string_with_retry("api", "test", "rpc", "{}", USER_AUTH, None)
+
+        assert result == "{}"
+        assert request.call_count == 2
+        session_instance.post.assert_called_once()
+        token_body = session_instance.post.call_args.kwargs["data"]
+        assert token_body.get("scope") == " ".join(SCOPE_LIST)
 
 
 class TestAutoContentHash:

@@ -1,10 +1,7 @@
 //! Watermark inputs resolved through SQL reference lineage, and capped producers behind them.
 
-use pyo3::prelude::{
-    Bound, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
-};
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult, Python};
 use pyo3::types::PyDict;
-use pyo3::{pyfunction, wrap_pyfunction};
 
 use sqlbuild_analysis::planner_strategy::errors::LineageFailure;
 use sqlbuild_analysis::planner_strategy::main::capped_watermark_input::capped_watermark_input;
@@ -14,6 +11,7 @@ use sqlbuild_analysis::planner_strategy::types::ReferenceGraph;
 
 use crate::bindings::_helpers::compile_attachment::cursor_roles::resolve_cursor_input_roles;
 use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::resource_reads;
 use crate::bindings::_helpers::model_config::typed_config::{config_text_is, model_values};
 use crate::bindings::_helpers::planner_strategy::microbatches::{
     CAP_ACTIONS, microbatch_limit_config,
@@ -44,7 +42,7 @@ fn mapped_references<'py>(
 }
 
 fn references<'py>(owner: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-    native_field(owner, "references")?.try_iter()?.collect()
+    resource_reads::references(owner)?.try_iter()?.collect()
 }
 
 /// Whether a model's `incremental_mode` is microbatch.
@@ -86,8 +84,7 @@ impl<'py> ReferenceGraph for ProjectLineage<'py> {
 
     fn producer_facts(&self, name: &str) -> PyResult<ProducerFacts> {
         let producer: Bound<'py, PyAny> = self.models_by_name.get_item(name)?;
-        let values: Bound<'py, PyAny> =
-            native_field(&native_field(&producer, "config")?, "values")?;
+        let values: Bound<'py, PyAny> = native_field(&model_reads::config(&producer)?, "values")?;
         let capped: bool = match microbatch_limit_config(&values)?.1 {
             Some(action) => CAP_ACTIONS.contains(&text(&action)?.as_str()),
             None => false,
@@ -117,8 +114,6 @@ fn lineage_error(py: Python<'_>, failure: LineageFailure<PyErr>) -> PyErr {
 }
 
 /// The reference one named input resolves to through model and SQL function references.
-#[pyfunction]
-#[pyo3(signature = (*, model, input_name, models_by_name, functions_by_name))]
 pub(crate) fn resolve_lineage_reference<'py>(
     model: &Bound<'py, PyAny>,
     input_name: &str,
@@ -136,8 +131,6 @@ pub(crate) fn resolve_lineage_reference<'py>(
 }
 
 /// Reject capped producers feeding a microbatch model's watermark inputs.
-#[pyfunction(name = "validate_capped_watermark_inputs")]
-#[pyo3(signature = (*, model, models_by_name, functions_by_name = None))]
 pub(crate) fn reject_capped_watermark_inputs<'py>(
     model: &Bound<'py, PyAny>,
     models_by_name: Bound<'py, PyAny>,
@@ -167,9 +160,4 @@ pub(crate) fn reject_capped_watermark_inputs<'py>(
         )),
         Err(failure) => Err(lineage_error(py, failure)),
     }
-}
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(resolve_lineage_reference, module)?)?;
-    module.add_function(wrap_pyfunction!(reject_capped_watermark_inputs, module)?)
 }

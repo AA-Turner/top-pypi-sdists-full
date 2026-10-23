@@ -791,6 +791,29 @@ class Telemetry:
         )
 
     @safe
+    def report_sql_call_forwarding(self, *, kind: str, outcome: str) -> None:
+        """Record when SCOS forwards a SQL CALL statement.
+
+        This is *not* the same as Iceberg WAP events. It's a small, privacy-safe
+        breadcrumb that a request attempted to run a CALL through the server,
+        even if parsing failed or the call ultimately errored.
+
+        Args:
+            kind: Small stable vocabulary identifying the forwarded call type.
+                Examples: "iceberg_publish_changes", "iceberg_register_table",
+                "non_system_call", "other".
+            outcome: Small stable vocabulary such as "attempted" or "rejected".
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+        if "sql_call_forwarding" not in summary:
+            summary["sql_call_forwarding"] = []
+
+        summary["sql_call_forwarding"].append({"kind": kind, "outcome": outcome})
+
+    @safe
     def report_function_usage(self, function_name: str) -> None:
         if self._not_in_request():
             return

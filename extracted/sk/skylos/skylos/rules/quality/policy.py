@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import os
 import re
+import configparser
+import shlex
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
 from skylos.constants import parse_exclude_folders
 from skylos.core.file_discovery import exclusion_matcher
+from skylos.core.safe_cache_io import read_project_text_no_symlink
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -100,28 +103,95 @@ def _has_python_sources(root: Path, exclude_folders: tuple[str, ...]) -> bool:
 def _has_type_checker_config(root: Path, pyproject: dict[str, Any]) -> bool:
     tool_cfg = pyproject.get("tool") if isinstance(pyproject.get("tool"), dict) else {}
     return bool(
-        tool_cfg.get("mypy")
-        or tool_cfg.get("pyright")
+        isinstance(tool_cfg.get("mypy"), dict)
+        or isinstance(tool_cfg.get("pyright"), dict)
         or (root / "mypy.ini").exists()
+        or "mypy" in _ini_sections(root, ".mypy.ini")
         or (root / "pyrightconfig.json").exists()
-        or (root / "setup.cfg").exists()
-        and "mypy" in (root / "setup.cfg").read_text(encoding="utf-8", errors="ignore")
+        or "mypy" in _ini_sections(root, "setup.cfg")
     )
 
 
 def _has_ruff_config(root: Path, pyproject: dict[str, Any]) -> bool:
     tool_cfg = pyproject.get("tool") if isinstance(pyproject.get("tool"), dict) else {}
     return bool(
-        tool_cfg.get("ruff")
+        isinstance(tool_cfg.get("ruff"), dict)
         or (root / "ruff.toml").exists()
         or (root / ".ruff.toml").exists()
     )
 
 
-_NEXT_BUILD_RE = re.compile(r"(?<![\w.-])next\s+build\b")
+def _ini_sections(root: Path, filename: str) -> set[str]:
+    try:
+        source = read_project_text_no_symlink(
+            root, root / filename, max_bytes=2_000_000
+        )
+        if source is None:
+            return set()
+        parser = configparser.ConfigParser(interpolation=None, strict=False)
+        parser.read_string(source)
+        return {section.lower() for section in parser.sections()}
+    except (OSError, ValueError, RuntimeError, configparser.Error):
+        return set()
+
+
+def _has_python_lint_config(root: Path, pyproject: dict[str, Any]) -> bool:
+    if _has_ruff_config(root, pyproject):
+        return True
+    tool_cfg = pyproject.get("tool") if isinstance(pyproject.get("tool"), dict) else {}
+    if any(isinstance(tool_cfg.get(name), dict) for name in ("flake8", "pylint")):
+        return True
+    pylint_toml = _read_toml(root / "pylintrc.toml")
+    pylint_tools = pylint_toml.get("tool")
+    if isinstance(pylint_tools, dict) and isinstance(pylint_tools.get("pylint"), dict):
+        return True
+    if any((root / name).is_file() for name in (".flake8", ".pylintrc", "pylintrc")):
+        return True
+    for filename in ("setup.cfg", "tox.ini"):
+        if any(
+            section == "flake8" or section == "pylint" or section.startswith("pylint.")
+            for section in _ini_sections(root, filename)
+        ):
+            return True
+    return False
+
+
 _NEXT_IGNORE_BUILD_ERRORS_RE = re.compile(
     r"(?:['\"]?ignoreBuildErrors['\"]?)\s*:\s*(true|false)\b"
 )
+
+
+def _without_js_comments(source):
+    """Ignore parsed comments, preserving regex literals and quoted content."""
+    try:
+        from tree_sitter import Language, Parser
+        import tree_sitter_typescript
+    except ImportError:
+        # Preserve the previous conservative interpretation when optional
+        # language support is unavailable; do not guess JavaScript tokens.
+        return source
+    data = source.encode("utf-8")
+    try:
+        tree = Parser(Language(tree_sitter_typescript.language_typescript())).parse(
+            data
+        )
+    except (TypeError, ValueError):
+        return source
+    if tree.root_node.has_error:
+        return None
+    result = bytearray(data)
+    pending = [tree.root_node]
+    while pending:
+        node = pending.pop()
+        if node.type == "comment":
+            result[node.start_byte : node.end_byte] = b" " * (
+                node.end_byte - node.start_byte
+            )
+        else:
+            pending.extend(node.named_children)
+    return result.decode("utf-8")
+
+
 _NEXT_CONFIG_NAMES = (
     "next.config.js",
     "next.config.mjs",
@@ -148,9 +218,70 @@ def _next_build_checks_typescript(package_root: Path) -> bool:
         return False
     if "ignoreBuildErrors" not in config_text:
         return True
+    config_text = _without_js_comments(config_text)
+    if config_text is None:
+        return False
+    if "ignoreBuildErrors" not in config_text:
+        return True
     # Dynamic settings cannot establish that Next's type check is enabled.
     settings = _NEXT_IGNORE_BUILD_ERRORS_RE.findall(config_text)
     return bool(settings) and all(setting == "false" for setting in settings)
+
+
+def _script_executables(command, depth=0):
+    """Recognize simple executable positions, not tool names in echo/data."""
+    if not isinstance(command, str) or depth > 3:
+        return []
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|\n")
+        lexer.whitespace = " \t\r"
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    segments, current = [], []
+    for token in tokens:
+        if token and set(token) <= {";", "&", "|", "\n"}:
+            if current:
+                segments.append(current)
+            current = []
+        else:
+            current.append(token)
+    if current:
+        segments.append(current)
+    commands = []
+    for tokens in segments:
+        if tokens and tokens[0] in {"if", "elif", "then", "do", "while", "until", "!"}:
+            tokens = tokens[1:]
+        while tokens and re.match(r"^[A-Za-z_]\w*=", tokens[0]):
+            tokens = tokens[1:]
+        if tokens and tokens[0] in {"env", "cross-env", "cross-env-shell"}:
+            tokens = tokens[1:]
+            while tokens and re.match(r"^[A-Za-z_]\w*=", tokens[0]):
+                tokens = tokens[1:]
+        if tokens and tokens[0] in {"npx", "bunx"}:
+            tokens = tokens[1:]
+            if tokens and tokens[0] in {"--no-install", "--yes", "-y"}:
+                tokens = tokens[1:]
+        elif len(tokens) >= 2 and tokens[:2] in (
+            ["npm", "exec"],
+            ["pnpm", "exec"],
+            ["yarn", "exec"],
+        ):
+            tokens = tokens[2:]
+            if tokens and tokens[0] == "--":
+                tokens = tokens[1:]
+        elif tokens and tokens[0] in {"yarn", "pnpm", "bun"}:
+            tokens = tokens[1:]
+        if (
+            len(tokens) >= 3
+            and tokens[0] in {"sh", "bash", "zsh"}
+            and tokens[1] == "-c"
+        ):
+            commands.extend(_script_executables(tokens[2], depth + 1))
+            continue
+        commands.append(tokens)
+    return commands
 
 
 def _package_scripts_run_typecheck(package_json: Path) -> bool:
@@ -158,11 +289,36 @@ def _package_scripts_run_typecheck(package_json: Path) -> bool:
         data = json.loads(package_json.read_text(encoding="utf-8"))
     except Exception:
         return False
+    if not isinstance(data, dict):
+        return False
     scripts = data.get("scripts")
     if not isinstance(scripts, dict):
         return False
-    commands = [str(command) for command in scripts.values()]
-    if any("tsc" in command for command in commands):
+    commands = [
+        tokens
+        for command in scripts.values()
+        for tokens in _script_executables(command)
+    ]
+    if any(
+        tokens
+        and tokens[0].replace("\\", "/").rsplit("/", 1)[-1]
+        in {"tsc", "vue-tsc", "tsc.cmd", "vue-tsc.cmd"}
+        and not {
+            "--version",
+            "-v",
+            "--help",
+            "-h",
+            "--showConfig",
+            "--listFilesOnly",
+            "--init",
+        }.intersection(tokens[1:])
+        and not any(
+            token == "--noCheck"
+            and (index + 1 == len(tokens) or tokens[index + 1] != "false")
+            for index, token in enumerate(tokens)
+        )
+        for tokens in commands
+    ):
         return True
     dependencies = data.get("dependencies")
     dev_dependencies = data.get("devDependencies")
@@ -172,7 +328,9 @@ def _package_scripts_run_typecheck(package_json: Path) -> bool:
     )
     return bool(
         has_next
-        and any(_NEXT_BUILD_RE.search(command) for command in commands)
+        and any(
+            len(tokens) >= 2 and tokens[:2] == ["next", "build"] for tokens in commands
+        )
         and _next_build_checks_typescript(package_json.parent)
     )
 
@@ -186,6 +344,7 @@ def _policy_files(root: Path, exclude_folders: tuple[str, ...]) -> set[str]:
     files = {
         root / "pyproject.toml",
         root / "mypy.ini",
+        root / ".mypy.ini",
         root / "pyrightconfig.json",
         root / "ruff.toml",
         root / ".ruff.toml",
@@ -193,6 +352,26 @@ def _policy_files(root: Path, exclude_folders: tuple[str, ...]) -> set[str]:
         root / ".pre-commit-config.yml",
     }
     files.update(_iter_package_json_files(root, exclude_folders))
+    files.update(
+        root / name
+        for name in (
+            "setup.cfg",
+            "tox.ini",
+            ".flake8",
+            ".pylintrc",
+            "pylintrc",
+            "pylintrc.toml",
+        )
+    )
+    package_roots = {
+        root,
+        *(path.parent for path in files if path.name == "package.json"),
+    }
+    files.update(
+        package / name
+        for package in package_roots
+        for name in ("tsconfig.json", *_NEXT_CONFIG_NAMES)
+    )
     return {str(path.resolve()) for path in files}
 
 
@@ -254,12 +433,15 @@ def analyze_repo_policy(
             )
 
     if "SKY-R102" not in ignore and has_python_sources:
-        if not _has_ruff_config(root_path, pyproject):
+        if not _has_python_lint_config(root_path, pyproject):
             findings.append(
                 _finding(
                     rule_id="SKY-R102",
                     name="python-lint-policy",
-                    message="Python project has no Ruff policy configured.",
+                    message=(
+                        "Python project has no detected Ruff, Flake8 or Pylint "
+                        "policy configured."
+                    ),
                     file=pyproject_path if pyproject_path.exists() else root_path,
                     severity="LOW",
                     value="missing_ruff",
@@ -287,8 +469,8 @@ def analyze_repo_policy(
             )
 
     if "SKY-R104" not in ignore and not (
-        (root_path / ".pre-commit-config.yaml").exists()
-        or (root_path / ".pre-commit-config.yml").exists()
+        (root_path / ".pre-commit-config.yaml").is_file()
+        or (root_path / ".pre-commit-config.yml").is_file()
     ):
         findings.append(
             _finding(
@@ -306,7 +488,7 @@ def analyze_repo_policy(
             package_root = package_json.parent
             if (
                 package_root / "tsconfig.json"
-            ).exists() and not _package_scripts_run_typecheck(package_json):
+            ).is_file() and not _package_scripts_run_typecheck(package_json):
                 findings.append(
                     _finding(
                         rule_id="SKY-R105",

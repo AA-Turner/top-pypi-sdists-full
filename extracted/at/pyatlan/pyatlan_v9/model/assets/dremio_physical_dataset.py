@@ -20,6 +20,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -41,6 +48,11 @@ from .dbt_related import (
     RelatedDbtSeed,
     RelatedDbtSource,
     RelatedDbtTest,
+)
+from .dremio_related import (
+    RelatedDremioFolder,
+    RelatedDremioPhysicalDataset,
+    RelatedDremioSource,
 )
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
@@ -65,18 +77,6 @@ from .sql_related import (
     RelatedSchema,
     RelatedTable,
     RelatedTablePartition,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .dremio_related import (
-    RelatedDremioFolder,
-    RelatedDremioPhysicalDataset,
-    RelatedDremioSource,
 )
 
 # =============================================================================
@@ -1397,6 +1397,7 @@ def _dremio_physical_dataset_to_nested(
         is_incomplete=dremio_physical_dataset.is_incomplete,
         provenance_type=dremio_physical_dataset.provenance_type,
         home_id=dremio_physical_dataset.home_id,
+        delete_handler=dremio_physical_dataset.delete_handler,
         depth=dremio_physical_dataset.depth,
         immediate_upstream=dremio_physical_dataset.immediate_upstream,
         immediate_downstream=dremio_physical_dataset.immediate_downstream,
@@ -1447,6 +1448,7 @@ def _dremio_physical_dataset_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

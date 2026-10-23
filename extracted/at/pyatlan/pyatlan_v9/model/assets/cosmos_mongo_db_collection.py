@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -33,6 +41,10 @@ from .asset import (
     _populate_asset_attrs,
 )
 from .context_related import RelatedContextRepository
+from .cosmos_mongo_db_related import (
+    RelatedCosmosMongoDBCollection,
+    RelatedCosmosMongoDBDatabase,
+)
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
@@ -68,17 +80,6 @@ from .sql_related import (
     RelatedSchema,
     RelatedTable,
     RelatedTablePartition,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cosmos_mongo_db_related import (
-    RelatedCosmosMongoDBCollection,
-    RelatedCosmosMongoDBDatabase,
 )
 
 # =============================================================================
@@ -677,7 +678,7 @@ class CosmosMongoDBCollection(Asset):
     # =========================================================================
 
     _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
+        r"^.+/collections/[^/]+$"
     )
 
     def validate(self, for_creation: bool = False) -> None:
@@ -718,10 +719,6 @@ class CosmosMongoDBCollection(Asset):
                 errors.append(
                     "cosmos_mongo_db_database_qualified_name is required for creation"
                 )
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"CosmosMongoDBCollection validation failed: {errors}")
 
@@ -755,6 +752,49 @@ class CosmosMongoDBCollection(Asset):
         if self.guid is not UNSET:
             return RelatedCosmosMongoDBCollection(guid=self.guid)
         return RelatedCosmosMongoDBCollection(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        cosmos_mongo_db_database_qualified_name: str,
+        connection_qualified_name: str | None = None,
+    ) -> "CosmosMongoDBCollection":
+        validate_required_fields(
+            ["name", "cosmos_mongo_db_database_qualified_name"],
+            [name, cosmos_mongo_db_database_qualified_name],
+        )
+        fields = cosmos_mongo_db_database_qualified_name.split("/")
+        if not connection_qualified_name:
+            if len(fields) < 7:
+                raise ValueError("cosmos_mongo_db_database_qualified_name is invalid")
+            connection_qualified_name = "/".join(fields[:3])
+        connection_fields = connection_qualified_name.split("/")
+        connector_name = connection_fields[1] if len(connection_fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{cosmos_mongo_db_database_qualified_name}/collections/{name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            cosmos_mongo_db_database_qualified_name=cosmos_mongo_db_database_qualified_name,
+            database_name=fields[-1],
+            database_qualified_name=cosmos_mongo_db_database_qualified_name,
+            cosmos_mongo_db_database=RelatedCosmosMongoDBDatabase(
+                unique_attributes={
+                    "qualifiedName": cosmos_mongo_db_database_qualified_name
+                }
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CosmosMongoDBCollection":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CosmosMongoDBCollection":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1589,6 +1629,7 @@ def _cosmos_mongo_db_collection_to_nested(
         is_incomplete=cosmos_mongo_db_collection.is_incomplete,
         provenance_type=cosmos_mongo_db_collection.provenance_type,
         home_id=cosmos_mongo_db_collection.home_id,
+        delete_handler=cosmos_mongo_db_collection.delete_handler,
         depth=cosmos_mongo_db_collection.depth,
         immediate_upstream=cosmos_mongo_db_collection.immediate_upstream,
         immediate_downstream=cosmos_mongo_db_collection.immediate_downstream,
@@ -1639,6 +1680,7 @@ def _cosmos_mongo_db_collection_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

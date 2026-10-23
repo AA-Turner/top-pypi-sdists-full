@@ -20,6 +20,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -55,6 +62,10 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .sap_analytics_cloud_related import (
+    RelatedSapAnalyticsCloudColumn,
+    RelatedSapAnalyticsCloudModel,
+)
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .snowflake_related import (
     RelatedSnowflakeDynamicTable,
@@ -75,17 +86,6 @@ from .sql_related import (
     RelatedTable,
     RelatedTablePartition,
     RelatedView,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .sap_analytics_cloud_related import (
-    RelatedSapAnalyticsCloudColumn,
-    RelatedSapAnalyticsCloudModel,
 )
 
 # =============================================================================
@@ -2081,6 +2081,7 @@ def _sap_analytics_cloud_column_to_nested(
         is_incomplete=sap_analytics_cloud_column.is_incomplete,
         provenance_type=sap_analytics_cloud_column.provenance_type,
         home_id=sap_analytics_cloud_column.home_id,
+        delete_handler=sap_analytics_cloud_column.delete_handler,
         depth=sap_analytics_cloud_column.depth,
         immediate_upstream=sap_analytics_cloud_column.immediate_upstream,
         immediate_downstream=sap_analytics_cloud_column.immediate_downstream,
@@ -2131,6 +2132,7 @@ def _sap_analytics_cloud_column_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

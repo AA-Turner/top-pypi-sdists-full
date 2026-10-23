@@ -11,7 +11,7 @@ import re
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 from urllib.parse import urlsplit
 
 from schemathesis import errors
@@ -453,7 +453,7 @@ def clear_hypothesis_notes(exc: BaseException) -> None:
         exc.__notes__ = filtered_notes
 
 
-def is_inconsistent_replay(exc: BaseException) -> bool:
+def is_inconsistent_replay(exc: BaseException) -> TypeGuard[AssertionError]:
     # Hypothesis asserts rather than raising `Flaky` when a replay draws past a value an earlier run rejected.
     if not isinstance(exc, AssertionError):
         return False
@@ -490,7 +490,7 @@ def is_unrecoverable_network_error(exc: Exception) -> bool:
 
         return False
 
-    if isinstance(exc, requests.Timeout | requests.exceptions.ChunkedEncodingError):
+    if isinstance(exc, (requests.Timeout, requests.exceptions.ChunkedEncodingError)):
         return True
     if isinstance(exc.__context__, ProtocolError):
         if len(exc.__context__.args) == 2 and isinstance(exc.__context__.args[1], RemoteDisconnected):

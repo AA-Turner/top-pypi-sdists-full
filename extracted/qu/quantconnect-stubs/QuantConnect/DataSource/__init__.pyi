@@ -4266,6 +4266,466 @@ class BitcoinMetadata(QuantConnect.Data.BaseData):
         ...
 
 
+class USTreasuryAuction(QuantConnect.Data.BaseData):
+    """
+    The result of one U.S. Treasury marketable securities auction: how much was offered and sold,
+    the yield or rate it cleared at, the demand it drew and who bought it. Several auctions of one
+    benchmark can share an end time (cash management bills, and six days in 1984 to 1986 and 2008):
+    subscribe to USTreasuryAuctions to receive all of them, since a subscription to this
+    class delivers one per end time.
+    """
+
+    EXPECTED_COLUMNS: int = 35
+    """Number of columns a line of the file carries."""
+
+    @property
+    def security_term(self) -> str:
+        """
+        The term of the security as auctioned, for example "10-Year" for a new issue or "9-Year 10-Month"
+        for a reopening of an earlier 10-year note
+        """
+        ...
+
+    @security_term.setter
+    def security_term(self, value: str) -> None:
+        ...
+
+    @property
+    def issue_date(self) -> typing.Optional[datetime.datetime]:
+        """Date the security is issued"""
+        ...
+
+    @issue_date.setter
+    def issue_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def maturity_date(self) -> typing.Optional[datetime.datetime]:
+        """Date the security matures"""
+        ...
+
+    @maturity_date.setter
+    def maturity_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def is_reopening(self) -> bool:
+        """True when the auction sold more of a security that was already outstanding"""
+        ...
+
+    @is_reopening.setter
+    def is_reopening(self, value: bool) -> None:
+        ...
+
+    @property
+    def interest_rate(self) -> typing.Optional[float]:
+        """Annual coupon rate of the security in percent, empty for bills and floating rate notes"""
+        ...
+
+    @interest_rate.setter
+    def interest_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def spread(self) -> typing.Optional[float]:
+        """Fixed spread over the index rate of a floating rate note in percent"""
+        ...
+
+    @spread.setter
+    def spread(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def offering_amount(self) -> typing.Optional[float]:
+        """Amount offered to the public, in dollars of face value"""
+        ...
+
+    @offering_amount.setter
+    def offering_amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_tendered(self) -> typing.Optional[float]:
+        """Total amount of bids received, in dollars of face value"""
+        ...
+
+    @total_tendered.setter
+    def total_tendered(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_accepted(self) -> typing.Optional[float]:
+        """Total amount sold, in dollars of face value"""
+        ...
+
+    @total_accepted.setter
+    def total_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def competitive_tendered(self) -> typing.Optional[float]:
+        """Amount of competitive bids received, in dollars of face value"""
+        ...
+
+    @competitive_tendered.setter
+    def competitive_tendered(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def competitive_accepted(self) -> typing.Optional[float]:
+        """Amount of competitive bids accepted, in dollars of face value"""
+        ...
+
+    @competitive_accepted.setter
+    def competitive_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def noncompetitive_accepted(self) -> typing.Optional[float]:
+        """Amount of noncompetitive bids accepted, in dollars of face value"""
+        ...
+
+    @noncompetitive_accepted.setter
+    def noncompetitive_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def bid_to_cover_ratio(self) -> typing.Optional[float]:
+        """Ratio of the amount bid to the amount accepted, as published by the Treasury"""
+        ...
+
+    @bid_to_cover_ratio.setter
+    def bid_to_cover_ratio(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def high_yield(self) -> typing.Optional[float]:
+        """Highest accepted yield in percent, the rate the auction cleared at for notes, bonds and TIPS"""
+        ...
+
+    @high_yield.setter
+    def high_yield(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low_yield(self) -> typing.Optional[float]:
+        """Lowest accepted yield in percent"""
+        ...
+
+    @low_yield.setter
+    def low_yield(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def median_yield(self) -> typing.Optional[float]:
+        """Median yield of the accepted competitive bids in percent"""
+        ...
+
+    @median_yield.setter
+    def median_yield(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def high_discount_rate(self) -> typing.Optional[float]:
+        """Highest accepted discount rate of a bill in percent, the rate bills are bid in"""
+        ...
+
+    @high_discount_rate.setter
+    def high_discount_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low_discount_rate(self) -> typing.Optional[float]:
+        """Lowest accepted discount rate in percent"""
+        ...
+
+    @low_discount_rate.setter
+    def low_discount_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def median_discount_rate(self) -> typing.Optional[float]:
+        """Median discount rate of the accepted competitive bids in percent"""
+        ...
+
+    @median_discount_rate.setter
+    def median_discount_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def high_investment_rate(self) -> typing.Optional[float]:
+        """Bond equivalent yield of the high discount rate of a bill in percent"""
+        ...
+
+    @high_investment_rate.setter
+    def high_investment_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def high_discount_margin(self) -> typing.Optional[float]:
+        """Highest accepted discount margin in percent, the rate the auction cleared at for floating rate notes"""
+        ...
+
+    @high_discount_margin.setter
+    def high_discount_margin(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low_discount_margin(self) -> typing.Optional[float]:
+        """Lowest accepted discount margin in percent"""
+        ...
+
+    @low_discount_margin.setter
+    def low_discount_margin(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def median_discount_margin(self) -> typing.Optional[float]:
+        """Median discount margin of the accepted competitive bids in percent"""
+        ...
+
+    @median_discount_margin.setter
+    def median_discount_margin(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def high_price(self) -> typing.Optional[float]:
+        """Price per 100 of face value at the highest accepted yield or rate"""
+        ...
+
+    @high_price.setter
+    def high_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def allocation_percentage(self) -> typing.Optional[float]:
+        """Percent of the bids at the highest accepted yield or rate that were filled"""
+        ...
+
+    @allocation_percentage.setter
+    def allocation_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def direct_bidder_tendered(self) -> typing.Optional[float]:
+        """Amount bid by direct bidders, in dollars of face value"""
+        ...
+
+    @direct_bidder_tendered.setter
+    def direct_bidder_tendered(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def direct_bidder_accepted(self) -> typing.Optional[float]:
+        """Amount accepted from direct bidders, in dollars of face value"""
+        ...
+
+    @direct_bidder_accepted.setter
+    def direct_bidder_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def indirect_bidder_tendered(self) -> typing.Optional[float]:
+        """Amount bid by indirect bidders, which include foreign central banks, in dollars of face value"""
+        ...
+
+    @indirect_bidder_tendered.setter
+    def indirect_bidder_tendered(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def indirect_bidder_accepted(self) -> typing.Optional[float]:
+        """Amount accepted from indirect bidders, in dollars of face value"""
+        ...
+
+    @indirect_bidder_accepted.setter
+    def indirect_bidder_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def primary_dealer_tendered(self) -> typing.Optional[float]:
+        """Amount bid by primary dealers, in dollars of face value"""
+        ...
+
+    @primary_dealer_tendered.setter
+    def primary_dealer_tendered(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def primary_dealer_accepted(self) -> typing.Optional[float]:
+        """Amount accepted from primary dealers, in dollars of face value"""
+        ...
+
+    @primary_dealer_accepted.setter
+    def primary_dealer_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def soma_accepted(self) -> typing.Optional[float]:
+        """Amount accepted from the Federal Reserve's System Open Market Account, in dollars of face value"""
+        ...
+
+    @soma_accepted.setter
+    def soma_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def fima_noncompetitive_accepted(self) -> typing.Optional[float]:
+        """Amount of noncompetitive bids accepted from foreign and international monetary authorities, in dollars of face value"""
+        ...
+
+    @fima_noncompetitive_accepted.setter
+    def fima_noncompetitive_accepted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def clearing_rate(self) -> typing.Optional[float]:
+        """
+        The rate the auction cleared at, in percent: the high yield for notes, bonds and TIPS, the high
+        investment rate for bills (the bond equivalent of the high discount rate, comparable with note yields)
+        and the high discount margin for floating rate notes. It is also BaseData.value, which is
+        0 for an auction without any of them (none in the history).
+        """
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        Time the result is available to algorithms: 14:10 New York on the auction day, 16:10 for an auction
+        that closed at 13:25 or later or has no published closing time, and 14:10 of the next business day for
+        one that closed at 15:25 or later
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone, New York, where the Treasury holds the auctions"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Location of the source file: one file per benchmark holding every auction of it. Read line by line;
+        USTreasuryAuctions folds the auctions that share an end time into one point.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: a benchmark is auctioned weekly at most, and some only a few times a year"""
+        ...
+
+    @staticmethod
+    def parse(csv: typing.List[str]) -> QuantConnect.DataSource.USTreasuryAuction:
+        """Reads one split line into an auction result that has no symbol yet"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses one line of the file into one auction result"""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Not linked to a traded security, so no mapping applies"""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions, Daily only"""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging"""
+        ...
+
+
+class USTreasuryAuctionBenchmarks(System.Object):
+    """
+    Tickers of the U.S. Treasury auction benchmarks auctioned today. A reopening belongs to the benchmark
+    of the security it reopens, so a 9-year 10-month note is a 10-year note. Retired benchmarks keep their
+    own ticker built the same way, for example NOTE4Y or BOND15Y.
+    """
+
+    class Bills(System.Object):
+        """Treasury bills"""
+
+        FOUR_WEEK: str = "BILL4W"
+        """4-week bill"""
+
+        SIX_WEEK: str = "BILL6W"
+        """6-week bill"""
+
+        EIGHT_WEEK: str = "BILL8W"
+        """8-week bill"""
+
+        THIRTEEN_WEEK: str = "BILL13W"
+        """13-week bill"""
+
+        SEVENTEEN_WEEK: str = "BILL17W"
+        """17-week bill"""
+
+        TWENTY_SIX_WEEK: str = "BILL26W"
+        """26-week bill"""
+
+        FIFTY_TWO_WEEK: str = "BILL52W"
+        """52-week bill"""
+
+    class Notes(System.Object):
+        """Treasury notes"""
+
+        TWO_YEAR: str = "NOTE2Y"
+        """2-year note"""
+
+        THREE_YEAR: str = "NOTE3Y"
+        """3-year note"""
+
+        FIVE_YEAR: str = "NOTE5Y"
+        """5-year note"""
+
+        SEVEN_YEAR: str = "NOTE7Y"
+        """7-year note"""
+
+        TEN_YEAR: str = "NOTE10Y"
+        """10-year note"""
+
+    class Bonds(System.Object):
+        """Treasury bonds"""
+
+        TWENTY_YEAR: str = "BOND20Y"
+        """20-year bond"""
+
+        THIRTY_YEAR: str = "BOND30Y"
+        """30-year bond"""
+
+    class Tips(System.Object):
+        """Treasury Inflation-Protected Securities"""
+
+        FIVE_YEAR: str = "TIPS5Y"
+        """5-year TIPS"""
+
+        TEN_YEAR: str = "TIPS10Y"
+        """10-year TIPS"""
+
+        THIRTY_YEAR: str = "TIPS30Y"
+        """30-year TIPS"""
+
+    class FloatingRateNotes(System.Object):
+        """Floating rate notes"""
+
+        TWO_YEAR: str = "FRN2Y"
+        """2-year floating rate note"""
+
+    CASH_MANAGEMENT_BILLS: str = "CMB"
+    """Cash management bills of every term, auctioned irregularly to cover short funding needs"""
+
+
 class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
     """U.S. Treasury yield curve data"""
 
@@ -4419,6 +4879,55 @@ class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
 
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
         """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class USTreasuryAuctions(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Every U.S. Treasury auction of one benchmark whose results arrive at the same time. Almost always a
+    single auction; cash management bills, and a few days in 1984, 1985, 1986 and 2008, carry several.
+    Auctions are folded by end time, so they can come from different days (a result posted late reaches
+    the next day's run): read each auction's own BaseData.time for its date, not the
+    collection's.
+    """
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone, New York"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: one file per benchmark holding every auction of it, folded by end time"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: a benchmark is auctioned weekly at most"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads one line of the file into one auction result. The engine folds the lines with the same end
+        time into one collection.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Not linked to a traded security"""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions"""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging"""
         ...
 
 

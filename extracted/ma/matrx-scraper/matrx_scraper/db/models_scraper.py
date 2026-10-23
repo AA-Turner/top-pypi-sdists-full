@@ -110,7 +110,12 @@ class DataFetchJob(MatrxEntity):
     call_id = UUIDField()
     test_run_id = UUIDField()
     test_expires_at = DateTimeField()
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    provider_ready_at = DateTimeField()
+    collected_at = DateTimeField()
+    saved_at = DateTimeField()
+    stage_log = JSONBField(null=False, default=[])
+    duration_ms = IntegerField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'data_fetch_job_row': {'from_model': 'DataFetchJobRow', 'from_field': 'job_id', 'referenced_field': 'id', 'related_name': 'data_fetch_job_row', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "data_fetch_job"
     _db_schema = "scraper"
@@ -170,6 +175,8 @@ class DataSource(MatrxEntity):
     usd_per_record = DecimalField()
     test_run_id = UUIDField()
     test_expires_at = DateTimeField()
+    method = TextField()
+    provider = TextField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "data_source"
@@ -187,7 +194,6 @@ class ScrapeDomain(MatrxEntity):
     scrape_allowed = BooleanField(default=True)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField()
-    is_public = BooleanField(default=False)
     policy_action = TextField()
     min_content_chars = IntegerField()
     min_real_content_chars = IntegerField()
@@ -253,10 +259,8 @@ class ScrapeParsedPage(MatrxEntity):
     remote_path = CharField()
     local_path = CharField()
     scraped_at = DateTimeField()
-    user_id = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    is_public = BooleanField()
     expires_at = DateTimeField()
     url = TextField()
     domain = TextField()
@@ -278,7 +282,6 @@ class ScrapeParsedPage(MatrxEntity):
     rung_trail = JSONBField(null=False, default=[])
     html_file_id = ForeignKey(to_model='Files', to_column='id', to_schema='files', )
     processed_document_id = ForeignKey(to_model='ProcessedDocuments', to_column='id', to_schema='docproc', )
-    owner_id = UUIDField()
     visibility = EnumField(enum_class=Visibility, null=False)
     custom_fields = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
@@ -296,6 +299,19 @@ class ScrapeParsedPage(MatrxEntity):
     _is_versioned = False
     _has_soft_delete = True
     _is_org_scoped = True
+    _rls_variant = "entity"
+
+class DataFetchJobRow(MatrxEntity):
+    job_id = ForeignKey(to_model=DataFetchJob, to_column='id', to_schema='scraper', primary_key=True, null=False)
+    row_key = TextField(primary_key=True, null=False)
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_scraper"
+    _table_name = "data_fetch_job_row"
+    _db_schema = "scraper"
+    _entity_token = "scraper_data_fetch_job_row"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = False
     _rls_variant = "entity"
 
 class ScrapeDomainSettings(MatrxEntity):
@@ -325,7 +341,6 @@ class ScrapePathPattern(MatrxEntity):
     path_pattern = CharField(default='/*')
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField()
-    is_public = BooleanField(default=False)
     policy_action = TextField()
     min_content_chars = IntegerField()
     min_real_content_chars = IntegerField()
@@ -406,6 +421,7 @@ __all__ = [
     "ScrapeDomain",
     "ScrapeFailureLog",
     "ScrapeParsedPage",
+    "DataFetchJobRow",
     "ScrapeDomainSettings",
     "ScrapePathPattern",
     "ScrapeRetryQueue",
@@ -423,6 +439,7 @@ model_registry.register_all(
         ScrapeDomain,
         ScrapeFailureLog,
         ScrapeParsedPage,
+        DataFetchJobRow,
         ScrapeDomainSettings,
         ScrapePathPattern,
         ScrapeRetryQueue,

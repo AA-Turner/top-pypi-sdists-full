@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -31,6 +39,12 @@ from .asset import (
     AssetRelationshipAttributes,
     _extract_asset_attrs,
     _populate_asset_attrs,
+)
+from .cassandra_related import (
+    RelatedCassandraColumn,
+    RelatedCassandraIndex,
+    RelatedCassandraKeyspace,
+    RelatedCassandraTable,
 )
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
@@ -48,19 +62,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cassandra_related import (
-    RelatedCassandraColumn,
-    RelatedCassandraIndex,
-    RelatedCassandraKeyspace,
-    RelatedCassandraTable,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -416,6 +417,43 @@ class CassandraTable(Asset):
         if self.guid is not UNSET:
             return RelatedCassandraTable(guid=self.guid)
         return RelatedCassandraTable(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        keyspace_qualified_name: str,
+        connection_qualified_name: str | None = None,
+    ) -> "CassandraTable":
+        validate_required_fields(
+            ["name", "keyspace_qualified_name"], [name, keyspace_qualified_name]
+        )
+        fields = keyspace_qualified_name.split("/")
+        if len(fields) < 4:
+            raise ValueError(
+                "keyspace_qualified_name must be {connection_qualified_name}/{keyspace}"
+            )
+        connection_qualified_name = connection_qualified_name or "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{keyspace_qualified_name}/{name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            cassandra_keyspace_name=fields[-1],
+            cassandra_keyspace=RelatedCassandraKeyspace(
+                qualified_name=keyspace_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CassandraTable":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CassandraTable":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -860,6 +898,7 @@ def _cassandra_table_to_nested(cassandra_table: CassandraTable) -> CassandraTabl
         is_incomplete=cassandra_table.is_incomplete,
         provenance_type=cassandra_table.provenance_type,
         home_id=cassandra_table.home_id,
+        delete_handler=cassandra_table.delete_handler,
         depth=cassandra_table.depth,
         immediate_upstream=cassandra_table.immediate_upstream,
         immediate_downstream=cassandra_table.immediate_downstream,
@@ -908,6 +947,7 @@ def _cassandra_table_from_nested(nested: CassandraTableNested) -> CassandraTable
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

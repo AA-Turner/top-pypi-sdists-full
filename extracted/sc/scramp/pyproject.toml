@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "versioningit"]
+requires = ["hatchling>=1.32.4", "versioningit>=3.3.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,13 +7,13 @@ name = "scramp"
 authors = [{ name = "The Contributors" }]
 description = "An implementation of the SCRAM protocol."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["SCRAM", "authentication", "SASL"]
-license = { text = "MIT No Attribution" }
+license = "MIT-0"
+license-files = ["LICENSE"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT No Attribution License (MIT-0)",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: Implementation",
@@ -42,13 +42,15 @@ extend-select = ["E501", "I"]
 known-first-party = ["scramp"]
 
 [tool.tox]
-requires = ["tox>=4.19"]
+requires = ["tox>=4.21"]
 envlist = ["py"]
 
 [tool.tox.env_run_base]
-description = "Run test under {base_python}"
-allowlist_externals = ["rm"]
 commands = [
+  [
+    "ruff",
+    "--version",
+  ],
   [
     "ruff",
     "format",
@@ -56,8 +58,22 @@ commands = [
     ".",
   ],
   [
+    "ruff",
+    "check",
+    ".",
+  ],
+  [
     "validate-pyproject",
     "pyproject.toml",
+  ],
+  [
+    "npx",
+    "--yes",
+    "markdownlint-cli2",
+    "**/*.md",
+    "#.tox",
+    "#node_modules",
+    "#venv",
   ],
   [
     "pytest",
@@ -82,6 +98,8 @@ commands = [
     "dist/*",
   ],
 ]
+description = "Run test under {base_python}"
+allowlist_externals = ["rm", "npx"]
 deps = [
   "pytest",
   "pytest-mock",

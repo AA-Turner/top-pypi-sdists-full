@@ -75,6 +75,10 @@ db-cleanup = [
     "aiomysql>=0.2",
     "aiosqlite>=0.20",
 ]
+pi = [
+    "playwright==1.58.0",
+    "vncdotool==1.4.2",
+]
 
 [build-system]
 requires = ["hatchling"]

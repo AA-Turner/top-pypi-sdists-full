@@ -16,9 +16,11 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import random
 import sys
+from subprocess import run
 from textwrap import dedent
 
 import click
@@ -28,15 +30,21 @@ from boltons.strutils import strip_ansi
 from click_extra import (
     LogLevel,
     Spinner,
+    VerbosityOption,
+    command,
     echo,
+    group,
     quiet_option,
+    timer_option,
     verbose_option,
     verbosity_option,
 )
 from click_extra.logging import (
+    _INVOCATION_HOLDERS,
     DEFAULT_LEVEL,
     Formatter,
     StreamHandler,
+    basicConfig,
     new_logger,
 )
 from click_extra.pytest import (
@@ -53,6 +61,18 @@ from click_extra.pytest import (
 )
 
 from .conftest import skip_windows_colors
+
+CUSTOM_FORMAT = "{levelname} | {name} | {message}"
+"""A format to tell a logger set up on purpose from the default of Click Extra."""
+
+
+def run_handlers():
+    """The handlers of Click Extra attached to the root logger right now."""
+    return [
+        handler
+        for handler in logging.getLogger().handlers
+        if isinstance(handler, StreamHandler)
+    ]
 
 
 def test_level_default_order():
@@ -364,11 +384,13 @@ def test_standalone_option_default_logger(
     - level names are colored
     - log level is propagated to all other loggers
     """
+    seen_handlers = []
 
     @cmd_decorator
     @option_decorator
     def logging_cli2():
         echo("It works!")
+        seen_handlers.extend(run_handlers())
 
         random_logger = logging.getLogger(
             f"random_logger_{random.randrange(10000, 99999)}",
@@ -402,9 +424,9 @@ def test_standalone_option_default_logger(
     assert root_logger.parent is None
     assert root_logger.propagate is True
 
-    assert len(root_logger.handlers) == 1
-    assert isinstance(root_logger.handlers[0], StreamHandler)
-    assert isinstance(root_logger.handlers[0].formatter, Formatter)
+    # The run printed its records through one handler of Click Extra.
+    assert len(seen_handlers) == 1
+    assert isinstance(seen_handlers[0].formatter, Formatter)
 
     messages = {
         LogLevel.DEBUG: (
@@ -556,7 +578,13 @@ def restored_root_logger():
     once decides how every later test in the same worker renders: leaving the
     handler behind is what made ``test_logger_propagation`` fail whenever this
     module's root-logger test ran before it.
+
+    A run of a plain Click command that failed while parsing keeps its hold on
+    the handler of Click Extra until its context is collected. Collecting first
+    keeps that handler out of the saved list, which would otherwise attach it
+    again once the test is over.
     """
+    gc.collect()
     root = logging.getLogger()
     saved_handlers = root.handlers[:]
     saved_level = root.level
@@ -565,6 +593,34 @@ def restored_root_logger():
     finally:
         root.handlers[:] = saved_handlers
         root.setLevel(saved_level)
+
+
+class RecordingHandler(logging.Handler):
+    """Stand-in for the handler of an application: keeps the messages it receives."""
+
+    def __init__(self):
+        super().__init__()
+        self.messages = []
+        self.closed = False
+
+    def emit(self, record):
+        self.messages.append(record.getMessage())
+
+    def close(self):
+        self.closed = True
+        super().close()
+
+
+@pytest.fixture
+def app_handler(restored_root_logger):
+    """A handler attached to the root logger before any command is defined.
+
+    This is the state an application leaves the root logger in before it imports
+    a CLI, and the one pytest leaves it in with its own capture handlers.
+    """
+    handler = RecordingHandler()
+    restored_root_logger.addHandler(handler)
+    return handler
 
 
 def test_new_logger_root_config(invoke, restored_root_logger):
@@ -661,6 +717,859 @@ def test_logger_propagation(invoke):
         debug: Reset <Logger click_extra (DEBUG)> to WARNING.
         """)
     assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    "cmd_decorator",
+    # Only Click Extra's own decorators carry the verbosity options by default.
+    command_decorators(no_click=True, no_cloup=True),
+)
+def test_decorating_a_command_leaves_the_root_logger_alone(cmd_decorator, app_handler):
+    """Defining a command changes neither the handlers nor the level of ``root``.
+
+    A command is defined when its module is imported: the handlers found there
+    belong to whoever imports it.
+    """
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+
+    @cmd_decorator
+    def orchard():
+        pass
+
+    assert root.handlers == handlers
+    assert root.level == level
+    assert not app_handler.closed
+
+
+def test_unregistered_logger_name_is_set_up_without_the_root_logger(app_handler):
+    """A name unknown to ``logging`` gets a logger of its own when the option is
+    built. The root logger stays out of it."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    assert "vineyard" not in logging.Logger.manager.loggerDict
+
+    @click.command
+    @verbosity_option(default_logger="vineyard")
+    def orchard():
+        pass
+
+    assert root.handlers == handlers
+    vineyard = logging.getLogger("vineyard")
+    assert vineyard.propagate is False
+    (handler,) = vineyard.handlers
+    assert isinstance(handler, StreamHandler)
+    assert isinstance(handler.formatter, Formatter)
+
+
+def extra_command(body):
+    """A Click Extra command, which carries the verbosity options by default."""
+
+    @command
+    def orchard():
+        body()
+
+    return orchard, ()
+
+
+def extra_group(body):
+    """A Click Extra group: its subcommand carries the verbosity options too."""
+
+    @group
+    def farm():
+        pass
+
+    # Parenthesized: the group is Cloup-based, which rejects the naked form.
+    @farm.command()
+    def orchard():
+        body()
+
+    return farm, ("orchard",)
+
+
+def click_command(body):
+    """A plain Click command borrowing the verbosity option."""
+
+    @click.command
+    @verbosity_option
+    def orchard():
+        body()
+
+    return orchard, ()
+
+
+def click_command_with_its_own_logger(body):
+    """A plain Click command whose verbosity option sets a logger of its own."""
+
+    @click.command
+    @verbosity_option(default_logger=logging.getLogger("greenhouse"))
+    def orchard():
+        body()
+
+    return orchard, ()
+
+
+def click_command_without_verbosity(body):
+    """A plain Click command borrowing an option other than the verbosity ones."""
+
+    @click.command
+    @timer_option
+    def orchard():
+        body()
+
+    return orchard, ()
+
+
+@pytest.mark.parametrize(
+    "build",
+    (
+        extra_command,
+        extra_group,
+        click_command,
+        click_command_with_its_own_logger,
+        click_command_without_verbosity,
+    ),
+)
+def test_run_adds_one_handler_beside_the_others(invoke, app_handler, build):
+    """A run prints through one handler of Click Extra, added beside the handlers
+    already on the root logger, and gone once the run is over.
+
+    The handler of the application stays attached all along, and receives the
+    record too: a console handler there prints it a second time.
+    """
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    during = []
+
+    def body():
+        during.append(root.handlers[:])
+        logging.getLogger("orchard").warning("apples are ripe")
+
+    cli, args = build(body)
+    assert root.handlers == handlers
+
+    result = invoke(cli, *args, color=False)
+    assert result.exit_code == 0
+    assert result.stderr == "warning: apples are ripe\n"
+
+    (run_time_handlers,) = during
+    (lent,) = [h for h in run_time_handlers if h not in handlers]
+    assert isinstance(lent, StreamHandler)
+    assert isinstance(lent.formatter, Formatter)
+    # Every other handler stayed in place, in the same order.
+    assert [h for h in run_time_handlers if h is not lent] == handlers
+
+    assert app_handler.messages == ["apples are ripe"]
+    assert not app_handler.closed
+    assert root.handlers == handlers
+
+
+def test_each_run_gets_the_handler(invoke, app_handler):
+    """The handler leaves with a run, and the next run gets one again."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+
+    @command
+    def orchard():
+        logging.getLogger("orchard").warning("pears are ripe")
+
+    for _ in range(2):
+        result = invoke(orchard, color=False)
+        assert result.exit_code == 0
+        assert result.stderr == "warning: pears are ripe\n"
+        assert root.handlers == handlers
+
+    assert app_handler.messages == ["pears are ripe", "pears are ripe"]
+
+
+def test_record_of_an_earlier_option_is_printed(invoke, app_handler):
+    """The handler is attached before Click processes any option, so a record
+    emitted by an option processed ahead of the verbosity ones is printed."""
+
+    def announce(ctx, param, value):
+        if value:
+            logging.getLogger("orchard").warning("plums are ripe")
+
+    @click.command
+    @click.option(
+        "--announce",
+        is_flag=True,
+        is_eager=True,
+        expose_value=False,
+        callback=announce,
+    )
+    @verbosity_option
+    def orchard():
+        pass
+
+    # An eager option typed on the command line is processed before the eager
+    # options left out of it.
+    result = invoke(orchard, "--announce", color=False)
+    assert result.exit_code == 0
+    assert result.stderr == "warning: plums are ripe\n"
+
+
+def test_record_after_a_run_is_not_printed(invoke, app_handler, capsys):
+    """Once a run is over, Click Extra prints nothing of what the process logs."""
+
+    @command
+    def orchard():
+        pass
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+    capsys.readouterr()
+
+    logging.getLogger("orchard").warning("quinces are ripe")
+    assert not capsys.readouterr().err
+    assert app_handler.messages == ["quinces are ripe"]
+
+
+def test_caplog_captures_the_records_of_a_command_defined_in_a_test(invoke, caplog):
+    """pytest attaches its capture handlers to the root logger before the test
+    body runs: a command defined in that body must leave them in place."""
+
+    @command
+    def orchard():
+        logging.getLogger("orchard").warning("melons are ripe")
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+    assert result.stderr == "warning: melons are ripe\n"
+    assert "melons are ripe" in caplog.text
+
+
+def test_file_handler_of_the_root_logger_keeps_writing(
+    invoke, restored_root_logger, tmp_path
+):
+    """No handler of the root logger is closed, at any point.
+
+    A file handler opened in ``w`` mode never opens its file again once closed,
+    which is the mode of the one behind pytest's ``--log-file``.
+    """
+    log_file = tmp_path / "harvest.log"
+    file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+    restored_root_logger.addHandler(file_handler)
+    orchard_logger = logging.getLogger("orchard")
+    try:
+        orchard_logger.warning("before the command")
+
+        @command
+        def orchard():
+            orchard_logger.warning("during the run")
+
+        result = invoke(orchard, color=False)
+        assert result.exit_code == 0
+        orchard_logger.warning("after the run")
+    finally:
+        file_handler.close()
+
+    assert log_file.read_text(encoding="utf-8").splitlines() == [
+        "before the command",
+        "during the run",
+        "after the run",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("args", "exit_code"),
+    (
+        pytest.param((), 0, id="return"),
+        pytest.param(("--help",), 0, id="help"),
+        pytest.param(("--version",), 0, id="version"),
+        # The two runs below fail while parsing: Click never closes their context.
+        pytest.param(("--no-such-option",), 2, id="unknown-option"),
+        pytest.param(("--baskets", "many"), 2, id="invalid-value"),
+        pytest.param(("--end", "raise"), 1, id="exception"),
+        pytest.param(("--end", "exit"), 3, id="exit"),
+        pytest.param(("--end", "abort"), 1, id="abort"),
+    ),
+)
+def test_handler_leaves_however_the_run_ends(invoke, app_handler, args, exit_code):
+    """A Click Extra command gives the handler back the moment its run ends,
+    whatever the run ends on."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+
+    @command
+    @click.option("--baskets", type=int)
+    @click.option("--end", default="return")
+    @click.pass_context
+    def orchard(ctx, baskets, end):
+        if end == "raise":
+            raise RuntimeError("frost")
+        if end == "exit":
+            ctx.exit(3)
+        if end == "abort":
+            raise click.Abort
+
+    result = invoke(orchard, *args, color=False)
+    assert result.exit_code == exit_code
+    assert root.handlers == handlers
+
+
+def test_failed_run_of_a_click_command_gives_the_handler_back_when_collected(
+    invoke, app_handler
+):
+    """A plain Click command has no hook on a run that fails while parsing: the
+    handler leaves once Python collects the context of that run."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+
+    @click.command
+    @verbosity_option
+    @click.option("--baskets", type=int)
+    def orchard(baskets):
+        pass
+
+    result = invoke(orchard, "--baskets", "many", color=False)
+    assert result.exit_code == 2
+
+    del result
+    gc.collect()
+    assert root.handlers == handlers
+
+
+def test_run_keeps_its_handler_when_a_failed_run_is_collected(invoke, app_handler):
+    """The context of a failed run may be collected in the middle of a later run,
+    which then still needs the handler they share."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    contexts = []
+    holders = []
+
+    def keep_context(ctx, param, value):
+        contexts.append(ctx)
+
+    @click.command
+    @verbosity_option
+    @click.option(
+        "--keep",
+        is_flag=True,
+        is_eager=True,
+        expose_value=False,
+        callback=keep_context,
+    )
+    @click.option("--baskets", type=int, expose_value=False)
+    def orchard():
+        holders.append(len(_INVOCATION_HOLDERS))
+        contexts.clear()
+        gc.collect()
+        holders.append(len(_INVOCATION_HOLDERS))
+        logging.getLogger("orchard").warning("figs are ripe")
+
+    # The eager option keeps the context of the run, which then fails on the
+    # value of the other one.
+    failed = invoke(orchard, "--baskets", "many", color=False)
+    assert failed.exit_code == 2
+    del failed
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+    # The failed run let go of the handler in the middle of this run.
+    assert holders[0] - holders[1] == 1
+    assert result.stderr == "warning: figs are ripe\n"
+    assert root.handlers == handlers
+
+
+@pytest.mark.parametrize(
+    "inner_args",
+    (
+        pytest.param((), id="inner-run-returns"),
+        # The inner run fails while parsing, once it holds the handler.
+        pytest.param(("--no-such-option",), id="inner-run-fails"),
+    ),
+)
+def test_nested_runs_share_one_handler(invoke, app_handler, inner_args):
+    """A run started from within another one prints through the same handler,
+    and leaves it to the run around it when it ends."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    seen = {}
+
+    @command
+    def greenhouse():
+        seen["inner"] = run_handlers()
+        logging.getLogger("orchard").warning("cherries are ripe")
+
+    @command
+    def orchard():
+        seen["before"] = run_handlers()
+        try:
+            greenhouse.main(list(inner_args), standalone_mode=False)
+        except click.UsageError:
+            seen["inner"] = None
+        seen["after"] = run_handlers()
+        logging.getLogger("orchard").warning("plums are ripe")
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+
+    assert len(seen["before"]) == 1
+    assert seen["after"] == seen["before"]
+    if inner_args:
+        assert seen["inner"] is None
+        assert result.stderr == "warning: plums are ripe\n"
+    else:
+        assert seen["inner"] == seen["before"]
+        assert result.stderr == "warning: cherries are ripe\nwarning: plums are ripe\n"
+    assert root.handlers == handlers
+
+
+def test_resilient_parsing_adds_no_handler(app_handler):
+    """Click parses without side effects to complete a command line: the root
+    logger gets no handler then."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+
+    @click.command
+    @verbosity_option
+    def orchard():
+        pass
+
+    orchard.make_context("orchard", [], resilient_parsing=True)
+    assert root.handlers == handlers
+
+    # Control: the same call adds the handler when Click parses for a run.
+    ctx = orchard.make_context("orchard", [])
+    assert len(run_handlers()) == 1
+    ctx.close()
+    assert root.handlers == handlers
+
+
+@pytest.mark.parametrize(
+    "set_up",
+    (
+        pytest.param(lambda: new_logger(format=CUSTOM_FORMAT), id="new_logger"),
+        pytest.param(
+            lambda: basicConfig(format=CUSTOM_FORMAT, force=True), id="basicConfig"
+        ),
+    ),
+)
+@pytest.mark.parametrize("build", (extra_command, click_command))
+def test_root_logger_set_up_on_purpose_is_left_as_it_is(
+    invoke, restored_root_logger, set_up, build
+):
+    """A command left on the root logger keeps the format ``new_logger()`` or
+    ``basicConfig()`` gave it, and adds no handler of its own."""
+    root = restored_root_logger
+    # Both helpers remove and close the handlers they find: keep the ones of
+    # pytest out of their reach.
+    root.handlers[:] = []
+    set_up()
+    handlers = root.handlers[:]
+    during = []
+
+    def body():
+        during.append(root.handlers[:])
+        logging.getLogger("orchard").warning("limes are ripe")
+
+    cli, args = build(body)
+    result = invoke(cli, *args, color=False)
+    assert result.exit_code == 0
+    assert result.stderr == "warning | orchard | limes are ripe\n"
+    assert during == [handlers]
+    assert root.handlers == handlers
+
+
+def test_handlers_given_to_new_logger_replace_the_run_handler(
+    invoke, restored_root_logger
+):
+    """``new_logger()`` given the handlers of the caller is how an application
+    keeps the handler of Click Extra off the root logger."""
+    root = restored_root_logger
+    root.handlers[:] = []
+    recorder = RecordingHandler()
+    new_logger(handlers=[recorder])
+    during = []
+
+    @command
+    def orchard():
+        during.append(root.handlers[:])
+        logging.getLogger("orchard").warning("kiwis are ripe")
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+    assert not result.stderr
+    assert during == [[recorder]]
+    assert recorder.messages == ["kiwis are ripe"]
+
+
+@pytest.mark.parametrize(
+    ("force", "replaced"),
+    (
+        pytest.param(True, True, id="forced"),
+        pytest.param(False, False, id="not-forced"),
+    ),
+)
+def test_new_logger_replaces_the_handlers_of_the_root_logger(
+    restored_root_logger, force, replaced
+):
+    """Left on its default name, ``new_logger()`` removes and closes every handler
+    of the root logger, unless told not to force.
+
+    That is its documented contract, and the reason not to call it at import
+    time: the handlers of an application go with the others.
+    """
+    root = restored_root_logger
+    # Keep the handlers of pytest out of reach: they would be closed for good.
+    recorder = RecordingHandler()
+    root.handlers[:] = [recorder]
+
+    assert new_logger(force=force) is root
+
+    assert recorder.closed is replaced
+    if replaced:
+        (handler,) = root.handlers
+        assert isinstance(handler, StreamHandler)
+        assert isinstance(handler.formatter, Formatter)
+    else:
+        assert root.handlers == [recorder]
+
+
+def test_new_logger_with_a_name_leaves_the_root_logger_alone(app_handler):
+    """Given a name, ``new_logger()`` sets that logger up and no other."""
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+
+    paddock = new_logger("paddock")
+
+    assert paddock is not root
+    assert root.handlers == handlers
+    assert not app_handler.closed
+
+
+@pytest.fixture
+def application_levels(restored_root_logger):
+    """Give the loggers the levels of an application for the time of a test.
+
+    The ``root`` logger works at ``INFO``, and the ``click_extra`` one follows
+    it, as it does from the start. None of the two is at the level the verbosity
+    options default to: a test can so tell a level given back from one reset.
+    """
+    package_logger = logging.getLogger("click_extra")
+    saved_level = package_logger.level
+    restored_root_logger.setLevel(logging.INFO)
+    package_logger.setLevel(logging.NOTSET)
+    try:
+        yield logging.INFO, logging.NOTSET
+    finally:
+        package_logger.setLevel(saved_level)
+
+
+def levels():
+    """The levels a verbosity option sets: of ``root`` and of ``click_extra``."""
+    return logging.getLogger().level, logging.getLogger("click_extra").level
+
+
+@pytest.mark.parametrize(
+    ("args", "exit_code", "traced"),
+    (
+        pytest.param((), 0, True, id="return"),
+        pytest.param(("--end", "raise"), 1, True, id="exception"),
+        pytest.param(("--end", "exit"), 3, True, id="exit"),
+        # The run fails while parsing, once the verbosity option set the levels:
+        # Click never closes its context, and the levels come back without a trace.
+        pytest.param(("--baskets", "many"), 2, False, id="invalid-value"),
+    ),
+)
+def test_levels_are_given_back_however_the_run_ends(
+    invoke, application_levels, args, exit_code, traced
+):
+    """A Click Extra command gives its loggers the levels they had before the run
+    back the moment it ends, whatever it ends on."""
+
+    @command
+    @click.option("--baskets", type=int)
+    @click.option("--end", default="return")
+    @click.pass_context
+    def orchard(ctx, baskets, end):
+        if end == "raise":
+            raise RuntimeError("frost")
+        if end == "exit":
+            ctx.exit(3)
+
+    result = invoke(orchard, "--verbosity", "DEBUG", *args, color=False)
+    assert result.exit_code == exit_code
+    assert "debug: Set <RootLogger root (DEBUG)> to DEBUG.\n" in result.stderr
+    # The trace names the level each logger works at from then on: the
+    # ``click_extra`` one follows ``root`` again.
+    trace = (
+        "debug: Reset <RootLogger root (DEBUG)> to INFO.\n"
+        "debug: Reset <Logger click_extra (DEBUG)> to INFO.\n"
+    )
+    assert (trace in result.stderr) is traced
+    assert levels() == application_levels
+
+
+def test_logger_of_the_option_gets_its_own_level_back(invoke, application_levels):
+    """An option given a logger of its own leaves the level of ``root`` alone, and
+    gives that logger the level it had."""
+    cellar = logging.getLogger("cellar")
+    cellar.setLevel(logging.ERROR)
+
+    @click.command
+    @verbosity_option(default_logger=cellar)
+    def orchard():
+        pass
+
+    try:
+        result = invoke(orchard, "--verbosity", "DEBUG", color=False)
+        assert result.exit_code == 0
+        assert "debug: Reset <Logger cellar (DEBUG)> to ERROR.\n" in result.stderr
+        assert cellar.level == logging.ERROR
+        assert levels() == application_levels
+    finally:
+        cellar.setLevel(logging.NOTSET)
+
+
+def test_reset_loggers_falls_back_on_the_default_level(application_levels):
+    """Called with no level to give back, ``reset_loggers()`` sets the default one."""
+    VerbosityOption().reset_loggers()
+    assert levels() == (logging.WARNING, logging.WARNING)
+
+
+def test_levels_are_given_back_when_a_subcommand_fails_while_parsing(
+    invoke, application_levels
+):
+    """The context of the group closes, the one of its subcommand never does.
+
+    The group carries no verbosity option of its own here: one that does queues
+    the reset on its own context, which closes.
+    """
+
+    @group(params=None)
+    def farm():
+        pass
+
+    # Parenthesized: the group is Cloup-based, which rejects the naked form.
+    @farm.command()
+    @verbosity_option
+    @click.option("--baskets", type=int)
+    def orchard(baskets):
+        pass
+
+    result = invoke(
+        farm, "orchard", "--verbosity", "DEBUG", "--baskets", "many", color=False
+    )
+    assert result.exit_code == 2
+    assert "debug: Set <RootLogger root (DEBUG)> to DEBUG.\n" in result.stderr
+    assert levels() == application_levels
+
+
+def test_failed_run_of_a_click_command_gives_its_levels_back_when_collected(
+    invoke, application_levels
+):
+    """A plain Click command has no hook on a run that fails while parsing: the
+    levels come back once Python collects the context of that run."""
+
+    @click.command
+    @verbosity_option
+    @click.option("--baskets", type=int)
+    def orchard(baskets):
+        pass
+
+    result = invoke(orchard, "--verbosity", "DEBUG", "--baskets", "many", color=False)
+    assert result.exit_code == 2
+    assert "debug: Set <RootLogger root (DEBUG)> to DEBUG.\n" in result.stderr
+
+    del result
+    gc.collect()
+    assert levels() == application_levels
+
+
+def failing_click_command(contexts, body=None):
+    """A plain Click command that keeps the context of each of its runs alive, and
+    fails while parsing when given an invalid ``--baskets``."""
+
+    def keep_context(ctx, param, value):
+        contexts.append(ctx)
+
+    @click.command
+    @verbosity_option
+    @click.option(
+        "--keep",
+        is_flag=True,
+        is_eager=True,
+        expose_value=False,
+        callback=keep_context,
+    )
+    @click.option("--baskets", type=int, expose_value=False)
+    def orchard():
+        if body:
+            body()
+
+    return orchard
+
+
+def test_run_keeps_its_levels_when_a_failed_run_is_collected(
+    invoke, application_levels
+):
+    """The context of a failed run may be collected in the middle of a later run:
+    the levels are by then the ones of that later run, and stay."""
+    contexts: list[click.Context] = []
+    holders = []
+    seen = []
+
+    def body():
+        seen.append(levels())
+        holders.append(len(_INVOCATION_HOLDERS))
+        contexts.clear()
+        gc.collect()
+        holders.append(len(_INVOCATION_HOLDERS))
+        seen.append(levels())
+
+    orchard = failing_click_command(contexts, body)
+
+    # The eager option keeps the context of the run, which then fails on the
+    # value of the other one.
+    failed = invoke(orchard, "--verbosity", "DEBUG", "--baskets", "many", color=False)
+    assert failed.exit_code == 2
+    del failed
+    # Nothing gave the levels back yet: the context of the failed run is alive.
+    assert levels() == (logging.DEBUG, logging.DEBUG)
+
+    result = invoke(orchard, "--verbosity", "ERROR", color=False)
+    assert result.exit_code == 0
+    # The failed run was collected in the middle of this run.
+    assert holders[0] - holders[1] == 1
+    assert seen == [(logging.ERROR, logging.ERROR), (logging.ERROR, logging.ERROR)]
+    assert levels() == application_levels
+
+
+def test_levels_found_before_a_failed_run_are_the_ones_given_back(
+    invoke, application_levels
+):
+    """A run that starts on the levels a failed run left behind gives back the
+    ones found before that failed run, not the ones it left."""
+    contexts: list[click.Context] = []
+    orchard = failing_click_command(contexts)
+
+    failed = invoke(orchard, "--verbosity", "DEBUG", "--baskets", "many", color=False)
+    assert failed.exit_code == 2
+    del failed
+    assert levels() == (logging.DEBUG, logging.DEBUG)
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+    assert levels() == application_levels
+
+    # The failed run has nothing left to give back once it is collected.
+    contexts.clear()
+    gc.collect()
+    assert levels() == application_levels
+
+
+def test_released_handler_put_back_on_the_root_logger_prints_nothing(
+    invoke, app_handler, capsys
+):
+    """Code that saves the handlers of the root logger and puts them back later
+    may attach again a handler its run let go of in between. That handler prints
+    nothing, and the next run takes it off.
+
+    A fixture isolating a test does that around a plain Click command that failed
+    while parsing: Python collects the context of that run, and so releases its
+    handler, whenever it sees fit.
+    """
+    root = logging.getLogger()
+    contexts: list[click.Context] = []
+    orchard = failing_click_command(
+        contexts, lambda: logging.getLogger("orchard").warning("apples are ripe")
+    )
+
+    failed = invoke(orchard, "--baskets", "many", color=False)
+    assert failed.exit_code == 2
+    del failed
+    (lent,) = run_handlers()
+
+    saved = root.handlers[:]
+    contexts.clear()
+    gc.collect()
+    assert not run_handlers()
+    root.handlers[:] = saved
+    assert run_handlers() == [lent]
+
+    capsys.readouterr()
+    logging.getLogger("orchard").warning("pears are ripe")
+    assert not capsys.readouterr().err
+
+    result = invoke(orchard, color=False)
+    assert result.exit_code == 0
+    assert result.stderr == "warning: apples are ripe\n"
+    assert lent not in root.handlers
+
+
+@pytest.mark.once
+def test_importing_a_cli_leaves_the_root_logger_alone():
+    """In a new interpreter, importing Click Extra and defining a command leave
+    the root logger with the one handler the application gave it."""
+    script = dedent("""\
+        import logging
+
+        application_handler = logging.NullHandler()
+        logging.getLogger().addHandler(application_handler)
+
+        import click_extra
+
+        assert logging.getLogger().handlers == [application_handler]
+
+
+        @click_extra.command
+        def orchard():
+            pass
+
+
+        assert logging.getLogger().handlers == [application_handler]
+        assert logging.getLogger().level == logging.WARNING
+        """)
+    process = run(
+        (sys.executable, "-c", script),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert process.returncode == 0, process.stderr
+
+
+@pytest.mark.once
+def test_root_logger_prints_in_a_new_interpreter_beside_a_named_logger():
+    """A command whose verbosity option sets a named logger still prints the
+    records of the root logger in the style of Click Extra.
+
+    Run in a new interpreter: no other command of the process may have given the
+    root logger its handler.
+    """
+    script = dedent("""\
+        import logging
+
+        import click
+        from click_extra import new_logger, verbosity_option
+
+        new_logger(name="greenhouse", format="{levelname} | {name} | {message}")
+
+
+        @click.command
+        @verbosity_option(default_logger="greenhouse")
+        def orchard():
+            logging.warning("frost on the orchard")
+            logging.getLogger("greenhouse").warning("frost in the greenhouse")
+
+
+        orchard()
+        """)
+    process = run(
+        (sys.executable, "-c", script),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert process.returncode == 0, process.stderr
+    assert process.stderr == (
+        "warning: frost on the orchard\n"
+        "warning | greenhouse | frost in the greenhouse\n"
+    )
 
 
 def test_stream_handler_honors_no_color_from_background_threads(capsys, monkeypatch):

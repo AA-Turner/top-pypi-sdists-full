@@ -53,10 +53,7 @@ xandikos_port = _xandikos_server.port if _xandikos_server else 8993
 _config = load_test_server_config()
 rfc6638_users = _config.get("rfc6638_users", [])
 from caldav import Calendar, DAVObject, Event, FreeBusy, Principal, Todo
-from caldav.compatibility_hints import (
-    incompatibility_description,  ## TEMP - should be removed in the future
-    write_delay,
-)
+from caldav.compatibility_hints import write_delay
 from caldav.davclient import CONNKEYS, DAVClient, DAVResponse
 from caldav.elements import cdav, dav, ical
 from caldav.lib import error
@@ -514,12 +511,12 @@ class TestGetDAVClient:
     """
 
     def testTestConfig(self):
-        """Test that get_davclient(testconfig=True) finds config with testing_allowed."""
+        """Test that get_davclient(testconfig=True) finds config with test_allowed."""
         # Start a test server using test_servers framework
         server_params = caldav_servers[0]
         with client(**server_params) as conn:
-            # Create a config file with testing_allowed: true
-            config = {"testing_allowed": True}
+            # Create a config file with test_allowed: true
+            config = {"test_allowed": True}
             for key in ("username", "password", "proxy"):
                 if key in server_params:
                     config[f"caldav_{key}"] = server_params[key]
@@ -1404,23 +1401,11 @@ class RepeatedFunctionalTestsBaseClass:
     ## TODO: move to davclient or compatibility_hints
     def is_supported(self, feature, return_type=bool, accept_fragile=False):
         """
-        New-style.  It will replace check_compatibility_flag.
-
         TODO: write a better docstring
         """
         return self.caldav.features.is_supported(
             feature, return_type, accept_fragile=accept_fragile
         )
-
-    def check_compatibility_flag(self, flag):
-        ## yield an assertion error if checking for the wrong thig
-        assert flag in incompatibility_description
-        return flag in self.old_features
-
-    def skip_on_compatibility_flag(self, flag):
-        if self.check_compatibility_flag(flag):
-            msg = incompatibility_description[flag]
-            pytest.skip("Test skipped due to server incompatibility issue: " + msg)
 
     def skip_unless_support(self, feature):
         if not self.is_supported(feature):
@@ -1435,18 +1420,11 @@ class RepeatedFunctionalTestsBaseClass:
         self.caldav = client(**self.server_params)
         self.caldav.__enter__()
 
-        ## Temp thing
-        self.old_features = self.caldav.features._old_flags
-
         calendar_info = self.is_supported("test-calendar", dict)
         self.cleanup_regime = calendar_info.get("cleanup-regime", "light")
 
         if "cleanup" in self.server_params:
             self.cleanup_regime = self.server_params["cleanup"]
-
-        ## verify that all old flags are valid
-        for flag in self.old_features:
-            assert flag in incompatibility_description
 
         self.testcal_id = "pythoncaldav-test"
         self.testcal_id2 = "pythoncaldav-test2"
@@ -1469,14 +1447,7 @@ class RepeatedFunctionalTestsBaseClass:
             ## Instance-level wrap (like rate-limit), torn down with the client.
             self.caldav.request = _write_delay_decorator(self.caldav.request, t=delay)
 
-        if False and self.check_compatibility_flag("no-current-user-principal"):
-            self.principal = Principal(client=self.caldav, url=self.server_params["principal_url"])
-        else:
-            self.principal = self.caldav.principal()
-
-        # if self.check_compatibility_flag('delete_calendar_on_startup'):
-        # for x in self._fixCalendar().search():
-        # x.delete()
+        self.principal = self.caldav.principal()
 
         self._cleanup("pre")
 
@@ -1588,12 +1559,6 @@ class RepeatedFunctionalTestsBaseClass:
     def _teardownCalendar(self, name=None, cal_id=None):
         try:
             cal = self.principal.calendar(name=name, cal_id=cal_id)
-            if self.check_compatibility_flag("sticky_events"):
-                for goo in cal.objects():
-                    try:
-                        goo.delete()
-                    except:
-                        pass
             cal.delete()
         except:
             pass
@@ -1761,7 +1726,6 @@ class RepeatedFunctionalTestsBaseClass:
         """
         Test the check_*_support methods
         """
-        self.skip_on_compatibility_flag("dav_not_supported")
         assert self.caldav.check_dav_support()
         assert self.caldav.check_cdav_support()
         if self.is_supported("scheduling", str) != "unknown":
@@ -2416,6 +2380,105 @@ END:VCALENDAR"""
         with pytest.raises(error.NotFoundError):
             foo = c.get_object_by_uid("well_known_10")
 
+    def testFoldedLongUID(self):
+        """
+        A long UID may be folded over several lines; ``.id`` has to unfold it.
+        """
+        self.skip_unless_support("save-load.event")
+        c = self._fixCalendar()
+        uid = "040000008200E00074C5B7101A82E00800000000F0A1B2C3D4E5DA01000000000000000010000000AB12CD34EF56"
+        e = c.add_event(
+            near_now_ics(ev1).replace(
+                "UID:20010712T182145Z-123401@example.com", f"UID:{uid[:60]}\n {uid[60:]}"
+            )
+        )
+        assert uid in [x.id for x in c.get_events()]
+        ## a plain GET, so the data is not parsed
+        loaded = c.event_by_url(e.url)
+        assert loaded.id == uid
+        with pytest.raises(error.ConsistencyError):
+            loaded.save(no_overwrite=True)
+
+    def testNoOverwriteSameUidOtherUrl(self):
+        """
+        save(no_overwrite=True) refuses an object whose UID is already in
+        the calendar under another resource name, not only one at the
+        same URL.  Where save.no-uid-conflict is full the library leaves
+        that to the server (CALDAV:no-uid-conflict, RFC 4791 section
+        5.3.2.1) and skips its own UID search.
+        """
+        self.skip_unless_support("save-load.event")
+        c = self._fixCalendar()
+        ev1_now = near_now_ics(ev1)
+        c.add_event(ev1_now)
+        other = Event(client=self.caldav, parent=c, data=ev1_now, url=c.url.join("other-name.ics"))
+        with pytest.raises(error.ConsistencyError) as exc_info:
+            other.save(no_overwrite=True)
+        if self.is_supported("save.no-uid-conflict") and self.is_supported("save.if-none-match"):
+            ## refused by the server, not by the library's UID search
+            assert isinstance(exc_info.value, error.UidConflictError)
+        assert len(c.get_events()) == 1
+
+    def testRawDataRoundTrip(self):
+        """
+        save(raw_data=...) sends the bytes unchanged, and load() keeps the
+        body the server sends back in raw_data.  Servers may store their
+        own serialisation, so what comes back is compared with a plain
+        GET, not with what was sent.
+        https://github.com/python-caldav/caldav/issues/763
+        """
+        self.skip_unless_support("save-load.event")
+        c = self._fixCalendar()
+        uid = f"raw-{uuid.uuid4()}"
+        ## an unusual but valid layout: an X- property first, VERSION
+        ## after PRODID, a folded line, and SEQUENCE (not to be bumped)
+        body = (
+            "BEGIN:VCALENDAR\r\n"
+            "X-WR-ODD:first\r\n"
+            "PRODID:-//Example//EN\r\n"
+            "VERSION:2.0\r\n"
+            "BEGIN:VEVENT\r\n"
+            "SUMMARY:A folded summary that goes on and on and on and on and o\r\n"
+            " n until it is folded\r\n"
+            f"UID:{uid}\r\n"
+            "SEQUENCE:3\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20260102T100000Z\r\n"
+            "DTEND:20260102T110000Z\r\n"
+            "X-ODD-PROP;X-PARAM=1:value\r\n"
+            "END:VEVENT\r\n"
+            "END:VCALENDAR\r\n"
+        ).encode()
+        e = Event(client=c.client, parent=c)
+        e.save(raw_data=body)
+        assert e.raw_data is None
+
+        def plain_get():
+            r = c.client.session.request(
+                "GET", str(e.url), auth=c.client.auth, verify=c.client.ssl_verify_cert
+            )
+            assert r.status_code == 200
+            return r.content
+
+        loaded = Event(client=c.client, url=e.url, parent=c).load()
+        assert isinstance(loaded.raw_data, bytes)
+        assert loaded.raw_data == plain_get()
+        assert loaded.icalendar_component["SEQUENCE"] == 3
+        stored = loaded.raw_data
+        ## the snapshot outlives an edit, and can be sent back as it is
+        loaded.icalendar_component["SUMMARY"] = "edited"
+        assert loaded.raw_data == stored
+        loaded.save(raw_data=stored)
+        again = Event(client=c.client, url=e.url, parent=c).load()
+        assert again.raw_data == plain_get()
+        assert "edited" not in again.data
+        assert again.icalendar_component["SEQUENCE"] == 3
+        ## from a REPORT: servers may serialise it differently from the
+        ## GET body (Bedework, Purelymail), so only the UID is compared
+        (found,) = c.multiget([e.url])
+        assert found.raw_data is not None
+        assert f"UID:{uid}".encode() in found.raw_data
+
     def testObjectBySyncToken(self):
         """
         Support for sync-collection reports, ref https://github.com/python-caldav/caldav/issues/87.
@@ -2722,16 +2785,14 @@ END:VCALENDAR"""
         assert c2 is not None
 
         e1_ = c1.add_event(near_now_ics(ev1))
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            e1_.load()
+        e1_.load()
         e1 = c1.get_events()[0]
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            ## e1 came from a search and may carry a different (canonical) URL
-            ## than the PUT URL on servers that don't preserve it (e.g. OX); see
-            ## save-load.stable-url.
-            if self.is_supported("save-load.stable-url"):
-                assert e1.url == e1_.url
-            e1.load()
+        ## e1 came from a search and may carry a different (canonical) URL
+        ## than the PUT URL on servers that don't preserve it (e.g. OX); see
+        ## save-load.stable-url.
+        if self.is_supported("save-load.stable-url"):
+            assert e1.url == e1_.url
+        e1.load()
         if self.cleanup_regime == "post":
             self._teardownCalendar(cal_id=self.testcal_id)
             self._teardownCalendar(cal_id=self.testcal_id2)
@@ -2768,13 +2829,12 @@ END:VCALENDAR"""
             ## which shares the id with the event in c1?
             e1_in_c2.vobject_instance.vevent.summary.value = "asdf"
             e1_in_c2.save()
-            if not self.check_compatibility_flag("event_by_url_is_broken"):
-                e1.load()
-                ## should e1.summary be 'asdf' or 'Bastille Day Party'?  I do
-                ## not know, but all implementations I've tested will treat
-                ## the copy in the other calendar as a distinct entity, even
-                ## if the uid is the same.
-                assert e1.vobject_instance.vevent.summary.value == "Bastille Day Party"
+            e1.load()
+            ## should e1.summary be 'asdf' or 'Bastille Day Party'?  I do
+            ## not know, but all implementations I've tested will treat
+            ## the copy in the other calendar as a distinct entity, even
+            ## if the uid is the same.
+            assert e1.vobject_instance.vevent.summary.value == "Bastille Day Party"
             assert c2.get_events()[0].vobject_instance.vevent.uid == e1.vobject_instance.vevent.uid
 
         ## Duplicate the event in the same calendar, with same uid -
@@ -2851,8 +2911,7 @@ END:VCALENDAR"""
             start=datetime(2006, 7, 13, 13, 0),
             end=datetime(2006, 7, 15, 13, 0),
         )
-        if not self.check_compatibility_flag("fastmail_buggy_noexpand_date_search"):
-            assert len(some_events) == 1
+        assert len(some_events) == 1
 
         ## Search for misc text fields
         ## UID is a special case, supported by almost all servers
@@ -3176,8 +3235,7 @@ END:VCALENDAR"""
         assert not t3.is_pending()
 
         ## Test that uncomplete works
-        ## (except for GMX ... their server is weird)
-        self.skip_on_compatibility_flag("vtodo-cannot-be-uncompleted")
+        self.skip_unless_support("save-load.todo.uncomplete")
         t5.uncomplete()
         some_todos = c.search(todo=True)
         assert len(some_todos) == 4 + pre_cnt
@@ -3663,7 +3721,7 @@ END:VCALENDAR"""
         c = self._fixCalendar(supported_calendar_component_set=["VTODO"])
 
         # add todo-item
-        t1 = c.add_todo(todo)
+        c.add_todo(todo)
         t2 = c.add_todo(todo2)
         assert t2 is not None
         t3 = c.add_todo(todo3)
@@ -3738,13 +3796,10 @@ END:VCALENDAR"""
         )
         if not self.is_supported("search.recurrences.includes-implicit.todo"):
             foo -= 1  ## t6 will not be returned
-        if not self.is_supported(
-            "search.time-range.todo.no-dtstart"
-        ) or self.check_compatibility_flag(
-            "vtodo_datesearch_nodtstart_task_is_skipped_in_closed_date_range"
-        ):
-            foo -= 2  ## t1 and t4 not returned
-        elif self.check_compatibility_flag("vtodo_datesearch_notime_task_is_skipped"):
+        if not self.is_supported("search.time-range.todo.no-dtstart"):
+            foo -= 1  ## t1 not returned
+        ## follows no-dtstart unless set, so t4 goes too where t1 does
+        if not self.is_supported("search.time-range.todo.no-dtstart.no-due"):
             foo -= 1  ## t4 not returned
         if implicit_todo_fragile:
             assert len(todos1) in (foo, foo + 1)
@@ -3790,8 +3845,8 @@ END:VCALENDAR"""
                 )
 
         ## * t6 should be returned, as it's a yearly task spanning over 2025
-        ## * t1 should probably be returned, as it has no due date set and hence
-        ## has an infinite duration.
+        ## * t1 should not be returned, as it has no dtstart and is due in 2007
+        ##   (RFC4791 section 9.9)
         ## * t4 should probably be returned, as it has no dtstart nor due and
         ##  hence is also considered to span over infinite time
         urls_found = [x.url for x in todos1]
@@ -3800,12 +3855,8 @@ END:VCALENDAR"""
         urls_found = set(urls_found)
         if self.is_supported("search.recurrences.includes-implicit.todo", accept_fragile=True):
             urls_found.discard(t6.url)
-        if self.is_supported(
-            "search.time-range.todo.no-dtstart"
-        ) and not self.check_compatibility_flag("vtodo_datesearch_notime_task_is_skipped"):
+        if self.is_supported("search.time-range.todo.no-dtstart.no-due"):
             urls_found.discard(t4.url)
-        if self.check_compatibility_flag("vtodo_no_due_infinite_duration"):
-            urls_found.discard(t1.url)
         ## everything should be popped from urls_found by now
         assert len(urls_found) == 0
 
@@ -3994,9 +4045,8 @@ END:VCALENDAR"""
         t2.delete()
 
         # ... the deleted one is gone ...
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            todos = c.get_todos(include_completed=True)
-            assert len(todos) == 2
+        todos = c.get_todos(include_completed=True)
+        assert len(todos) == 2
 
         # date search should not include completed events ... hum.
         # TODO, fixme.
@@ -4181,7 +4231,7 @@ END:VCALENDAR"""
         ## calendar color and calendar order are extra properties not
         ## described by RFC5545, but anyway supported by quite some server
         ## implementations.  How they behave is probed in detail by the
-        ## server-tester (calendar-color / calendar-color.hex /
+        ## server-tester (calendar-color / calendar-color.name /
         ## calendar-order); here we mirror the core of what it asserts.
         ##
         ## The colour cannot be compared against the value that was set: a
@@ -4190,9 +4240,9 @@ END:VCALENDAR"""
         ## pass even if set_properties() were a complete no-op, so instead we
         ## set two different values and require two different values back.
         if self.is_supported("calendar-color"):
-            self._assert_property_tracks_input(c, ical.CalendarColor, "blue", "green")
-        if self.is_supported("calendar-color.hex"):
             self._assert_property_tracks_input(c, ical.CalendarColor, "#FF0000FF", "#00FF00FF")
+        if self.is_supported("calendar-color.name"):
+            self._assert_property_tracks_input(c, ical.CalendarColor, "blue", "green")
         if self.is_supported("calendar-order"):
             c.set_properties([ical.CalendarOrder("12")])
             props = c.get_properties([ical.CalendarOrder()])
@@ -4286,8 +4336,7 @@ END:VCALENDAR"""
         assert e1.url is not None
         if todo_ok:
             assert t1.url is not None
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            assert c.event_by_url(e1.url).url == e1.url
+        assert c.event_by_url(e1.url).url == e1.url
         ## get_event_by_uid may return a different (canonical) URL than the PUT
         ## URL on servers that don't preserve it (e.g. OX); see save-load.stable-url
         e_by_uid = c.get_event_by_uid(e1.id)
@@ -4327,9 +4376,8 @@ END:VCALENDAR"""
                 )
                 t2.save(no_create=no_create)
 
-            if not self.check_compatibility_flag("event_by_url_is_broken"):
-                e3 = c.event_by_url(e1.url)
-                assert e3.vobject_instance.vevent.summary.value == "Bastille Day Party!"
+            e3 = c.event_by_url(e1.url)
+            assert e3.vobject_instance.vevent.summary.value == "Bastille Day Party!"
 
         ## "no_overwrite" should throw a ConsistencyError.
         with pytest.raises(error.ConsistencyError):
@@ -4352,9 +4400,8 @@ END:VCALENDAR"""
         ):
             with pytest.raises(self._notFound()):
                 c.event_by_url(e2.url)
-        if not self.check_compatibility_flag("event_by_url_is_broken"):
-            with pytest.raises(error.NotFoundError):
-                c.get_event_by_uid("20010712T182145Z-123401@example.com")
+        with pytest.raises(error.NotFoundError):
+            c.get_event_by_uid("20010712T182145Z-123401@example.com")
 
     @pytest.mark.filterwarnings("ignore:use `calendar.search:DeprecationWarning")
     def testDateSearchAndFreeBusy(self):
@@ -4541,16 +4588,10 @@ END:VCALENDAR"""
         ## resultset should be one vcalendar with two events.
         assert len(r1) == 1
         assert "RRULE" not in r1[0].data
-        if self.check_compatibility_flag("robur_rrule_freq_yearly_expands_monthly"):
-            assert r1[0].data.count("END:VEVENT") == 13
-        else:
-            assert r1[0].data.count("END:VEVENT") == 2
+        assert r1[0].data.count("END:VEVENT") == 2
         ## However, the new search method will by default split it into
-        ## two events.  Or 13, in the case of robur
-        if self.check_compatibility_flag("robur_rrule_freq_yearly_expands_monthly"):
-            assert len(r2) == 13
-        else:
-            assert len(r2) == 2
+        ## two events.
+        assert len(r2) == 2
         assert "RRULE" not in r2[0].data
         assert "RRULE" not in r2[1].data
         assert r2[0].data.count("END:VEVENT") == 1
@@ -4629,6 +4670,42 @@ END:VCALENDAR"""
                 datetime(2024, 4, 11, 12, 30, 0),
                 datetime(2024, 4, 25, 12, 30, 0),
             }
+
+    def testCancelSingleRecurrence(self):
+        """
+        cancel() on an occurrence from an expanded search keeps it in the
+        series, as an override with STATUS:CANCELLED.  Issue
+        https://github.com/python-caldav/caldav/issues/598
+        """
+        self.skip_unless_support("search.recurrences.includes-implicit.event")
+        cal = self._fixCalendar()
+        ## future days, in UTC - see testEditSingleRecurrence
+        base = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
+            hour=8, minute=7, second=6, microsecond=0
+        )
+        cal.add_event(
+            uid="test1",
+            summary="daily test",
+            dtstart=base,
+            dtend=base + timedelta(hours=1),
+            rrule={"FREQ": "DAILY"},
+        )
+
+        def search(offset):
+            day = (base + timedelta(days=offset)).replace(hour=0, minute=0, second=0)
+            return cal.search(event=True, start=day, end=day + timedelta(days=1), expand=True)
+
+        [occurrence] = search(3)
+        occurrence.cancel()
+        assert len(search(4)) == 1
+
+        ## checked on the stored series, as a cancelled occurrence may be
+        ## left out of search results
+        series = cal.get_event_by_uid("test1")
+        if self.is_supported("save-load.event.recurrences.exception.cancelled"):
+            assert [str(x["STATUS"]) for x in series.icalendar_instance.walk("VEVENT")[1:]] == [
+                "CANCELLED"
+            ]
 
     def testEditSingleRecurrence(self):
         """

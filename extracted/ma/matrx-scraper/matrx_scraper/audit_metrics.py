@@ -16,7 +16,7 @@ Persisted contract: ``web.snapshot.audit_metrics`` (v1), stamped by
 
 import re
 from datetime import datetime, UTC
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 SOCIAL_TITLE_MAX_CHARS = 70
 SOCIAL_DESCRIPTION_MAX_CHARS = 200
@@ -382,6 +382,61 @@ def _normalize_url_for_comparison(url: str) -> str:
     return f"{scheme}://{host}{port}{path}{query}"
 
 
+def resolve_canonical_url(canonical_url: str, page_url: str | None) -> str:
+    """A canonical href resolved against the page it was declared on.
+
+    `<link rel="canonical" href="/p">` and `href="//host/p"` are self-canonicals
+    on https://host/p; comparing the raw href with the page URL read them as
+    "canonicalized elsewhere". The ONE resolver every canonical comparison uses.
+    """
+    href = canonical_url.strip()
+    return urljoin(page_url, href) if page_url else href
+
+
+def canonical_is_self(canonical_url: str | None, *page_urls: str | None) -> bool | None:
+    """Whether a canonical names one of the addresses this page was reached by.
+
+    Resolved against each address first, then compared after normalization
+    (scheme/host case, default port, trailing slash). `None` = no canonical.
+    """
+    if not canonical_url or not canonical_url.strip():
+        return None
+    known = [u for u in page_urls if isinstance(u, str) and u]
+    if not known:
+        return None
+    normalized = {_normalize_url_for_comparison(u) for u in known}
+    return any(
+        _normalize_url_for_comparison(resolve_canonical_url(canonical_url, base)) in normalized
+        for base in known
+    )
+
+
+def self_canonical_urls(
+    final_url: str | None,
+    redirect_chain: list[dict] | None,
+    requested_url: str | None = None,
+) -> list[str]:
+    """The addresses that ARE this page, for "is the canonical self?".
+
+    The final URL — the stored one and the redirect chain's last hop (where the
+    transport landed; a stored final URL can be wrong). The requested URL only when
+    the request did NOT redirect. Every other URL in the chain is a redirect: a
+    canonical naming one (the start URL included — http→https, /old→/new) points
+    at a redirect, which `seo_audit.check_canonical_conflicts` scores 30.
+    """
+    hops = [
+        hop["url"]
+        for hop in (redirect_chain or [])
+        if isinstance(hop, dict) and isinstance(hop.get("url"), str) and hop["url"]
+    ]
+    known = [u for u in (final_url,) if u]
+    if hops:
+        known.append(hops[-1])
+    if requested_url and len(hops) <= 1:
+        known.append(requested_url)
+    return known
+
+
 def _robots_tokens(meta_robots: str | None) -> list[str]:
     if not meta_robots:
         return []
@@ -401,21 +456,9 @@ def evaluate_indexability(
     nofollow = "nofollow" in tokens or "none" in tokens
     redirect_hops = max(0, len(redirect_chain) - 1)
     if canonical_url and final_url:
-        # Self-canonical means the canonical names ANY address this page was
-        # reached by: the stored final URL, the URL that was requested, or a hop
-        # of the redirect chain. Comparing only the stored final URL read a
-        # perfectly self-referencing page as "points elsewhere" whenever the
-        # recorded final URL was wrong (crawler state leaking between pages).
-        known = [final_url]
-        if requested_url:
-            known.append(requested_url)
-        known.extend(
-            hop["url"]
-            for hop in redirect_chain
-            if isinstance(hop, dict) and isinstance(hop.get("url"), str) and hop["url"]
+        canonical_matches = bool(
+            canonical_is_self(canonical_url, *self_canonical_urls(final_url, redirect_chain, requested_url))
         )
-        wanted = _normalize_url_for_comparison(canonical_url)
-        canonical_matches = any(_normalize_url_for_comparison(u) == wanted for u in known)
     else:
         canonical_matches = None
 

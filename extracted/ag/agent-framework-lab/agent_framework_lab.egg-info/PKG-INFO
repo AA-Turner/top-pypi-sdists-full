@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-lab
-Version: 1.0.0b260910
+Version: 1.0.0b261022
 Summary: Experimental modules for Microsoft Agent Framework
 Author-email: Microsoft <af-support@microsoft.com>
 Project-URL: homepage, https://aka.ms/agent-framework
@@ -30,6 +30,7 @@ Requires-Dist: orjson<4,>=3.10.7; extra == "gaia"
 Requires-Dist: pyarrow>=18.0.0; extra == "gaia"
 Provides-Extra: lightning
 Requires-Dist: agentlightning<0.4.0,>=0.2.0; extra == "lightning"
+Requires-Dist: litellm!=1.107.0,!=1.82.7,!=1.82.8; extra == "lightning"
 Provides-Extra: tau2
 Requires-Dist: pydantic>=2.0.0; extra == "tau2"
 Requires-Dist: tiktoken>=0.11.0; extra == "tau2"
@@ -94,6 +95,10 @@ pip install "agent-framework-lab[tau2]"
 pip install "agent-framework-lab[lightning]"
 ```
 
+Lab currently supports Python 3.10–3.14. PyArrow 26 now provides Python 3.15
+wheels for the GAIA extra, but the Tau2 dependency chain still includes
+DeepDiff with `cachebox` 5.x, whose PyO3 version rejects Python 3.15 builds.
+
 ## Usage
 
 Import and use lab modules from the `agent_framework.lab` namespace.
@@ -115,6 +120,14 @@ cd python/packages/lab
 uv sync --all-extras --all-groups
 uv run poe test
 uv run poe pyright
+```
+
+Lab release artifacts are built and published separately from the root
+`python-release.yml` workflow. From this directory, maintainers can create the
+standalone wheel and source distribution in the shared Python release directory:
+
+```bash
+uv build --out-dir ../../dist
 ```
 
 Lightning observability tests intentionally exercise heavier tracing paths and are marked as `resource_intensive`:

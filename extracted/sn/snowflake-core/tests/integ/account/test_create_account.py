@@ -10,7 +10,7 @@ from tests.integ.account.utils import cleanup_accounts_completely, create_accoun
 from ..utils import backup_role, random_string
 
 
-pytestmark = [pytest.mark.internal_only, pytest.mark.skip_notebook]
+pytestmark = [pytest.mark.internal_only]
 
 
 def test_create_account(temp_customer_account_accounts, sf_cursor, temp_customer_account_cursor):

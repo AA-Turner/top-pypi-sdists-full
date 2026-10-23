@@ -215,6 +215,52 @@ CASES: list[dict[str, str]] = [
         "html": _page("<title>Empty</title>", "<div></div>"),
     },
     {
+        "name": "body_script_style_template_text",
+        "why": (
+            "<script>, <style> and <template> text inside <body> is never shown to "
+            "a reader (a Next.js `__NEXT_DATA__` blob read as hundreds of words). "
+            "The Python strips those tags before counting; a DOM `textContent` "
+            "fallback includes them unless they are removed first."
+        ),
+        "base_url": BASE,
+        "html": _page(
+            "<title>Script Text</title>",
+            "\n".join(
+                [
+                    "<p>Only these five words count.</p>",
+                    '<script>var hidden = "these words are code and never shown";</script>',
+                    '<script id="__NEXT_DATA__" type="application/json">'
+                    '{"props":{"pageProps":{"copy":"json words a reader never sees"}}}'
+                    "</script>",
+                    "<style>.hidden { color: red; } /* style words */</style>",
+                    "<template><p>Template words wait for a script.</p></template>",
+                ]
+            ),
+        ),
+    },
+    {
+        "name": "images_inside_noscript",
+        "why": (
+            "An <img> inside <noscript> exists only with JavaScript off (tracking "
+            "pixels, lazy-loader fallbacks); the Python leaves it out of images_total "
+            "and images_missing_alt. A DOMParser document parses <noscript> children "
+            "as real elements, so a bare querySelectorAll('img') counts them."
+        ),
+        "base_url": BASE,
+        "html": _page(
+            "<title>Noscript Images</title>",
+            "\n".join(
+                [
+                    '<img src="https://cdn.example.com/hero.png" alt="hero">',
+                    '<img src="https://cdn.example.com/lazy.png" data-src="x">',
+                    '<noscript><img src="https://cdn.example.com/lazy.png"></noscript>',
+                    '<noscript><img src="https://www.facebook.com/tr?id=1" width="1" height="1"></noscript>',
+                    "<p>Two visible images.</p>",
+                ]
+            ),
+        ),
+    },
+    {
         "name": "flesch_clamp_single_sentence",
         "why": (
             "400 long words in ONE sentence drives raw Flesch far past the DB "

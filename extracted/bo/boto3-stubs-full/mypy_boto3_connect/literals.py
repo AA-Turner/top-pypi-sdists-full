@@ -167,6 +167,7 @@ __all__ = (
     "ListQueueQuickConnectsPaginatorName",
     "ListQueuesPaginatorName",
     "ListQuickConnectsPaginatorName",
+    "ListReplicationFindingsPaginatorName",
     "ListRoutingProfileManualAssignmentQueuesPaginatorName",
     "ListRoutingProfileQueuesPaginatorName",
     "ListRoutingProfilesPaginatorName",
@@ -708,6 +709,7 @@ ListPromptsPaginatorName = Literal["list_prompts"]
 ListQueueQuickConnectsPaginatorName = Literal["list_queue_quick_connects"]
 ListQueuesPaginatorName = Literal["list_queues"]
 ListQuickConnectsPaginatorName = Literal["list_quick_connects"]
+ListReplicationFindingsPaginatorName = Literal["list_replication_findings"]
 ListRoutingProfileManualAssignmentQueuesPaginatorName = Literal[
     "list_routing_profile_manual_assignment_queues"
 ]
@@ -1352,6 +1354,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -1725,6 +1728,7 @@ PaginatorName = Literal[
     "list_queue_quick_connects",
     "list_queues",
     "list_quick_connects",
+    "list_replication_findings",
     "list_routing_profile_manual_assignment_queues",
     "list_routing_profile_queues",
     "list_routing_profiles",

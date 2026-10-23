@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs-lite
-Version: 1.43.117
-Summary: Lite type annotations for boto3 1.43.117 generated with mypy-boto3-builder 8.12.0
+Version: 1.43.118
+Summary: Lite type annotations for boto3 1.43.118 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.44.0,>=1.43.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.43.117; extra == "boto3"
+Requires-Dist: boto3==1.43.118; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.44.0,>=1.43.0; extra == "all"
@@ -143,6 +143,7 @@ Requires-Dist: mypy-boto3-connectcampaignsv2<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-connectcases<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-connecthealth<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-connectparticipant<1.44.0,>=1.43.0; extra == "all"
+Requires-Dist: mypy-boto3-continuum<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-controlcatalog<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-controltower<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-cost-optimization-hub<1.44.0,>=1.43.0; extra == "all"
@@ -691,6 +692,8 @@ Provides-Extra: connecthealth
 Requires-Dist: mypy-boto3-connecthealth<1.44.0,>=1.43.0; extra == "connecthealth"
 Provides-Extra: connectparticipant
 Requires-Dist: mypy-boto3-connectparticipant<1.44.0,>=1.43.0; extra == "connectparticipant"
+Provides-Extra: continuum
+Requires-Dist: mypy-boto3-continuum<1.44.0,>=1.43.0; extra == "continuum"
 Provides-Extra: controlcatalog
 Requires-Dist: mypy-boto3-controlcatalog<1.44.0,>=1.43.0; extra == "controlcatalog"
 Provides-Extra: controltower
@@ -1356,7 +1359,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.43.117](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.43.118](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1416,7 +1419,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.117' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.118' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1749,9 +1752,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs-lite[full]` - Type annotations for all 433 services in one
+- `boto3-stubs-lite[full]` - Type annotations for all 434 services in one
   package (recommended).
-- `boto3-stubs-lite[all]` - Type annotations for all 433 services in separate
+- `boto3-stubs-lite[all]` - Type annotations for all 434 services in separate
   packages.
 - `boto3-stubs-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2080,6 +2083,9 @@ repository.
   service.
 - `boto3-stubs-lite[connectparticipant]` - Type annotations for
   [ConnectParticipant](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connectparticipant/)
+  service.
+- `boto3-stubs-lite[continuum]` - Type annotations for
+  [Continuum](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_continuum/)
   service.
 - `boto3-stubs-lite[controlcatalog]` - Type annotations for
   [ControlCatalog](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_controlcatalog/)

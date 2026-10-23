@@ -2,7 +2,10 @@
 
 use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compiled_views::function_reads;
 use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::seed_reads;
 use crate::bindings::_helpers::fingerprints::storage_io::read_latest_fingerprints;
 use crate::bindings::_helpers::planner_entries::models::RelationsRequest;
 use crate::bindings::_helpers::planner_entries::plan_output::{
@@ -159,7 +162,7 @@ pub(crate) fn build_audit_command_plan<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = project.py();
     let materializations = PyDict::new(py);
-    for model in native_field(project, "models")?.try_iter()? {
+    for model in project_reads::models(project)?.try_iter()? {
         let model = model?;
         materializations.set_item(
             model_reads::name_object(&model)?,
@@ -200,9 +203,9 @@ fn called_function_keys<'py>(
 ) -> PyResult<Bound<'py, PySet>> {
     let py: Python<'py> = project.py();
     let functions: Bound<'py, PyDict> = PyDict::new(py);
-    for function in native_field(project, "functions")?.try_iter()? {
+    for function in project_reads::functions(project)?.try_iter()? {
         let function = function?;
-        functions.set_item(native_field(&function, "key")?, function)?;
+        functions.set_item(function_reads::key(&function)?, function)?;
     }
     let called: Bound<'py, PySet> = PySet::empty(py)?;
     let mut pending: Vec<Bound<'py, PyAny>> = direct;
@@ -214,7 +217,7 @@ fn called_function_keys<'py>(
         let Some(function) = functions.get_item(&key)? else {
             continue;
         };
-        for dependency in native_field(&function, "deps")?.try_iter()? {
+        for dependency in function_reads::deps(&function)?.try_iter()? {
             let dependency = dependency?;
             if functions.contains(&dependency)? {
                 pending.push(dependency);
@@ -254,7 +257,7 @@ pub(crate) fn build_test_command_plan<'py>(
     )?;
     let (entries, warnings) = (selected.entries, selected.warnings);
     let mut case_names: BTreeSet<String> = BTreeSet::new();
-    for test in native_field(&project, "sql_tests")?.try_iter()? {
+    for test in project_reads::sql_tests(&project)?.try_iter()? {
         let test = test?;
         let case_name = native_field(&test, "case_name")?;
         if !case_name.is_none() && test_selected(&test, &selected_keys, &selection)? {
@@ -271,9 +274,9 @@ pub(crate) fn build_test_command_plan<'py>(
     }
     let function_keys = called_function_keys(&project, function_keys)?;
     let mut functions: Vec<Bound<'py, PyAny>> = Vec::new();
-    for function in native_field(&project, "functions")?.try_iter()? {
+    for function in project_reads::functions(&project)?.try_iter()? {
         let function = function?;
-        if !function_keys.contains(native_field(&function, "key")?)? {
+        if !function_keys.contains(function_reads::key(&function)?)? {
             continue;
         }
         let fingerprint_sql = object(py, build_compiled_function_fingerprint_sql(&function)?)?;
@@ -331,14 +334,14 @@ pub(crate) fn build_seed_command_plan<'py>(
     };
     let selected_keys = native_field(scope, "selected_keys")?;
     let mut entries: Vec<Bound<'py, PyAny>> = Vec::new();
-    for seed in native_field(project, "seeds")?.try_iter()? {
+    for seed in project_reads::seeds(project)?.try_iter()? {
         let seed = seed?;
-        if !selected_keys.contains(native_field(&seed, "key")?)? {
+        if !selected_keys.contains(seed_reads::key(&seed)?)? {
             continue;
         }
         let identity = object(py, build_seed_identity(&seed)?)?;
         let (version_hash, metadata_json) = (identity.get_item(0)?, identity.get_item(1)?);
-        let previous = mapping_get(&existing, native_field(&seed, "name")?)?;
+        let previous = mapping_get(&existing, seed_reads::name(&seed)?)?;
         let reason = if previous.is_none() {
             "FIRST_RUN"
         } else if native_field(&previous, "version_hash")?.ne(&version_hash)? {
@@ -350,17 +353,17 @@ pub(crate) fn build_seed_command_plan<'py>(
             py,
             RecordId::SeedPlanEntry,
             &[
-                ("key", native_field(&seed, "key")?),
-                ("name", native_field(&seed, "name")?),
-                ("destination", native_field(&seed, "destination")?),
+                ("key", seed_reads::key(&seed)?),
+                ("name", seed_reads::name(&seed)?),
+                ("destination", seed_reads::destination(&seed)?),
                 (
                     "file_path",
-                    native_field(&native_field(&seed, "seed_file")?, "file_path")?,
+                    native_field(&seed_reads::seed_file(&seed)?, "file_path")?,
                 ),
                 ("columns", object(py, extract_seed_columns(&seed)?)?),
                 (
                     "csv_settings",
-                    native_field(&native_field(&seed, "schema_entry")?, "csv_settings")?,
+                    native_field(&seed_reads::schema_entry(&seed)?, "csv_settings")?,
                 ),
                 ("fingerprint_definition", metadata_json.clone()),
                 ("fingerprint_version_hash", version_hash),
@@ -381,8 +384,6 @@ pub(crate) fn build_seed_command_plan<'py>(
 }
 
 /// Project static relation data for Python checks.
-#[pyfunction]
-#[pyo3(signature = (*, project, scope, relations))]
 pub(crate) fn build_relation_command_plan<'py>(
     project: &Bound<'py, PyAny>,
     scope: &Bound<'py, PyAny>,
@@ -408,7 +409,7 @@ pub(crate) fn read_selected_seed_fingerprints<'py>(
         BTreeMap::new();
     for seed in seeds.try_iter()? {
         let seed = seed?;
-        let destination = native_field(&seed, "destination")?;
+        let destination = seed_reads::destination(&seed)?;
         let schema = native_field(&destination, "schema")?;
         if schema.is_none() {
             continue;
@@ -419,7 +420,7 @@ pub(crate) fn read_selected_seed_fingerprints<'py>(
             .entry((database.clone().unwrap_or_default(), schema.clone()))
             .or_insert_with(|| ((database, schema), BTreeSet::new()))
             .1
-            .insert(native_field(&seed, "name")?.extract()?);
+            .insert(seed_reads::name(&seed)?.extract()?);
     }
     let fingerprints = PyDict::new(py);
     let mut relations_by_target: Vec<Bound<'py, PyAny>> = Vec::new();
@@ -494,6 +495,5 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(build_audit_command_plan, module)?)?;
     module.add_function(wrap_pyfunction!(build_test_command_plan, module)?)?;
     module.add_function(wrap_pyfunction!(build_seed_command_plan, module)?)?;
-    module.add_function(wrap_pyfunction!(build_relation_command_plan, module)?)?;
     module.add_function(wrap_pyfunction!(read_selected_seed_fingerprints, module)?)
 }

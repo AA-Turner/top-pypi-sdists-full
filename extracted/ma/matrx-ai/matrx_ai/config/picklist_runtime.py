@@ -489,9 +489,16 @@ def redact_wire_payload(payload: Any) -> Any | None:
     entirely (multi-agent reference-heavy requests would otherwise have NO
     provider-payload record at all).
 
-    Fail-CLOSED: returns None (caller drops the payload, the pre-2026-07
-    behavior) when there is nothing to redact against, when any swap value is
-    too short to replace unambiguously, or when the round-trip fails — a
+    Nothing to redact against (no swap materialized this send) returns the
+    payload UNCHANGED: no value went on the wire, so there is nothing to hide.
+    The wire clone exists for other reasons too — the typed-text-last reorder
+    (``send_boundary.order_for_wire``) makes one with no swaps at all —
+    and dropping the payload there stored ``{}`` on ~40% of
+    ``chat.request_snapshot`` rows from 2026-10-21 (empty-snapshots report).
+
+    Fail-CLOSED: returns None (caller drops the payload) when a swap value too
+    short to replace unambiguously (< 16 chars) is on the wire, when any value
+    survives the reverse swap, or when the round-trip fails — a
     secret must never survive by accident."""
     import json as _json
 
@@ -501,10 +508,10 @@ def redact_wire_payload(payload: Any) -> Any | None:
     # didn't run build_wire_config in this context (materialized is None).
     materialized = _MATERIALIZED_WIRE_SWAPS.get()
     swaps = materialized if materialized is not None else get_wire_swaps()
-    if payload is None or not swaps:
+    if payload is None:
         return None
-    if any(len(v) < 16 for v in swaps.values()):
-        return None
+    if not swaps:
+        return payload
     try:
 
         def _esc(text: str) -> str:
@@ -515,6 +522,13 @@ def redact_wire_payload(payload: Any) -> Any | None:
         from matrx_ai.orchestrator.executor import _snapshot_request_json
 
         s = _json.dumps(_snapshot_request_json(payload), ensure_ascii=False, default=str)
+        # A value too short to replace unambiguously (< 16 chars) is never replaced;
+        # it only matters when it is still ON the wire after the long values are
+        # swapped back (checked below — then the whole payload fails closed). One
+        # that never appears has nothing to hide, and refusing on it dropped whole
+        # snapshots to {} (empty-snapshots report, 2026-10-22).
+        short = [v for v in swaps.values() if 0 < len(v) < 16]
+        swaps = {k: v for k, v in swaps.items() if len(v) >= 16}
         # Longest value first: when one swap value is a substring of another
         # (a field-narrowed fence + the whole-value fence of the same json in
         # one request), replacing the shorter first would corrupt the longer.
@@ -534,6 +548,10 @@ def redact_wire_payload(payload: Any) -> Any | None:
         # a JSON dump once it contains a newline/quote/backslash — comparing
         # raw was a vacuous check). Any surviving occurrence ⇒ drop.
         for value in swaps.values():
+            single = _esc(value)
+            if single in s or _esc(single) in s:
+                return None
+        for value in short:
             single = _esc(value)
             if single in s or _esc(single) in s:
                 return None

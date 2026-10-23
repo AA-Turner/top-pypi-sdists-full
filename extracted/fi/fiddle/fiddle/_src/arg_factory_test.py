@@ -152,7 +152,6 @@ class ArgFactoryPartialTest(parameterized.TestCase):
     self.assertIsNot(a.children, b.children)  # child list is not shared
     self.assertIsNot(a.children[0], b.children[0])  # child not shared
 
-  @absltest.skip('Enable this after dropping pyhon 3.7 support')
   def test_param_named_self(self):
     # Note: this test succeeds because _InvokeArgFactoryWrapper.__call__
     # declares `self` as a positional-only parameter.  Otherwise, __call__
@@ -386,8 +385,8 @@ class DefaultFactoryTest(parameterized.TestCase):
     self.assertEqual(append.__doc__, 'Docstring.')
     self.assertEqual(append.__name__, 'append')
     self.assertTrue(hasattr(append, '__wrapped__'))
-    self.assertEqual(append.__qualname__, append.__wrapped__.__qualname__)  # pytype: disable=attribute-error
-    self.assertEqual(append.__module__, append.__wrapped__.__module__)  # pytype: disable=attribute-error
+    self.assertEqual(append.__qualname__, append.__wrapped__.__qualname__)
+    self.assertEqual(append.__module__, append.__wrapped__.__module__)
 
   def test_default_for_keyword_only_param(self):
 

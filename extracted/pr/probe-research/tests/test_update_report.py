@@ -651,6 +651,7 @@ def test_the_spawned_updater_says_what_asked(monkeypatch):
 
     cli_main = importlib.import_module("probe.cli.main")
     spawned: list[dict] = []
+    monkeypatch.setattr(cli_main, "_service_owns_updates", lambda: False)  # the fallback path
     monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: spawned.append(env))
 
     cli_main._spawn_update("--apply")

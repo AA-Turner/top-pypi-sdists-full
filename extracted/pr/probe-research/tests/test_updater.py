@@ -700,3 +700,23 @@ def test_an_upgrade_keeps_the_daemon_extra(monkeypatch):
     _stub_installed(monkeypatch, ["0.8.1", "0.8.1", "0.8.2"])
     updater.upgrade_cli(updater.Install(updater.Method.UV_TOOL), "0.8.1", "0.8.2")
     assert ["uv", "tool", "install", "--refresh-package", "probe-research", "probe-research[all,daemon]@latest"] in calls
+
+
+def test_an_update_required_beside_the_running_version_goes_past_a_live_run(monkeypatch):
+    """The service let a run go on because the CLI is updated beside it (D6):
+    the child's own run check must not defer it again (Codex R2 #9)."""
+    from probe.cli import run_lock, upgrading
+
+    asked = []
+    monkeypatch.setattr(run_lock, "any_live", lambda: True)
+    monkeypatch.setattr(upgrading.autoupdate, "record_attempt", lambda attempt, **_: None)
+    monkeypatch.setattr(updater, "fetch_latest", lambda base: {"cli": {"latest": "99.0.0"}})
+    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(updater, "upgrade_cli", lambda install, current, target: asked.append(target) or
+                        updater.CliResult(True, True, False, probe.__version__, "99.0.0", "beside"))
+    monkeypatch.setenv(updater.REQUIRE_SIDE_BY_SIDE_ENV, "1")
+    upgrading.perform_update(base_url="https://x", include_plugin=False)
+    assert asked == ["99.0.0"]
+    monkeypatch.delenv(updater.REQUIRE_SIDE_BY_SIDE_ENV)
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=False)
+    assert asked == ["99.0.0"] and "in flight" in " ".join(outcome.lines)

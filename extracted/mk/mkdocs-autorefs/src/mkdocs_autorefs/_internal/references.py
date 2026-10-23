@@ -1,3 +1,21 @@
+# SPDX-License-Identifier: ISC
+#
+# ISC License
+#
+# Copyright (c) 2019, Timothée Mazzucotelli, Oleh Prypin and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # Cross-references module.
 
 from __future__ import annotations
@@ -11,7 +29,7 @@ from functools import lru_cache
 from html import escape, unescape
 from html.parser import HTMLParser
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from urllib.parse import urlsplit
 from xml.etree.ElementTree import Element
 
@@ -26,7 +44,7 @@ from markupsafe import Markup
 from mkdocs_autorefs._internal.backlinks import BacklinksTreeProcessor
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
     from pathlib import Path
     from re import Match
 
@@ -40,7 +58,7 @@ try:
     _log = get_plugin_logger(__name__)
 except ImportError:
     # TODO: remove once support for MkDocs <1.5 is dropped
-    _log = logging.getLogger(f"mkdocs.plugins.{__name__}")  # type: ignore[assignment]
+    _log = logging.getLogger(f"mkdocs.plugins.{__name__}")
 
 
 AUTOREF_RE = re.compile(r"<autoref (?P<attrs>.*?)>(?P<title>.*?)</autoref>", flags=re.DOTALL)
@@ -115,7 +133,7 @@ class AutorefsInlineProcessor(ReferenceInlineProcessor):
 
     # Code based on
     # https://github.com/Python-Markdown/markdown/blob/8e7528fa5c98bf4652deb13206d6e6241d61630b/markdown/inlinepatterns.py#L780
-    def handleMatch(self, m: Match[str], data: str) -> tuple[Element | None, int | None, int | None]:  # type: ignore[override]  # noqa: N802
+    def handleMatch(self, m: Match[str], data: str) -> tuple[Element | None, int | None, int | None]:  # noqa: N802
         """Handle an element that matched.
 
         Arguments:
@@ -141,7 +159,7 @@ class AutorefsInlineProcessor(ReferenceInlineProcessor):
         return self._make_tag(identifier, text, slug=slug), m.start(0), end
 
     def _unstash(self, identifier: str) -> str:
-        stashed_nodes: dict[str, Element | str] = self.md.treeprocessors["inline"].stashed_nodes  # type: ignore[attr-defined]
+        stashed_nodes: dict[str, Element | str] = self.md.treeprocessors["inline"].stashed_nodes  # ty:ignore[unresolved-attribute]
 
         def _repl(match: Match) -> str:
             el = stashed_nodes.get(match[1])
@@ -179,7 +197,7 @@ class AutorefsInlineProcessor(ReferenceInlineProcessor):
 
             # Catch single stash entries, like the result of [`Foo`][].
             if match := INLINE_PLACEHOLDER_RE.fullmatch(identifier):
-                stashed_nodes: dict[str, Element | str] = self.md.treeprocessors["inline"].stashed_nodes  # type: ignore[attr-defined]
+                stashed_nodes: dict[str, Element | str] = self.md.treeprocessors["inline"].stashed_nodes  # ty:ignore[unresolved-attribute]
                 el = stashed_nodes.get(match[1])
                 if isinstance(el, Element) and el.tag == "code":
                     # The title was wrapped in backticks, we only keep the content,
@@ -313,7 +331,7 @@ class HeadingScannerTreeProcessor(Treeprocessor):
             if el.tag in self._htags:
                 if h_id := el.get("id"):
                     self._plugin.register_anchor(
-                        self._plugin.current_page,  # type: ignore[arg-type]
+                        self._plugin.current_page,  # ty:ignore[invalid-argument-type]
                         h_id,
                         title=el.text,
                     )
@@ -339,7 +357,7 @@ class AutorefsExtension(Extension):
 
         Parameters:
             plugin: An optional reference to the autorefs plugin (to pass it to the anchor scanner tree processor).
-            **kwargs: Keyword arguments passed to the [base constructor][markdown.Extension].
+            **kwargs: Keyword arguments passed to the [base constructor][markdown.extensions.Extension].
         """
         super().__init__(**kwargs)
         self.plugin = plugin

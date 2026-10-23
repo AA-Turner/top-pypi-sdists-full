@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from docutils import nodes
 from docutils.parsers.rst import directives
@@ -20,18 +20,35 @@ from sphinx_needs.directives.utils import (
     used_filter_paragraph,
 )
 from sphinx_needs.exceptions import NeedsInvalidException
-from sphinx_needs.filter_common import FilterBase, apply_max_items, process_filters
+from sphinx_needs.filter_common import (
+    FilterBase,
+    apply_max_items,
+    process_filters,
+    sort_key,
+)
 from sphinx_needs.functions.functions import check_and_get_content
 from sphinx_needs.logging import get_logger, log_warning
-from sphinx_needs.need_item import NeedItem, NeedPartItem
-from sphinx_needs.needs_schema import FieldsSchema, LinkSchema
+from sphinx_needs.need_item import NeedItem
+from sphinx_needs.needs_schema import FieldsSchema, LinkSchema, LinkShape
 from sphinx_needs.utils import add_doc, profile, remove_node_from_tree, row_col_maker
+
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
 
 LOGGER = get_logger(__name__)
 
 
 class Needtable(nodes.General, nodes.Element):
-    pass
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            rawsource: str,
+            /,
+            **kwargs: Unpack[NeedsTableType],
+        ) -> None: ...
+
+        attributes: NeedsTableType
 
 
 #: Set on a resolved doctree that holds at least one INTERACTIVE needtable, so that
@@ -296,7 +313,7 @@ def _column_type(needs_schema: FieldsSchema, key: str) -> str | None:
     field = needs_schema.get_any_field(key)
     if field is None or isinstance(field, LinkSchema):
         return None
-    if field.schema.get("type") in ("integer", "number"):
+    if field.type in ("integer", "number"):
         return "number"
     return None
 
@@ -318,7 +335,7 @@ def process_needtables(
     needs_schema = needs_data.get_schema()
 
     # Create a link_type dictionary, which keys-list can be easily used to find columns
-    link_type_list: dict[str, LinkSchema] = {}
+    link_type_list: dict[str, LinkShape] = {}
     for link in needs_schema.iter_link_fields():
         link_type_list[link.name.upper()] = link
         link_type_list[link.name.upper() + "_BACK"] = link
@@ -335,11 +352,12 @@ def process_needtables(
 
     # for node in doctree.findall(Needtable):
     for node in found_nodes:
+        assert isinstance(node, Needtable)
         if not needs_config.include_needs:
             remove_node_from_tree(node)
             continue
 
-        current_needtable: NeedsTableType = node.attributes  # ty: ignore[invalid-assignment]
+        current_needtable: NeedsTableType = node.attributes
 
         if current_needtable["style"] == "" or current_needtable[
             "style"
@@ -364,7 +382,7 @@ def process_needtables(
             classes.extend(needs_config.table_classes)
 
         table_node = NeedtableTable(
-            classes=classes, ids=[node.attributes["ids"][0] + "-table_node"]
+            classes=classes, ids=[node["ids"][0] + "-table_node"]
         )
         if style != "TABLE":
             # per-table options for the client-side enhancer; a `:style: table` table
@@ -430,29 +448,26 @@ def process_needtables(
             location=node,
         )
 
-        def get_sorter(key: str) -> Callable[[NeedItem | NeedPartItem], Any]:
-            """
-            Returns a sort-function for a given need-key.
-            :param key: key of need object as string
-            :return:  function to use in sort(key=x)
-            """
-
-            def sort(need: NeedItem | NeedPartItem) -> Any:
-                """
-                Returns a given value of need, which is used for list sorting.
-                :param need: need-element, which gets sort
-                :return: value of need
-                """
-                value = need[key]
-                if isinstance(value, str):
-                    # if we filter for string (e.g. id) everything should be lowercase.
-                    # Otherwise, "Z" will be above "a"
-                    return value.lower()
-                return value
-
-            return sort
-
-        filtered_needs.sort(key=get_sorter(current_needtable["sort"]))
+        sort_by = current_needtable["sort"]
+        try:
+            # the keys are all computed before anything moves, so a need without
+            # the key leaves the list as the filter returned it
+            # equal values are ordered by id: the needs' own order changes between a
+            # fresh and an incremental build
+            filtered_needs.sort(
+                key=lambda need: (
+                    sort_key(need[sort_by], ignore_case=True),
+                    need["id_complete"],
+                )
+            )
+        except KeyError:
+            log_warning(
+                LOGGER,
+                f"needtable sort key {sort_by!r} is not a field of the needs; "
+                "the rows are left in the filter's order",
+                "filter",
+                location=node,
+            )
 
         # the cap is applied after the sort, so that it keeps the first N rows
         # of the table as it would otherwise have been rendered

@@ -30,7 +30,6 @@ def _block_for_result_if_necessary(resp_bytes: bytearray, connection):
 
 
 @pytest.mark.flaky
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip_gov
 @pytest.mark.min_sf_ver("9.18.0")
@@ -51,7 +50,6 @@ def test_execute_plan(spark_connection, external_session_id):
 
 
 @pytest.mark.flaky
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip_gov
 @pytest.mark.min_sf_ver("9.18.0")
@@ -71,7 +69,6 @@ def test_analyze_plan(spark_connection, external_session_id):
 
 
 @pytest.mark.flaky
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip_gov
 @pytest.mark.min_sf_ver("9.18.0")
@@ -91,7 +88,6 @@ def test_config(spark_connection, external_session_id):
 
 
 @pytest.mark.flaky
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip_gov
 @pytest.mark.min_sf_ver("9.18.0")

@@ -14,10 +14,19 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, Dict, List, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -41,24 +50,17 @@ from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
+from .power_bi_related import (
+    RelatedPowerBIApp,
+    RelatedPowerBIDashboard,
+    RelatedPowerBIReport,
+)
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .power_bi_related import (
-    RelatedPowerBIApp,
-    RelatedPowerBIDashboard,
-    RelatedPowerBIReport,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -291,6 +293,8 @@ class PowerBIApp(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/app/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this PowerBIApp instance.
@@ -315,6 +319,11 @@ class PowerBIApp(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"PowerBIApp validation failed: {errors}")
 
@@ -346,6 +355,37 @@ class PowerBIApp(Asset):
         if self.guid is not UNSET:
             return RelatedPowerBIApp(guid=self.guid)
         return RelatedPowerBIApp(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        app_id: str,
+    ) -> "PowerBIApp":
+        validate_required_fields(
+            ["name", "connection_qualified_name", "app_id"],
+            [name, connection_qualified_name, app_id],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/app/{app_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            power_bi_app_id=app_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "PowerBIApp":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "PowerBIApp":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -695,6 +735,7 @@ def _power_bi_app_to_nested(power_bi_app: PowerBIApp) -> PowerBIAppNested:
         is_incomplete=power_bi_app.is_incomplete,
         provenance_type=power_bi_app.provenance_type,
         home_id=power_bi_app.home_id,
+        delete_handler=power_bi_app.delete_handler,
         depth=power_bi_app.depth,
         immediate_upstream=power_bi_app.immediate_upstream,
         immediate_downstream=power_bi_app.immediate_downstream,
@@ -741,6 +782,7 @@ def _power_bi_app_from_nested(nested: PowerBIAppNested) -> PowerBIApp:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

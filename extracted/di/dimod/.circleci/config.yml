@@ -1,0 +1,295 @@
+version: 2.1
+
+orbs:
+  win: circleci/windows@5  # latest as of October 2026
+  macos: circleci/macos@3  # latest as of October 2026
+
+commands:
+  run-cibuildwheel:
+    parameters:
+      cibw-version:
+        type: string
+        default: 4.3.4  # latest as of October 2026
+    steps:
+      - run:
+          name: run cibuildwheel
+          shell: bash -eo pipefail
+          command: |
+            python -m pip install --user cibuildwheel==<< parameters.cibw-version >>
+            python -m cibuildwheel --output-dir dist
+
+      - store_artifacts: &store-artifacts
+          path: ./dist
+      - persist_to_workspace: &persist-to-workspace
+          root: ./dist/
+          paths: .
+
+environment: &global-environment
+  PIP_PROGRESS_BAR: 'off'
+
+jobs:
+  build-linux:
+    docker:
+      - image: cimg/python:3.13
+
+    environment:
+      <<: *global-environment
+      CIBW_ARCHS_LINUX: x86_64
+
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run-cibuildwheel
+
+  build-linux-aarch64:
+    machine:
+      image: default
+
+    resource_class: arm.medium
+
+    environment:
+      <<: *global-environment
+      CIBW_ARCHS_LINUX: aarch64
+
+    steps: &build-steps
+      - checkout
+      - run-cibuildwheel
+
+  build-osx:
+    macos:
+      xcode: 27.2  # latest as of October 2026
+
+    environment:
+      <<: *global-environment
+
+    steps:
+      - checkout
+      - macos/install-rosetta
+      - run-cibuildwheel
+
+  build-sdist:
+    docker:
+      - image: cimg/python:3.13
+
+    steps:
+      - checkout
+      - run:
+          name: build sdist
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install build pip --upgrade
+            pip install --group build
+            python -m build --sdist
+      - store_artifacts: *store-artifacts
+      - persist_to_workspace: *persist-to-workspace
+
+  build-windows:
+    executor:
+      name: win/default
+
+    environment:
+      <<: *global-environment
+      CIBW_ARCHS_WINDOWS: AMD64
+
+    steps:
+      - checkout
+      - run-cibuildwheel
+
+  deploy-all:
+    docker:
+      - image: cimg/python:3.13
+
+    steps:
+      - attach_workspace:
+          at: dist
+
+      - store_artifacts:
+          path: ./dist
+
+      - run:
+          name: deploy
+          command: |
+            python -m venv env
+            . env/bin/activate
+            python -m pip install twine
+            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" --skip-existing ./dist/*
+
+  test-doctest:
+    docker:
+      - image: cimg/python:3.13  # As of October 2026, the dwave-ocean-sdk uses 3.13
+
+    steps:
+      - checkout
+      - run:
+          name: install doxygen
+          command: sudo apt update && sudo apt install doxygen
+      - run:
+          name: install dependencies
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --group dev --group docs
+      - run:
+          name: build dimod
+          command: |
+            . env/bin/activate
+            pip install --editable . --no-build-isolation
+      - run:
+          name: build docs
+          command: |
+            . env/bin/activate
+            make -C docs/ cpp html
+      - store_artifacts:
+          path: ./docs/build/html
+      - run:
+          name: doctest
+          command: |
+            . env/bin/activate
+            make -C docs/ doctest
+      - run:
+          name: linkcheck
+          command: |
+            . env/bin/activate
+            make -C docs/ linkcheck
+
+  test-dependencies:
+    parameters:
+      python-version:
+        type: string
+      dependencies:
+        type: string
+
+    docker:
+      - image: python:<< parameters.python-version >>-slim
+
+    steps:
+      - checkout
+      - attach_workspace:
+          at: dist
+      - run:
+          name: install
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install dimod --no-index -f dist/ --force-reinstall --no-deps
+            pip install << parameters.dependencies >> --upgrade --only-binary=numpy
+      - run: &unix-run-tests
+          name: run tests
+          command: |
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --group test
+            cd tests/
+            python -m unittest
+
+  test-linux-cpp:
+    docker:
+      - image: cimg/python:3.13
+
+    steps: &cpp-tests
+      - checkout
+
+      - run:
+          name: Install requirements
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --group dev --group test
+
+      - run:
+          name: run cpp tests
+          command: |
+            . env/bin/activate
+            meson setup _build -Dbuild-tests="enabled"
+            meson compile -C _build
+            meson test -C _build
+
+      - run:
+          name: run cpp tests with debug symbols
+          command: |
+            . env/bin/activate
+            meson setup _build -Dbuildtype=debug --reconfigure
+            meson compile -C _build
+            meson test -C _build
+
+
+  test-osx-cpp:
+    macos:
+      xcode: 27.2  # latest as of October 2026
+
+    steps: *cpp-tests
+
+  test-sdist:
+    docker:
+      - image: cimg/python:3.13
+
+    steps:
+      - checkout
+      - attach_workspace:
+          at: dist
+      - run:
+          name: install from sdist
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install dist/dimod*.tar.gz
+      - run: *unix-run-tests
+
+workflows:
+  tests:
+    jobs:
+      - build-linux
+      - build-linux-aarch64
+      - build-sdist
+      - build-osx
+      - build-windows
+      - test-doctest
+      - test-dependencies:
+          name: test-dependencies-latest
+          python-version: "3.15"
+          dependencies: numpy
+          requires:
+            - build-linux
+      - test-dependencies:
+          name: test-dependencies-min
+          python-version: "3.11"
+          dependencies: numpy==2.0
+          requires:
+            - build-linux
+      - test-linux-cpp
+      - test-osx-cpp
+      - test-sdist:
+          requires:
+            - build-sdist
+  deploy:
+    jobs:
+      - build-linux: &deploy-build
+          filters:
+            tags:
+              only: /^[0-9]+(\.[0-9]+)*((\.dev|rc)([0-9]+)?)?$/
+            branches:
+              ignore: /.*/
+      - build-linux-aarch64: *deploy-build
+      - build-osx: *deploy-build
+      - build-sdist:
+          filters:
+            tags:
+              only: /^[0-9]+(\.[0-9]+)*((\.dev|rc)([0-9]+)?)?$/
+            branches:
+              ignore: /.*/
+      - build-windows: *deploy-build
+      - deploy-all:
+          filters:
+            tags:
+              only: /^[0-9]+(\.[0-9]+)*((\.dev|rc)([0-9]+)?)?$/
+            branches:
+              ignore: /.*/
+          requires:
+            - build-linux
+            - build-linux-aarch64
+            - build-osx
+            - build-sdist
+            - build-windows

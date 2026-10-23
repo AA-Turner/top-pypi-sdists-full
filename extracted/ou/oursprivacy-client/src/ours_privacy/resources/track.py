@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Union, Mapping, Iterable, Optional
 
-import httpx
-
 from ..types import track_event_params
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
@@ -17,6 +15,7 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
+from ..lib._httpx import httpx
 from .._base_client import make_request_options
 from ..types.track_event_response import TrackEventResponse
 

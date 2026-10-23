@@ -8,7 +8,7 @@ from tslearn.bases.bases import ALLOW_VARIABLE_LENGTH
 from tslearn.metrics.cysax import (cydist_sax, cyslopes, cydist_1d_sax,
                                    inv_transform_1d_sax, inv_transform_sax,
                                    inv_transform_paa)
-from tslearn.utils import check_dims, check_array
+from tslearn.utils import check_dims, check_array, to_time_series_dataset
 from tslearn.utils.utils import _ts_size
 
 __author__ = 'Romain Tavenard romain.tavenard[at]univ-rennes2.fr'
@@ -70,10 +70,6 @@ class PiecewiseAggregateApproximation(TimeSeriesMixin,
     ----------
     n_segments : int (default: 1)
         Number of PAA segments to compute
-
-    Notes
-    -----
-        This method requires a dataset of equal-sized time series.
 
     Examples
     --------
@@ -236,7 +232,7 @@ class PiecewiseAggregateApproximation(TimeSeriesMixin,
         .. [1] E. Keogh & M. Pazzani. Scaling up dynamic time warping for
            datamining applications. SIGKDD 2000, pp. 285--289.
         """
-        paa = self.transform([ts1, ts2])
+        paa = self.transform(to_time_series_dataset([ts1, ts2]))
         return self.distance_paa(paa[0], paa[1])
 
     def inverse_transform(self, X):
@@ -296,10 +292,6 @@ class SymbolicAggregateApproximation(PiecewiseAggregateApproximation):
     ----------
     breakpoints_avg_ : numpy.ndarray of shape (alphabet_size - 1, )
         List of breakpoints used to generate SAX symbols
-
-    Notes
-    -----
-        This method requires a dataset of equal-sized time series.
 
     Examples
     --------
@@ -487,7 +479,7 @@ class SymbolicAggregateApproximation(PiecewiseAggregateApproximation):
            symbolic representation of time series. Data Mining and Knowledge
            Discovery, 2007. vol. 15(107)
         """
-        sax = self.transform([ts1, ts2])
+        sax = self.transform(to_time_series_dataset([ts1, ts2]))
         return self.distance_sax(sax[0], sax[1])
 
     def inverse_transform(self, X):
@@ -562,10 +554,6 @@ class OneD_SymbolicAggregateApproximation(SymbolicAggregateApproximation):
     breakpoints_slope_ : numpy.ndarray of shape (alphabet_size_slope - 1, )
         List of breakpoints used to generate SAX symbols for slopes.
 
-    Notes
-    -----
-        This method requires a dataset of equal-sized time series.
-
     Examples
     --------
     >>> one_d_sax = OneD_SymbolicAggregateApproximation(n_segments=3,
@@ -602,7 +590,6 @@ class OneD_SymbolicAggregateApproximation(SymbolicAggregateApproximation):
             [ 0.33724488]]])
     >>> one_d_sax.fit(data).sigma_l
     1.0
-
 
     References
     ----------
@@ -679,23 +666,24 @@ class OneD_SymbolicAggregateApproximation(SymbolicAggregateApproximation):
     def _get_slopes(self, X):
         n_ts, sz, d = X.shape
         X_slopes = numpy.empty((n_ts, self.n_segments, d))
-        sz_segment = sz // self.n_segments
-        for i_seg in range(self.n_segments):
-            start = i_seg * sz_segment
-            end = start + sz_segment
-            X_slopes[:, i_seg, :] = cyslopes(X[:, start:end, :], start)
+        for i_ts in range(n_ts):
+            sz_segment = _ts_size(X[i_ts]) // self.n_segments
+            for i_seg in range(self.n_segments):
+                start = i_seg * sz_segment
+                end = start + sz_segment
+                X_slopes[i_ts, i_seg, :] = cyslopes(X[i_ts, start:end, :])
         return X_slopes
 
     def _transform(self, X, y=None):
-        X = self._scale(X)
         n_ts, sz_raw, d = X.shape
         X_1d_sax = numpy.empty((n_ts, self.n_segments, 2 * d), dtype=int)
 
         # Average
+        # `SymbolicAggregateApproximation._transform` scales `X` itself.
         X_1d_sax_avg = SymbolicAggregateApproximation._transform(self, X)
 
         # Slope
-        X_slopes = self._get_slopes(X)
+        X_slopes = self._get_slopes(self._scale(X))
         X_1d_sax_slope = _paa_to_symbols(X_slopes, self.breakpoints_slope_)
 
         X_1d_sax[:, :, :d] = X_1d_sax_avg
@@ -773,7 +761,7 @@ class OneD_SymbolicAggregateApproximation(SymbolicAggregateApproximation):
         .. [1] S. Malinowski, T. Guyet, R. Quiniou, R. Tavenard. 1d-SAX: a
            Novel Symbolic Representation for Time Series. IDA 2013.
         """
-        sax1d = self.transform([ts1, ts2])
+        sax1d = self.transform(to_time_series_dataset([ts1, ts2]))
         return self.distance_1d_sax(sax1d[0], sax1d[1])
 
     def inverse_transform(self, X):

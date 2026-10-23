@@ -19,6 +19,14 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -38,6 +46,12 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .micro_strategy_related import (
+    RelatedMicroStrategyColumn,
+    RelatedMicroStrategyDossier,
+    RelatedMicroStrategyProject,
+    RelatedMicroStrategyVisualization,
+)
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -47,19 +61,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .micro_strategy_related import (
-    RelatedMicroStrategyColumn,
-    RelatedMicroStrategyDossier,
-    RelatedMicroStrategyProject,
-    RelatedMicroStrategyVisualization,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -286,7 +287,7 @@ class MicroStrategyDossier(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+/[^/]+$")
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/dossiers/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -359,6 +360,54 @@ class MicroStrategyDossier(Asset):
         if self.guid is not UNSET:
             return RelatedMicroStrategyDossier(guid=self.guid)
         return RelatedMicroStrategyDossier(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        micro_strategy_project_qualified_name: str,
+        micro_strategy_project_name: str,
+        micro_strategy_id: str,
+        connection_qualified_name: Union[str, None] = None,
+    ) -> "MicroStrategyDossier":
+        validate_required_fields(
+            [
+                "name",
+                "micro_strategy_project_qualified_name",
+                "micro_strategy_project_name",
+                "micro_strategy_id",
+            ],
+            [
+                name,
+                micro_strategy_project_qualified_name,
+                micro_strategy_project_name,
+                micro_strategy_id,
+            ],
+        )
+        fields = micro_strategy_project_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        connection_qn = connection_qualified_name or "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{micro_strategy_project_qualified_name}/dossiers/{micro_strategy_id}",
+            connection_qualified_name=connection_qn,
+            connector_name=connector_name,
+            micro_strategy_project_qualified_name=micro_strategy_project_qualified_name,
+            micro_strategy_project_name=micro_strategy_project_name,
+            micro_strategy_project=RelatedMicroStrategyProject(
+                qualified_name=micro_strategy_project_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "MicroStrategyDossier":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "MicroStrategyDossier":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -730,6 +779,7 @@ def _micro_strategy_dossier_to_nested(
         is_incomplete=micro_strategy_dossier.is_incomplete,
         provenance_type=micro_strategy_dossier.provenance_type,
         home_id=micro_strategy_dossier.home_id,
+        delete_handler=micro_strategy_dossier.delete_handler,
         depth=micro_strategy_dossier.depth,
         immediate_upstream=micro_strategy_dossier.immediate_upstream,
         immediate_downstream=micro_strategy_dossier.immediate_downstream,
@@ -780,6 +830,7 @@ def _micro_strategy_dossier_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

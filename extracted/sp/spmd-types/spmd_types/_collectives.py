@@ -38,6 +38,22 @@ from torch.overrides import handle_torch_function, has_torch_function_unary
 # =============================================================================
 
 
+def _maybe_wait(result: torch.Tensor, async_op: bool) -> torch.Tensor:
+    """Wait on a functional-collective output unless ``async_op`` allows deferring.
+
+    With ``async_op=True`` the ``AsyncCollectiveTensor`` is returned as-is; the
+    first op that consumes it waits on the collective (a stream wait, not a host
+    sync). Results wrapping a tensor subclass (e.g. ``LocalTensor`` under
+    ``LocalTensorMode`` simulation) are always waited. Under tracing,
+    functional collectives already return waited tensors.
+    """
+    if not isinstance(result, funcol.AsyncCollectiveTensor):
+        return result
+    if async_op and type(result.elem) is torch.Tensor:
+        return result
+    return result.wait()
+
+
 class _AllReduce(torch.autograd.Function):
     """all_reduce: P -> R|I.
 
@@ -68,9 +84,9 @@ class _AllReduce(torch.autograd.Function):
             ctx.mark_dirty(x)
             result = x
         else:
-            result = funcol.all_reduce(x, "sum", pg)
-            if isinstance(result, funcol.AsyncCollectiveTensor):
-                result = result.wait()
+            result = _maybe_wait(
+                funcol.all_reduce(x, "sum", pg), dtype_options.async_op
+            )
         if inplace:
             assert dtype_options.out_dtype == result.dtype
             return result
@@ -109,6 +125,7 @@ def all_reduce(
     inplace: bool = False,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """``all_reduce(x: Partial | Varying, mesh_axis, dst) -> Replicate | Invariant``
@@ -135,8 +152,18 @@ def all_reduce(
             dtype). When only ``op_dtype`` is specified, ``out_dtype`` defaults
             to ``op_dtype``.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: If True, a functional collective in the forward pass may
+            return without waiting (an ``AsyncCollectiveTensor``): the first op
+            that consumes the result waits on it, so the collective can overlap
+            with compute issued in between, like DTensor's
+            ``redistribute(..., async_op=True)``. Consume the result with an op
+            rather than calling ``.wait()`` on it, which drops autograd history.
+            Paths that do not use functional collectives still wait. Use
+            ``backward_options={"async_op": True}`` to also defer the backward
+            collective; gradients for leaf inputs are always waited.
         backward_options: Dict of options passed to the backward collective.
-            Supports ``op_dtype``, ``out_dtype``, and ``backward_options`` keys.
+            Supports ``op_dtype``, ``out_dtype``, ``async_op``, and
+            ``backward_options`` keys.
 
     Returns:
         Tensor with R or I type depending on dst
@@ -190,6 +217,7 @@ def all_reduce(
             inplace=inplace,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src is not P:
@@ -212,6 +240,8 @@ def all_reduce(
             backward_has_reduction=(dst is R),
             input_dtype=x.dtype,
             requires_grad=x.requires_grad,
+            async_op=async_op,
+            input_is_leaf=x.requires_grad and x.grad_fn is None,
             inplace=inplace,
         )
         return _AllReduce.apply(x, pg, dst, inplace, dtype_options)
@@ -277,7 +307,7 @@ class _AllGatherStack(torch.autograd.Function):
             )
         else:
             grad = convert(
-                grad_out,
+                grad_out.movedim(ctx.gather_dim, 0),
                 ctx.axis,
                 src=I,
                 dst=V,
@@ -302,9 +332,9 @@ class _AllGatherShard(torch.autograd.Function):
         x = _apply_op_dtype(x, dtype_options.op_dtype)
         pg = axis
         x = x.contiguous()
-        result = funcol.all_gather_tensor(x, gather_dim, pg)
-        if isinstance(result, funcol.AsyncCollectiveTensor):
-            result = result.wait()
+        result = _maybe_wait(
+            funcol.all_gather_tensor(x, gather_dim, pg), dtype_options.async_op
+        )
         return _apply_out_dtype(result, dtype_options.out_dtype)
 
     @staticmethod
@@ -398,6 +428,7 @@ def all_gather(
     split_sizes: Optional[List[int]] = None,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """``all_gather(x: Varying, mesh_axis, src, dst) -> Replicate | Invariant``
@@ -444,8 +475,18 @@ def all_gather(
             dtype). When only ``op_dtype`` is specified, ``out_dtype`` defaults
             to ``op_dtype``.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: If True, a functional collective in the forward pass may
+            return without waiting (an ``AsyncCollectiveTensor``): the first op
+            that consumes the result waits on it, so the collective can overlap
+            with compute issued in between, like DTensor's
+            ``redistribute(..., async_op=True)``. Consume the result with an op
+            rather than calling ``.wait()`` on it, which drops autograd history.
+            Paths that do not use functional collectives still wait. Use
+            ``backward_options={"async_op": True}`` to also defer the backward
+            collective; gradients for leaf inputs are always waited.
         backward_options: Dict of options passed to the backward collective.
-            Supports ``op_dtype``, ``out_dtype``, and ``backward_options`` keys.
+            Supports ``op_dtype``, ``out_dtype``, ``async_op``, and
+            ``backward_options`` keys.
 
     Returns:
         Tensor with R or I type depending on dst
@@ -526,6 +567,7 @@ def all_gather(
             split_sizes=split_sizes,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Canonicalize negative Shard dims
@@ -560,6 +602,8 @@ def all_gather(
             backward_has_reduction=(dst is R),
             input_dtype=x.dtype,
             requires_grad=x.requires_grad,
+            async_op=async_op,
+            input_is_leaf=x.requires_grad and x.grad_fn is None,
         )
         if split_sizes is not None:
             return _AllGatherUneven.apply(
@@ -630,9 +674,13 @@ class _ReduceScatterShard(torch.autograd.Function):
         ctx.backward_options = dtype_options.backward_options
         x = _apply_op_dtype(x, dtype_options.op_dtype)
         pg = axis
-        result = funcol.reduce_scatter_tensor(x, "sum", scatter_dim, pg)
-        if isinstance(result, funcol.AsyncCollectiveTensor):
-            result = result.wait()
+        # Process groups require contiguous collective inputs; incoming
+        # gradients (e.g. from sum()) can be expanded views.
+        x = x.contiguous()
+        result = _maybe_wait(
+            funcol.reduce_scatter_tensor(x, "sum", scatter_dim, pg),
+            dtype_options.async_op,
+        )
         return _apply_out_dtype(result, dtype_options.out_dtype)
 
     @staticmethod
@@ -697,6 +745,7 @@ def reduce_scatter(
     split_sizes: Optional[List[int]] = None,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """``reduce_scatter(x, mesh_axis, dst): Partial -> Varying``
@@ -741,8 +790,18 @@ def reduce_scatter(
             dtype). When only ``op_dtype`` is specified, ``out_dtype`` defaults
             to ``op_dtype``.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: If True, a functional collective in the forward pass may
+            return without waiting (an ``AsyncCollectiveTensor``): the first op
+            that consumes the result waits on it, so the collective can overlap
+            with compute issued in between, like DTensor's
+            ``redistribute(..., async_op=True)``. Consume the result with an op
+            rather than calling ``.wait()`` on it, which drops autograd history.
+            Paths that do not use functional collectives still wait. Use
+            ``backward_options={"async_op": True}`` to also defer the backward
+            collective; gradients for leaf inputs are always waited.
         backward_options: Dict of options passed to the backward collective.
-            Supports ``op_dtype``, ``out_dtype``, and ``backward_options`` keys.
+            Supports ``op_dtype``, ``out_dtype``, ``async_op``, and
+            ``backward_options`` keys.
 
     Returns:
         Tensor with V or S(i) type depending on dst
@@ -778,6 +837,7 @@ def reduce_scatter(
             split_sizes=split_sizes,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Canonicalize negative Shard dims
@@ -821,6 +881,8 @@ def reduce_scatter(
         backward_has_reduction=False,
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
+        async_op=async_op,
+        input_is_leaf=x.requires_grad and x.grad_fn is None,
     )
 
     if dst is V:
@@ -973,6 +1035,7 @@ def all_to_all(
     input_split_sizes: Optional[List[int]] = None,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """``all_to_all(x, mesh_axis, src, dst): Varying -> Varying``
@@ -1031,8 +1094,18 @@ def all_to_all(
             dtype). When only ``op_dtype`` is specified, ``out_dtype`` defaults
             to ``op_dtype``.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: If True, a functional collective in the forward pass may
+            return without waiting (an ``AsyncCollectiveTensor``): the first op
+            that consumes the result waits on it, so the collective can overlap
+            with compute issued in between, like DTensor's
+            ``redistribute(..., async_op=True)``. Consume the result with an op
+            rather than calling ``.wait()`` on it, which drops autograd history.
+            Paths that do not use functional collectives still wait. Use
+            ``backward_options={"async_op": True}`` to also defer the backward
+            collective; gradients for leaf inputs are always waited.
         backward_options: Dict of options passed to the backward collective.
-            Supports ``op_dtype``, ``out_dtype``, and ``backward_options`` keys.
+            Supports ``op_dtype``, ``out_dtype``, ``async_op``, and
+            ``backward_options`` keys.
 
     Returns:
         Tensor with V or S(j) type depending on dst
@@ -1066,6 +1139,7 @@ def all_to_all(
             input_split_sizes=input_split_sizes,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Canonicalize negative Shard dims
@@ -1125,6 +1199,8 @@ def all_to_all(
         backward_has_reduction=False,
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
+        async_op=async_op,
+        input_is_leaf=x.requires_grad and x.grad_fn is None,
     )
 
     if output_split_sizes is not None or input_split_sizes is not None:
@@ -1160,6 +1236,7 @@ def redistribute(  # noqa: C901
     dst: PerMeshAxisSpmdType,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """Semantics-preserving type change that allows comms.
@@ -1189,6 +1266,15 @@ def redistribute(  # noqa: C901
         dst: Destination local SPMD type
         op_dtype: Cast input to this dtype before the operation.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: If True, a functional collective in the forward pass may
+            return without waiting (an ``AsyncCollectiveTensor``): the first op
+            that consumes the result waits on it, so the collective can overlap
+            with compute issued in between, like DTensor's
+            ``redistribute(..., async_op=True)``. Consume the result with an op
+            rather than calling ``.wait()`` on it, which drops autograd history.
+            Paths that do not use functional collectives still wait. Use
+            ``backward_options={"async_op": True}`` to also defer the backward
+            collective; gradients for leaf inputs are always waited.
         backward_options: Dict of options passed to the backward collective.
     """
     if has_torch_function_unary(x):
@@ -1201,6 +1287,7 @@ def redistribute(  # noqa: C901
             dst=dst,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Canonicalize negative Shard dims
@@ -1230,6 +1317,7 @@ def redistribute(  # noqa: C901
                 dst=dst,
                 op_dtype=op_dtype,
                 out_dtype=out_dtype,
+                async_op=async_op,
                 backward_options=backward_options,
             )
         return x  # no-op
@@ -1243,6 +1331,7 @@ def redistribute(  # noqa: C901
             dst=R,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Varying/Shard -> Invariant: all_gather
@@ -1254,6 +1343,7 @@ def redistribute(  # noqa: C901
             dst=I,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Partial -> Replicate: all_reduce
@@ -1265,6 +1355,7 @@ def redistribute(  # noqa: C901
             dst=R,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Partial -> Invariant: all_reduce
@@ -1276,6 +1367,7 @@ def redistribute(  # noqa: C901
             dst=I,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Partial -> Varying/Shard: reduce_scatter
@@ -1288,6 +1380,7 @@ def redistribute(  # noqa: C901
             scatter_dim=dim,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
 
@@ -1302,6 +1395,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src_base is I and dst_base is R:
@@ -1313,6 +1407,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src_base is R and dst_base is V:
@@ -1324,6 +1419,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src_base is R and dst_base is P:
@@ -1335,6 +1431,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src_base is I and dst_base is V:
@@ -1346,6 +1443,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src_base is I and dst_base is P:
@@ -1357,6 +1455,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src_base is V and dst_base is P:
@@ -1368,6 +1467,7 @@ def redistribute(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
 
@@ -1382,6 +1482,7 @@ def unshard(
     dst: PerMeshAxisSpmdType,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """Convenience alias: ``unshard(S(i), dst)`` is ``all_gather(S(i), dst)``.
@@ -1396,6 +1497,15 @@ def unshard(
         dst: Destination type (R or I)
         op_dtype: Cast input to this dtype before the operation.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: If True, a functional collective in the forward pass may
+            return without waiting (an ``AsyncCollectiveTensor``): the first op
+            that consumes the result waits on it, so the collective can overlap
+            with compute issued in between, like DTensor's
+            ``redistribute(..., async_op=True)``. Consume the result with an op
+            rather than calling ``.wait()`` on it, which drops autograd history.
+            Paths that do not use functional collectives still wait. Use
+            ``backward_options={"async_op": True}`` to also defer the backward
+            collective; gradients for leaf inputs are always waited.
         backward_options: Dict of options passed to the backward collective.
     """
     if not isinstance(src, Shard):
@@ -1407,5 +1517,6 @@ def unshard(
         dst=dst,
         op_dtype=op_dtype,
         out_dtype=out_dtype,
+        async_op=async_op,
         backward_options=backward_options,
     )

@@ -59,6 +59,7 @@ What it owns
   3b. check that the newest person turn, as every chat translator will compose it,
      ENDS with the person's typed text (``config/typed_text_last.py``, announced),
   4. derive the provider prompt-cache routing key,
+     and decide which cache marks the send writes (``config/cache_plan.py``),
   5. build the clone-at-send wire config (picklist / fence materialization).
 
 Cache state: the freshest evidence, not the stalest
@@ -124,6 +125,8 @@ class SendPrep:
     # declared window). ``None`` = not measurable (no declared window) or
     # disabled; an over-window prompt never gets here — it raises.
     preflight: dict[str, Any] | None = None
+    # What the make-it-fit step measured and did (``config/input_fit.py``); ``None`` = no limit known.
+    fit: dict[str, Any] | None = None
     # What the perishable-state step marked stale on this pass (resolve stage,
     # host-enabled conversations only). ``None`` = the step did not run.
     perishable_report: dict[str, Any] | None = None
@@ -138,6 +141,8 @@ class SendPrep:
     # (``order_for_wire``). Computed ONCE, here; it is ``wire_config.messages`` and every chat
     # translator renders exactly it. ``None`` = nothing to order (no person turn).
     wire_messages: list[Any] | None = None
+    # Which cache marks this send writes and why (loop stage; ``config/cache_plan.py``).
+    cache_plan: Any | None = None
 
 
 async def prepare_for_send(
@@ -258,6 +263,22 @@ async def prepare_for_send(
         ),
     )
 
+    # MAKE IT FIT — the call is measured against EVERY limit that applies (the model's window
+    # and the host's per-call input budget); when over, compaction runs first (the host's
+    # summarization system, ``input_fit.set_compactor``) and a forced trim is the fallback.
+    # Before this step only the window was measured and nothing shrank a call to fit a lower
+    # host limit (conversation 9b224bf5, 2026-10-22). ``matrx_ai/config/input_fit.py``.
+    try:
+        from matrx_ai.config.input_fit import ensure_fits
+
+        prep.fit = await ensure_fits(
+            config, policy=policy, stage=stage, conversation_id=conversation_id, trim=_forced_trim
+        )
+        prep.steps.append("input_fit")
+    except Exception as exc:  # noqa: BLE001 — the pre-flight / host guard still decide
+        vcprint(f"[send_boundary/{stage}] input_fit failed (ignored): {type(exc).__name__}: {exc}", color="red")
+        logger.error("send_boundary input_fit failed at stage %s", stage, exc_info=True)
+
     # PRE-FLIGHT — deliberately NOT inside ``_run_step``: every other step here
     # is best-effort and skippable, this one is a REFUSAL and must reach the
     # caller. It runs after the trim (so it measures what actually goes on the
@@ -282,6 +303,9 @@ async def prepare_for_send(
             "prompt_cache_key",
             lambda: _set_prompt_cache_key(config, conversation_id, request_id),
         )
+        # BEFORE the wire clone (which copies the field): which cache marks this send
+        # writes — a mark nothing will read is a pure write surcharge (config/cache_plan.py).
+        _run_step(prep, "prompt_cache_marks", lambda: _set_prompt_cache_marks(prep, config))
         _run_step(prep, "wire_config", lambda: _build_wire(prep, config))
         # THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): AFTER the wire clone
         # (it orders the materialized messages), the newest person turn is ordered ONCE, here,
@@ -475,6 +499,12 @@ def _apply_followup_response_format(
     )
 
 
+def _forced_trim(messages_list: list[Any], policy: TrimPolicy) -> Any:
+    """The make-it-fit trim (``input_fit.ensure_fits``): cache gate off — the call is over a limit
+    and would be refused, so keeping the cached prefix is worth nothing."""
+    return trim_messages_context(messages_list, policy=policy, cache_state=None)
+
+
 def _gated_trim(
     prep: SendPrep,
     config: Any,
@@ -485,7 +515,7 @@ def _gated_trim(
     iteration: int | None,
     conversation_id: str | None,
 ) -> None:
-    """The ONLY call site of ``trim_messages_context`` in the platform.
+    """The cache-gated call site of ``trim_messages_context`` (``_forced_trim`` is the other, for a call over a limit).
 
     Identical at both stages — same gate, same policy, same audit shape. That
     sameness IS the fix: an in-loop trim can no longer rebuild a live cached
@@ -538,19 +568,58 @@ def _gated_trim(
         )
 
 
+def model_cache_prices(
+    model_ref: str,
+    *,
+    offering_id: str | None = None,
+    estimated_tokens: int = 0,
+    long_cache: bool = False,
+) -> tuple[Any, int | None] | None:
+    """``(CachePrices | None, rewrite_ttl_secs)`` for a model from the catalog, or ``None`` when the
+    catalog has no pricing for it. THE price reader for the cache economics (the trim gate's payback
+    rule and the condense decision): a cache read, the write tier that covers rewritten history, and
+    fresh input. Raises on a lookup failure — the caller announces it."""
+    from matrx_ai.config.cache_marks import history_cache_ttl
+    from matrx_ai.config.context_trim import CachePrices
+    from matrx_ai.config.usage_config import _get_db_pricing_lookup, lookup_model_pricing
+
+    if not model_ref:
+        return None
+    lookup = _get_db_pricing_lookup()
+    pricing = lookup_model_pricing(lookup, offering_id=offering_id or "", model_name=model_ref)
+    if pricing is None and offering_id:
+        pricing = lookup_model_pricing(lookup, model_name=model_ref)
+    if pricing is None:
+        return None
+    tier = pricing.get_tier(estimated_tokens or 0)
+    ttl_secs, write_tier, _prefix = history_cache_ttl(pricing.api or model_ref, long=long_cache)
+    if tier is None:
+        return None, ttl_secs
+    read = tier.cache_hit_price if tier.cache_hit_price is not None else tier.cached_input_price
+    if write_tier == "1h" and tier.cache_write_1h_price is not None:
+        write = tier.cache_write_1h_price
+    elif tier.cache_write_5m_price is not None:
+        write = tier.cache_write_5m_price
+    else:
+        # No write premium on this wire (OpenAI, Gemini implicit): a rewrite is billed as fresh input.
+        write = tier.input_price
+    if read is None or write is None:
+        return None, ttl_secs
+    fresh = float(tier.input_price) if tier.input_price is not None else None
+    return CachePrices(read_price=float(read), write_price=float(write), input_price=fresh), ttl_secs
+
+
 def _cache_gate_inputs(config: Any, policy: TrimPolicy | None) -> CacheGateInputs | None:
     """Catalog prices, the history's cache lifetime and the pre-flight numbers for
     the payback gate. Only built in payback mode (legacy needs none of it); any
     failure yields ``None`` and the gate announces its fallback."""
     if policy is None or policy.cache_gate_mode != "payback":
         return None
-    from matrx_ai.config.cache_marks import history_cache_ttl
     from matrx_ai.config.context_preflight import (
         _declared_window,
         current_policy,
         estimate_prompt_tokens,
     )
-    from matrx_ai.config.usage_config import _get_db_pricing_lookup, lookup_model_pricing
 
     model_ref = str(getattr(config, "matrx_model_name", None) or getattr(config, "model", "") or "")
     long_cache = bool(getattr(config, "extended_prompt_cache", False))
@@ -563,27 +632,17 @@ def _cache_gate_inputs(config: Any, policy: TrimPolicy | None) -> CacheGateInput
     except Exception as exc:  # noqa: BLE001 — measurement must never block a send
         vcprint(f"[send_boundary] payback gate could not measure the prompt: {exc!r}", color="yellow")
     try:
-        offering = str(getattr(config, "routing_offering_id", None) or "")
-        lookup = _get_db_pricing_lookup()
-        pricing = lookup_model_pricing(lookup, offering_id=offering, model_name=model_ref)
-        if pricing is None and offering:
-            pricing = lookup_model_pricing(lookup, model_name=model_ref)
-        if pricing is not None:
-            tier = pricing.get_tier(inputs.estimated_prompt_tokens or 0)
-            ttl_secs, write_tier, _prefix = history_cache_ttl(pricing.api or model_ref, long=long_cache)
-            inputs.rewrite_ttl_secs = ttl_secs
-            if tier is not None:
-                read = tier.cache_hit_price if tier.cache_hit_price is not None else tier.cached_input_price
-                if write_tier == "1h" and tier.cache_write_1h_price is not None:
-                    write = tier.cache_write_1h_price
-                elif tier.cache_write_5m_price is not None:
-                    write = tier.cache_write_5m_price
-                else:
-                    # No write premium on this wire (OpenAI, Gemini implicit): a
-                    # rewrite is billed as fresh input.
-                    write = tier.input_price
-                inputs.read_price = float(read)
-                inputs.write_price = float(write)
+        prices = model_cache_prices(
+            model_ref,
+            offering_id=str(getattr(config, "routing_offering_id", None) or "") or None,
+            estimated_tokens=inputs.estimated_prompt_tokens or 0,
+            long_cache=long_cache,
+        )
+        if prices is not None:
+            cache_prices, inputs.rewrite_ttl_secs = prices
+            if cache_prices is not None:
+                inputs.read_price = cache_prices.read_price
+                inputs.write_price = cache_prices.write_price
     except Exception as exc:  # noqa: BLE001 — pricing must never block a send
         vcprint(f"[send_boundary] payback gate could not read prices: {exc!r}", color="yellow")
     return inputs
@@ -867,6 +926,14 @@ def _set_prompt_cache_key(config: Any, conversation_id: str | None, request_id: 
     from matrx_ai.providers.cache_guard import provider_prompt_cache_key
 
     config.prompt_cache_key = provider_prompt_cache_key(conversation_id, request_id)
+
+
+def _set_prompt_cache_marks(prep: SendPrep, config: Any) -> None:
+    from matrx_ai.config.cache_plan import decide_cache_plan
+
+    plan = decide_cache_plan(config)
+    config.prompt_cache_marks = plan.marks
+    prep.cache_plan = plan
 
 
 def _build_wire(prep: SendPrep, config: Any) -> None:

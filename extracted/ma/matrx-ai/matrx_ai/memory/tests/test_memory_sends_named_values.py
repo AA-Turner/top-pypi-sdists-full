@@ -72,7 +72,7 @@ def sent(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     calls: list[list[str]] = []
 
     class _Client:
-        async def execute(self, request):
+        async def execute(self, request, **_kw):
             calls.append([
                 "".join(getattr(part, "text", "") for part in (m.content or []))
                 for m in request.config.messages

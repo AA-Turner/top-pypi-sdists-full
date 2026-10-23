@@ -1,13 +1,13 @@
 # Copyright 2026 Cloudsmith Ltd
 import logging
 import os
-import sys
 from pathlib import Path
 
 from cloudsmith_cli.credential_helpers.backends import BackendKind
-from cloudsmith_cli.credential_helpers.custom_domains import get_format_domains
+from cloudsmith_cli.credential_helpers.domains import get_format_domains
 from cloudsmith_cli.credential_helpers.generic import PartialInstallError
 from cloudsmith_cli.credential_helpers.launchers import (
+    helper_command,
     remove_launcher,
     resolve_bin_dir,
     write_launcher,
@@ -30,26 +30,10 @@ def _config_path() -> Path:
 
 class PNPMInstaller:
     LAUNCHER_NAME = "pnpm-credential-cloudsmith"
-    TARGET_CMD = "cloudsmith credential-helper pnpm"
     DEFAULT_HOST = "npm.cloudsmith.io"
 
     name = "pnpm"
     summary = "pnpm credential helper for Cloudsmith registries"
-
-    @classmethod
-    def _resolve_target_cmd(cls) -> str:
-        """Return the command the launcher forwards to.
-
-        A pip/source install resolves the bare ``cloudsmith`` command via
-        ``PATH``.  A frozen standalone binary (PyInstaller) is not guaranteed
-        to be on ``PATH`` under that name, so point the launcher at the
-        absolute executable instead — mirroring the frozen handling in
-        :func:`cloudsmith_cli.cli.commands.mcp._get_server_config`.  The path
-        is quoted so a directory containing spaces still execs correctly.
-        """
-        if getattr(sys, "frozen", False):
-            return f'"{sys.executable}" credential-helper pnpm'
-        return cls.TARGET_CMD
 
     def install(
         self,
@@ -104,8 +88,8 @@ class PNPMInstaller:
 
         actions: list[str] = []
 
-        # Start with the default host plus any explicitly requested domains.
-        hosts: list[str] = [self.DEFAULT_HOST, *domains]
+        hosts: list[str] = [*domains]
+        discovered: list[str] = []
 
         if discover:
             if dry_run:
@@ -127,7 +111,9 @@ class PNPMInstaller:
                         f"WARNING: custom-domain auto-discovery failed: {exc}"
                     )
                     discovered = []
-                new_hosts = [h for h in discovered if h not in hosts]
+                new_hosts = [
+                    h for h in discovered if h not in (*hosts, self.DEFAULT_HOST)
+                ]
                 hosts.extend(discovered)
                 actions.append(f"discovered {len(new_hosts)} new pnpm custom domain(s)")
             else:
@@ -135,6 +121,11 @@ class PNPMInstaller:
                     "skipped auto-discovery"
                     " (no organization/credentials; pass --no-discover to silence)"
                 )
+
+        # The API lists the Cloudsmith-owned hosts with the custom domains, so
+        # the default host is needed only when discovery gave no hosts.
+        if not discovered:
+            hosts.insert(0, self.DEFAULT_HOST)
 
         # De-duplicate while preserving order
         seen: set[str] = set()
@@ -147,7 +138,7 @@ class PNPMInstaller:
 
         # Real install
         launcher_path = write_launcher(
-            target_dir, self.LAUNCHER_NAME, self._resolve_target_cmd(), dry_run=dry_run
+            target_dir, self.LAUNCHER_NAME, helper_command(self.name), dry_run=dry_run
         )
         if dry_run:
             actions.append(f"would write launcher {launcher_path}")

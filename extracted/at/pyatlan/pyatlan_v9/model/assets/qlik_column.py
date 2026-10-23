@@ -14,11 +14,20 @@ This module provides:
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, ClassVar, List, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -43,24 +52,17 @@ from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
-from .referenceable_related import RelatedReferenceable
-from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .qlik_related import (
     RelatedQlikChart,
     RelatedQlikColumn,
     RelatedQlikDataset,
     RelatedQlikSheet,
 )
+from .referenceable_related import RelatedReferenceable
+from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -77,6 +79,7 @@ class QlikColumn(Asset):
     QLIK_DATA_TYPE: ClassVar[Any] = None
     QLIK_COLUMN_TYPE: ClassVar[Any] = None
     QLIK_PARENT_QUALIFIED_NAME: ClassVar[Any] = None
+    QLIK_COLUMN_EXPRESSION: ClassVar[Any] = None
     QLIK_ID: ClassVar[Any] = None
     QLIK_QRI: ClassVar[Any] = None
     QLIK_SPACE_ID: ClassVar[Any] = None
@@ -134,6 +137,9 @@ class QlikColumn(Asset):
 
     qlik_parent_qualified_name: Union[str, None, UnsetType] = UNSET
     """Parent Qualified name of column."""
+
+    qlik_column_expression: Union[str, None, UnsetType] = UNSET
+    """Formula that defines this calculated dimension, taken from the Qlik field definition that starts with '='."""
 
     qlik_id: Union[str, None, UnsetType] = UNSET
     """Identifier of this asset, from Qlik."""
@@ -287,9 +293,7 @@ class QlikColumn(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/column/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -323,12 +327,16 @@ class QlikColumn(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.qlik_sheet is UNSET:
-                errors.append("qlik_sheet is required for creation")
-            if self.qlik_app_qualified_name is UNSET:
-                errors.append("qlik_app_qualified_name is required for creation")
             if self.qlik_space_qualified_name is UNSET:
                 errors.append("qlik_space_qualified_name is required for creation")
+            if (
+                self.qlik_sheet is UNSET
+                and self.qlik_chart is UNSET
+                and self.qlik_dataset is UNSET
+            ):
+                errors.append(
+                    "one of qlik_sheet, qlik_chart, qlik_dataset is required for creation"
+                )
         if errors:
             raise ValueError(f"QlikColumn validation failed: {errors}")
 
@@ -360,6 +368,85 @@ class QlikColumn(Asset):
         if self.guid is not UNSET:
             return RelatedQlikColumn(guid=self.guid)
         return RelatedQlikColumn(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        parent_qualified_name: str,
+        space_qualified_name: Union[str, None] = None,
+    ) -> "QlikColumn":
+        """
+        Build a Qlik column under a sheet, chart or dataset.
+
+        qualifiedName is {parent_qualified_name}/column/{md5}, where md5 is taken
+        over "{parent path}/column/{name}" and the parent path is the parent's
+        qualifiedName without the connection (app/<id>/sheet/<id>,
+        app/<id>/chart/<id> or dataset/<id>), exactly as atlan-qlik-sense-app
+        builds it. The parent type is read from parent_qualified_name.
+        space_qualified_name is optional and only fills the denormalised
+        qlik_space_id / qlik_space_qualified_name of the space or stream.
+        """
+        validate_required_fields(
+            ["name", "parent_qualified_name"], [name, parent_qualified_name]
+        )
+        dataset_parts = parent_qualified_name.rsplit("/", 2)
+        app_parts = parent_qualified_name.rsplit("/", 4)
+        if len(dataset_parts) == 3 and dataset_parts[1] == "dataset":
+            connection_qualified_name, parent_kind = dataset_parts[0], "dataset"
+        elif (
+            len(app_parts) == 5
+            and app_parts[1] == "app"
+            and app_parts[3] in ("sheet", "chart")
+        ):
+            connection_qualified_name, parent_kind = app_parts[0], app_parts[3]
+        else:
+            raise ValueError(
+                "parent_qualified_name must end in /app/<id>/sheet/<id>, "
+                "/app/<id>/chart/<id> or /dataset/<id>"
+            )
+        parent_path = parent_qualified_name[len(connection_qualified_name) + 1 :]
+        # deepcode ignore InsecureHash/test: an identifier, not a security key
+        column_hash = hashlib.md5(  # noqa: S324
+            f"{parent_path}/column/{name}".encode("utf-8")
+        ).hexdigest()
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        asset = cls(
+            name=name,
+            qualified_name=f"{parent_qualified_name}/column/{column_hash}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            qlik_column_name=name,
+            qlik_parent_qualified_name=parent_qualified_name,
+        )
+        if parent_kind == "sheet":
+            asset.qlik_sheet = RelatedQlikSheet(qualified_name=parent_qualified_name)
+        elif parent_kind == "chart":
+            asset.qlik_chart = RelatedQlikChart(qualified_name=parent_qualified_name)
+        else:
+            asset.qlik_dataset = RelatedQlikDataset(
+                qualified_name=parent_qualified_name
+            )
+        if space_qualified_name:
+            space_parts = space_qualified_name.rsplit("/", 2)
+            if len(space_parts) != 3 or space_parts[1] not in ("space", "stream"):
+                raise ValueError(
+                    "space_qualified_name must end in /space/<id> or /stream/<id>"
+                )
+            asset.qlik_space_id = space_parts[2]
+            asset.qlik_space_qualified_name = space_qualified_name
+        return asset
+
+    @classmethod
+    def create(cls, **kwargs) -> "QlikColumn":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "QlikColumn":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -427,6 +514,9 @@ class QlikColumnAttributes(AssetAttributes):
 
     qlik_parent_qualified_name: Union[str, None, UnsetType] = UNSET
     """Parent Qualified name of column."""
+
+    qlik_column_expression: Union[str, None, UnsetType] = UNSET
+    """Formula that defines this calculated dimension, taken from the Qlik field definition that starts with '='."""
 
     qlik_id: Union[str, None, UnsetType] = UNSET
     """Identifier of this asset, from Qlik."""
@@ -643,6 +733,7 @@ def _populate_qlik_column_attrs(attrs: QlikColumnAttributes, obj: QlikColumn) ->
     attrs.qlik_data_type = obj.qlik_data_type
     attrs.qlik_column_type = obj.qlik_column_type
     attrs.qlik_parent_qualified_name = obj.qlik_parent_qualified_name
+    attrs.qlik_column_expression = obj.qlik_column_expression
     attrs.qlik_id = obj.qlik_id
     attrs.qlik_qri = obj.qlik_qri
     attrs.qlik_space_id = obj.qlik_space_id
@@ -661,6 +752,7 @@ def _extract_qlik_column_attrs(attrs: QlikColumnAttributes) -> dict:
     result["qlik_data_type"] = attrs.qlik_data_type
     result["qlik_column_type"] = attrs.qlik_column_type
     result["qlik_parent_qualified_name"] = attrs.qlik_parent_qualified_name
+    result["qlik_column_expression"] = attrs.qlik_column_expression
     result["qlik_id"] = attrs.qlik_id
     result["qlik_qri"] = attrs.qlik_qri
     result["qlik_space_id"] = attrs.qlik_space_id
@@ -706,6 +798,7 @@ def _qlik_column_to_nested(qlik_column: QlikColumn) -> QlikColumnNested:
         is_incomplete=qlik_column.is_incomplete,
         provenance_type=qlik_column.provenance_type,
         home_id=qlik_column.home_id,
+        delete_handler=qlik_column.delete_handler,
         depth=qlik_column.depth,
         immediate_upstream=qlik_column.immediate_upstream,
         immediate_downstream=qlik_column.immediate_downstream,
@@ -752,6 +845,7 @@ def _qlik_column_from_nested(nested: QlikColumnNested) -> QlikColumn:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -780,6 +874,7 @@ from pyatlan.model.fields.atlan_fields import (  # noqa: E402
     KeywordField,
     KeywordTextField,
     RelationField,
+    TextField,
 )
 
 QlikColumn.QLIK_COLUMN_NAME = KeywordField("qlikColumnName", "qlikColumnName")
@@ -787,6 +882,9 @@ QlikColumn.QLIK_DATA_TYPE = KeywordField("qlikDataType", "qlikDataType")
 QlikColumn.QLIK_COLUMN_TYPE = KeywordField("qlikColumnType", "qlikColumnType")
 QlikColumn.QLIK_PARENT_QUALIFIED_NAME = KeywordField(
     "qlikParentQualifiedName", "qlikParentQualifiedName"
+)
+QlikColumn.QLIK_COLUMN_EXPRESSION = TextField(
+    "qlikColumnExpression", "qlikColumnExpression"
 )
 QlikColumn.QLIK_ID = KeywordField("qlikId", "qlikId")
 QlikColumn.QLIK_QRI = KeywordTextField("qlikQRI", "qlikQRI", "qlikQRI.text")

@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -43,16 +50,6 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sap_related import (
     RelatedSapErpAbapProgram,
     RelatedSapErpCdsView,
@@ -63,6 +60,9 @@ from .sap_related import (
     RelatedSapErpTransactionCode,
     RelatedSapErpView,
 )
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -715,6 +715,7 @@ def _sap_erp_component_to_nested(
         is_incomplete=sap_erp_component.is_incomplete,
         provenance_type=sap_erp_component.provenance_type,
         home_id=sap_erp_component.home_id,
+        delete_handler=sap_erp_component.delete_handler,
         depth=sap_erp_component.depth,
         immediate_upstream=sap_erp_component.immediate_upstream,
         immediate_downstream=sap_erp_component.immediate_downstream,
@@ -763,6 +764,7 @@ def _sap_erp_component_from_nested(nested: SapErpComponentNested) -> SapErpCompo
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

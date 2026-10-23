@@ -42,7 +42,13 @@ from pydantic import BaseModel, ConfigDict, Field
 #: ``services/proof_runs/judge.py``).
 from matrx_ai.code_call_mandate_keys import AI_JUDGE_MANDATE  # noqa: E402
 from matrx_ai.graph_nodes._strict_json import StrictJsonError
-from matrx_ai.mandates import MandateResolutionUnavailable, hold_code_call, run_held_pydantic
+from matrx_ai.mandates import (
+    MandateResolutionUnavailable,
+    Offer,
+    RunOptions,
+    carried_principal,
+    get_mandate_runner,
+)
 from matrx_ai.providers.keys import resolve_api_key
 
 
@@ -134,25 +140,33 @@ class AIJudge:
         # Holder decides. Resolved BEFORE the Holder renders, because its
         # instructions say whether this judgment may search.
         try:
-            held = await hold_code_call(
-                AI_JUDGE_MANDATE,
-                consumer="matrx_ai.evaluators.AIJudge",
-                variables={
-                    "rubric": rubric,
-                    "actual_output": output_str,
-                    "context": json.dumps(context, indent=2, default=str) if context else "",
-                    **(
-                        {"web_search": "allowed" if self.web_access else "not allowed"}
-                        if self.web_access is not None
-                        else {}
+            held = (
+                await get_mandate_runner().prepare(
+                    AI_JUDGE_MANDATE,
+                    Offer.given_values(
+                        {
+                            "rubric": rubric,
+                            "actual_output": output_str,
+                            "context": json.dumps(context, indent=2, default=str) if context else "",
+                            **(
+                                {"web_search": "allowed" if self.web_access else "not allowed"}
+                                if self.web_access is not None
+                                else {}
+                            ),
+                        }
                     ),
-                },
-                metadata={
-                    "source_app": "matrx-ai",
-                    "source_feature": "ai_judge",
-                    "judge_max_iterations_legacy": self.max_iterations,
-                },
-            )
+                    who=carried_principal(),
+                    opts=RunOptions(
+                        door="package_code_call",
+                        consumer="matrx_ai.evaluators.AIJudge",
+                        metadata={
+                            "source_app": "matrx-ai",
+                            "source_feature": "ai_judge",
+                            "judge_max_iterations_legacy": self.max_iterations,
+                        },
+                    ),
+                )
+            ).held_call()
         except MandateResolutionUnavailable as exc:
             raise JudgeError(f"AIJudge could not resolve its mandate: {exc}") from exc
         web_access = (
@@ -162,8 +176,7 @@ class AIJudge:
         )
         api_key = self._api_key or resolve_api_key("ANTHROPIC_API_KEY")
         try:
-            return await run_held_pydantic(
-                held,
+            return await held.send_pydantic(
                 messages=held.turns,
                 output_cls=JudgeVerdict,
                 model=self.model,

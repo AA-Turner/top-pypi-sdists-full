@@ -1,5 +1,9 @@
 [tool.cibuildwheel]
 build-verbosity = "1"
+test-requires = ["Pillow"]
+test-sources = ["tests", ".test-tessdata"]
+test-command = "python -m unittest discover -v"
+test-environment = { TESSDATA_PREFIX = ".test-tessdata", OMP_THREAD_LIMIT = "1" }
 
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
@@ -22,3 +26,7 @@ before-all = [
   "bash .github/build-scripts/macos-install-build-dependencies.sh",
   "bash .github/build-scripts/macos-install-tesseract.sh",
 ]
+
+[tool.cibuildwheel.windows]
+# Test the bundled DLLs without access to the build-time native libraries on PATH.
+test-command = '''python -c "import os, unittest; os.environ['PATH'] = os.path.join(os.environ['SystemRoot'], 'System32'); unittest.main(module=None, argv=['unittest', 'discover', '-v'])"'''

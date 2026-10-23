@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "udtools"
-version = "0.2.8"
+version = "0.2.9"
 authors = [
   { name="Filip Ginter" },
   { name="Sampo Pyysalo" },
@@ -22,7 +22,10 @@ maintainers = [
 description = "Python tools for Universal Dependencies"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["udapi>=0.5.0", "regex>=2020.09.27"]
+dependencies = [
+  "udapi>=0.5.0",
+  "regex>=2020.09.27"
+]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Science/Research",
@@ -45,4 +48,3 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 udtools = ["data/*.json"]
-

@@ -1,9 +1,13 @@
-from .errors import StructuredFieldError
+import re
+
 from .state import ParserState
 
 DQUOTE = ord('"')
 BACKSLASH = ord("\\")
 DQUOTEBACKSLASH = set([DQUOTE, BACKSLASH])
+# Characters that need no special handling (not %x00-1F, %x7F-FF, DQUOTE or
+# backslash), so a run of them can be copied at once
+STRING_RUN_RE = re.compile(rb'[^\x00-\x1f\x7f-\xff"\\]+')
 
 
 def parse_string(state: ParserState) -> str:
@@ -13,39 +17,32 @@ def parse_string(state: ParserState) -> str:
         try:
             char = state.data[state.cursor]
         except IndexError as why:
-            raise StructuredFieldError(
-                "Reached end of input without finding a closing DQUOTE",
-                position=state.cursor,
-                offending_char=None,
-            ) from why
+            state.fail(
+                "Reached end of input without finding a closing DQUOTE", cause=why
+            )
         state.cursor += 1
         if char == BACKSLASH:
             try:
                 next_char = state.data[state.cursor]
             except IndexError as why:
-                raise StructuredFieldError(
-                    "Last character of input was a backslash",
-                    position=state.cursor,
-                    offending_char=None,
-                ) from why
+                state.fail("Last character of input was a backslash", cause=why)
             state.cursor += 1
             if next_char not in DQUOTEBACKSLASH:
-                raise StructuredFieldError(
-                    f"Backslash before disallowed character '{chr(next_char)}'",
-                    position=state.cursor - 1,
-                    offending_char=next_char,
+                state.fail(
+                    f"Backslash before disallowed character {chr(next_char)!r}",
+                    state.cursor - 1,
                 )
             output_string.append(next_char)
         elif char == DQUOTE:
             return output_string.decode("ascii")
         elif not 31 < char < 127:
-            raise StructuredFieldError(
-                "String contains disallowed character",
-                position=state.cursor - 1,
-                offending_char=char,
-            )
+            state.fail("String contains disallowed character", state.cursor - 1)
         else:
-            output_string.append(char)
+            # char, and the ordinary characters after it
+            run = STRING_RUN_RE.match(state.data, state.cursor - 1)
+            assert run  # can't fail; char is ordinary
+            output_string += run.group()
+            state.cursor = run.end()
 
 
 def ser_string(inval: str) -> str:

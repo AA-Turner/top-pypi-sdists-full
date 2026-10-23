@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +42,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .flow_related import RelatedFlowDataset, RelatedFlowField
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,14 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .flow_related import RelatedFlowDataset, RelatedFlowField
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -746,6 +746,7 @@ def _flow_field_to_nested(flow_field: FlowField) -> FlowFieldNested:
         is_incomplete=flow_field.is_incomplete,
         provenance_type=flow_field.provenance_type,
         home_id=flow_field.home_id,
+        delete_handler=flow_field.delete_handler,
         depth=flow_field.depth,
         immediate_upstream=flow_field.immediate_upstream,
         immediate_downstream=flow_field.immediate_downstream,
@@ -792,6 +793,7 @@ def _flow_field_from_nested(nested: FlowFieldNested) -> FlowField:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

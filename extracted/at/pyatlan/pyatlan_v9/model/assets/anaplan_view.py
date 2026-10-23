@@ -19,7 +19,21 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan.model.enums import AtlanConnectorType
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
+from .anaplan_related import (
+    RelatedAnaplanDimension,
+    RelatedAnaplanModule,
+    RelatedAnaplanView,
+)
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -47,20 +61,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan.model.enums import AtlanConnectorType
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .anaplan_related import (
-    RelatedAnaplanDimension,
-    RelatedAnaplanModule,
-    RelatedAnaplanView,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -744,6 +744,7 @@ def _anaplan_view_to_nested(anaplan_view: AnaplanView) -> AnaplanViewNested:
         is_incomplete=anaplan_view.is_incomplete,
         provenance_type=anaplan_view.provenance_type,
         home_id=anaplan_view.home_id,
+        delete_handler=anaplan_view.delete_handler,
         depth=anaplan_view.depth,
         immediate_upstream=anaplan_view.immediate_upstream,
         immediate_downstream=anaplan_view.immediate_downstream,
@@ -790,6 +791,7 @@ def _anaplan_view_from_nested(nested: AnaplanViewNested) -> AnaplanView:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -813,10 +815,7 @@ def _anaplan_view_from_nested_bytes(data: bytes, serde: Serde) -> AnaplanView:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 AnaplanView.ANAPLAN_WORKSPACE_QUALIFIED_NAME = KeywordField(
     "anaplanWorkspaceQualifiedName", "anaplanWorkspaceQualifiedName"

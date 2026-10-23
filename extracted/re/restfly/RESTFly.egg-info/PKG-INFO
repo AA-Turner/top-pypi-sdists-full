@@ -1,13 +1,30 @@
 Metadata-Version: 2.4
 Name: RESTFly
-Version: 2.0.4
+Version: 2.0.5
 Summary: Write your own API Client libraries quickly.
-Requires-Python: >=3.12
+Project-URL: Homepage, https://restfly.rtfd.io
+Project-URL: Documentation, https://restfly.rtfd.io
+Project-URL: Repository, https://github.com/librestfly/restfly
+Project-URL: Issues, https://github.com/librestfly/restfly/issues
+Project-URL: Releases, https://github.com/librestfly/restfly/tags
+Keywords: rest,api
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: pydantic>=2.12.5
 Requires-Dist: pydantic-xml>=2.19.0
+Requires-Dist: typing-extensions>=4.16.0; python_full_version < "3.12"
 Dynamic: license-file
 
 ![RESTFly Logo](docs/_static/logo-light-hero.svg)

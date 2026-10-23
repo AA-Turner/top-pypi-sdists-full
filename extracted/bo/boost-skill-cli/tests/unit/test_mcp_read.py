@@ -40,6 +40,16 @@ class TestTheReplyCarriesTheBody:
         assert "installed: yes" in text
         assert mcp.read_reply("b", "body", installed=False).count("installed: no") == 1
 
+    def test_a_local_install_names_its_checkout(self):
+        text = mcp.read_reply("r", "body", kind="rule", installed=True,
+                              where="~/proj")
+        assert text.splitlines()[:3] == ["name: r", "kind: rule",
+                                         "installed: yes (project ~/proj)"]
+        assert mcp.read_reply("r", "body", installed=False,
+                              where="~/proj").splitlines()[1] == "installed: no"
+        assert mcp.read_reply("r", "body", installed=True,
+                              where="").splitlines()[1] == "installed: yes"
+
     def test_kind_is_marked_only_when_it_is_not_a_skill(self):
         # Same convention as hit_line: a marker on every line would spend a
         # token per reply to say "nothing unusual here".
@@ -327,7 +337,8 @@ class TestTheKindLabelIsTrueBeforeInstall:
         monkeypatch.setattr(info.lockfile, "get_skill", lambda n: None)
         monkeypatch.setattr(info.catalog, "resolve_one", lambda n: entry)
         monkeypatch.setattr(info.registry, "get",
-                            lambda tap: types.SimpleNamespace(path=tmp_path))
+                            lambda tap: types.SimpleNamespace(
+                                path=tmp_path, name="t", is_cloned=True))
 
         path, lock, cat = info._resolve_skill_md("x")
         assert lock is None

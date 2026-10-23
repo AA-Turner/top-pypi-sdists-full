@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skylos"
-version = "4.50.1"
+version = "5.0.0"
 requires-python = ">=3.10"
 description = "Python dead code, security and secrets scanner with a pull-request gate; narrower checks for TypeScript, Java and more."
 authors = [{name = "Aaron Oh", email = "aaronoh2015@gmail.com"}]
@@ -138,6 +138,9 @@ namespaces = false
 "skylos.rules.ai_defect" = ["pipreqs_import_mapping.txt"]
 # Built-in standards for `skylos agent remediate --standards`.
 "skylos.llm" = ["cleanup_standards.md"]
+# GitHub Actions context capabilities (generated from Octokit's webhook
+# schemas, MIT), action inputs that run code, and their NOTICE.
+"skylos.rules.config.cicd" = ["data/*.json", "data/NOTICE.txt"]
 [tool.skylos]
 complexity = 10
 nesting = 3

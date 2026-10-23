@@ -706,14 +706,20 @@ async def browser_fetch(
         logger.warning(
             "browser-fetch truncated %s at %d chars", redact_url_secrets(final_url), BROWSER_FETCH_MAX_HTML_CHARS
         )
+    succeeded = bool(html) and status_code < 400
+    # A failed render always says WHY: a 403/429/503 block or Cloudflare page is a rendered response, not an
+    # exception, and used to come back success=False with error=None (a blocked host read as a broken renderer).
+    failure_reason: str | None = None
+    if not succeeded:
+        failure_reason = f"rendered HTTP {status_code}" if status_code >= 400 else "rendered an empty page"
     return BrowserFetchResult(
-        success=bool(html) and status_code < 400,
+        success=succeeded,
         status_code=status_code,
         final_url=final_url,
         title=title or None,
         content_type=headers.get("content-type", ""),
         html=html,
-        error=None,
+        error=failure_reason,
         truncated=truncated,
         engine=request.engine,
         elapsed_ms=int((time.monotonic() - started) * 1000),

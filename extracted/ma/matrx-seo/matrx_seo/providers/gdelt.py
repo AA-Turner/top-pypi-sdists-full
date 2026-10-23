@@ -28,8 +28,10 @@ with polite pacing instead — the simple version, per the prime rule.
 ## Pacing
 
 GDELT publishes no rate limit and asks callers to be reasonable. One request
-at a time, `MIN_INTERVAL_SECONDS` apart, process-wide. A tracker pass issues a
-handful of queries; there is no burst to optimize.
+at a time, `MIN_INTERVAL_SECONDS` apart, on a `Pacer`'s clock: this process's
+own by default, or a shared one the host passes (GDELT counts per address, so
+several server processes behind one address must share one clock). A 429's
+`Retry-After` and the penalty window are holds on that same clock.
 """
 
 from __future__ import annotations
@@ -37,7 +39,8 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from time import monotonic
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import Any, Protocol
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -70,21 +73,14 @@ RATE_LIMIT_BACKOFF_SECONDS = 20.0
 #: again during that window is itself the abuse GDELT punishes, so every
 #: query — this one and every other tracker's, this run and the next — is
 #: refused locally (no HTTP call at all) until the window clears. Process-wide,
-#: same as the pacing clock: aidream has no shared cross-process store for this
-#: today, and a caller inside one process re-poking GDELT while its sibling
-#: process is also in the penalty is exactly the "unforgiving per-IP counter"
-#: failure this exists to stop; add a shared store here if one is ever wired in.
+#: same as the pacing clock: a host that passes a shared `Pacer` holds every
+#: process off, which is what GDELT's per-address counter needs.
 PENALTY_WINDOW_SECONDS = 300.0
 
 REQUEST_TIMEOUT_SECONDS = 45.0
 
 USER_AGENT = "MatrxCoverageBot/0.1 (+https://aimatrx.com)"
 
-_pace_lock = asyncio.Lock()
-_last_request_at: float | None = None
-#: `monotonic()` timestamp until which every query is refused locally. `None`
-#: outside a penalty.
-_penalty_until: float | None = None
 
 
 def reset_pacing_state_for_tests() -> None:
@@ -94,9 +90,7 @@ def reset_pacing_state_for_tests() -> None:
     (see `PENALTY_WINDOW_SECONDS`), which means they also leak between test
     functions in the same process unless cleared.
     """
-    global _last_request_at, _penalty_until
-    _last_request_at = None
-    _penalty_until = None
+    _process_pacer.reset()
 
 
 class GdeltUnavailable(RuntimeError):
@@ -216,15 +210,76 @@ def parse_articles(payload: Any) -> list[GdeltArticle]:
     return articles
 
 
-async def _pace() -> None:
-    global _last_request_at
-    async with _pace_lock:
-        now = monotonic()
-        if _last_request_at is not None:
-            wait = MIN_INTERVAL_SECONDS - (now - _last_request_at)
-            if wait > 0:
-                await asyncio.sleep(wait)
-        _last_request_at = monotonic()
+#: The pacing key GDELT's turns are taken under (one sending address: this server's).
+PACE_KEY = "gdelt"
+
+#: How long a call may wait in line for its turn before it refuses locally. A run that would
+#: wait longer (the post-429 penalty, or many runs ahead of it) reports GDELT unavailable instead.
+DEFAULT_MAX_WAIT_SECONDS = (RATE_LIMIT_RETRIES + 1) * RATE_LIMIT_BACKOFF_SECONDS  # 60 s: as long as its own retry ladder backs off
+
+
+class Pacer(Protocol):
+    """Whose clock decides when the next GDELT call may go out.
+
+    The default (:class:`ProcessPacer`) is this process's own clock. A host with several server
+    processes behind one address passes a shared one (a database row, a Valkey key), because
+    GDELT counts per address, not per process.
+    """
+
+    async def turn(self, key: str, every_seconds: float, wait_seconds: float) -> float | None:
+        """``None``: go now (after any wait). Else the seconds until the next turn, which exceed
+        ``wait_seconds`` — the caller refuses locally."""
+        ...
+
+    async def hold_off(self, key: str, seconds: float) -> None:
+        """No call under ``key`` for ``seconds`` (never shortens a hold already in place)."""
+        ...
+
+
+class ProcessPacer:
+    """One clock per key for this process: the next moment a call may go out."""
+
+    def __init__(
+        self,
+        *,
+        clock: Callable[[], float] | None = None,
+        sleep: Callable[[float], Awaitable[None]] | None = None,
+    ) -> None:
+        self._lock = asyncio.Lock()
+        self._ready_at: dict[str, float] = {}
+        #: Injectable for tests (a virtual clock whose sleep advances it); default: real time.
+        self._clock = clock or monotonic
+        self._sleep = sleep or asyncio.sleep
+
+    async def turn(self, key: str, every_seconds: float, wait_seconds: float) -> float | None:
+        async with self._lock:
+            ahead = self._ready_at.get(key, 0.0) - self._clock()
+            if ahead > wait_seconds:
+                return ahead
+            if ahead > 0:
+                await self._sleep(ahead)
+            self._ready_at[key] = self._clock() + every_seconds
+            return None
+
+    async def hold_off(self, key: str, seconds: float) -> None:
+        until = self._clock() + seconds
+        if until > self._ready_at.get(key, 0.0):
+            self._ready_at[key] = until
+
+    def reset(self) -> None:
+        self._ready_at.clear()
+
+
+_process_pacer = ProcessPacer()
+
+
+def retry_after_seconds(response: httpx.Response) -> float | None:
+    """The wait a 429 names in ``Retry-After`` (seconds form), else ``None``."""
+    raw = (response.headers.get("retry-after") or "").strip()
+    try:
+        return max(0.0, float(raw)) if raw else None
+    except ValueError:
+        return None
 
 
 async def search_articles(
@@ -233,23 +288,20 @@ async def search_articles(
     timespan: str = "1d",
     max_records: int = 100,
     client: httpx.AsyncClient | None = None,
+    pacer: Pacer | None = None,
+    max_wait_seconds: float = DEFAULT_MAX_WAIT_SECONDS,
+    min_interval_seconds: float | None = None,
 ) -> GdeltQueryResult:
     """Run ONE DOC query. Raises `GdeltUnavailable` rather than reporting silence.
 
-    `timespan` uses GDELT's own vocabulary (`15min`, `1h`, `1d`, `7d`).
+    `timespan` uses GDELT's own vocabulary (`15min`, `1h`, `1d`, `7d`). `pacer` decides
+    when the call may go out (default: this process's clock); a call whose turn is more than
+    `max_wait_seconds` away is refused locally, with no HTTP call. `min_interval_seconds`
+    overrides `MIN_INTERVAL_SECONDS` (a host's own setting for GDELT's spacing).
     """
     if not query.strip():
         raise ValueError("a GDELT query cannot be blank")
-    global _penalty_until
-    now = monotonic()
-    if _penalty_until is not None and now < _penalty_until:
-        remaining = _penalty_until - now
-        raise GdeltUnavailable(
-            f"GDELT is still inside its post-429 penalty window ({remaining:.0f}s "
-            f"left) and did not run {query!r}. Querying again now would only "
-            f"extend the penalty; the next scheduled pass retries once it clears. "
-            f"Nothing is wrong with the query or the tracker."
-        )
+    pace = pacer or _process_pacer
     params = {
         "query": query,
         "mode": "ArtList",
@@ -262,28 +314,45 @@ async def search_articles(
     http = client or httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
     try:
         for attempt in range(RATE_LIMIT_RETRIES + 1):
-            await _pace()
+            ahead = await pace.turn(
+                PACE_KEY,
+                MIN_INTERVAL_SECONDS if min_interval_seconds is None else min_interval_seconds,
+                max_wait_seconds,
+            )
+            if ahead is not None:
+                raise GdeltUnavailable(
+                    f"GDELT's next open turn for this server is {ahead:.0f}s away (its post-429 "
+                    f"penalty window, or other runs ahead in line), so {query!r} was not sent. "
+                    f"Querying now would only extend the penalty; the next scheduled pass "
+                    f"retries. Nothing is wrong with the query or the tracker."
+                )
             try:
                 response = await http.get(
                     GDELT_DOC_URL, params=params, headers={"User-Agent": USER_AGENT}
                 )
             except httpx.HTTPError as exc:
                 raise GdeltUnavailable(f"GDELT request failed: {exc}") from exc
-            if response.status_code != 429 or attempt == RATE_LIMIT_RETRIES:
+            if response.status_code != 429:
                 break
-            await asyncio.sleep(RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1))
+            named = retry_after_seconds(response)
+            if attempt == RATE_LIMIT_RETRIES:
+                # Measured 2026-08-16: GDELT does not merely throttle the next request,
+                # it puts a caller that has been impolite into a penalty window that
+                # outlives any per-request backoff. Hold every caller sharing this
+                # pacer off until it clears (longer if GDELT named a longer wait).
+                await pace.hold_off(PACE_KEY, max(PENALTY_WINDOW_SECONDS, named or 0.0))
+                break
+            # GDELT's own Retry-After when it names one; otherwise the stepped backoff.
+            await pace.hold_off(
+                PACE_KEY, named if named is not None else RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)
+            )
     finally:
         if owns_client:
             await http.aclose()
 
     if response.status_code == 429:
-        # Measured 2026-08-16: GDELT does not merely throttle the next request,
-        # it puts a caller that has been impolite into a penalty window that
-        # outlives any per-request backoff. Say that plainly — an operator
-        # reading "HTTP 429" will otherwise go looking for a bug in the query.
-        # Open the local circuit breaker so nothing — this provider, this run,
-        # the next scheduled run — pokes GDELT again until the window clears.
-        _penalty_until = monotonic() + PENALTY_WINDOW_SECONDS
+        # Say it plainly — an operator reading "HTTP 429" will otherwise go looking
+        # for a bug in the query.
         raise GdeltUnavailable(
             f"GDELT is rate-limiting this server (HTTP 429) and did not run "
             f"{query!r}. It asks for one request every 5 seconds; after repeated "
@@ -310,7 +379,11 @@ async def search_articles(
 
 
 __all__ = [
+    "DEFAULT_MAX_WAIT_SECONDS",
     "GDELT_DOC_URL",
+    "PACE_KEY",
+    "Pacer",
+    "ProcessPacer",
     "MAX_RECORDS",
     "MIN_INTERVAL_SECONDS",
     "PENALTY_WINDOW_SECONDS",
@@ -322,5 +395,6 @@ __all__ = [
     "build_query",
     "parse_articles",
     "reset_pacing_state_for_tests",
+    "retry_after_seconds",
     "search_articles",
 ]

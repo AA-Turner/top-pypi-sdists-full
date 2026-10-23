@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qdrant-client
-Version: 1.19.1
+Version: 1.20.0
 Summary: Client library for the Qdrant vector search engine
 License: Apache-2.0
 License-File: LICENSE
@@ -15,10 +15,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Provides-Extra: fastembed
 Provides-Extra: fastembed-gpu
-Requires-Dist: fastembed (>=0.8,<0.9) ; extra == "fastembed"
-Requires-Dist: fastembed-gpu (>=0.8,<0.9) ; extra == "fastembed-gpu"
+Provides-Extra: orjson
+Requires-Dist: fastembed (>=0.9,<0.10) ; extra == "fastembed"
+Requires-Dist: fastembed-gpu (>=0.9,<0.10) ; extra == "fastembed-gpu"
 Requires-Dist: grpcio (>=1.41.0)
 Requires-Dist: httpx[http2] (>=0.20.0)
 Requires-Dist: numpy (>=1.21) ; python_version == "3.11"
@@ -26,7 +28,8 @@ Requires-Dist: numpy (>=1.21,<2.3.0) ; python_version == "3.10"
 Requires-Dist: numpy (>=1.26) ; python_version == "3.12"
 Requires-Dist: numpy (>=2.1.0) ; python_version == "3.13"
 Requires-Dist: numpy (>=2.3.0) ; python_version >= "3.14"
-Requires-Dist: portalocker (>=2.7.0,<4.0)
+Requires-Dist: orjson (>=3.9.15) ; extra == "orjson"
+Requires-Dist: portalocker (>=2.7.0,<5.0)
 Requires-Dist: protobuf (>=3.20.0)
 Requires-Dist: pydantic (>=1.10.8,!=2.0.*,!=2.1.*,!=2.2.0)
 Requires-Dist: urllib3 (>=1.26.14,<3)
@@ -72,6 +75,12 @@ See [QuickStart](https://qdrant.tech/documentation/quick-start/#create-collectio
 
 ```
 pip install qdrant-client
+```
+
+The REST client decodes responses faster with [orjson](https://github.com/ijl/orjson). To use it, install the optional `orjson` extra:
+
+```
+pip install 'qdrant-client[orjson]'
 ```
 
 ## Features

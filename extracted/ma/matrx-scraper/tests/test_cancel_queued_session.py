@@ -74,6 +74,12 @@ class _SessionTable:
             if key == "deleted_at__isnull":
                 if (self.row.deleted_at is None) is not bool(expected):
                     return False
+            elif key == "metadata__json_contains":
+                # jsonb `@>` one level deep — the lease-pinned write filter.
+                for outer, inner in expected.items():
+                    have = (self.row.metadata or {}).get(outer) or {}
+                    if any(have.get(k) != v for k, v in inner.items()):
+                        return False
             elif "__" in key:
                 raise AssertionError(f"in-memory crawl_session does not model lookup {key!r}")
             elif str(getattr(self.row, key)) != str(expected):

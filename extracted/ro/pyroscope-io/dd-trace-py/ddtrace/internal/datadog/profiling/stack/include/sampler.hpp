@@ -110,7 +110,7 @@ class Sampler
 
     // Captures one sampling cycle across all threads (or a reservoir-sampled subset thereof
     // when max_threads_per_sample is set).
-    void capture_samples(microsecond_t wall_time_us);
+    void capture_samples(microsecond_t wall_time_us, bool include_wall_sampler_cpu_time);
 
     // Rolling window for p_stable: ring buffer of process_delta values (us CPU per adapt window).
     // p_stable is the p-th percentile of this buffer, giving a stable estimate of app CPU usage
@@ -126,15 +126,13 @@ class Sampler
     // Percentile (0..1) used for p_stable; configurable, default p95.
     double p_stable_percentile_frac = 0.95;
 
-    // Fast-copy startup warmup in seconds.
-    double fast_copy_warmup_seconds = 15.0;
-
     // Rolling window duration in seconds; controls the ring buffer capacity.
     uint32_t p_stable_window_s = 600;
 
     // Tracks whether the sampler was running when prefork was called,
     // so that postfork_parent/restart_after_fork can restore it.
     bool was_running_at_fork_{ false };
+    std::atomic<uint64_t> greenlet_native_id_generation_{ 0 };
 
     void atfork_child();
     friend void stack_atfork_prepare();
@@ -152,7 +150,7 @@ class Sampler
     void stop();
     PauseResult pause();
     void resume();
-    void register_thread(uint64_t id, uint64_t native_id, const char* name);
+    void register_thread(uint64_t id, uint64_t native_id, const char* name, PyThreadState* tstate = nullptr);
     void unregister_thread(uint64_t id);
     void track_asyncio_loop(uintptr_t thread_id, PyObject* loop);
     void init_asyncio(PyObject* _asyncio_scheduled_tasks, PyObject* _asyncio_eager_tasks);
@@ -207,8 +205,6 @@ class Sampler
 
     // Set the percentile (0–100) used to compute p_stable from the rolling window.
     void set_p_stable_percentile(double percentile) { p_stable_percentile_frac = percentile / 100.0; }
-
-    void set_fast_copy_warmup_seconds(double value) { fast_copy_warmup_seconds = value; }
 
     // Delegates to the StackRenderer to clear its caches after fork
     void postfork_child();

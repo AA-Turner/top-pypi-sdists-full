@@ -185,16 +185,16 @@ class EdrClient:
         uid : Id
 
         script : str
-            The script content to run on the remote endpoint. The engine runs it via the provider's script-execution facility (for example CrowdStrike RTR `runscript`) and returns the captured stdout/stderr.
+            The script content to run on the remote endpoint.
 
         meta : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         args : typing.Optional[str]
-            Optional command-line arguments passed to the script.
+            Optional command-line arguments passed to the script. Providers may limit their length and the characters they accept.
 
         cursor : typing.Optional[str]
-            Opaque cursor returned from a previous pending response, used to continue polling the in-flight execution.
+            Opaque cursor returned from a previous pending response, used to continue polling the in-flight execution. A resume must resend the same script; some providers also require the original args. An execution left pending and never resumed may leave provider objects behind.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -665,7 +665,7 @@ class EdrClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> QueryExclusionsResponse:
         """
-        Returns the exclusions configured in the token-linked EDR source as OCSF Compliance Findings, one per exclusion rule, with the rule's pattern, type, platform, owner and scope. By default only admin-created exclusions are returned; filter `resource.owner.type[in]Admin,System` to include rules the vendor manages.
+        Returns the exclusions configured in the token-linked EDR source as OCSF Compliance Findings, one per exclusion rule, with the rule's pattern, match type and scope. The filters a provider accepts, and which rules it returns when a filter is omitted, are described in that provider's filter documentation.
 
         Parameters
         ----------
@@ -717,7 +717,7 @@ class EdrClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> QueryPoliciesResponse:
         """
-        Returns the protection policy at one level of the token-linked EDR source's policy tree (global, account, site or group; `resource.type` selects the level and defaults to global) as OCSF Compliance Findings, one per scope at that level, with each recommended setting as an assessment and the vendor policy setting that decided it. Findings describe the policy at the requested level; overrides below it are not reflected.
+        Returns the protection policies configured in the token-linked EDR source as OCSF Compliance Findings, one per policy or policy scope, with each recommended setting as an assessment and the vendor policy setting that decided it. `resource.type` selects the policies to evaluate; its values and default are described in each provider's filter documentation.
 
         Parameters
         ----------
@@ -1088,16 +1088,16 @@ class AsyncEdrClient:
         uid : Id
 
         script : str
-            The script content to run on the remote endpoint. The engine runs it via the provider's script-execution facility (for example CrowdStrike RTR `runscript`) and returns the captured stdout/stderr.
+            The script content to run on the remote endpoint.
 
         meta : typing.Optional[typing.Union[str, typing.Sequence[str]]]
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         args : typing.Optional[str]
-            Optional command-line arguments passed to the script.
+            Optional command-line arguments passed to the script. Providers may limit their length and the characters they accept.
 
         cursor : typing.Optional[str]
-            Opaque cursor returned from a previous pending response, used to continue polling the in-flight execution.
+            Opaque cursor returned from a previous pending response, used to continue polling the in-flight execution. A resume must resend the same script; some providers also require the original args. An execution left pending and never resumed may leave provider objects behind.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1577,7 +1577,7 @@ class AsyncEdrClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> QueryExclusionsResponse:
         """
-        Returns the exclusions configured in the token-linked EDR source as OCSF Compliance Findings, one per exclusion rule, with the rule's pattern, type, platform, owner and scope. By default only admin-created exclusions are returned; filter `resource.owner.type[in]Admin,System` to include rules the vendor manages.
+        Returns the exclusions configured in the token-linked EDR source as OCSF Compliance Findings, one per exclusion rule, with the rule's pattern, match type and scope. The filters a provider accepts, and which rules it returns when a filter is omitted, are described in that provider's filter documentation.
 
         Parameters
         ----------
@@ -1629,7 +1629,7 @@ class AsyncEdrClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> QueryPoliciesResponse:
         """
-        Returns the protection policy at one level of the token-linked EDR source's policy tree (global, account, site or group; `resource.type` selects the level and defaults to global) as OCSF Compliance Findings, one per scope at that level, with each recommended setting as an assessment and the vendor policy setting that decided it. Findings describe the policy at the requested level; overrides below it are not reflected.
+        Returns the protection policies configured in the token-linked EDR source as OCSF Compliance Findings, one per policy or policy scope, with each recommended setting as an assessment and the vendor policy setting that decided it. `resource.type` selects the policies to evaluate; its values and default are described in each provider's filter documentation.
 
         Parameters
         ----------

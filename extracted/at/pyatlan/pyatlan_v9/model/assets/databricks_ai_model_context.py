@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .ai_related import RelatedAIApplication, RelatedAIModelVersion
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -37,6 +45,10 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .databricks_related import (
+    RelatedDatabricksAIModelContext,
+    RelatedDatabricksAIModelVersion,
+)
 from .dbt_related import (
     RelatedDbtModel,
     RelatedDbtSeed,
@@ -61,17 +73,6 @@ from .sql_insight_related import (
     RelatedSqlInsightJoin,
 )
 from .sql_related import RelatedSchema
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .databricks_related import (
-    RelatedDatabricksAIModelContext,
-    RelatedDatabricksAIModelVersion,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -540,14 +541,6 @@ class DatabricksAIModelContext(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.schema_name is UNSET:
-                errors.append("schema_name is required for creation")
-            if self.schema_qualified_name is UNSET:
-                errors.append("schema_qualified_name is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"DatabricksAIModelContext validation failed: {errors}")
 
@@ -581,6 +574,52 @@ class DatabricksAIModelContext(Asset):
         if self.guid is not UNSET:
             return RelatedDatabricksAIModelContext(guid=self.guid)
         return RelatedDatabricksAIModelContext(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        schema_qualified_name: str,
+        schema_name: str | None = None,
+        database_name: str | None = None,
+        database_qualified_name: str | None = None,
+        connection_qualified_name: str | None = None,
+    ) -> "DatabricksAIModelContext":
+        validate_required_fields(
+            ["name", "schema_qualified_name"], [name, schema_qualified_name]
+        )
+        fields = schema_qualified_name.split("/")
+        if len(fields) != 5:
+            raise ValueError(
+                f"Invalid schema_qualified_name: {schema_qualified_name}. "
+                "Expected format: default/connector/connection_id/catalog/schema"
+            )
+        connection_qn = connection_qualified_name or "/".join(fields[:3])
+        db_name = database_name or fields[3]
+        return cls(
+            name=name,
+            qualified_name=f"{schema_qualified_name}/{name}",
+            database_name=db_name,
+            database_qualified_name=database_qualified_name
+            or f"{connection_qn}/{db_name}",
+            schema_name=schema_name or fields[4],
+            schema_qualified_name=schema_qualified_name,
+            connector_name=fields[1],
+            connection_qualified_name=connection_qn,
+            databricks_ai_model_schema=RelatedSchema(
+                qualified_name=schema_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DatabricksAIModelContext":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DatabricksAIModelContext":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1205,6 +1244,7 @@ def _databricks_ai_model_context_to_nested(
         is_incomplete=databricks_ai_model_context.is_incomplete,
         provenance_type=databricks_ai_model_context.provenance_type,
         home_id=databricks_ai_model_context.home_id,
+        delete_handler=databricks_ai_model_context.delete_handler,
         depth=databricks_ai_model_context.depth,
         immediate_upstream=databricks_ai_model_context.immediate_upstream,
         immediate_downstream=databricks_ai_model_context.immediate_downstream,
@@ -1255,6 +1295,7 @@ def _databricks_ai_model_context_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

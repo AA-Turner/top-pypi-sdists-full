@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libpysal
-Version: 4.15.0
+Version: 4.15.1
 Summary: Core components of PySAL - A library of spatial analysis functions
 Author-email: Serge Rey <sjsrey@gmail.com>, Levi Wolf <levi.john.wolf@gmail.com>
 Maintainer: PySAL Developers
@@ -42,13 +42,16 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: watermark; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: myst-parser; extra == "docs"
-Requires-Dist: nbsphinx; extra == "docs"
-Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: myst-nb; extra == "docs"
 Requires-Dist: pandoc; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-autosummary-accessors; extra == "docs"
 Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
-Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx-immaterial; extra == "docs"
+Requires-Dist: seaborn; extra == "docs"
+Requires-Dist: esda; extra == "docs"
+Requires-Dist: watermark; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: codecov; extra == "tests"
 Requires-Dist: geodatasets>=2024.7.0; extra == "tests"

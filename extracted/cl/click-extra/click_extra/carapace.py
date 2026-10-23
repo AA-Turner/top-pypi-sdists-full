@@ -77,8 +77,11 @@ from . import context  # noqa: F401
 from ._deprecated import warn_deprecated_argument
 from ._utils import generator_tag, missing_extra_message
 from .parameters import (
+    choice_values,
+    clean_help,
     full_short_help,
     is_repeatable,
+    iter_inline_literals,
     iter_params_for_display,
     iter_subcommands,
     make_resilient_context,
@@ -87,27 +90,26 @@ from .parameters import (
     short_long_opts,
 )
 
-try:
-    import yaml
-except ImportError:
-    # PyYAML ships behind the `carapace` extra: importing this module stays
-    # cheap, and only the YAML-serializing entry points raise (see _require_yaml).
-    yaml = None  # type: ignore[assignment]
-
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from types import ModuleType
 
     from click import Command, Context, Parameter
 
 
-CARAPACE_SPECS_DIR = Path("~/.config/carapace/specs").expanduser()
+_CARAPACE_SPECS_DIR = Path("~/.config/carapace/specs")
+"""The `~` form of {data}`CARAPACE_SPECS_DIR`, for {func}`xdg_dir` to expand at
+call time."""
+
+CARAPACE_SPECS_DIR = _CARAPACE_SPECS_DIR.expanduser()
 """User spec directory Carapace loads on startup.
 
 Writing `<prog>.yaml` here (see {func}`install_carapace_spec`) is all it takes
 for Carapace to pick up a CLI's completions. Mirrors the `$XDG_CONFIG_HOME`
-default documented by Carapace; an explicit `XDG_CONFIG_HOME` is honored by
-{func}`install_carapace_spec` at call time rather than baked in here.
+default documented by Carapace, expanded against the `HOME` of the process at
+import. {func}`install_carapace_spec` reads `XDG_CONFIG_HOME` and `HOME` at call
+time instead, through {func}`xdg_dir`.
 """
 
 CARAPACE_DOCS_URL = "https://kdeldycke.github.io/click-extra/carapace.html"
@@ -115,25 +117,57 @@ CARAPACE_DOCS_URL = "https://kdeldycke.github.io/click-extra/carapace.html"
 reader of the raw YAML knows where the feature is documented."""
 
 
-def _require_yaml() -> None:
-    """Raise a pointed error when the optional PyYAML dependency is missing."""
-    if yaml is None:
+def xdg_dir(variable: str, fallback: str | Path, *parts: str) -> Path:
+    """A directory under an XDG base directory, resolved at call time.
+
+    Reads the base directory from the environment variable `variable`
+    (`XDG_CONFIG_HOME`, say) and appends `parts` to it. An unset or empty
+    variable falls back to `fallback`, the full default path the XDG spec
+    derives from that variable's own default base, which already carries the
+    `parts`. A leading `~` is expanded against the `HOME` in force at the call,
+    so neither the environment nor the home directory is read at import time:
+    a value set for one invocation, by a test fixture or a packaging script
+    staging into a build root, is the one honored. Pass `fallback` in its `~`
+    form for that: a path expanded at import carries that `HOME` for good.
+    """
+    base = os.environ.get(variable)
+    if base:
+        return Path(base).expanduser().joinpath(*parts)
+    return Path(fallback).expanduser()
+
+
+def _require_yaml() -> ModuleType:
+    """Import PyYAML on demand, with a pointed error when it is missing.
+
+    PyYAML ships behind the `carapace` extra, and only the YAML-serializing
+    entry points need it.
+    """
+    # Deferred import: keeps PyYAML off the startup path of every CLI, installed
+    # or not.
+    try:
+        import yaml
+    except ImportError:
         raise ImportError(
             missing_extra_message("carapace", subject="Carapace spec serialization")
-        )
+        ) from None
+    return yaml
 
 
 def _clean_description(text: str | None) -> str:
-    """Collapse a help string to a single Carapace-friendly description line.
+    r"""Collapse a help string to a single Carapace-friendly description line.
 
-    Strips reST inline-literal backticks (Click stores docstrings verbatim, so
-    `"`...`"` markup leaks through), keeps only the first paragraph and
-    squashes internal whitespace. Carapace truncates long descriptions itself.
+    Normalizes the prose with {func}`~click_extra.parameters.clean_help`, which
+    drops Click's `\b` no-rewrap marker, then keeps only the first paragraph, strips
+    the reST inline-literal backticks while keeping the text they wrap (Click
+    stores docstrings verbatim, so `"`...`"` markup leaks through) and squashes
+    internal whitespace. Carapace truncates long descriptions itself. Every
+    description of a spec, a command's included, goes through here.
     """
     if not text:
         return ""
-    paragraph = text.replace("``", "").split("\n\n", 1)[0]
-    return " ".join(paragraph.split())
+    paragraph = clean_help(text).split("\n\n", 1)[0]
+    plain = "".join(segment for segment, _ in iter_inline_literals(paragraph))
+    return " ".join(plain.split())
 
 
 # --- flag-key construction --------------------------------------------------
@@ -189,8 +223,15 @@ def _flag_name(opts: list[str]) -> str:
 
 
 def _env_var(prog_name: str) -> str:
-    """Completion env var Click derives from a program name (`_FOO_COMPLETE`)."""
-    return f"_{prog_name}_COMPLETE".replace("-", "_").upper()
+    """Completion env var Click derives from a program name (`_FOO_COMPLETE`).
+
+    Mirrors the derivation of `click.Command._main_shell_completion`: a `-`
+    and a `.` both become `_`, then the whole name is upper-cased, so a program
+    named `garden.py` reads `_GARDEN_PY_COMPLETE`. A spec exporting any other
+    spelling calls back into a variable Click never reads.
+    """
+    complete_name = prog_name.replace("-", "_").replace(".", "_")
+    return f"_{complete_name}_COMPLETE".upper()
 
 
 def _dynamic_action(command_path: tuple[str, ...], option: str | None = None) -> str:
@@ -243,11 +284,13 @@ def _static_action(param_type: click.ParamType) -> list[str] | None:
     Maps choice-like types to their literal values and path/file types to
     Carapace's `$files` / `$directories` macros, mirroring how Click's own
     {meth}`Choice.shell_complete <click.Choice.shell_complete>` and
-    {meth}`Path.shell_complete <click.Path.shell_complete>` behave.
+    {meth}`Path.shell_complete <click.Path.shell_complete>` behave. The choices
+    are spelled by {func}`~click_extra.parameters.choice_values`, so an `Enum`
+    member completes by the name Click accepts.
     """
-    choices = getattr(param_type, "choices", None)
+    choices = choice_values(param_type)
     if choices:
-        return [str(choice) for choice in choices]
+        return list(choices)
     if isinstance(param_type, click.Path):
         if param_type.dir_okay and not param_type.file_okay:
             return ["$directories"]
@@ -571,7 +614,7 @@ def extract_carapace_command(
 
     node = CarapaceCommand(
         name=ctx.info_name or command.name or "",
-        description=full_short_help(command),
+        description=_clean_description(full_short_help(command)),
         aliases=tuple(getattr(command, "aliases", ()) or ()),
         hidden=bool(getattr(command, "hidden", False)),
     )
@@ -625,7 +668,7 @@ def to_carapace_spec(
     """
     name = prog_name or command.name or ""
     if ctx is None:
-        ctx = make_resilient_context(command, name)
+        ctx = make_resilient_context(command, prog_name)
     node = extract_carapace_command(
         command,
         ctx,
@@ -651,9 +694,9 @@ def dump_carapace_spec(
     header: the generator version, the `invocation` command line that produced
     it (when given), and a link to the documentation.
     """
-    _require_yaml()
+    yaml = _require_yaml()
     spec = to_carapace_spec(command, prog_name, ctx)
-    body = yaml.safe_dump(spec, sort_keys=False, allow_unicode=True, width=88)
+    body: str = yaml.safe_dump(spec, sort_keys=False, allow_unicode=True, width=88)
     header_lines = [f"# Generated by {generator_tag()}. Do not edit by hand."]
     if invocation:
         header_lines.append(f"# $ {invocation}")
@@ -692,11 +735,12 @@ def install_carapace_spec(
     """Write the spec into Carapace's user spec directory.
 
     Targets `$XDG_CONFIG_HOME/carapace/specs/<prog>.yaml` (honoring an explicit
-    `XDG_CONFIG_HOME`), which Carapace loads on startup. Returns the path.
+    `XDG_CONFIG_HOME`, else the default behind {data}`CARAPACE_SPECS_DIR`, both
+    resolved at call time by {func}`xdg_dir`), which Carapace loads on startup.
+    Returns the path.
     """
     name = prog_name or command.name or "cli"
-    xdg = os.environ.get("XDG_CONFIG_HOME")
-    base = Path(xdg).expanduser() / "carapace" / "specs" if xdg else CARAPACE_SPECS_DIR
+    base = xdg_dir("XDG_CONFIG_HOME", _CARAPACE_SPECS_DIR, "carapace", "specs")
     return write_carapace_spec(
         command, base / f"{name}.yaml", prog_name=name, invocation=invocation
     )

@@ -150,6 +150,7 @@ class ServerMandateSource:
                     kind=item["kind"],
                     guaranteed=bool(item.get("guaranteed", True)),
                     lazy=bool(item.get("lazy", False)),
+                    many=bool(item.get("many", False)),
                 )
                 for item in raw_offered
                 if isinstance(item, dict)

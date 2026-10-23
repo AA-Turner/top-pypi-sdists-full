@@ -17,90 +17,12 @@ class NearestName:
     Utility class to help find the nearest name in a given ea/name dictionary
     
     """
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
     def __getitem__(self, index: Any) -> Any:
         r"""Returns the tupple (ea, name, index)"""
         ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self, ea_names: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
     def __iter__(self) -> Any:
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __repr__(self) -> str:
-        r"""Return repr(self)."""
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def find(self, ea: Any) -> Any:
         r"""
@@ -116,178 +38,32 @@ class NearestName:
 class ea_name_t:
     @property
     def ea(self) -> ida_idaapi.ea_t: ...
+    @ea.setter
+    def ea(self, value: ida_idaapi.ea_t) -> None: ...
     @property
     def name(self) -> str: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
+    @name.setter
+    def name(self, value: str) -> None: ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class ea_name_vec_t:
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
     def __getitem__(self, i: int) -> ea_name_t:
         ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self, *args: Any) -> Any:
-        ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
         ...
     def __iter__(self) -> Iterator[ea_name_t]:
         r"""Helper function, to be set as __iter__ method for qvector-, or array-based classes."""
         ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
     def __len__(self) -> int:
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
         ...
     def __repr__(self) -> Any:
         ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
     def __setitem__(self, i: int, v: ea_name_t) -> None:
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -338,7 +114,7 @@ class ea_name_vec_t:
     def truncate(self) -> None:
         ...
 
-def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, appzero: bool) -> Union[str, None]:
+def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, asf_flags: int) -> Union[str, None]:
     r"""Append names of struct fields to a name if the name is a struct name. 
             
     :param disp: displacement from the name
@@ -346,7 +122,7 @@ def append_struct_fields(disp: int, n: int, path: int, flags: int, delta: int, a
     :param path: path in the struct. path is an array of id's. maximal length of array is MAXSTRUCPATH. the first element of the array is the structure id. consecutive elements are id's of used union members (if any).
     :param flags: the input flags. they will be returned if the struct cannot be found.
     :param delta: delta to add to displacement
-    :param appzero: should append a struct field name if the displacement is zero?
+    :param asf_flags: a combination of Flags for append_struct_fields() (e.g. ASF_APPEND_ZERO). For source compatibility, the historical `bool appzero` maps to ASF_APPEND_ZERO (bit 0), so passing true/false still works.
     :returns: flags of the innermost struct member or the input flags
     """
     ...
@@ -433,6 +209,12 @@ def get_ea_name(ea: ida_idaapi.ea_t, gtn_flags: int = 0) -> str:
     :param ea: linear address
     :param gtn_flags: how exactly the name should be retrieved. combination of bits for get_ea_name() function. There is a convenience bits
     :returns: success
+    """
+    ...
+
+def get_listing_name(ea: ida_idaapi.ea_t, gtn_flags: int = 0) -> str:
+    r"""Get the name as a listing shows it: short demangled form, in backticks if it could merge with the text around it (see GN_LISTING) 
+            
     """
     ...
 
@@ -531,9 +313,6 @@ def hide_name(ea: ida_idaapi.ea_t) -> None:
     ...
 
 def is_ident(name: str) -> bool:
-    r"""Is a valid name? (including ::MangleChars).
-    
-    """
     ...
 
 def is_ident_cp(cp: wchar32_t) -> bool:
@@ -579,9 +358,12 @@ def is_strlit_cp(cp: wchar32_t, specific_ranges: rangeset_crefvec_t = None) -> b
     ...
 
 def is_uname(name: str) -> bool:
-    r"""Is valid user-specified name? (valid name & !dummy prefix). 
+    r"""Append a name as a listing line shows it: in backticks if it could merge with the text around it. It is not put in backticks if the database setting is off (see inf_bare_names()), if all its characters are allowed (::NameChars or ::TypeNameChars, plus '.' and the '::' separator), or if it has the syntax of a C++ name. Inside the backticks, '`' and '\' are escaped with '\'. 
+    / Is a valid name? (including ::MangleChars)
+    idaman bool ida_export is_ident(const char *name);
+    /** Is valid user-specified name? (valid name & !dummy prefix). 
             
-    :param name: name to test. may be nullptr.
+    :param name: the name
     :returns: 1: yes
     :returns: 0: no
     """
@@ -609,6 +391,9 @@ def is_visible_cp(cp: wchar32_t) -> bool:
     ...
 
 def is_weak_name(ea: ida_idaapi.ea_t) -> bool:
+    ...
+
+def make_listing_name(name: str, vnt: int, semspan: bool = False) -> str:
     ...
 
 def make_name_auto(ea: ida_idaapi.ea_t) -> bool:
@@ -686,6 +471,9 @@ def validate_name(name: str, type: nametype_t, flags: int = 1) -> Any:
     """
     ...
 
+ASF_APPEND_ZERO: int  # 1
+ASF_LISTING: int  # 4
+ASF_TAG_MEMBERS: int  # 2
 CN_KEEP_TRAILING_DIGITS: int  # 1
 CN_KEEP_UNDERSCORES: int  # 2
 CN_REMOVE_ALL_TRAILING_DIGITS: int  # 4
@@ -703,6 +491,7 @@ FUNC_IMPORT_PREFIX: str  # __imp_
 GETN_APPZERO: int  # 1
 GETN_NODUMMY: int  # 4
 GETN_NOFIXUP: int  # 2
+GNCN_LISTING: int  # 2048
 GNCN_NOCOLOR: int  # 2
 GNCN_NODBGNM: int  # 256
 GNCN_NOFUNC: int  # 8
@@ -713,9 +502,11 @@ GNCN_REQFUNC: int  # 64
 GNCN_REQNAME: int  # 128
 GNCN_SEGNUM: int  # 32
 GNCN_SEG_FUNC: int  # 16
+GNCN_SEMSPAN: int  # 1024
 GN_COLORED: int  # 2
 GN_DEMANGLED: int  # 4
 GN_ISRET: int  # 128
+GN_LISTING: int  # 1024
 GN_LOCAL: int  # 64
 GN_LONG: int  # 32
 GN_NOT_DUMMY: int  # 512
@@ -762,6 +553,7 @@ MNG_NOPOSTFC: int  # 512
 MNG_NOPTRTYP: int  # 7
 MNG_NOPTRTYP16: int  # 3
 MNG_NORETTYPE: int  # 64
+MNG_NORUSTHASH: int  # 524288
 MNG_NOSCTYP: int  # 1024
 MNG_NOSTVIR: int  # 4096
 MNG_NOTHROW: int  # 2048

@@ -174,3 +174,29 @@ def test_caller_cannot_hold_a_pooled_browser_indefinitely() -> None:
     assert mod.BrowserFetchRequest(url="https://x.test").timeout_ms <= 30_000
     with pytest.raises(pydantic.ValidationError):
         mod.BrowserFetchRequest(url="https://x.test", timeout_ms=120_000)
+
+
+class _BlockedPool(_FakePool):
+    def __init__(self, status: int, html: str) -> None:
+        super().__init__(html=html)
+        self._status = status
+
+    async def fetch(self, url: str, proxy: str | None = None, timeout_ms: int = 30_000):
+        return self._html, url, self._status, {"content-type": "text/html"}, "Access denied"
+
+
+@pytest.mark.asyncio
+async def test_a_blocked_render_names_its_http_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Live 2026-10-22: glassdoor/zoominfo renders were 403 / Cloudflare pages and came back success=False, error=None."""
+    _install(monkeypatch, _BlockedPool(403, "<html>Access denied</html>"))
+    result = await mod.browser_fetch(mod.BrowserFetchRequest(url="https://example.com/a"), ctx=None)
+    assert result.success is False
+    assert result.error == "rendered HTTP 403"
+
+
+@pytest.mark.asyncio
+async def test_an_empty_render_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install(monkeypatch, _BlockedPool(200, ""))
+    result = await mod.browser_fetch(mod.BrowserFetchRequest(url="https://example.com/a"), ctx=None)
+    assert result.success is False
+    assert result.error == "rendered an empty page"

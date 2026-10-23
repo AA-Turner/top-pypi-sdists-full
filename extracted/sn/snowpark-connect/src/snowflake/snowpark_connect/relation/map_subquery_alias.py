@@ -53,5 +53,8 @@ def map_alias(
         # Preserve sortWithinPartitions ordering across an alias (e.g. a temp
         # view's SubqueryAlias) so a downstream UDTF table argument still sees it.
         sort_exprs=input_container.sort_exprs,
+    ).with_known_schema(input_container.known_schema())
+    result.column_map.carry_sort_identity(
+        {n: (input_container.column_map, n) for n in snowpark_column_names}
     )
     return result

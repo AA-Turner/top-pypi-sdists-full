@@ -52,11 +52,12 @@ from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
 from schemathesis.generation.stateful.state_machine import (
     DEFAULT_STATE_MACHINE_SETTINGS,
     APIStateMachine,
+    RecordingStateMachine,
     StepInput,
     StepOutput,
 )
 from schemathesis.generation.metrics import MetricCollector
-from schemathesis.resources import record_interaction
+from schemathesis.resources import record_delete_attempt, record_interaction
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -82,14 +83,13 @@ def _replay_recorders_into_pool(extra_data_source: ResourceRecorder, recorders: 
 
 def _record_into_pool(extra_data_source: ResourceRecorder, case: Case, response: Response) -> None:
     record_interaction(extra_data_source, case, response)
-    if 200 <= response.status_code < 300 or response.status_code == 404:
-        extra_data_source.record_successful_delete(operation=case.operation, case=case)
+    record_delete_attempt(extra_data_source, case, response.status_code)
     response.clear_cache()
 
 
 def _get_hypothesis_settings_kwargs_override(settings: hypothesis.settings) -> dict[str, Any]:
     """Get the settings that should be overridden to match the defaults for API state machines."""
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     hypothesis_default = hypothesis.settings.get_profile("default")
     if settings.phases == hypothesis_default.phases:
         kwargs["phases"] = DEFAULT_STATE_MACHINE_SETTINGS.phases
@@ -271,7 +271,9 @@ def _replay_cached_outcome(ctx: StatefulContext, case: Case) -> bool:
     return ctx.get_step_outcome(case) is None
 
 
-def _send_step(machine: APIStateMachine, case: Case, *, engine: EngineContext, event_queue: queue.Queue) -> Response:
+def _send_step(
+    machine: RecordingStateMachine, case: Case, *, engine: EngineContext, event_queue: queue.Queue
+) -> Response:
     """Send the step's request and validate the response, waiting out rate limits when configured."""
     machine.before_call(case)
     kwargs = machine.get_call_kwargs(case)
@@ -475,7 +477,7 @@ def _suite_seed(engine: EngineContext, settings: hypothesis.settings) -> int | N
 
 
 def _run_step(
-    machine: APIStateMachine,
+    machine: RecordingStateMachine,
     case: Case,
     *,
     engine: EngineContext,

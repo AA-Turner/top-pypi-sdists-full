@@ -36,7 +36,6 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import copy
 import hashlib
 import json
 import logging
@@ -734,6 +733,7 @@ def authoring_model_repairer(current_request: Any) -> FallbackRepair:
             MessageList,
             UnifiedMessage,
             host_authored_user_turn,
+            person_authored_user_turn,
         )
         from matrx_ai.config.unified_content import TextContent
         from matrx_ai.orchestrator.executor import _assistant_text_from_response, execute_ai_request
@@ -742,15 +742,25 @@ def authoring_model_repairer(current_request: Any) -> FallbackRepair:
         # calls and results (a skill load, a lookup) that this tool-less child may not replay.
         drawn = {"__kind": VISUAL_MAP_KIND, "type": provision.get("diagram_type"),
                  "spec": provision.get("spec"), "verified": False, "issues": 0}
-        config = copy.deepcopy(current_request.config)
-        config.messages = MessageList([
-            UnifiedMessage(role="user", content=[TextContent(text=provision.get("user_request") or "Draw the diagram.")]),
-            UnifiedMessage(role="assistant", content=[TextContent(text=json.dumps(drawn, ensure_ascii=False))]),
-            host_authored_user_turn(repair_notice(provision), reason="visual_map_repair"),
-        ])
-        config.tools = []
-        config.custom_tools = []
-        config.tool_choice = None
+        # A NEW config for a separate child call (its own three-message list, no tools), never a
+        # rewrite of the live run's message list: the send-boundary guard keeps that seam closed.
+        # Her own request is replayed as hers; with none on record the opener is the host's.
+        user_request = provision.get("user_request")
+        opener = (
+            person_authored_user_turn(user_request)
+            if user_request
+            else host_authored_user_turn("Draw the diagram.", reason="visual_map_repair")
+        )
+        config = current_request.config.for_child_call(
+            messages=MessageList([
+                opener,
+                UnifiedMessage(role="assistant", content=[TextContent(text=json.dumps(drawn, ensure_ascii=False))]),
+                host_authored_user_turn(repair_notice(provision), reason="visual_map_repair"),
+            ]),
+            tools=[],
+            custom_tools=[],
+            tool_choice=None,
+        )
         _repair_budget(config)
         child_id = str(uuid4())
 

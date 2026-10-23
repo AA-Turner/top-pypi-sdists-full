@@ -1,6 +1,7 @@
 """Kimi Code's hooks: the rendered manifests, the payload/output adapter
-(hooks/harness_io.py), the guard's view of Kimi's write tools, and how a
-`probe` command finds the Kimi session that started it.
+(hooks/harness_io.py), the guard's view of Kimi's write tools, how a
+`probe` command finds the Kimi session that started it, and the dispatcher
+behind Kimi's entries (D19), held to what the per-script entries gave Kimi.
 
 Payloads are the real ones Kimi Code 2.1.1 sent (tests/fixtures/kimi_code).
 """
@@ -15,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -80,39 +82,90 @@ def test_the_kimi_manifests_are_rendered_from_the_wiring():
     assert kimi_hooks.main(["--check"]) == 0
 
 
-@pytest.mark.parametrize("rel", ["plugins/probe-research", "plugins/probe-research-daemon"])
-def test_every_kimi_hook_matches_its_routes_json_twin(rel):
-    manifest = json.loads((AGENT / rel / ".kimi-plugin" / "plugin.json").read_text())
-    source = json.loads((AGENT / rel / "hooks" / "routes.json").read_text())["hooks"]
-    twins = [
-        (event, group.get("matcher"), hook)
-        for event, groups in source.items()
-        for group in groups
-        for hook in group["hooks"]
-        if (event, kimi_hooks._SCRIPT.findall(hook["command"])[-1][0]) not in kimi_hooks.SKIPPED
-    ]
-    extras = [e for e in manifest["hooks"] if e["event"] in {row[0] for row in kimi_hooks.KIMI_ONLY}]
-    assert len(manifest["hooks"]) == len(twins) + len(extras)
-    assert len(extras) == len(kimi_hooks.KIMI_ONLY)
-    for entry, (event, matcher, hook) in zip(manifest["hooks"], twins):
+TRACKING = ["plugins/probe-research", "plugins/probe-research-daemon"]
+
+
+def _dispatch_of(rel: str):
+    return _load(f"_test_kimi_dispatch_{Path(rel).name}", AGENT / rel / "hooks" / "dispatch.py")
+
+
+def _manifest(rel: str) -> list[dict]:
+    return json.loads((AGENT / rel / ".kimi-plugin" / "plugin.json").read_text())["hooks"]
+
+
+def _routes(rel: str) -> dict:
+    return json.loads((AGENT / rel / "hooks" / "routes.json").read_text())["hooks"]
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_kimi_gets_one_dispatcher_entry_per_event(rel):
+    """D19: Kimi renders to the same thin client as Claude Code and Codex. One
+    entry per routes.json event, each the dispatcher's lane for it; what runs on
+    it (scripts, arguments, profile exports) is routes.json's, never the entry's."""
+    dispatch = _dispatch_of(rel)
+    entries = _manifest(rel)
+    routes = _routes(rel)
+    assert [e["event"] for e in entries] == list(routes)
+    for entry in entries:
+        event = entry["event"]
         # Kimi's schema is strict: exactly these keys.
         assert set(entry) <= {"event", "matcher", "command", "timeout"}
-        assert entry["event"] == event
-        assert entry.get("matcher") == matcher
-        assert entry.get("timeout") == hook.get("timeout")
-        script = kimi_hooks._SCRIPT.findall(hook["command"])[-1][0]
-        assert f'harness_io.py" {script}' in entry["command"]
-        # Parsed apart from the renderer's own regex: the words after the
-        # script (telemetry's event) and every PROBE_* export must survive.
-        tail = hook["command"].rsplit(f"hooks/{script}", 1)[1].split("'")[0].lstrip('"')
-        assert entry["command"].rsplit(f"{script}", 1)[1].startswith(tail)
-        for export in re.findall(r"export (PROBE_[A-Z_]+=[a-z_]+)", hook["command"]):
-            if export not in ("PROBE_AGENT=codex", "PROBE_TAP_SOURCE=codex"):
-                assert export in entry["command"], export
-        assert "export PROBE_AGENT=kimi_code" in entry["command"]
-        assert ("PROBE_PLUGIN_PROFILE=daemon" in entry["command"]) == (
-            "PROBE_PLUGIN_PROFILE=daemon" in hook["command"]
-        )
+        [lane] = {group["lane"] for group in routes[event]}
+        assert dispatch.LANE_EVENT[lane] == event
+        flags = " --unshown" if event in kimi_hooks.UNSHOWN else ""
+        assert entry["command"].endswith(f'exec "$PY" -S "$ROOT/hooks/harness_io.py" --event {event}{flags}\'')
+        assert "export PROBE_AGENT=kimi_code;" in entry["command"]
+        assert not re.search(r"hooks/(?!harness_io\.py)[A-Za-z0-9_.-]+\.(py|sh)", entry["command"]), entry["command"]
+        # The dispatcher prints before Kimi kills the entry (Kimi bounds each
+        # hook by its own timeout, 30 s when it names none).
+        assert entry["timeout"] == (dispatch.ENTRY_TIMEOUT[lane] or dispatch.HARNESS_DEFAULT_TIMEOUT_S)
+        if lane != "session-end":
+            assert dispatch.budget(lane) + dispatch.MARGIN_S <= entry["timeout"], event
+    assert {e["event"] for e in entries if "--unshown" in e["command"]} == set(kimi_hooks.UNSHOWN)
+
+
+_KIMI_TOOLS = (
+    "Bash", "Write", "Edit", "MultiEdit", "NotebookEdit", "AskUserQuestion", "Skill", "SlashCommand", "WebSearch",
+    "Read", "Grep", "Glob", "WebFetch", "Agent", "TodoWrite", "BashOutput", "ReadMediaFile",
+    "mcp__plugin-probe-research:probe-research__search", "mcp__probe_research__run_list", "mcp__other__x", "",
+)
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_kimi_starts_python_for_exactly_the_tools_a_route_takes(rel):
+    """Kimi matches an entry's matcher as a regex search on the tool name (2.1.1
+    `matches$1`: `new RegExp(pattern).test(value)`). The one entry per tool event
+    must reach every tool some route takes under Kimi (else a guard is skipped)
+    and no other (else every Read starts Python). An unshown event's catch-all
+    never runs under Kimi, so it does not widen the matcher."""
+    dispatch = _dispatch_of(rel)
+    routes = _routes(rel)
+    for entry in _manifest(rel):
+        event = entry["event"]
+        if event not in kimi_hooks.TOOL_EVENTS:
+            assert entry.get("matcher") == kimi_hooks.EVENT_MATCHERS.get(event), event
+            continue
+        for tool in _KIMI_TOOLS:
+            wanted = any(
+                dispatch.matches(group.get("matcher"), tool)
+                for group in routes[event]
+                if group.get("matcher") or event not in kimi_hooks.UNSHOWN
+            )
+            assert (re.search(entry.get("matcher") or "", tool) is not None) is wanted, (event, tool)
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_telemetry_keeps_its_positional_event_argument(rel):
+    """telemetry.py dispatches on `post-tool` / `session-end`; without it, it
+    does nothing. Kimi's entries carry no script: the dispatcher runs the
+    route's own command, argument included."""
+    dispatch = _dispatch_of(rel)
+    events = {e["event"] for e in _manifest(rel)}
+    wiring = {"hooks": _routes(rel)}
+    for lane, argument in (("post-tool", "post-tool"), ("session-end", "session-end")):
+        assert dispatch.LANE_EVENT[lane] in events
+        commands = [h["command"] for h in dispatch.routes(lane, {"tool_name": "Bash"}, wiring)]
+        assert any(c.endswith(f"telemetry.py\" {argument}'") for c in commands), lane
 
 
 def test_the_kimi_tracking_plugin_carries_the_oauth_mcp_and_the_daemon_plugin_none():
@@ -390,26 +443,29 @@ def test_kimis_tool_call_id_reaches_the_approvals_hook_as_tool_use_id(isolated):
         assert out["tool_use_id"] == "call_6"
 
 
-@pytest.mark.parametrize("rel", ["plugins/probe-research", "plugins/probe-research-daemon"])
-def test_telemetry_keeps_its_positional_event_argument(rel):
-    """telemetry.py dispatches on `post-tool` / `session-end`; without it, it
-    does nothing."""
-    manifest = json.loads((AGENT / rel / ".kimi-plugin" / "plugin.json").read_text())
-    commands = [h["command"] for h in manifest["hooks"] if "telemetry.py" in h["command"]]
-    assert any(c.endswith("telemetry.py post-tool'") for c in commands)
-    assert any(c.endswith("telemetry.py session-end'") for c in commands)
-
-
-@pytest.mark.parametrize("rel", ["plugins/probe-research", "plugins/probe-research-daemon"])
-def test_no_kimi_post_tool_hook_claims_a_daemon_message(rel):
+@pytest.mark.parametrize("rel", TRACKING)
+def test_no_kimi_post_tool_hook_claims_a_daemon_message(isolated, rel):
     """reads_hook claims a mailbox message before printing it, and Kimi drops
-    PostToolUse output: the answer would vanish. It is delivered on the next
-    prompt instead."""
-    manifest = json.loads((AGENT / rel / ".kimi-plugin" / "plugin.json").read_text())
-    post = [h["command"] for h in manifest["hooks"] if h["event"] == "PostToolUse"]
-    assert post and not any("reads_hook.py" in c for c in post)
-    prompt = [h["command"] for h in manifest["hooks"] if h["event"] == "UserPromptSubmit"]
-    assert any("reads_hook.py" in c for c in prompt)
+    PostToolUse output: the answer would vanish. The PostToolUse entry tells the
+    dispatcher so (`--unshown`), and the next prompt delivers it."""
+    from probe.daemon import mailbox
+
+    sid = "c1c22c25-6382-4e79-8f00-a1a45e3c8e77"
+    answer = mailbox.Message(id=mailbox.new_message_id(), session=sid, kind=mailbox.Kind.ANSWER, ask="a1b2c3",
+                             question="what did the last sweep find?", text="best val_acc 0.989 at C=10")
+    mailbox.publish(answer)
+    root = AGENT / rel
+    tool = json.loads((PAYLOADS / "tui-ask-PostToolUse.json").read_text())
+    tool.update(tool_name="Bash", tool_input={"command": "ls"}, tool_output="")
+    done = _kimi(_entry(rel, "PostToolUse"), tool, root)
+    assert (done.returncode, done.stdout) == (0, ""), done.stderr
+    assert [m.id for _, m in mailbox.waiting(sid)] == [answer.id], "claimed after a tool call nobody reads"
+
+    prompt = json.loads((PAYLOADS / "tui-ask-UserPromptSubmit.json").read_text())
+    done = _kimi(_entry(rel, "UserPromptSubmit"), prompt, root)
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == {"message": answer.rendered()}
+    assert mailbox.waiting(sid) == []
 
 
 def test_every_kimi_hook_fails_closed_without_its_plugin_root():
@@ -610,3 +666,498 @@ def test_another_typed_skill_never_runs_the_switch():
     payload = _turn()
     payload["prompt"] = payload["prompt"].replace('name="probe"', 'name="commit"')
     assert _io().typed_skill(payload) is None
+
+
+# --- the dispatcher behind Kimi's entries (D19) ------------------------------
+#
+# Every check below runs a manifest's entries the way Kimi Code 2.1.1 runs them
+# (`runMatchedHooks`: the event's entries whose matcher regex-matches the value,
+# each command once, the payload on stdin, the plugin folder as cwd) and reads
+# the results the way it does (`_kimi_view`). PARITY: the per-script entries
+# every manifest through plugin 0.163.0 had (pinned below) and the one dispatcher
+# entry per event must give Kimi the same thing.
+
+OLD_HOOKS = FIXTURES / "per_script_hooks_0.163.0.json"
+_OLD_SCRIPT = re.compile(r'hooks/([A-Za-z0-9_.-]+\.(?:sh|py))"?((?: (?:--?)?[a-z][a-z-]*)*)')
+_OLD_EXPORTS = re.compile(r"export ((?:PROBE_HOOK_EVENT|PROBE_PLUGIN_PROFILE|PROBE_TAP_SOURCE)=[a-z_]+)")
+_KIMI_SID = "session_c1c22c25-6382-4e79-8f00-a1a45e3c8e77"
+
+
+def _old_hooks(rel: str) -> list[dict]:
+    return json.loads(OLD_HOOKS.read_text())[Path(rel).name]
+
+
+def _per_script_entries(routes: dict) -> list[dict]:
+    """What plugin 0.163.0's renderer made of a routes.json: one entry per
+    script, each `harness_io.py <script> [args]`, the reads catch-all after a
+    tool call left out, and TurnStarted as the UserPromptSubmit switch's twin.
+    `test_the_per_script_replica_renders_0_163_0` holds it to the real thing."""
+    entries = []
+    for event, groups in routes.items():
+        if event == "TurnStarted":
+            continue  # 0.163.0's routes.json had none; the twin below stood for it
+        for group in groups:
+            for hook in group["hooks"]:
+                script, args = _OLD_SCRIPT.findall(hook["command"])[-1]
+                if (event, script) == ("PostToolUse", "reads_hook.py"):
+                    continue
+                exports = [e for e in _OLD_EXPORTS.findall(hook["command"]) if not e.startswith("PROBE_TAP_SOURCE=")]
+                env = " ".join(dict.fromkeys(["PROBE_AGENT=kimi_code", *exports]))
+                entry = {"event": event}
+                if group.get("matcher"):
+                    entry["matcher"] = group["matcher"]
+                entry["command"] = (
+                    "/bin/bash -c 'ROOT=\"${KIMI_PLUGIN_ROOT:-}\"; [ -n \"$ROOT\" ] || exit 0; "
+                    f"unset PLUGIN_ROOT CLAUDE_PLUGIN_ROOT; export {env}; "
+                    f'[ -f "$ROOT/hooks/{script}" ] || exit 0; PY="$(command -v python3)" || exit 0; '
+                    f'exec "$PY" "$ROOT/hooks/harness_io.py" {script}{args}\''
+                )
+                if isinstance(hook.get("timeout"), int):
+                    entry["timeout"] = hook["timeout"]
+                entries.append(entry)
+    twin = next(e for e in entries if e["event"] == "UserPromptSubmit" and e["command"].endswith(" tracking_guard.py'"))
+    entries.append({"event": "TurnStarted", "matcher": "^skill_activation$",
+                    **{k: v for k, v in twin.items() if k not in ("event", "matcher")}})
+    return entries
+
+
+def _entry(rel: str, event: str) -> dict:
+    [entry] = [e for e in _manifest(rel) if e["event"] == event]
+    return entry
+
+
+def _kimi(entry: dict, payload: dict, root: Path, env: "dict | None" = None) -> subprocess.CompletedProcess:
+    """One entry, as Kimi Code runs a plugin hook: KIMI_PLUGIN_ROOT set, the
+    plugin folder as cwd. The warm host is off unless `env` turns it on."""
+    full = {**os.environ, "KIMI_PLUGIN_ROOT": str(root), "PROBE_HOOK_HOST": "off", **(env or {})}
+    return subprocess.run(["/bin/bash", "-c", entry["command"]], input=json.dumps(payload), capture_output=True,
+                          text=True, env=full, cwd=str(root), timeout=60, check=False)
+
+
+def _kimi_value(event: str, payload: dict) -> str:
+    """What Kimi matches an entry's matcher against."""
+    if event in kimi_hooks.TOOL_EVENTS:
+        return payload.get("tool_name") or ""
+    if event == "TurnStarted":
+        return payload.get("origin_kind") or ""
+    prompt = payload.get("prompt")
+    if isinstance(prompt, list):
+        return " ".join(p.get("text", "") for p in prompt if isinstance(p, dict) and p.get("type") == "text")
+    return prompt if isinstance(prompt, str) else ""
+
+
+def _kimi_runs(entries: list, payload: dict, root: Path, env: "dict | None" = None) -> list:
+    event, value = payload["hook_event_name"], _kimi_value(payload["hook_event_name"], payload)
+    done, seen = [], set()
+    for entry in entries:
+        if entry["event"] != event or re.search(entry.get("matcher") or "", value) is None:
+            continue
+        if entry["command"] not in seen:
+            seen.add(entry["command"])
+            done.append(_kimi(entry, payload, root, env))
+    return done
+
+
+def _kimi_view(results: list) -> dict:
+    """What Kimi Code 2.1.1 makes of an event's results: the block it acts on
+    (`blockDecision`: the first; exit 2's stderr, or a structured deny's reason)
+    and, when nothing blocks, the context a prompt gets (`renderUserPromptHookResult`:
+    every clean result's `message`, else its stdout, joined by a blank line)."""
+    block, context = None, []
+    for done in results:
+        out = done.stdout.strip()
+        message, denied = None, None
+        if done.returncode == 2:
+            denied = done.stderr.strip()
+        elif done.returncode == 0 and out:
+            try:
+                obj = json.loads(out)
+            except ValueError:
+                obj = None
+            if isinstance(obj, dict):
+                specific = obj.get("hookSpecificOutput") if isinstance(obj.get("hookSpecificOutput"), dict) else {}
+                message = obj.get("message") or specific.get("message")
+                if specific.get("permissionDecision") == "deny":
+                    denied = specific.get("permissionDecisionReason") or ""
+        if denied is not None:
+            block = denied if block is None else block
+        elif done.returncode == 0 and (message or out):
+            context.append(message or out)
+    return {"block": block, "context": "" if block is not None else "\n\n".join(context)}
+
+
+def _payload(event: str, **fields) -> dict:
+    body = {"hook_event_name": event, "session_id": _KIMI_SID, "cwd": "/tmp/kimi-proj",
+            "client_type": "kimi_code_cli", "session_title": "t"}
+    body.update(fields)
+    return body
+
+
+def _prompt(text: str) -> dict:
+    return _payload("UserPromptSubmit", prompt=[{"type": "text", "text": text}], is_steer=False)
+
+
+def _tool(event: str, tool: str, tool_input: dict, **fields) -> dict:
+    return _payload(event, tool_name=tool, tool_input=tool_input, tool_call_id="call_9", **fields)
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_the_per_script_replica_renders_0_163_0(rel):
+    """The old shape the parity checks compare against is the one that shipped:
+    today's routes less the ones added since (the Skill route that refreshes
+    Claude Code's skill copies, a no-op under Kimi, which has none)."""
+    routes = {
+        e: [g for g in groups if g.get("matcher") != "^Skill$"]
+        for e, groups in _routes(rel).items() if e != "TurnStarted"
+    }
+    assert _per_script_entries(routes) == _old_hooks(rel)
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_an_open_sessions_per_script_entries_still_find_their_files(rel):
+    """A Kimi session left open across this update keeps its 0.163.0 entries
+    (Kimi re-reads a manifest only when plugins reload). Each still finds its
+    script beside the new harness_io.py, which still takes `<script> [args]`, so
+    none falls silent at its `[ -f ... ] || exit 0`."""
+    hooks = AGENT / rel / "hooks"
+    for entry in _old_hooks(rel):
+        script, args = re.search(r'harness_io\.py" ([A-Za-z0-9_.-]+)((?: [a-z-]+)*)\'$', entry["command"]).groups()
+        assert f'[ -f "$ROOT/hooks/{script}" ] || exit 0' in entry["command"]
+        assert (hooks / script).is_file(), f"{entry['event']}: {script} is gone"
+        assert (hooks / "harness_io.py").is_file()
+
+
+def _fresh_state(tmp_path: Path, monkeypatch, name: str) -> dict:
+    """A fresh Probe state folder for one run, made current for this process too."""
+    state = tmp_path / name
+    state.mkdir()
+    monkeypatch.setenv("XDG_STATE_HOME", str(state))
+    return {"XDG_STATE_HOME": str(state)}
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_parity_a_guarded_write_is_refused_and_a_plain_one_allowed(isolated, rel):
+    """CRITICAL. The real guard, both shapes, the same refusal (and the same
+    nothing for a write anywhere else)."""
+    from probe.sdk import session_marker
+
+    root = AGENT / rel
+    aimed = _tool("PreToolUse", "Write", {"path": str(session_marker.approvals_dir() / "answers" / "a.json"),
+                                          "content": "{}"})
+    plain = _tool("PreToolUse", "Write", {"path": str(isolated / "notes.txt"), "content": "x"})
+    for payload, refused in ((aimed, True), (plain, False)):
+        old = _kimi_view(_kimi_runs(_old_hooks(rel), payload, root))
+        new = _kimi_view(_kimi_runs(_manifest(rel), payload, root))
+        assert new == old
+        assert (new["block"] is not None) is refused, new
+        if refused:
+            assert "approvals" in new["block"]
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_parity_a_prompt_gets_the_daemon_answer_waiting_for_it(isolated, tmp_path, monkeypatch, rel):
+    """CRITICAL. Five prompt routes in parallel through the dispatcher give Kimi
+    the context five entries did: the daemon's answer, once, claimed once."""
+    from probe.daemon import mailbox
+
+    root = AGENT / rel
+    sid = _KIMI_SID.split("_", 1)[1]
+    answer = mailbox.Message(id=mailbox.new_message_id(), session=sid, kind=mailbox.Kind.ANSWER, ask="a1b2c3",
+                             question="what did the last sweep find?", text="best val_acc 0.989 at C=10")
+    views = {}
+    for name, entries in (("old", _old_hooks(rel)), ("new", _manifest(rel))):
+        env = _fresh_state(tmp_path, monkeypatch, name)
+        mailbox.publish(answer)
+        views[name] = _kimi_view(_kimi_runs(entries, _prompt("go on with the sweep"), root, env))
+        assert mailbox.waiting(sid) == [], name
+    assert views["new"] == views["old"]
+    assert views["new"]["block"] is None and answer.rendered() in views["new"]["context"]
+
+
+@pytest.mark.parametrize("inherited", ["CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID"])
+@pytest.mark.parametrize("rel", TRACKING)
+def test_a_kimi_started_inside_another_agent_still_gets_its_own_answer(isolated, tmp_path, monkeypatch, rel,
+                                                                        inherited):
+    """Kimi run from Claude Code's or Codex's shell inherits the parent's session
+    id. The reads route's shell gate reads that before the payload: it looked in
+    the PARENT's inbox, found nothing, skipped the route (Kimi's own answer was
+    never delivered, on any prompt) and started a new turn for the parent. The
+    per-script entry ran the hook on Kimi's own id. Review of #3292 (P2)."""
+    from probe.daemon import mailbox
+
+    root = AGENT / rel
+    sid = _KIMI_SID.split("_", 1)[1]
+    parent = "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+    answer = mailbox.Message(id=mailbox.new_message_id(), session=sid, kind=mailbox.Kind.ANSWER, ask="a1b2c3",
+                             question="what did the last sweep find?", text="best val_acc 0.989 at C=10")
+    monkeypatch.setenv(inherited, parent)
+    views = {}
+    for name, entries in (("old", _old_hooks(rel)), ("new", _manifest(rel))):
+        env = _fresh_state(tmp_path, monkeypatch, name)
+        # The parent is a session the daemon's reader serves: it has a turn.
+        turn = Path(env["XDG_STATE_HOME"]) / "probe" / "reads" / "turns" / parent
+        turn.parent.mkdir(parents=True)
+        turn.write_text("parent-turn")
+        mailbox.publish(answer)
+        views[name] = _kimi_view(_kimi_runs(entries, _prompt("go on with the sweep"), root, env))
+        assert mailbox.waiting(sid) == [], f"{name}: Kimi's answer was never delivered"
+        assert turn.read_text() == "parent-turn", f"{name}: a Kimi prompt ended the parent's turn"
+    assert views["new"] == views["old"]
+    assert answer.rendered() in views["new"]["context"]
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_every_harness_marker_a_route_gate_reads_is_dropped_under_kimi(isolated, rel):
+    """The routes' shell gates and the dispatcher's own copy of one read the
+    environment before the payload. Every harness marker they read must be one
+    `harness_io.py --event` drops, or an inherited one picks the wrong session
+    (the case above). A new gate reading another marker fails here first."""
+    io = _io()
+    registry = json.loads((HOOKS / "harnesses.json").read_text())["harnesses"]
+    markers = {name for raw in registry for name in [raw.get("session_env"), *(raw.get("detect_env") or [])] if name}
+    commands = json.dumps(_routes(rel))
+    read = set(re.findall(r"\$\{([A-Z_][A-Z0-9_]*)", commands))
+    read |= set(re.findall(r"""environ\.get\(["']([A-Z_][A-Z0-9_]*)["']""", (AGENT / rel / "hooks" / "dispatch.py").read_text()))
+    gated = read & markers
+    assert gated, "the reads gates read the session id: this check would hold nothing"
+    assert gated <= set(io.foreign_session_envs(io._hook_harness.current())), sorted(gated)
+    assert "PROBE_KIMI_SESSION_ID" not in io.foreign_session_envs(io._hook_harness.current())
+
+
+@pytest.mark.parametrize("rel", TRACKING)
+def test_parity_a_typed_switch_flips_the_session_and_says_nothing(isolated, tmp_path, monkeypatch, rel):
+    """CRITICAL. `/probe read` typed in Kimi fires only TurnStarted: both shapes
+    hand the switch the typed line and drop what it says."""
+    from probe.sdk import session_marker
+
+    root = AGENT / rel
+    sid = _KIMI_SID.split("_", 1)[1]
+    turn = _turn(args="read")
+    turn["session_id"] = _KIMI_SID
+    states, views = {}, {}
+    for name, entries in (("old", _old_hooks(rel)), ("new", _manifest(rel))):
+        env = _fresh_state(tmp_path, monkeypatch, name)
+        assert session_marker.session_state(sid) is None
+        views[name] = _kimi_view(_kimi_runs(entries, turn, root, env))
+        states[name] = session_marker.session_state(sid)
+    assert views["new"] == views["old"] == {"block": None, "context": ""}
+    assert states["new"] == states["old"] is not None
+    # Any other turn runs nothing (Kimi's matcher, then the adapter).
+    env = _fresh_state(tmp_path, monkeypatch, "model")
+    loaded = _turn(trigger="model", args="off")
+    loaded["session_id"] = _KIMI_SID
+    assert _kimi_view(_kimi_runs(_manifest(rel), loaded, root, env)) == {"block": None, "context": ""}
+    assert session_marker.session_state(sid) is None
+
+
+# The dispatcher's machinery itself, on a plugin of stand-in routes in the real
+# routes' shape: several routes merged, arguments, a veto, quiet, the warm host.
+
+_STAND_IN = textwrap.dedent("""
+    import json, os, sys
+    name = os.path.basename(sys.argv[0])
+    payload = json.load(sys.stdin)
+    with open(os.path.join(os.environ["XDG_STATE_HOME"], "seen.jsonl"), "a") as fh:
+        fh.write(json.dumps([name, sys.argv[1:], payload.get("hook_event_name"), payload.get("session_id"),
+                             payload.get("prompt"), os.environ.get("PROBE_HOOK_QUIET"),
+                             os.environ.get("PROBE_HOOK_HOSTED"), os.environ.get("PROBE_AGENT")]) + "\\n")
+    event = payload.get("hook_event_name")
+    def say(text):
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "additionalContext": text}}))
+    if name == "guard.py":
+        if "rm -rf" in (payload.get("tool_input") or {}).get("command", ""):
+            print(json.dumps({"hookSpecificOutput": {"hookEventName": event, "permissionDecision": "deny",
+                                                     "permissionDecisionReason": "no rm -rf here"}}))
+    elif name == "veto.py":
+        if "veto" in str(payload.get("prompt")):
+            sys.stderr.write("vetoed by Probe\\n")
+            sys.exit(2)
+    elif name == "silent.py":
+        print(json.dumps({"continue": True, "systemMessage": "for a person"}))
+    elif name == "tracking_guard.py":
+        if str(payload.get("prompt")).startswith("/probe"):
+            say("[switch] " + payload["prompt"])
+    elif name == "reads_hook.py":
+        say("[Probe] delivered after " + str(event))
+    else:
+        say("[" + " ".join(sys.argv[1:]) + "] saw " + str(payload.get("prompt") or payload.get("tool_name")))
+""")
+_STAND_INS = ("guard.py", "veto.py", "silent.py", "tracking_guard.py", "reads_hook.py", "note.py", "tool.py")
+_COPIED = ("harness_io.py", "dispatch.py", "dispatch.sh", "zygote.py", "_hook_harness.py", "_harness_registry.py",
+           "harnesses.json", "_session_marker.py", "_service_paths.py", "_probe_config.py")
+
+
+def _stand_in_routes(dispatch) -> dict:
+    def route(script, *args, timeout=5):
+        return {"type": "command", "command": dispatch._plain_command([], script, True, list(args)), "timeout": timeout}
+
+    switch = route("tracking_guard.py")
+    return {"hooks": {
+        "UserPromptSubmit": [{"lane": "prompt", "hooks": [
+            switch, route("note.py", "alpha"), route("silent.py"), route("veto.py"), route("note.py", "beta"),
+            route("reads_hook.py"),
+        ]}],
+        "PreToolUse": [
+            {"lane": "pre-tool", "matcher": "^Bash$", "hooks": [route("guard.py")]},
+            {"lane": "pre-tool", "matcher": "^(Write|Edit)$", "hooks": [route("note.py", "pre")]},
+        ],
+        "PostToolUse": [
+            {"lane": "post-tool", "matcher": "^Bash$", "hooks": [route("tool.py", "post-tool")]},
+            {"lane": "post-tool", "hooks": [route("reads_hook.py")]},
+        ],
+        "Stop": [{"lane": "stop", "hooks": [route("note.py", "stop")]}],
+        "TurnStarted": [{"lane": "turn-started", "hooks": [switch]}],
+    }}
+
+
+@pytest.fixture()
+def stand_in(isolated, tmp_path):
+    """A plugin folder with the real adapter and dispatcher and stand-in routes;
+    (its folder, its old per-script entries, its new dispatcher entries)."""
+    root = tmp_path / "plugin"
+    hooks = root / "hooks"
+    hooks.mkdir(parents=True)
+    for name in _COPIED:
+        shutil.copy2(HOOKS / name, hooks / name)
+    for name in _STAND_INS:
+        (hooks / name).write_text(_STAND_IN)
+    routes = _stand_in_routes(_load("_test_kimi_stand_in_dispatch", hooks / "dispatch.py"))
+    (hooks / "routes.json").write_text(json.dumps(routes))
+    return root, _per_script_entries(routes["hooks"]), kimi_hooks.render_hooks(root, True)
+
+
+def _seen(env: dict) -> list:
+    path = Path(env["XDG_STATE_HOME"]) / "seen.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+    return sorted(rows, key=json.dumps)
+
+
+_CASES = {
+    "a prompt, several routes": _prompt("go on"),
+    "a prompt a route vetoes": _prompt("please veto this"),
+    "a refused tool call": _tool("PreToolUse", "Bash", {"command": "rm -rf /"}),
+    "an allowed tool call": _tool("PreToolUse", "Bash", {"command": "ls"}),
+    "a write with context": _tool("PreToolUse", "Write", {"path": "x.txt", "content": ""}),
+    "a tool no route takes": _tool("PreToolUse", "Read", {"path": "x.txt"}),
+    "after a tool call": _tool("PostToolUse", "Bash", {"command": "ls"}, tool_output="ok"),
+    "a stop": _payload("Stop", stop_hook_active=False),
+}
+
+
+@pytest.mark.parametrize("case", list(_CASES))
+def test_parity_the_dispatcher_gives_kimi_what_the_per_script_entries_did(stand_in, tmp_path, monkeypatch, case):
+    """CRITICAL. Same view (block and context), same routes run with the same
+    payload in Claude's shape, arguments and harness: the merge of several
+    routes reads to Kimi as their separate entries did."""
+    root, old, new = stand_in
+    payload = _CASES[case]
+    views, seen = {}, {}
+    for name, entries in (("old", old), ("new", new)):
+        env = _fresh_state(tmp_path, monkeypatch, name)
+        # A daemon message waits: still nothing after a tool call may claim it.
+        (Path(env["XDG_STATE_HOME"]) / "probe" / "reads" / "messages" / "s").mkdir(parents=True)
+        (Path(env["XDG_STATE_HOME"]) / "probe" / "reads" / "messages" / "s" / "m.json").write_text("{}")
+        views[name] = _kimi_view(_kimi_runs(entries, payload, root, env))
+        seen[name] = _seen(env)
+    assert views["new"] == views["old"], case
+    assert seen["new"] == seen["old"], case
+    ran = {row[0] for row in seen["new"]}
+    if payload["hook_event_name"] == "PostToolUse":
+        assert ran == {"tool.py"}, "the reads catch-all never runs after a Kimi tool call"
+    assert (ran == set()) is (case == "a tool no route takes"), ran
+    assert all(row[3] == "c1c22c25-6382-4e79-8f00-a1a45e3c8e77" and row[7] == "kimi_code" for row in seen["new"])
+
+
+def test_the_merged_prompt_reads_as_the_separate_entries_did(stand_in, tmp_path, monkeypatch):
+    root, _old, new = stand_in
+    env = _fresh_state(tmp_path, monkeypatch, "new")
+    [done] = _kimi_runs(new, _prompt("go on"), root, env)
+    assert done.returncode == 0, done.stderr
+    assert json.loads(done.stdout) == {
+        "message": "[alpha] saw go on\n\n[beta] saw go on\n\n[Probe] delivered after UserPromptSubmit"
+    }
+
+
+def test_parity_a_typed_switch_reaches_the_switch_alone_and_quiet(stand_in, tmp_path, monkeypatch):
+    root, old, new = stand_in
+    turn = _turn(args="on")
+    turn["session_id"] = _KIMI_SID
+    seen = {}
+    for name, entries in (("old", old), ("new", new)):
+        env = _fresh_state(tmp_path, monkeypatch, name)
+        assert _kimi_view(_kimi_runs(entries, turn, root, env)) == {"block": None, "context": ""}
+        seen[name] = _seen(env)
+    assert seen["new"] == seen["old"] == [
+        ["tracking_guard.py", [], "UserPromptSubmit", "c1c22c25-6382-4e79-8f00-a1a45e3c8e77", "/probe on", "1",
+         None, "kimi_code"],
+    ]
+
+
+def test_the_old_per_script_mode_is_unchanged(stand_in, tmp_path, monkeypatch):
+    """`harness_io.py <script> [args]`: that one script, on the payload in
+    Claude's shape, its own output translated; no dispatcher in between."""
+    root, old, _new = stand_in
+    env = _fresh_state(tmp_path, monkeypatch, "old")
+    [entry] = [e for e in old if e["command"].endswith(" note.py alpha'")]
+    done = _kimi(entry, _prompt("go on"), root, env)
+    assert (done.returncode, json.loads(done.stdout)) == (0, {"message": "[alpha] saw go on"}), done.stderr
+    assert _seen(env) == [["note.py", ["alpha"], "UserPromptSubmit", "c1c22c25-6382-4e79-8f00-a1a45e3c8e77",
+                           "go on", None, None, "kimi_code"]]
+    [veto] = [e for e in old if e["command"].endswith(" veto.py'")]
+    done = _kimi(veto, _prompt("veto"), root, env)
+    assert (done.returncode, done.stderr) == (2, "vetoed by Probe\n")
+
+
+def test_a_half_installed_copy_never_vetoes(stand_in, tmp_path, monkeypatch):
+    """No dispatcher beside the adapter (mid-update): the entry runs nothing."""
+    root, _old, new = stand_in
+    (root / "hooks" / "dispatch.py").unlink()
+    env = _fresh_state(tmp_path, monkeypatch, "new")
+    for payload in (_prompt("please veto this"), _tool("PreToolUse", "Bash", {"command": "rm -rf /"})):
+        [done] = _kimi_runs(new, payload, root, env)
+        assert (done.returncode, done.stdout) == (0, ""), done.stderr
+    assert _seen(env) == []
+
+
+@pytest.fixture()
+def warm_host(stand_in):
+    """The stand-in plugin's warm host (`zygote.py`), as the Probe service runs it."""
+    root = stand_in[0]
+    sys.path.insert(0, str(root / "hooks"))
+    try:
+        path = _load("_test_kimi_host_dispatch", root / "hooks" / "dispatch.py").host_socket(str(root))
+    finally:
+        sys.path.pop(0)
+    proc = subprocess.Popen([sys.executable, "-S", str(root / "hooks" / "zygote.py"), path, str(os.getpid())],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    deadline = time.monotonic() + 10
+    while not os.path.exists(path):
+        assert time.monotonic() < deadline and proc.poll() is None, "the host never listened"
+        time.sleep(0.02)
+    yield stand_in
+    proc.kill()
+    proc.wait()
+    if os.path.exists(path):
+        os.unlink(path)
+
+
+@pytest.mark.parametrize("case", ["a prompt, several routes", "a refused tool call", "a prompt a route vetoes"])
+def test_a_kimi_event_runs_in_the_warm_host_and_reads_the_same(warm_host, tmp_path, monkeypatch, case):
+    """The point of D19: Kimi's events reach the service's warm host. What Kimi
+    reads is what the event run here gives it."""
+    root, _old, new = warm_host
+    payload = _CASES[case]
+    views, seen = {}, {}
+    for name, host in (("here", "off"), ("hosted", "")):
+        env = {**_fresh_state(tmp_path, monkeypatch, name), "PROBE_HOOK_HOST": host}
+        views[name] = _kimi_view(_kimi_runs(new, payload, root, env))
+        seen[name] = _seen(env)
+    assert views["hosted"] == views["here"]
+    assert seen["hosted"] and {row[6] for row in seen["hosted"]} == {"1"}, "every route ran in the host"
+    assert [row[:6] for row in seen["hosted"]] == [row[:6] for row in seen["here"]]
+
+
+def test_the_adapter_and_the_dispatcher_spell_unshown_alike():
+    dispatch = _load("_test_kimi_unshown_dispatch", HOOKS / "dispatch.py")
+    assert _io().UNSHOWN_FLAG == dispatch.UNSHOWN
+    assert all(e in kimi_hooks.TOOL_EVENTS for e in kimi_hooks.UNSHOWN)

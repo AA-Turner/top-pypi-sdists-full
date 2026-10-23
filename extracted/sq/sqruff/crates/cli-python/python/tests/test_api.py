@@ -5,6 +5,7 @@ Requires the package to be built first:
 """
 
 import io
+import json
 import pathlib
 import subprocess
 import sys
@@ -253,6 +254,78 @@ class TestFluffConfig:
 
 
 class TestLinter:
+    @pytest.mark.parametrize("ignore_templating", [False, True])
+    def test_jinja_cli_uses_file_config_and_reports_templating_errors(
+        self, tmp_path, ignore_templating
+    ):
+        config = "[sqruff]\ndialect = ansi\ntemplater = jinja\n"
+        if ignore_templating:
+            config += "ignore = templating\n"
+        (tmp_path / ".sqruff").write_text(config)
+        (tmp_path / "ign.sql").write_text("SELECT {{ undefined_macro('x') }} AS y\n")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from sqruff.main import main; main()",
+                "lint",
+                "--format",
+                "json",
+                "ign.sql",
+            ],
+            cwd=tmp_path,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        assert result.returncode == (0 if ignore_templating else 1), result.stderr
+        files = json.loads(result.stdout)
+        assert len(files) == 1
+        filename, violations = next(iter(files.items()))
+        assert pathlib.Path(filename).name == "ign.sql"
+        if ignore_templating:
+            assert violations == []
+        else:
+            assert len(violations) == 1
+            assert violations[0]["code"] == "TMP"
+            assert (
+                "Undefined jinja template variable: 'undefined_macro'"
+                in violations[0]["message"]
+            )
+
+    @pytest.mark.parametrize(
+        "extra_config",
+        [
+            "ignore = templating\n",
+            "ignore = parsing, templating\n",
+            "[sqruff:templater:jinja]\nignore_templating = True\n",
+            (
+                "ignore = templating\n"
+                "[sqruff:templater:jinja]\nignore_templating = False\n"
+            ),
+        ],
+    )
+    def test_jinja_ignore_templating(self, extra_config):
+        config = FluffConfig.from_source(
+            "[sqruff]\ndialect = ansi\ntemplater = jinja\n" + extra_config
+        )
+        result = Linter(config).lint_string("SELECT {{ undefined_macro('x') }} AS y\n")
+
+        assert not result.has_violations
+
+    @pytest.mark.parametrize("extra_config", ["", "ignore = parsing\n"])
+    def test_jinja_undefined_macro_reports_its_name(self, extra_config):
+        config = FluffConfig.from_source(
+            "[sqruff]\ndialect = ansi\ntemplater = jinja\n" + extra_config
+        )
+        with pytest.raises(
+            RuntimeError, match="Undefined jinja template variable: 'undefined_macro'"
+        ):
+            Linter(config).lint_string("SELECT {{ undefined_macro('x') }} AS y\n")
+
     @pytest.mark.parametrize("method", ["lint_string", "lint_paths"])
     def test_shared_linter_does_not_deadlock(self, method, tmp_path):
         sql_path = tmp_path / "test.sql"
@@ -360,6 +433,95 @@ class TestLinter:
         linter = Linter()
         result = linter.lint_string(SIMPLE_SQL)
         assert "LintedFile" in repr(result)
+
+
+class TestTemplateFixability:
+    CONFIG = """[sqruff]
+dialect = ansi
+templater = jinja
+rules = ST05
+[sqruff:templater:jinja:context]
+tbl = my_table
+[sqruff:rules:structure.subquery]
+forbid_subquery_in = join
+"""
+    PLAIN_SQL = (
+        "select a.id, b.name\n"
+        "from foo as a\n"
+        "inner join (select id, name from bar) as b on a.id = b.id\n"
+    )
+    TEMPLATED_SQL = PLAIN_SQL.replace("from bar", "from {{ tbl }}")
+
+    @pytest.mark.parametrize("fix", [False, True])
+    @pytest.mark.parametrize(
+        "source",
+        [
+            TEMPLATED_SQL,
+            PLAIN_SQL.replace("from foo", "from {{ tbl }}"),
+            PLAIN_SQL.replace("select a.id, b.name", "select {{ 'a.id' }}, b.name"),
+        ],
+    )
+    def test_discarded_template_fixes_are_unfixable(self, source, fix):
+        linter = Linter(FluffConfig.from_source(self.CONFIG))
+        result = linter.lint_string(source, fix=fix)
+
+        assert [(v.code, v.fixable) for v in result.violations] == [("ST05", False)]
+        assert result.has_unfixable_violations
+        assert not result.has_fixes
+        assert result.fix_string() == source
+
+    @pytest.mark.parametrize("fix", [False, True])
+    def test_safe_subquery_fixes_remain_fixable(self, fix):
+        linter = Linter(FluffConfig.from_source(self.CONFIG))
+        result = linter.lint_string(self.PLAIN_SQL, fix=fix)
+
+        assert [(v.code, v.fixable) for v in result.violations] == [("ST05", True)]
+        assert not result.has_unfixable_violations
+        assert result.has_fixes == fix
+        fixed = result.fix_string()
+        if fix:
+            assert fixed != self.PLAIN_SQL
+            assert not linter.lint_string(fixed).has_violations
+        else:
+            assert fixed == self.PLAIN_SQL
+
+    @pytest.mark.parametrize("use_stdin", [False, True])
+    @pytest.mark.parametrize("templated", [False, True])
+    def test_fix_exit_status_matches_applicable_fixes(
+        self, tmp_path, templated, use_stdin
+    ):
+        config_path = tmp_path / ".sqruff"
+        config_path.write_text(self.CONFIG)
+        sql_path = tmp_path / "query.sql"
+        source = self.TEMPLATED_SQL if templated else self.PLAIN_SQL
+        sql_path.write_text(source)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from sqruff.main import main; main()",
+                "--config",
+                str(config_path),
+                "fix",
+                "-" if use_stdin else str(sql_path),
+            ],
+            input=source if use_stdin else None,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        assert result.returncode == (1 if templated else 0), result.stderr
+        fixed = result.stdout if use_stdin else sql_path.read_text()
+        if templated:
+            assert "ST05" in result.stderr
+            assert fixed == source
+        else:
+            assert fixed != source
+            linter = Linter(FluffConfig.from_source(self.CONFIG))
+            assert not linter.lint_string(fixed).has_violations
 
 
 # ── convenience functions ─────────────────────────────────────────────────────

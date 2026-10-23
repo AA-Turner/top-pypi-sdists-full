@@ -685,6 +685,18 @@ def _queue_or_drop(
     depends_on: Sequence[tuple[str, str]] = (),
 ) -> str:
     """Common entry — resolve coordinator, queue, or log+drop."""
+    # CONFIDENTIAL RUNS: the one decision about what a row written under a sealed
+    # context may carry, made BEFORE anything else sees the payload (sanitization
+    # captures, write-failure spills). Content columns emptied; content-derived
+    # tables dropped whole. Second layer: the chat.refuse_sealed_content trigger.
+    from matrx_ai.persistence.sealed import seal_payload, sealed_context
+
+    _seal_ctx = _resolve_app_context()
+    if sealed_context(_seal_ctx):
+        sealed = seal_payload(table, payload, op_type=op_type, ctx=_seal_ctx)
+        if sealed is None:
+            return ""
+        payload = sealed
     sanitization = sanitize_postgres_text(payload)
     if sanitization.replacements:
         payload = sanitization.value
@@ -1408,6 +1420,40 @@ def queue_tool_call_update(id: str, **fields: Any) -> str:
         op_type="update",
         primary_key=("id", id),
     )
+
+
+def merge_into_queued_tool_call_metadata(row_id: str, key: str, value: Any) -> bool:
+    """Put ``metadata[key] = value`` on this request's STILL-QUEUED INSERT of a ``chat.tool_call``.
+
+    A tool call's row is queued at ``log_started`` and lands at the iteration's flush — after
+    every parallel sibling finishes. Something known only when the call ends (Watch AI's raw
+    capture index) therefore rides the row's own INSERT: it lands in the same transaction as
+    the row, with no wait and no later patch. Only an OPEN session's ops are touched; every
+    queued op for the row that carries a metadata object gets the key, so a coalesced update
+    cannot drop it. False = no queued INSERT here (the row is already on disk, or there is no
+    request coordinator) — the caller then patches the stored row."""
+    coord = get_coordinator()
+    session = getattr(coord, "_session", None) if coord is not None else None
+    if session is None:
+        return False
+    phase = getattr(session, "_phase", None)
+    if getattr(phase, "value", "open") != "open":
+        return False
+    try:
+        ops = session.pending_ops_for(get_model("chat.tool_call"))
+    except Exception:  # noqa: BLE001 — no pending view means the stored-row path, never a lost key
+        return False
+    found_insert = False
+    for op in ops:
+        if str(getattr(op, "pk_value", "")) != str(row_id) or op.payload is None:
+            continue
+        if op.op_type == "insert":
+            found_insert = True
+            meta = op.payload.get("metadata")
+            op.payload["metadata"] = {**(meta if isinstance(meta, dict) else {}), key: value}
+        elif op.op_type == "update" and isinstance(op.payload.get("metadata"), dict):
+            op.payload["metadata"] = {**op.payload["metadata"], key: value}
+    return found_insert
 
 
 # ---------- cx_request_snapshot -------------------------------------------

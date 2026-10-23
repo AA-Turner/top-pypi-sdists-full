@@ -602,11 +602,83 @@ def codex_hook_rows(caps: Capabilities) -> list[str]:
     return codex_hooks.rows(codex_hooks.status(), _row)
 
 
-def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
+#: Sessions, recorders or holds `doctor` lists one by one before it counts the rest.
+SERVICE_ROWS_SHOWN = 5
+
+
+def _short(sid: object) -> str:
+    text = str(sid or "?")
+    return text if len(text) <= 12 else text[:12] + "…"
+
+
+def service_rows(view: dict) -> list[str]:
+    """The Probe service's own view (`service_calls.view()`): the "Probe
+    service" section. Pure, like `render`."""
+    from probe.cli import service_calls
+    from probe.cli.service_calls import Reach
+
+    rows = ["Probe service"]
+    reach = view.get("reach")
+    if reach == Reach.NOT_RUNNING:
+        rows.append(_row("Status", f"not running -- {service_calls.STARTS_WITH}"))
+        return rows
+    if reach == Reach.UNSUPPORTED:
+        rows.append(_row("Status", "does not run on this system yet"))
+        return rows
+    if reach != Reach.ANSWERED:
+        rows.append(_row("Status", f"{reach}: {view.get('error') or 'no answer'}"))
+        return rows
+    started = view.get("started_at")
+    since = f", since {service_calls.when(started)}" if started else ""
+    rows.append(
+        _row("Status", f"{view.get('state') or 'running'} (version {view.get('version') or 'unknown'}, "
+                       f"pid {view.get('pid')}{since})")
+    )
+
+    def listed(label: str, items: list, text) -> None:
+        if not items:
+            rows.append(_row(label, "none"))
+            return
+        for index, item in enumerate(items[:SERVICE_ROWS_SHOWN]):
+            rows.append(_row(label if index == 0 else "", text(item)))
+        if len(items) > SERVICE_ROWS_SHOWN:
+            rows.append(_row("", f"+{len(items) - SERVICE_ROWS_SHOWN} more"))
+
+    sessions = view.get("sessions") or []
+    listed(
+        "Sessions",
+        sessions,
+        lambda s: f"{_short(s.get('sid'))} {s.get('harness')} {s.get('mode')}"
+        + ("" if s.get("alive") else " (ended)"),
+    )
+    listed(
+        "Recorded by the service",
+        view.get("recorders") or [],
+        lambda r: f"{_short(r.get('sid'))} "
+        + ("recording" if r.get("alive") else "stopped")
+        + (f", last {r['last']}" if r.get("last") else "")
+        + (f", {r['failures']} restart(s)" if r.get("failures") else ""),
+    )
+    listed("Hook hosts", view.get("hook_hosts") or [], lambda h: f"{h.get('root')} (pid {h.get('pid')})")
+    listed(
+        "Runs in flight",
+        view.get("runs") or [],
+        lambda r: f"{r.get('run')} (pid {r.get('pid')}, since {service_calls.when(r.get('since'))})",
+    )
+    update = view.get("update") or {}
+    rows.append(_row("Updates", service_calls.update_text(update)))
+    if update.get("deferred_reason"):
+        since_text = service_calls.when(update.get("deferred_since") or update.get("deferred_at"))
+        rows.append(_row("Update deferred", f"{update['deferred_reason']} (since {since_text})"))
+    return rows
+
+
+def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: dict | None = None) -> str:
     """The full report. Pure, so it can be asserted in tests without a machine.
 
     `codex_hooks` is `codex_hook_rows(caps)`, gathered by the caller because it
-    asks Codex; omitted, the section is left out.
+    asks Codex; omitted, the section is left out. `service` is
+    `service_calls.view()`, likewise (it asks the Probe service).
     """
     lines: list[str] = ["Probe Research doctor", ""]
 
@@ -769,6 +841,10 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
         if len(caps.live_runs) > 3:
             shown += f", +{len(caps.live_runs) - 3} more"
         lines.append(_row("Runs in flight", shown))
+
+    if service is not None:
+        lines.append("")
+        lines.extend(service_rows(service))
 
     lines.append("")
     lines.append("Outbox")

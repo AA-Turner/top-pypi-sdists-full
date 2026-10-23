@@ -206,6 +206,7 @@ from snowflake.snowpark_connect.utils.scala_udf_utils import (
     _build_scala_udf_sql_input_params,
 )
 from snowflake.snowpark_connect.utils.schema_utils import force_nullable_schema
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
@@ -256,6 +257,7 @@ from ..utils.io_utils import (
     get_overwrite_condition,
     get_partition_spec,
     get_table_type,
+    rollback_after_failed_overwrite,
 )
 from ..utils.temporary_view_helper import (
     create_snowflake_temporary_view,
@@ -959,6 +961,104 @@ def _sql_has_executable_statement(sql_string: str) -> bool:
     return stripped != ""
 
 
+def _has_top_level_semicolon(sql_string: str) -> bool:
+    """Return True if the SQL contains a semicolon at top level.
+
+    Semicolons inside quoted strings, quoted identifiers, comments, or
+    dollar-quoted bodies do not count.
+    """
+    if not sql_string:
+        return False
+    s = sql_string
+    i = 0
+    n = len(s)
+    in_single = False
+    in_double = False
+    in_line_comment = False
+    in_block_comment = False
+    dollar_tag: str | None = None
+
+    while i < n:
+        ch = s[i]
+
+        if in_line_comment:
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+        if in_block_comment:
+            if ch == "*" and i + 1 < n and s[i + 1] == "/":
+                in_block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+
+        if dollar_tag is not None:
+            if s.startswith(dollar_tag, i):
+                tag = dollar_tag
+                dollar_tag = None
+                i += len(tag)
+            else:
+                i += 1
+            continue
+
+        if in_single:
+            if ch == "'":
+                # Doubled quotes escape.
+                if i + 1 < n and s[i + 1] == "'":
+                    i += 2
+                else:
+                    in_single = False
+                    i += 1
+            else:
+                i += 1
+            continue
+        if in_double:
+            if ch == '"':
+                # Doubled quotes escape.
+                if i + 1 < n and s[i + 1] == '"':
+                    i += 2
+                else:
+                    in_double = False
+                    i += 1
+            else:
+                i += 1
+            continue
+
+        # Not in any quoted / comment context.
+        if ch == "-" and i + 1 < n and s[i + 1] == "-":
+            in_line_comment = True
+            i += 2
+            continue
+        if ch == "/" and i + 1 < n and s[i + 1] == "*":
+            in_block_comment = True
+            i += 2
+            continue
+        if ch == "'":
+            in_single = True
+            i += 1
+            continue
+        if ch == '"':
+            in_double = True
+            i += 1
+            continue
+        if ch == "$":
+            # Dollar-quoted bodies ($$...$$ or $tag$...$tag$).
+            j = i + 1
+            while j < n and (s[j].isalnum() or s[j] == "_"):
+                j += 1
+            if j < n and s[j] == "$":
+                dollar_tag = s[i : j + 1]
+                i = j + 1
+                continue
+        if ch == ";":
+            return True
+        i += 1
+
+    return False
+
+
 def _is_sql_select_statement_helper(sql_string: str) -> bool:
     """
     Determine if a SQL string is a SELECT or CTE query statement, even when it starts with comments or whitespace.
@@ -1225,9 +1325,17 @@ def _parts_to_snowflake(parts: list[str]) -> str:
     return _multipart_parts_to_snowflake(parts)
 
 
+def _unwrap_dml_target(name_obj: typing.Any) -> typing.Any:
+    """Unwrap SubqueryAlias (table alias in DML) to the inner UnresolvedRelation."""
+    while str(name_obj.getClass().getSimpleName()) == "SubqueryAlias":
+        name_obj = name_obj.child()
+    return name_obj
+
+
 def _resolve_sql_dml_target(
     name_obj, *, is_multi_part: bool, dml_op: str | None = None
 ) -> IcebergRefDmlTarget:
+    name_obj = _unwrap_dml_target(name_obj)
     parts = relation_identifier_parts(name_obj, is_multi_part=is_multi_part)
     spark_table = ".".join(parts)
     return resolve_iceberg_ref_dml_target_from_parts(
@@ -1539,6 +1647,128 @@ def _resolve_iceberg_system_procedure(proc_name_parts: list[str]) -> str:
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
     return proc
+
+
+_FORWARDED_ICEBERG_SYSTEM_CALLS = frozenset(
+    {
+        # These are common Iceberg procedures used by Spark-native workflows.
+        # SCOS does not implement their semantics today, but forwarding through
+        # Snowflake lets us (a) unblock parsing and (b) capture telemetry even
+        # when the CALL ultimately fails.
+        "publish_changes",
+        "register_table",
+    }
+)
+
+
+def _maybe_forward_call_sql(sql_string: str, session: Session) -> bool:
+    """Best-effort forward of a raw CALL string.
+
+    Used only when Spark parsing fails at or near CALL.
+
+    - Iceberg `system.*` calls remain allowlisted via `_maybe_forward_iceberg_call_sql`.
+    - Non-`system` calls are forwarded unchanged so Snowflake stored procedures are
+      not blocked by SCOS parsing limitations.
+
+    Returns True if SCOS forwarded the CALL to Snowflake (executed), False if it
+    did nothing and the caller should re-raise the parse exception.
+    """
+    # Strip leading comments/whitespace similar to _is_sql_select_statement_helper.
+    trimmed = sql_string.lstrip()
+    while trimmed:
+        if trimmed.startswith("--"):
+            newline_pos = trimmed.find("\n")
+            if newline_pos == -1:
+                return False
+            trimmed = trimmed[newline_pos + 1 :].lstrip()
+            continue
+        if trimmed.startswith("/*"):
+            end_pos = trimmed.find("*/")
+            if end_pos == -1:
+                return False
+            trimmed = trimmed[end_pos + 2 :].lstrip()
+            continue
+        break
+    if not trimmed.upper().startswith("CALL"):
+        return False
+
+    # Very small parser: extract the identifier between CALL and the first '(' so
+    # we can decide whether it's Iceberg `system.*`.
+    m = re.match(r"(?is)^CALL\s+([^\s(]+)", trimmed)
+    if not m:
+        return False
+    proc_ident = m.group(1)
+    parts = [p for p in proc_ident.split(".") if p]
+    immediate_namespace = parts[-2].lower() if len(parts) >= 2 else ""
+
+    # Delegate Iceberg calls to the allowlisted path.
+    if immediate_namespace == "system":
+        return _maybe_forward_iceberg_call_sql(sql_string, session)
+
+    # Non-system CALL: forward a single statement to Snowflake.
+    telemetry.report_sql_call_forwarding(kind="non_system_call", outcome="attempted")
+    forwarded_sql = sql_string.rstrip().rstrip(";")
+    # Reject multi-statement input: `session.sql` is intended for a single statement
+    # and forwarding arbitrary semicolon-separated SQL is risky.
+    if _has_top_level_semicolon(forwarded_sql):
+        return False
+    session.sql(forwarded_sql).collect()
+    return True
+
+
+def _maybe_forward_iceberg_call_sql(sql_string: str, session: Session) -> bool:
+    """Best-effort forward of a raw Iceberg CALL string.
+
+    This is used only when Spark parsing fails at or near CALL, so the request
+    would otherwise fail before SCOS can attribute which procedure was attempted.
+
+    Returns True if SCOS forwarded the CALL to Snowflake (executed), False if it
+    did nothing and the caller should re-raise the parse exception.
+
+    The forwarding is intentionally allowlisted to avoid turning SCOS into an
+    arbitrary SQL proxy.
+    """
+    # Strip leading comments/whitespace similar to _is_sql_select_statement_helper.
+    trimmed = sql_string.lstrip()
+    while trimmed:
+        if trimmed.startswith("--"):
+            newline_pos = trimmed.find("\n")
+            if newline_pos == -1:
+                return False
+            trimmed = trimmed[newline_pos + 1 :].lstrip()
+            continue
+        if trimmed.startswith("/*"):
+            end_pos = trimmed.find("*/")
+            if end_pos == -1:
+                return False
+            trimmed = trimmed[end_pos + 2 :].lstrip()
+            continue
+        break
+    if not trimmed.upper().startswith("CALL"):
+        return False
+
+    # Very small parser: extract the identifier between CALL and the first '('.
+    m = re.match(r"(?is)^CALL\s+([^\s(]+)", trimmed)
+    if not m:
+        return False
+    proc_ident = m.group(1)
+    # Expected Iceberg forms: <catalog>.system.<proc> or system.<proc>
+    parts = [p for p in proc_ident.split(".") if p]
+    if len(parts) < 2 or parts[-2].lower() != "system":
+        return False
+    proc = parts[-1].lower()
+    if proc not in _FORWARDED_ICEBERG_SYSTEM_CALLS:
+        telemetry.report_sql_call_forwarding(kind="iceberg_other", outcome="rejected")
+        return False
+
+    telemetry.report_sql_call_forwarding(kind=f"iceberg_{proc}", outcome="attempted")
+
+    # Strip trailing semicolons like the passthrough path does.
+    forwarded_sql = sql_string.rstrip().rstrip(";")
+    if _has_top_level_semicolon(forwarded_sql):
+        return False
+    session.sql(forwarded_sql).collect()
+    return True
 
 
 def _resolve_ancestors_of_procedure(proc_name_parts: list[str]) -> None:
@@ -2588,12 +2818,19 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
         overwrite_condition = get_overwrite_condition(
             distinct_partitions_df, target_partition_columns
         )
-        df.write.saveAsTable(
-            table_name=name,
-            table_exists=True,
-            mode="overwrite",
-            overwrite_condition=overwrite_condition,
-        )
+        try:
+            df.write.saveAsTable(
+                table_name=name,
+                table_exists=True,
+                mode="overwrite",
+                overwrite_condition=overwrite_condition,
+            )
+        except SnowparkSQLException:
+            # A failed atomic overwrite_condition leaves the transaction open;
+            # roll back before surfacing so the session is not left holding an
+            # uncommitted DELETE (dangling txn; a later commit = data loss).
+            rollback_after_failed_overwrite(session)
+            raise
         if get_return_dml_metadata_enabled():
             return session.table(name).count()
         return None
@@ -3715,7 +3952,8 @@ def _translate_create_view_snowpark_error(
 def _relation_time_travel_extensions_disabled_exception() -> AnalysisException:
     """Build the SNOW-3471774 error when ``spark.sql.extensions`` is unset."""
     exception = AnalysisException(
-        "SQL time travel ('VERSION AS OF' / 'TIMESTAMP AS OF') "
+        "SQL time travel ('VERSION AS OF' / 'TIMESTAMP AS OF' / "
+        "'FOR SYSTEM_VERSION AS OF' / 'FOR SYSTEM_TIME AS OF') "
         "is gated on the 'spark.sql.extensions' config naming "
         "the Iceberg Spark SQL extensions class. SCOS implements "
         "time travel natively (no extra JAR install is required), "
@@ -3942,7 +4180,16 @@ def _map_sql_to_pandas_df_impl(
             )
         if is_cld_unified_identifier_rules_enabled():
             sql_string = _preprocess_sql_for_cld_rules(sql_string)
-        logical_plan = sql_parser().parsePlan(sql_string)
+        try:
+            logical_plan = sql_parser().parsePlan(sql_string)
+        except Exception:
+            # Spark's base parser rejects CALL, and the Iceberg parser proxy can
+            # re-raise the base exception if both parsers fail. Best-effort forward
+            # CALL statements directly so we collect telemetry even when parsing fails.
+            session = get_or_create_snowpark_session()
+            if _maybe_forward_call_sql(sql_string, session):
+                return pandas.DataFrame(), '{"type": "struct", "fields": []}'
+            raise
         parsed_pos_args = parse_pos_args(logical_plan, pos_args)
         set_sql_args(named_args, parsed_pos_args)
 
@@ -3963,6 +4210,23 @@ def _map_sql_to_pandas_df_impl(
                 proc_name_parts = [
                     str(part) for part in as_java_list(logical_plan.name())
                 ]
+                proc = proc_name_parts[-1].lower() if proc_name_parts else ""
+                immediate_namespace = (
+                    proc_name_parts[-2].lower() if len(proc_name_parts) >= 2 else ""
+                )
+                if immediate_namespace != "system":
+                    # Forward non-Iceberg CALL to Snowflake unchanged. This unblocks
+                    # platform-side stored procs and preserves error text.
+                    telemetry.report_sql_call_forwarding(
+                        kind="non_system_call", outcome="attempted"
+                    )
+                    session.sql(sql_string).collect()
+                    return pandas.DataFrame(), '{"type": "struct", "fields": []}'
+
+                if proc in _FORWARDED_ICEBERG_SYSTEM_CALLS:
+                    if _maybe_forward_iceberg_call_sql(sql_string, session):
+                        return pandas.DataFrame(), '{"type": "struct", "fields": []}'
+
                 proc = _resolve_iceberg_system_procedure(proc_name_parts)
 
                 if proc == "fast_forward":
@@ -5285,7 +5549,8 @@ def _map_sql_to_pandas_df_impl(
                 rows = session.sql(snowflake_sql).collect()
 
             case "ShowCurrentNamespaceCommand":
-                name = session.get_current_schema()
+                with scos_internal_query_tag():
+                    name = session.get_current_schema()
                 unquoted_name = unquote_if_quoted(name)
                 sql = f"SHOW SCHEMAS LIKE '{unquoted_name}'"
                 rows = session.sql(sql).collect()
@@ -5796,7 +6061,20 @@ def map_sql(
             # parseQuery() can only be called for query statements.
             if is_cld_unified_identifier_rules_enabled():
                 sql_stmt = _preprocess_sql_for_cld_rules(sql_stmt)
-            logical_plan = sql_parser().parsePlan(sql_stmt)
+            try:
+                logical_plan = sql_parser().parsePlan(sql_stmt)
+            except Exception:
+                # See _map_sql_to_pandas_df_impl: if parsing failed on a CALL,
+                # optionally forward selected Iceberg procedures directly so we
+                # collect telemetry even when execution fails.
+                session = get_or_create_snowpark_session()
+                if _maybe_forward_call_sql(sql_stmt, session):
+                    # Return an empty DataFrame: CALL is statement-like.
+                    sql_df = session.sql("SELECT 1 WHERE 1=0")
+                    if not rel.common.HasField("plan_id"):
+                        rel.common.plan_id = gen_sql_plan_id()
+                    return post_process_df(sql_df, rel.common.plan_id)
+                raise
 
             parsed_pos_args = parse_pos_args(logical_plan, rel.sql.pos_args)
             set_sql_args(rel.sql.args, parsed_pos_args)
@@ -6045,6 +6323,8 @@ def map_logical_plan_relation(
                 inner = _map_union_strip_inner_distinct(child)
             else:
                 inner = map_logical_plan_relation(child)
+            # No keys: map_deduplicate reads this shape as SQL DISTINCT, which
+            # stops ORDER BY resolution (SNOW-4222753).
             proto = relation_proto.Relation(
                 deduplicate=relation_proto.Deduplicate(input=inner)
             )

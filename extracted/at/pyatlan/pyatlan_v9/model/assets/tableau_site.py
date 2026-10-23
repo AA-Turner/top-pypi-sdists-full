@@ -14,9 +14,18 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -46,13 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .tableau_related import RelatedTableauProject, RelatedTableauSite
 
 # =============================================================================
@@ -232,6 +234,8 @@ class TableauSite(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this TableauSite instance.
@@ -256,6 +260,11 @@ class TableauSite(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"TableauSite validation failed: {errors}")
 
@@ -287,6 +296,40 @@ class TableauSite(Asset):
         if self.guid is not UNSET:
             return RelatedTableauSite(guid=self.guid)
         return RelatedTableauSite(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        site_id: str,
+    ) -> "TableauSite":
+        validate_required_fields(
+            ["name", "connection_qualified_name", "site_id"],
+            [name, connection_qualified_name, site_id],
+        )
+        fields = connection_qualified_name.split("/")
+        if len(fields) != 3:
+            raise ValueError(
+                f"Invalid connection_qualified_name: {connection_qualified_name}. "
+                "Expected format: default/tableau/<epoch>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/{site_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "TableauSite":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "TableauSite":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -581,6 +624,7 @@ def _tableau_site_to_nested(tableau_site: TableauSite) -> TableauSiteNested:
         is_incomplete=tableau_site.is_incomplete,
         provenance_type=tableau_site.provenance_type,
         home_id=tableau_site.home_id,
+        delete_handler=tableau_site.delete_handler,
         depth=tableau_site.depth,
         immediate_upstream=tableau_site.immediate_upstream,
         immediate_downstream=tableau_site.immediate_downstream,
@@ -627,6 +671,7 @@ def _tableau_site_from_nested(nested: TableauSiteNested) -> TableauSite:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -650,10 +695,7 @@ def _tableau_site_from_nested_bytes(data: bytes, serde: Serde) -> TableauSite:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 TableauSite.TABLEAU_PROJECT_HIERARCHY_QUALIFIED_NAMES = KeywordField(
     "tableauProjectHierarchyQualifiedNames", "tableauProjectHierarchyQualifiedNames"

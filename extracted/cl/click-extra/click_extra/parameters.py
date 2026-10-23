@@ -13,14 +13,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Our own flavor of `Option`, `Argument` and `parameters`."""
+"""Our own flavor of `Option`, `Argument` and `parameters`.
+
+Also the home of the introspection helpers every renderer of a CLI reads it
+through: the man pages, the Markdown and JSON documents, the Carapace
+completion spec, the `--tree` view and the `--params` table. One helper per
+question keeps their answers from drifting apart: which parameters a command
+lists and in which order, what each one is called, what it accepts, and how its
+help text reads once Click's markers are taken out.
+"""
 
 from __future__ import annotations
 
+import inspect
 import logging
+import re
 from collections import ChainMap
 from contextlib import nullcontext
-from functools import cached_property, reduce
+from enum import Enum
+from functools import cache, cached_property, reduce
 from gettext import gettext as _
 from operator import getitem
 from typing import TypeVar, overload
@@ -35,7 +46,6 @@ from click.core import (
     _format_deprecated_label,
     _format_deprecated_suffix,
 )
-from deepmerge import always_merger
 
 from . import context
 from ._deprecated import warn_deprecated_argument
@@ -56,12 +66,13 @@ from .types import EnumChoice
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Sequence
+    from collections.abc import Callable, Iterable, Iterator, Sequence
     from pathlib import Path
     from typing import Any, ClassVar, Literal
 
     from boltons.urlutils import URL
     from click._utils import T_UNSET
+    from click.parser import _OptionParser
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +84,70 @@ they were asked to find."""
 #: Separator joining the keys of a parameter's fully-qualified path
 #: (`cli.subcommand.param`).
 PARAM_PATH_SEP = "."
+
+INLINE_LITERAL_RE = re.compile(r"``([^`]+?)``")
+"""Match a reST inline literal (`"`...`"`) in a docstring.
+
+Click stores docstrings verbatim, so any reST markup the author used to
+render code-like tokens in HTML docs leaks into `Command.help` /
+`Command.short_help`. The roff and HTML man-page paths translate these
+matches into the bold/literal markers their renderers understand; the
+Sphinx index directive translates them into `nodes.literal`.
+"""
+
+_CLICK_HAS_PARAMETER_SPEC = hasattr(click.Parameter, "spec")
+"""Whether Click names a parameter by `Parameter.spec`, as it does from `8.6.0` on.
+
+Click then reads `spec` everywhere it read `human_readable_name`, and warns
+about a subclass that still overrides the old property.
+"""
+
+
+def iter_inline_literals(text: str) -> Iterator[tuple[str, bool]]:
+    """Walk `text` and yield `(segment, is_literal)` pairs.
+
+    Split on {data}`INLINE_LITERAL_RE` so the consumer can apply
+    different rendering to the literal segments (bold for roff, a
+    `literal` node for docutils) without re-parsing the regex.
+    """
+    pos = 0
+    for match in INLINE_LITERAL_RE.finditer(text):
+        if match.start() > pos:
+            yield text[pos : match.start()], False
+        yield match.group(1), True
+        pos = match.end()
+    if pos < len(text):
+        yield text[pos:], False
+
+
+def clean_help(text: str) -> str:
+    r"""Normalize Click help prose for the backends that carry newlines natively.
+
+    Runs {func}`inspect.cleandoc` and drops Click's `\b` (`\x08`) no-rewrap
+    marker, keeping every line break the marker protected. Markdown, JSON and a
+    completion spec all represent those breaks on their own, so none needs an
+    equivalent of the roff `.nf` / `.fi` pair: only the control character has to
+    go, or it lands in the output as a stray byte.
+    """
+    return inspect.cleandoc(text).replace("\x08\n", "").replace("\x08", "").strip()
+
+
+def choice_values(param_type: click.ParamType) -> tuple[str, ...]:
+    """The values a `click.Choice`-like type accepts, spelled as Click completes them.
+
+    An {class}`~enum.Enum` member is named by its `name`, as
+    {meth}`click.Choice.normalize_choice` does before it folds case, and
+    anything else by `str()`. A type carrying no `choices` attribute, or an
+    empty one, answers an empty tuple. The one spelling every document of a
+    CLI lists a choice under: the help screen, the man page, the completion
+    spec.
+    """
+    choices = getattr(param_type, "choices", None)
+    if not choices:
+        return ()
+    return tuple(
+        choice.name if isinstance(choice, Enum) else str(choice) for choice in choices
+    )
 
 
 @overload
@@ -392,7 +467,8 @@ class _ParameterMixin:
         lines of parsing internals that would have to be copied to reach it.
         `process_value` runs once per parse, right after that check, with the
         source already recorded. The wording is Click's own, down to the suffix
-        helper, so the two notices read as one feature.
+        helper and the property naming the parameter, so the two notices read
+        as one feature.
         """
         if (
             self.deprecated
@@ -404,7 +480,11 @@ class _ParameterMixin:
                 "{extra_message}"
             ).format(
                 param_type=self.param_type_name,
-                name=self.human_readable_name,  # type: ignore[attr-defined]
+                name=(
+                    self.spec  # type: ignore[attr-defined]
+                    if _CLICK_HAS_PARAMETER_SPEC
+                    else self.human_readable_name  # type: ignore[attr-defined]
+                ),
                 extra_message=_format_deprecated_suffix(self.deprecated),
             )
             echo(style(message, fg="red"), err=True)
@@ -462,25 +542,40 @@ class Option(_ParameterMixin, cloup.Option):
 
     Inherits first from `_ParameterMixin` to allow future overrides of Click's
     `Parameter` methods.
+
+    ```{todo}
+    Delete the `human_readable_name` override and `_CLICK_HAS_PARAMETER_SPEC`
+    once this package's Click floor reaches `8.6.0`. From that release on,
+    Click names a parameter by `Parameter.spec`, added by
+    [pallets/click#3877](https://github.com/pallets/click/pull/3877): a
+    deprecation notice then names the option by its longest-prefixed flag.
+    ```
     """
 
-    @property
-    def human_readable_name(self) -> str:
-        """Every spelling of the option, joined the way Click hints at one.
+    if not _CLICK_HAS_PARAMETER_SPEC:
 
-        Click returns `self.name` here: the Python identifier it derived from
-        the declarations, which is the one spelling that appears nowhere on the
-        command line. A deprecated `--apt-cyg / --no-apt-cyg` announced itself
-        as `'apt_cyg'`, naming a flag no user can type and none of the two they
-        did. `click.Argument` already overrides the property for its own
-        reasons, leaving `click.Option` re-declaring the inherited body
-        verbatim.
+        @property
+        def human_readable_name(self) -> str:
+            """Every spelling of the option, joined the way Click hints at one.
 
-        `" / "` is the separator `click.Parameter.get_error_hint` joins the same
-        spellings with, so a message naming an option reads the same whichever
-        of the two produced it.
-        """
-        return " / ".join(param_spellings(self))
+            Declared below Click `8.6.0` only: from that release on, Click
+            reads `Parameter.spec` in its place, and warns about a subclass
+            that overrides this property.
+
+            Below it, Click returns `self.name` here: the Python identifier it
+            derived from the declarations, which is the one spelling that
+            appears nowhere on the command line. Left alone, a deprecated
+            `--apt-cyg / --no-apt-cyg` announces itself as `'apt_cyg'`, naming
+            a flag no user can type and none of the two they did.
+            `click.Argument` already overrides the property for its own
+            reasons, leaving `click.Option` re-declaring the inherited body
+            verbatim.
+
+            `" / "` is the separator `click.Parameter.get_error_hint` joins the
+            same spellings with, so a message naming an option reads the same
+            whichever of the two produced it.
+            """
+            return " / ".join(param_spellings(self))
 
     def get_error_hint(self, ctx: click.Context | None) -> str:
         """Like parent's `get_error_hint`, but naming each environment variable.
@@ -498,8 +593,9 @@ class Option(_ParameterMixin, cloup.Option):
         Extra command, keeps Click's rendering.
 
         ```{todo}
-        Delete this override once Click names each variable of a sequence
-        `envvar` in `click.Option.get_error_hint`.
+        Delete this override once
+        [pallets/click#3884](https://github.com/pallets/click/pull/3884) ships:
+        Click then names each variable of a sequence `envvar` itself.
         ```
         """
         hint = super().get_error_hint(ctx)
@@ -565,6 +661,33 @@ class ExtraOption(Option):
     ```
     """
 
+    def add_to_parser(self, parser: _OptionParser, ctx: click.Context) -> None:
+        """Register the option, then give the `root` logger its handler for the run.
+
+        Any of these options may log, and reports through its records: the level
+        changes of the verbosity options, the status lines and the validation
+        errors of `ConfigOption`, the warnings of `JobsOption`. A command that
+        carries one of them so prints log records in the style of Click Extra
+        while it runs.
+
+        Click calls this method on every parameter of a command before it processes
+        any of them, so the handler is in place for the records the first callbacks
+        emit. It is also a step an option goes through on a command of any class,
+        which is what lets one of these options work on a plain `click.command`.
+
+        Nothing is attached while Click only completes or inspects a command line
+        (`ctx.resilient_parsing`). See
+        `click_extra.logging._hold_invocation_handler` for the other rules, and
+        for how the handler leaves.
+        """
+        super().add_to_parser(parser, ctx)
+        if not ctx.resilient_parsing:
+            # Imported here to avoid a circular import with the logging module,
+            # which imports from this one.
+            from .logging import _hold_invocation_handler
+
+            _hold_invocation_handler(ctx)
+
 
 class ParamStructure:
     """Utilities to introspect CLI options and commands structure.
@@ -582,14 +705,21 @@ class ParamStructure:
     `ConfigOption` resolves a dynamic default (or the user-provided list) within
     the active context. The two filters are mutually exclusive, a constraint each
     subclass enforces in its own constructor.
+
+    With an allowlist, this holds only the IDs that the walk of
+    {meth}`~click_extra.parameters.ParamStructure.build_param_trees` reaches and
+    the allowlist leaves out. Ask
+    {meth}`~click_extra.parameters.ParamStructure.is_excluded` about a parameter of
+    another subcommand.
     """
 
     included_params: frozenset[str] | None
     """Allowlist of parameter IDs, mutually exclusive with `excluded_params`.
 
-    `None` disables the allowlist. It is resolved into `excluded_params` by
-    {meth}`~click_extra.parameters.ParamStructure.build_param_trees`, once every
-    parameter ID is known.
+    `None` disables the allowlist. Otherwise
+    {meth}`~click_extra.parameters.ParamStructure.build_param_trees` walks only the
+    subcommands an allowed ID lies under, and resolves the parameters it reaches
+    into `excluded_params`.
     """
 
     @staticmethod
@@ -612,11 +742,15 @@ class ParamStructure:
         """
         return reduce(getitem, path, tree_dict)
 
-    def walk_params(self) -> Iterator[tuple[tuple[str, ...], click.Parameter]]:
+    def walk_params(
+        self,
+        *,
+        descend: Callable[[tuple[str, ...]], bool] | None = None,
+    ) -> Iterator[tuple[tuple[str, ...], click.Parameter]]:
         """Generate an unfiltered list of all CLI parameters.
 
         Everything is included, from top-level groups to subcommands, and from
-        options to arguments.
+        options to arguments, unless `descend` skips a subcommand.
 
         Yields a 2-element tuple:
             - a tuple of keys leading to the parameter;
@@ -625,11 +759,17 @@ class ParamStructure:
         Thin adapter over {func}`~click_extra.parameters.walk_command_params`: it
         resolves the root CLI from the active context and drops the per-parameter
         context that the free function also yields.
+
+        :param descend: passed on to
+            {func}`~click_extra.parameters.walk_command_params`, to skip the
+            subcommands it declines.
         """
         ctx = get_current_context()
         cli = ctx.find_root().command
         assert cli.name is not None
-        for keys, param, _ctx in walk_command_params(cli, ctx, (cli.name,)):
+        for keys, param, _ctx in walk_command_params(
+            cli, ctx, (cli.name,), descend=descend
+        ):
             yield keys, param
 
     TYPE_MAP: ClassVar[dict[type[ParamType], type[str | int | float | bool | list]]] = {
@@ -665,20 +805,7 @@ class ParamStructure:
         See the list of
         [custom types provided by Click](https://click.palletsprojects.com/en/stable/api/#types).
         """
-        # Try to directly map the Click type to a Python type.
-        py_type = ParamStructure.TYPE_MAP.get(click_type.__class__)
-        if py_type is not None:
-            return py_type
-
-        # Try to indirectly map the type by looking at inheritance.
-        for param_type, mapped_type in ParamStructure.TYPE_MAP.items():
-            if isinstance(click_type, param_type):
-                return mapped_type
-
-        # Custom parameters are expected to convert from strings, as that's
-        # the default type of command lines.
-        # See: https://click.palletsprojects.com/en/stable/api/#click.ParamType
-        return str
+        return _python_type_of(type(click_type))
 
     @staticmethod
     def get_param_type(
@@ -706,31 +833,62 @@ class ParamStructure:
 
         return ParamStructure.map_click_type(param.type)
 
+    def is_excluded(self, param_id: str) -> bool:
+        """Whether a configuration file cannot set the parameter `param_id`.
+
+        An allowlist answers alone: the parameter is excluded when
+        `included_params` does not name it. So the answer holds for a parameter
+        of a subcommand that the walk of
+        {meth}`~click_extra.parameters.ParamStructure.build_param_trees` skipped.
+        Without an allowlist, the parameter is excluded when `excluded_params`
+        lists it.
+
+        :param param_id: the fully-qualified ID of the parameter, its path keys
+            joined with {data}`~click_extra.parameters.PARAM_PATH_SEP`.
+        """
+        if self.included_params is not None:
+            return param_id not in self.included_params
+        return param_id in self.excluded_params
+
+    def _leads_to_included(self, keys: tuple[str, ...]) -> bool:
+        """Whether an ID of `included_params` lies under the subcommand at `keys`."""
+        assert self.included_params is not None
+        prefix = f"{PARAM_PATH_SEP.join(keys)}{PARAM_PATH_SEP}"
+        return any(param_id.startswith(prefix) for param_id in self.included_params)
+
     def build_param_trees(self) -> dict[str, Any]:
         """Build and return the parameters tree structure.
 
         This removes parameters whose fully-qualified IDs are in the `excluded_params`
         blocklist.
 
-        If `included_params` was provided, it is resolved into `excluded_params`
-        here, where all parameter IDs are available.
+        With an allowlist, the tree holds only the parameters `included_params`
+        names. The walk then skips each subcommand that no allowed ID lies under,
+        so it does not import a lazy subcommand of a
+        {class}`~click_extra.commands.LazyGroup` that the allowlist leaves out. An
+        empty allowlist walks the root command alone. The parameters the walk
+        reaches and the allowlist leaves out become `excluded_params`.
         """
-        # Resolve included_params into excluded_params before filtering.
-        if self.included_params is not None:
-            all_param_ids = frozenset(
-                PARAM_PATH_SEP.join(keys) for keys, _ in self.walk_params()
-            )
-            self.excluded_params = all_param_ids - self.included_params
+        descend = self._leads_to_included if self.included_params is not None else None
+
+        # Deferred import: keeps deepmerge off the startup path of every CLI.
+        from deepmerge import always_merger
 
         objects: dict[str, Any] = {}
+        reached_ids = set()
 
-        for keys, param in self.walk_params():
-            if PARAM_PATH_SEP.join(keys) in self.excluded_params:
+        for keys, param in self.walk_params(descend=descend):
+            param_id = PARAM_PATH_SEP.join(keys)
+            reached_ids.add(param_id)
+            if self.is_excluded(param_id):
                 continue
 
             objects = always_merger.merge(
                 objects, self.init_tree_dict(*keys, leaf=[param])
             )
+
+        if self.included_params is not None:
+            self.excluded_params = frozenset(reached_ids) - self.included_params
 
         return objects
 
@@ -759,6 +917,26 @@ class ParamStructure:
         Perfect to parse configuration files and user-provided parameters.
         """
         return self.build_param_trees()
+
+
+@cache
+def _python_type_of(
+    click_type_class: type[ParamType],
+) -> type[str | int | float | bool | list]:
+    """The Python type a class of Click parameter type converts to.
+
+    Answers from {attr}`ParamStructure.TYPE_MAP`: the entry of the class itself,
+    else the first entry the class inherits, else `str`, which is what the command
+    line hands a custom type. Cached by class, since a CLI declares a handful of
+    types and the `--params` table asks once per parameter.
+    """
+    py_type = ParamStructure.TYPE_MAP.get(click_type_class)
+    if py_type is not None:
+        return py_type
+    for param_type, mapped_type in ParamStructure.TYPE_MAP.items():
+        if issubclass(click_type_class, param_type):
+            return mapped_type
+    return str
 
 
 def get_param_spec(param: click.Parameter, ctx: click.Context) -> str | None:
@@ -933,8 +1111,38 @@ def make_resilient_context(
     to materialize a {class}`click.Context` purely to read a command's structure
     (its parameters, env-var prefix and subcommands), shared by the man-page and
     Carapace exporters.
+
+    :param command: the command to build the context of.
+    :param info_name: the name the command goes by in that context. Defaults to
+        the command's own name.
+    :param parent: the context of the command's parent, if any.
     """
+    if info_name is None:
+        info_name = command.name
     return command.make_context(info_name, [], parent=parent, resilient_parsing=True)
+
+
+def child_context(
+    command: click.Command,
+    parent: click.Context,
+    info_name: str,
+) -> click.Context:
+    """Build the context of a subcommand under `parent`, without parsing anything.
+
+    Built the way {meth}`click.Command.make_context` builds one, from the
+    command's own `context_class` and `context_settings`, so the context reads
+    like the one a real invocation gets: a subcommand setting its own
+    `auto_envvar_prefix` names its environment variables after it, where a bare
+    `click.Context` would derive them from the parent's prefix. Unlike
+    {func}`make_resilient_context`, no parameter is processed, so a walk over a
+    live invocation never re-runs a callback.
+    """
+    return command.context_class(
+        command,
+        info_name=info_name,
+        parent=parent,
+        **command.context_settings,
+    )
 
 
 def iter_subcommands(
@@ -1037,19 +1245,27 @@ def walk_command_params(
     cmd: click.Command,
     ctx: click.Context,
     parent_keys: tuple[str, ...] = (),
+    *,
+    descend: Callable[[tuple[str, ...]], bool] | None = None,
 ) -> Iterator[tuple[tuple[str, ...], click.Parameter, click.Context]]:
     """Walk the parameter tree of a Click command and all its subcommands.
 
     Yields `(path_keys, param, owning_ctx)` for every parameter found on
     *cmd* and, recursively, on each subcommand. Each subcommand is walked under
-    its own freshly-built child context, so context-sensitive metadata (notably
-    the auto-generated environment variable, which derives from
-    `Context.auto_envvar_prefix`) is computed at the correct nesting level
-    rather than inherited from the root.
+    its own freshly-built child context (see {func}`child_context`), so
+    context-sensitive metadata (notably the auto-generated environment variable,
+    which derives from `Context.auto_envvar_prefix`) is computed at the correct
+    nesting level, with the subcommand's own context settings applied, rather
+    than inherited from the root.
 
     A subcommand whose name collides with a sibling parameter at the same level
     is skipped: a single fully-qualified path cannot address both an option and
     a subcommand at once.
+
+    :param descend: called with the path keys of each subcommand, before the
+        group resolves it. The walk skips a subcommand for which it returns
+        `False`, so a lazy subcommand it declines is not imported. `None` walks
+        every subcommand.
     """
     level_param_names = set()
     for param in cmd.get_params(ctx):
@@ -1068,12 +1284,15 @@ def walk_command_params(
                     f"top-level parameter; excluded from parameter tree.",
                 )
                 continue
+            subcmd_keys = (*parent_keys, subcmd_name)
+            if descend is not None and not descend(subcmd_keys):
+                continue
             subcmd = cmd.get_command(ctx, subcmd_name)
             if subcmd is None:
                 continue
-            subcmd_ctx = click.Context(subcmd, parent=ctx, info_name=subcmd_name)
+            subcmd_ctx = child_context(subcmd, ctx, subcmd_name)
             yield from walk_command_params(
-                subcmd, subcmd_ctx, (*parent_keys, subcmd_name)
+                subcmd, subcmd_ctx, subcmd_keys, descend=descend
             )
 
 
@@ -1304,8 +1523,7 @@ def render_params_table(
         # Whether the parameter is reachable from a configuration file.
         allowed_in_conf_bool = None
         if config_option:
-            config_option.params_template  # noqa: B018
-            allowed_in_conf_bool = path not in config_option.excluded_params
+            allowed_in_conf_bool = not config_option.is_excluded(path)
 
         row = format_param_row(param, owning_ctx, path, is_structured)
 

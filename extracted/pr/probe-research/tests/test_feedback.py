@@ -402,7 +402,8 @@ def test_flush_sends_what_was_said_yes_to(monkeypatch):
 
 def test_the_daemon_profile_lets_the_agent_send_feedback():
     assert session_marker.daemon_profile_allows(["feedback", "send", TEXT]) == (True, "probe feedback send")
-    assert session_marker.daemon_profile_allows(["feedback", "flush"])[0] is False
+    # It sends only what the person said yes to (`probe.feedback`).
+    assert session_marker.daemon_profile_allows(["feedback", "flush"]) == (True, "probe feedback flush")
 
 
 # ---------------------------------------------------------------------------

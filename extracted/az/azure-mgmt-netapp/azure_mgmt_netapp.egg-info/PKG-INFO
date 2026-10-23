@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-netapp
-Version: 17.1.0
+Version: 18.0.0
 Summary: Microsoft Azure Netapp Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,60 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 18.0.0 (2026-10-21)
+
+### Features Added
+
+  - Model `AccountProperties` added property `ldap_configuration`
+  - Enum `NetAppProvisioningState` added member `CANCELED`
+  - Added model `AccountEncryptionPatch`
+  - Added model `AccountPropertiesPatch`
+  - Added model `ActiveDirectoryPatch`
+  - Added enum `BindAuthenticationLevel`
+  - Added model `BindPasswordAkvConfig`
+  - Added model `BindPasswordAkvConfigPatch`
+  - Added model `EncryptionIdentityPatch`
+  - Added model `KeyVaultPropertiesPatch`
+  - Added model `LdapConfiguration`
+  - Added model `LdapConfigurationPatch`
+  - Added enum `SecureLdapType`
+  - Operation group `AccountsOperations` added method `begin_refresh_ldap_bind_password`
+
+### Breaking Changes
+
+  - Model `NetAppAccountPatch` deleted or renamed its instance variable `id`
+  - Model `NetAppAccountPatch` deleted or renamed its instance variable `location`
+  - Model `NetAppAccountPatch` deleted or renamed its instance variable `name`
+  - Model `NetAppAccountPatch` deleted or renamed its instance variable `type`
+
+## 18.0.0b3 (2026-08-26)
+
+### Features Added
+
+  - Model `LdapConfiguration` added property `secure_ldap_type`
+  - Model `LdapConfigurationPatch` added property `secure_ldap_type`
+  - Added enum `SecureLdapType`
+
+### Breaking Changes
+
+  - Model `LdapConfiguration` deleted or renamed its instance variable `ldap_over_tls`
+  - Model `LdapConfigurationPatch` deleted or renamed its instance variable `ldap_over_tls`
+
+## 18.0.0b2 (2026-07-27)
+
+### Features Added
+
+  - Model `LdapConfiguration` added property `dns_servers`
+  - Model `LdapConfiguration` added property `group_dn`
+  - Model `LdapConfiguration` added property `ldap_port`
+  - Model `LdapConfiguration` added property `net_group_dn`
+  - Model `LdapConfiguration` added property `user_dn`
+  - Model `LdapConfigurationPatch` added property `dns_servers`
+  - Model `LdapConfigurationPatch` added property `group_dn`
+  - Model `LdapConfigurationPatch` added property `ldap_port`
+  - Model `LdapConfigurationPatch` added property `net_group_dn`
+  - Model `LdapConfigurationPatch` added property `user_dn`
 
 ## 17.1.0 (2026-07-22)
 

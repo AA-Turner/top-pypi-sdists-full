@@ -41,6 +41,7 @@ from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name_with_quoting,
     transform_identifier_for_snowflake,
 )
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import _get_current_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -1044,8 +1045,9 @@ def _read_iceberg_metadata_table(
     # If the table name is unqualified (single part), qualify it with
     # the session's current database and schema so Snowflake can resolve it.
     if len(base_table_parts) == 1:
-        current_db = session.get_current_database()
-        current_schema = session.get_current_schema()
+        with scos_internal_query_tag():
+            current_db = session.get_current_database()
+            current_schema = session.get_current_schema()
         if current_db and current_schema:
             # Strip surrounding quotes — Snowpark returns quoted identifiers
             # but the table function args expect unquoted names.
@@ -1298,7 +1300,8 @@ def post_process_df(
         # Note: In Spark, "database" corresponds to Snowflake "schema"
         if source_table_name and len(name_parts) == 1:
             session = _get_current_snowpark_session()
-            current_schema = session.get_current_schema()
+            with scos_internal_query_tag():
+                current_schema = session.get_current_schema()
             if current_schema:
                 name_parts = [unquote_if_quoted(current_schema)] + name_parts
 
@@ -1368,6 +1371,14 @@ def _get_temporary_view(
         ],
         parent_column_name_map=temp_view.column_map.get_parent_column_name_map(),
     )
+    view_snowpark_names = temp_view.column_map.get_snowpark_columns()
+    if len(view_snowpark_names) == len(snowpark_column_names):
+        new_column_map.carry_sort_identity(
+            {
+                new: (temp_view.column_map, old)
+                for new, old in zip(snowpark_column_names, view_snowpark_names)
+            }
+        )
 
     # TODO: this is a column, do we need _is_column=False?
     schema = StructType(

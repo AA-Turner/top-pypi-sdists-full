@@ -23,10 +23,10 @@ from schemathesis.generation.stateful.control import TransitionController
 from schemathesis.generation.stateful.state_machine import (
     BASE_EXPLORATION_RATE,
     APIStateMachine,
+    RecordingStateMachine,
     StepInput,
     StepOutput,
     Transition,
-    _RecordingStateMachine,
     normalize_name,
 )
 from schemathesis.generation.value import prune_overwritten_body_constants
@@ -37,6 +37,7 @@ from schemathesis.specs.openapi.stateful.links import OpenApiLink
 if TYPE_CHECKING:
     from random import Random
 
+    from schemathesis.core.jsonschema.types import JsonValue
     from schemathesis.generation.stateful.state_machine import StepOutput
     from schemathesis.specs.openapi.schemas import OpenApiSchema
     from schemathesis.specs.openapi.stateful.dependencies.models import DependencyGraph, OperationNode
@@ -44,7 +45,7 @@ if TYPE_CHECKING:
 FilterFunction = Callable[["StepOutput"], bool]
 
 
-class OpenAPIStateMachine(_RecordingStateMachine):
+class OpenAPIStateMachine(RecordingStateMachine):
     _response_matchers: dict[str, Callable[[StepOutput], str | None]]
     _transitions: ApiTransitions
     _root_labels: frozenset[str]
@@ -153,7 +154,7 @@ def collect_transitions(operations: list[APIOperation]) -> ApiTransitions:
     return transitions
 
 
-@st.composite  # type: ignore[untyped-decorator]
+@st.composite
 def _mixed_mode_case(draw: st.DrawFn, strategies: dict[GenerationMode, st.SearchStrategy]) -> Case:
     if draw(st.integers(min_value=0, max_value=99)) < NEGATIVE_TEST_CASES_THRESHOLD:
         return draw(strategies[GenerationMode.NEGATIVE])
@@ -361,7 +362,7 @@ def into_step_input(
     """A single transition between API operations."""
 
     def builder(_output: StepOutput) -> st.SearchStrategy[StepInput]:
-        @st.composite  # type: ignore[untyped-decorator]
+        @st.composite
         def inner(draw: st.DrawFn, output: StepOutput) -> StepInput:
             random = draw(st.randoms(use_true_random=True))
 
@@ -476,7 +477,7 @@ def into_step_input(
     return builder
 
 
-def _merge_link_body(generated: object, linked: object) -> object:
+def _merge_link_body(generated: object, linked: JsonValue) -> JsonValue:
     """Apply link values onto the generated body, keeping generated fields of nested objects and array items."""
     if isinstance(generated, dict) and isinstance(linked, dict):
         merged = dict(generated)
@@ -532,7 +533,7 @@ def transition(
                 is_transition_applied=input.is_applied,
             )
         else:
-            self.recorder.record_case(parent_id=None, case=input.case, transition=None, is_transition_applied=False)
+            self.recorder.record_case(case=input.case)
         self.control.record_step(input, self.recorder)
         output = APIStateMachine._step(self, input=input)
         if input.transition is None and output is not None and self._feeds_later_steps(output):

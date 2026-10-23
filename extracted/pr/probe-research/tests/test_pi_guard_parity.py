@@ -44,6 +44,7 @@ def _guard():
 def test_the_refusals_read_word_for_word():
     assert ts_string(GUARD, "DENY_REASON_APPROVALS") == session_marker.DENY_REASON_APPROVALS
     assert ts_string(GUARD, "DAEMON_PROFILE_DENY") == session_marker.DAEMON_PROFILE_DENY
+    assert ts_string(GUARD, "DENY_REASON_SESSIONS") == session_marker.DENY_REASON_SESSIONS
     assert ts_string(GUARD, "DIRECTED_RETRY") == session_marker.DIRECTED_RETRY
     assert ts_string(GUARD, "WRITER_RETRY") == session_marker.WRITER_RETRY
     assert ts_string(GUARD, "DAEMON_PROFILE_DENY_WRITE") == session_marker.DAEMON_PROFILE_DENY_WRITE
@@ -52,6 +53,8 @@ def test_the_refusals_read_word_for_word():
 def test_the_question_folder_is_found_the_same_way():
     assert ts_string(PI_SRC / "core" / "paths.ts", "APPROVALS_DIRNAME") == session_marker.APPROVALS_DIRNAME
     assert ts_raw(GUARD, "APPROVALS_TEXT_SOURCE") == session_marker._APPROVALS_TEXT.pattern
+    assert ts_raw(GUARD, "SESSIONS_TEXT_SOURCE") == session_marker._SESSIONS_TEXT.pattern
+    assert ts_string(PI_SRC / "core" / "paths.ts", "SESSIONS_DIRNAME") == session_marker.SESSIONS_DIRNAME
     assert session_marker._APPROVALS_TEXT.flags & re.IGNORECASE == 0
     # The Python guards file-writing tools by name; pi's are `write` and `edit`,
     # both naming their file in `path` (checked against pi's own types in
@@ -61,6 +64,12 @@ def test_the_question_folder_is_found_the_same_way():
 
 def test_the_daemon_profile_allows_the_same_commands():
     assert ts_set(COMMANDS, "DAEMON_PROFILE_ALLOWED") == session_marker.DAEMON_PROFILE_ALLOWED
+    assert ts_set(COMMANDS, "DAEMON_PROFILE_RUN_READS") == session_marker.DAEMON_PROFILE_RUN_READS
+    assert ts_set(COMMANDS, "DAEMON_PROFILE_WIZARD_ACTIONS") == session_marker.DAEMON_PROFILE_WIZARD_ACTIONS
+    assert ts_set(COMMANDS, "WIZARD_PLAIN_FLAGS") == session_marker.DAEMON_PROFILE_PLAIN_FLAGS["wizard"]
+    assert session_marker.DAEMON_PROFILE_PLAIN_FLAGS["setup"] == session_marker.DAEMON_PROFILE_PLAIN_FLAGS["wizard"]
+    assert set(session_marker.DAEMON_PROFILE_PLAIN_FLAGS) == {"wizard", "setup"}
+    assert session_marker.DAEMON_PROFILE_RUN_READ_WRITES == {"run reproduce": {"--materialize", "--export"}}
     assert ts_set(COMMANDS, "DAEMON_AGENT_WRITES") == session_marker.DAEMON_AGENT_WRITES
 
 
@@ -135,7 +144,7 @@ def test_the_shared_fixture_is_what_the_python_guard_answers():
         invocations = [list(args) for args in guard._probe_invocations(command)]
         refused = write = None
         for args in invocations:
-            if guard._asks_help(args):
+            if guard._asks_help_plainly(args):
                 continue
             allowed, matched = session_marker.daemon_profile_allows(args)
             if not allowed:

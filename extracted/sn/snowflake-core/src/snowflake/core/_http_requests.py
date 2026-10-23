@@ -2,6 +2,7 @@
 
 import contextvars
 import datetime
+import functools
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ from urllib.parse import quote
 import urllib3
 
 from pydantic import SecretStr
+from urllib3.util.ssl_ import create_urllib3_context
 
 from snowflake.core.exceptions import SnowflakePythonError
 
@@ -56,6 +58,29 @@ STATUS_CODES_MAPPING = {
 
 
 _DOT_SEGMENT_RE = re.compile(r"^\.\.?$")
+
+ENV_VAR_MIN_TLS_VERSION = "SNOWFLAKE_MIN_TLS_VERSION"
+# Accepted spellings, matched case-insensitively after trimming. Kept identical to the
+# Python connector's.
+_MIN_TLS_VERSION_VALUES: dict[str, ssl.TLSVersion] = {
+    "1.2": ssl.TLSVersion.TLSv1_2,
+    "tlsv1.2": ssl.TLSVersion.TLSv1_2,
+    "1.3": ssl.TLSVersion.TLSv1_3,
+    "tlsv1.3": ssl.TLSVersion.TLSv1_3,
+}
+
+ENV_VAR_TLS_CIPHERS = "SNOWFLAKE_TLS_CIPHERS"
+# TLS 1.3 suites can only be restricted through SSLContext.set_ciphersuites(), added in Python 3.15.
+_HAS_SET_CIPHERSUITES = hasattr(ssl.SSLContext, "set_ciphersuites")
+
+
+class _CipherPolicy(typing.NamedTuple):
+    """The ciphers requested through ``SNOWFLAKE_TLS_CIPHERS``, split by the TLS versions they apply to."""
+
+    tls12: Optional[str]
+    """Colon-separated OpenSSL cipher list for TLS 1.2 and earlier, or ``None`` to keep the default."""
+    tls13: Optional[str]
+    """Colon-separated TLS 1.3 cipher suites, or ``None`` to keep the default."""
 
 
 def _validate_path_param(name: str, value: str) -> str:
@@ -368,6 +393,99 @@ def _resolve_ca_cert(configuration: "Configuration") -> Optional[str]:
     return configuration.ssl_ca_cert
 
 
+def _resolve_min_tls_version() -> Optional[ssl.TLSVersion]:
+    """Resolve the minimum TLS version requested through ``SNOWFLAKE_MIN_TLS_VERSION``.
+
+    Returns
+    -------
+    ssl.TLSVersion or None
+        The requested minimum TLS version, or ``None`` when the variable is unset, empty or
+        only whitespace, in which case urllib3's own default applies.
+
+    Raises
+    ------
+    SnowflakePythonError
+        If the variable holds an unrecognized value.
+    """
+    raw = os.environ.get(ENV_VAR_MIN_TLS_VERSION, "").strip()
+    if not raw:
+        return None
+    floor = _MIN_TLS_VERSION_VALUES.get(raw.lower())
+    if floor is None:
+        raise SnowflakePythonError(
+            f"Invalid {ENV_VAR_MIN_TLS_VERSION} value {raw!r}. "
+            f"Supported values: {', '.join(sorted(_MIN_TLS_VERSION_VALUES))}."
+        )
+    return floor
+
+
+def _resolve_tls_ciphers() -> Optional[_CipherPolicy]:
+    """Resolve the ciphers requested through ``SNOWFLAKE_TLS_CIPHERS``.
+
+    The variable holds a colon-separated list of OpenSSL names. Names starting with ``TLS_``
+    are TLS 1.3 cipher suites, the others form the cipher list of TLS 1.2 and earlier.
+
+    Returns
+    -------
+    _CipherPolicy or None
+        The requested ciphers, or ``None`` when the variable is unset, empty or only
+        whitespace, in which case OpenSSL's defaults apply.
+
+    Raises
+    ------
+    SnowflakePythonError
+        If the variable holds no cipher names, or lists TLS 1.3 cipher suites on a Python
+        version that cannot restrict them.
+    """
+    raw = os.environ.get(ENV_VAR_TLS_CIPHERS, "").strip()
+    if not raw:
+        return None
+    names = [name.strip() for name in raw.split(":") if name.strip()]
+    if not names:
+        raise SnowflakePythonError(f"Invalid {ENV_VAR_TLS_CIPHERS} value {raw!r}: no cipher names found.")
+    # Every TLS 1.3 suite name starts with TLS_, and no TLS 1.2 OpenSSL cipher name does.
+    tls13 = ":".join(name for name in names if name.startswith("TLS_")) or None
+    tls12 = ":".join(name for name in names if not name.startswith("TLS_")) or None
+    if tls13 is not None and not _HAS_SET_CIPHERSUITES:
+        raise SnowflakePythonError(
+            f"{ENV_VAR_TLS_CIPHERS} lists TLS 1.3 cipher suites ({tls13!r}), which require Python 3.15 or later."
+        )
+    return _CipherPolicy(tls12=tls12, tls13=tls13)
+
+
+def _get_shared_ssl_context(ciphers: _CipherPolicy, pool_kwargs: dict[str, typing.Any]) -> ssl.SSLContext:
+    """Return the context for pools with these options, shared by all pools with the same TLS options."""
+    # Pools may only share a context when all of these options are equal. Any such option passed to the pools
+    # must be added here.
+    names = ("cert_reqs", "ssl_minimum_version", "ca_certs", "cert_file", "key_file", "assert_hostname")
+    return _create_ssl_context(ciphers, tuple((name, pool_kwargs.get(name)) for name in names))
+
+
+@functools.cache
+def _create_ssl_context(ciphers: _CipherPolicy, tls_options: tuple[tuple[str, typing.Any], ...]) -> ssl.SSLContext:
+    options = dict(tls_options)
+    context = create_urllib3_context(
+        cert_reqs=options.get("cert_reqs"),
+        ciphers=ciphers.tls12,
+        ssl_minimum_version=options.get("ssl_minimum_version"),
+    )
+    if ciphers.tls13 is not None:
+        context.set_ciphersuites(ciphers.tls13)  # type: ignore[attr-defined, unused-ignore]
+    return context
+
+
+def _validate_tls_settings() -> None:
+    """Check that ``SNOWFLAKE_MIN_TLS_VERSION`` and ``SNOWFLAKE_TLS_CIPHERS`` hold supported values.
+
+    Raises
+    ------
+    SnowflakePythonError
+        If either variable holds a value that cannot be applied.
+    """
+    _resolve_min_tls_version()
+    _resolve_tls_ciphers()
+
+
 def _manager_key(proxy_kwargs: Optional[dict[str, typing.Any]]) -> Optional[_ManagerKey]:
     """Return the key under which the manager for these proxy settings is registered."""
     if proxy_kwargs is None:
@@ -407,11 +525,17 @@ def _pool_kwargs(configuration: "Configuration", maxsize: typing.Optional[int] =
     if configuration.assert_hostname is not None:
         pool_kwargs["assert_hostname"] = configuration.assert_hostname
 
+    if (min_tls_version := _resolve_min_tls_version()) is not None:
+        pool_kwargs["ssl_minimum_version"] = min_tls_version
+
     if configuration.retries is not None:
         pool_kwargs["retries"] = configuration.retries
 
     if configuration.socket_options is not None:
         pool_kwargs["socket_options"] = configuration.socket_options
+
+    if (ciphers := _resolve_tls_ciphers()) is not None:
+        pool_kwargs["ssl_context"] = _get_shared_ssl_context(ciphers, pool_kwargs)
 
     return pool_kwargs
 

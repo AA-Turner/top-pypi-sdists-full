@@ -69,7 +69,7 @@ class StackedEncoder:
   encoders: List[fake_encoder_decoder.FakeEncoder]
 
 
-class CheckTypesTest(absltest.TestCase, unittest.TestCase):
+class CheckTypesTest(absltest.TestCase, unittest.TestCase):  # pyrefly: ignore[inconsistent-inheritance]
 
   def test_type_validation(self):
     cfg = config.Config(Experiment, dataset=BadDataset())
@@ -201,10 +201,10 @@ class CheckTypesTest(absltest.TestCase, unittest.TestCase):
     )
     with self.assertRaisesRegex(
         TypeError,
-        ".*For attribute .*union_field provided type:"
-        " .*BadTokenEmbedder.* is not of annotated/declared"
-        " type: typing.Union.*str,"
-        " fiddle._src.testing.example.fake_encoder_decoder.TokenEmbedder.*",
+        r".*For attribute .*union_field provided type:"
+        r" .*BadTokenEmbedder.* is not of annotated/declared"
+        r" type: (typing.Union\[str,\s*|str\s*\|\s*)"
+        r"fiddle\._src\.testing\.example\.fake_encoder_decoder\.TokenEmbedder.*",
     ):
       check_types.check_types(cfg)
 

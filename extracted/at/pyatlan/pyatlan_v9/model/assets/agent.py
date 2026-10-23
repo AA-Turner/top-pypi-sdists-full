@@ -18,6 +18,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
+from .agent_related import RelatedAgent
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,14 +55,6 @@ from .schema_registry_related import RelatedSchemaRegistrySubject
 from .skill_related import RelatedSkill
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .agent_related import RelatedAgent
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -665,6 +665,7 @@ def _agent_to_nested(agent: Agent) -> AgentNested:
         is_incomplete=agent.is_incomplete,
         provenance_type=agent.provenance_type,
         home_id=agent.home_id,
+        delete_handler=agent.delete_handler,
         depth=agent.depth,
         immediate_upstream=agent.immediate_upstream,
         immediate_downstream=agent.immediate_downstream,
@@ -709,6 +710,7 @@ def _agent_from_nested(nested: AgentNested) -> Agent:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

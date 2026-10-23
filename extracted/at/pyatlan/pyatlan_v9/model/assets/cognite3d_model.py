@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -31,6 +38,7 @@ from .asset import (
     _extract_asset_attrs,
     _populate_asset_attrs,
 )
+from .cognite_related import RelatedCognite3DModel, RelatedCogniteAsset
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
@@ -47,14 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cognite_related import RelatedCognite3DModel, RelatedCogniteAsset
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -576,6 +576,7 @@ def _cognite3d_model_to_nested(cognite3d_model: Cognite3DModel) -> Cognite3DMode
         is_incomplete=cognite3d_model.is_incomplete,
         provenance_type=cognite3d_model.provenance_type,
         home_id=cognite3d_model.home_id,
+        delete_handler=cognite3d_model.delete_handler,
         depth=cognite3d_model.depth,
         immediate_upstream=cognite3d_model.immediate_upstream,
         immediate_downstream=cognite3d_model.immediate_downstream,
@@ -624,6 +625,7 @@ def _cognite3d_model_from_nested(nested: Cognite3DModelNested) -> Cognite3DModel
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -649,10 +651,7 @@ def _cognite3d_model_from_nested_bytes(data: bytes, serde: Serde) -> Cognite3DMo
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 Cognite3DModel.CATALOG_DATASET_GUID = KeywordField(
     "catalogDatasetGuid", "catalogDatasetGuid"

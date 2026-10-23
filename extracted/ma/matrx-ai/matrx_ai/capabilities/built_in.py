@@ -68,6 +68,10 @@ _SANDBOX_FS_TOOLS = (
     # of git's credential helper (live ledger, conversation 99d5b990, 2026-09-13).
     # Read-only inventory of the user's GitHub connection; never a credential.
     RegisteredToolSpec(name="github_repositories"),
+    # The box itself: its image vs current, health, an update that keeps /home/agent, and
+    # its own logs. Without it an agent in a stale box could only ask the owner to press
+    # Reset (conversation 9b224bf5, 2026-10-22).
+    RegisteredToolSpec(name="sandbox_maintenance"),
 )
 
 _SANDBOX_FS = Capability(

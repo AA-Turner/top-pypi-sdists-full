@@ -92,6 +92,7 @@ jobs:
       - name: Update the versions switcher
         if: ${{ github.ref_type == 'tag' }}
         run: |
+          git reset --hard HEAD
           git checkout gh-pages
           git fetch
           git pull

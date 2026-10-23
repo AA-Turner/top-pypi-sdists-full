@@ -88,10 +88,7 @@ class TestDatetimeLike:
         result = type(simple_index)(idx)
         tm.assert_index_equal(result, idx)
 
-        msg = (
-            "Cannot change data-type for array of references.|"
-            "Cannot change data-type for object array.|"
-        )
+        msg = "Cannot change data-type"
         with pytest.raises(TypeError, match=msg):
             idx.view(type(simple_index))
 
@@ -99,7 +96,7 @@ class TestDatetimeLike:
         index = simple_index
         expected = index + index.freq
         result = index.map(lambda x: x + index.freq)
-        tm.assert_index_equal(result, expected)
+        tm.assert_index_equal(result, expected, check_freq=False)
 
         # map to NaT
         result = index.map(lambda x: pd.NaT if x == index[0] else x)
@@ -109,11 +106,10 @@ class TestDatetimeLike:
     @pytest.mark.parametrize(
         "mapper",
         [
-            lambda values, index: {i: e for e, i in zip(values, index)},
+            lambda values, index: {i: e for e, i in zip(values, index, strict=True)},
             lambda values, index: pd.Series(values, index, dtype=object),
         ],
     )
-    @pytest.mark.filterwarnings(r"ignore:PeriodDtype\[B\] is deprecated:FutureWarning")
     def test_map_dictlike(self, mapper, simple_index):
         index = simple_index
         expected = index + index.freq

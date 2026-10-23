@@ -35,7 +35,6 @@ from snowflake.core.iceberg_table import IcebergTableCollection
 from snowflake.core.image_repository import ImageRepositoryCollection
 from snowflake.core.network_policy import NetworkPolicyCollection
 from snowflake.core.network_rule import NetworkRuleCollection
-from snowflake.core.notebook import NotebookCollection
 from snowflake.core.notification_integration import NotificationIntegrationCollection
 from snowflake.core.password_policy import PasswordPolicyCollection
 from snowflake.core.pipe import PipeCollection
@@ -163,11 +162,6 @@ CONNECTION_PARAMETERS = {
 
 
 def pytest_runtest_setup(item):
-    # Skip any test marked for Notebook when running on Notebook Environment
-    if RUNNING_IN_NOTEBOOK:
-        notebook_marker = list(item.iter_markers(name="skip_notebook"))
-        if notebook_marker:
-            pytest.skip("this test is not supposed to run on Notebook Environment")
     # Skip any test marked for Storedproc when running on Storedproc Environment
     if RUNNING_IN_STOREDPROC:
         storedproc_marker = list(item.iter_markers(name="skip_storedproc"))
@@ -340,11 +334,6 @@ def services(schema) -> ServiceCollection:
 @pytest.fixture(scope="session")
 def functions(schema) -> FunctionCollection:
     return schema.functions
-
-
-@pytest.fixture(scope="session")
-def notebooks(schema) -> NotebookCollection:
-    return schema.notebooks
 
 
 @pytest.fixture(scope="session")

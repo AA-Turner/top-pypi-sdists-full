@@ -995,11 +995,28 @@ def _spawn_version_refresh() -> None:
     The cost is that this invocation compares against the OLD manifest and the
     nudge lands on the NEXT one. That is how update-notifier behaves, for the
     same reason.
+
+    Where a Probe service answers, it refreshes instead (`manifest.refresh`:
+    one child of its own per context, the same refresh and update reports
+    this child would run) and this command goes on without spawning; it never
+    waits for the fetch. The claim then simply ages out (REFRESH_CLAIM_SECONDS),
+    long after the service's child has written a fresh cache: the commands
+    meanwhile skip at the claim, as they do while a detached child fetches. No
+    service, an older one, Windows, a `PROBE_VERSION_CACHE` it cannot be told,
+    a caller in a sandbox, or a service refresh that did not land (`recent`
+    with this cache still stale): the detached child, as before.
     """
     from probe import version_policy
 
     if not version_policy.claim_refresh():
         return  # somebody is already fetching; a burst of 8 runs makes 1 request
+    try:
+        from probe.cli import service_calls
+
+        if service_calls.refresh_manifest():
+            return
+    except Exception:  # noqa: BLE001 -- the detached child is never worse than none
+        pass
     env = dict(os.environ)
     env[version_policy.REFRESH_OWNER_ENV] = str(os.getpid())
     try:
@@ -1034,17 +1051,21 @@ def _spawn_update(flag: str, *, trigger: str | None = None) -> None:
 
 
 def _service_owns_updates() -> bool:
-    """Is the Probe service this machine's updater (`PROBE_SERVICE=on`, or
-    `"service": "on"` in the config)? Then nothing else spawns one (plan Q4):
-    the service applies updates only on a quiet machine, and its own child
-    outlives no CLI command. POSIX only, like the service."""
+    """Is the Probe service this machine's updater? Always, on POSIX (it has no
+    switch): nothing else spawns one (plan Q4), since the service applies
+    updates only on a quiet machine and its own child outlives no CLI command."""
     if not hasattr(os, "fork"):
         return False
     try:
         from probe.service import client as service_client
-
-        return service_client.enabled()
     except Exception:  # noqa: BLE001 -- the old path is never worse than none
+        return False
+    # A service needs an interpreter to start with (runtime.json, else the uv
+    # tool env's): a pip or pipx install without either keeps the old updater,
+    # or its updates would be dropped.
+    try:
+        return service_client.runtime_python() is not None
+    except Exception:  # noqa: BLE001
         return False
 
 
@@ -1107,6 +1128,33 @@ def _spawn_autoupdate() -> None:
     try:
         _spawn_update("--apply")
     except Exception:  # noqa: BLE001 -- fail-open: never block the command
+        pass
+
+
+def _hold_run_with_service(handle) -> tuple[str, dict] | None:
+    """`probe exec`: tell the Probe service this process wraps `handle`'s run
+    (`run.hold`), so its updater's quiet check sees the run without scanning
+    lock files. `(run id, owner)` for the release, or None (no service, an
+    older one, Windows): the run lock is what it reads then. Never raises."""
+    try:
+        run_id = getattr(handle, "id", None)
+        if not isinstance(run_id, str) or not run_id:
+            return None
+        from probe.cli import service_calls
+
+        owner = service_calls.hold_run(run_id)
+        return (run_id, owner) if owner is not None else None
+    except Exception:  # noqa: BLE001 -- never in the way of the run
+        return None
+
+
+def _release_run_with_service(run_id: str, owner: dict) -> None:
+    """The run is over: the Probe service drops its hold. Never raises."""
+    try:
+        from probe.cli import service_calls
+
+        service_calls.release_run(run_id, owner)
+    except Exception:  # noqa: BLE001
         pass
 
 
@@ -1988,9 +2036,15 @@ def doctor(
 
     from probe.cli.capabilities import refresh_mcp_token_verdict
 
+    from probe.cli import service_calls
+
     refresh_mcp_token_verdict()  # one /v1/me: a refused read token reads "login needed"
     caps = doctor_impl.collect()
-    print(doctor_impl.render(caps, codex_hooks=doctor_impl.codex_hook_rows(caps)))
+    print(
+        doctor_impl.render(
+            caps, codex_hooks=doctor_impl.codex_hook_rows(caps), service=service_calls.view()
+        )
+    )
     from probe.cli import probe_config_cli
 
     rows = probe_config_cli.doctor_rows(fix=fix)
@@ -9404,6 +9458,10 @@ def exec(
             # child, so it takes the flock tier explicitly.
             claim = None if hands_off else run_lock.acquire(run)
             handle = _run_handle(c, run, owns_process=not hands_off)
+        # The Probe service's updater sees the run directly while this process
+        # wraps it (`run.hold`); the run lock above stays, for an older service
+        # and the CLI's own updater. A hand-off wraps nothing.
+        held = None if hands_off else _hold_run_with_service(handle)
         try:
             if hands_off:
                 hint = _forwarding_hint(argv, handle.id, handle.write_epoch)
@@ -9452,6 +9510,10 @@ def exec(
                     os.environ[_sdk_outputs.LOG_ENV] = log_before
             if claim is not None:
                 claim.release()
+            if held is not None:
+                # Before the update check below: the service must not still
+                # read this run as in flight when that check comes.
+                _release_run_with_service(*held)
             # The wrapped process is gone and our claim with it. `_version_notice`
             # refused an upgrade at the START of this command (`exec` is on the
             # denylist, correctly), and this is the moment that refusal stops
@@ -10044,7 +10106,12 @@ def statusline_install(
             print(f"Kimi Code's status line was not changed: {exc}", file=sys.stderr)
             raise typer.Exit(1) from exc
         return
-    _print_json({**statusline.install(root), "notice": notice})
+    try:
+        result = statusline.install(root)
+    except (OSError, ValueError) as exc:
+        print(f"Claude Code's status line was not changed: {exc}", file=sys.stderr)
+        raise typer.Exit(1) from exc
+    _print_json({**result, "notice": notice})
 
 
 @statusline_app.command("uninstall")

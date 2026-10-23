@@ -7,27 +7,28 @@ from typing import Literal, Required, TypedDict
 
 class ModelEndpointConfigParam(TypedDict, total=False):
   model_path: Required[str]
-  max_output_tokens_per_step: Required[int]
-  max_response_chars_per_tool_call: Required[int]
-  max_context_tokens: int
+  max_output_tokens_per_step: int | None
+  max_response_chars_per_tool_call: int | None
+  max_context_tokens: int | None
   max_output_tokens: int | None
-  max_turns_per_trajectory: int
+  max_turns_per_trajectory: int | None
   temperature_override: float | None
-  disable_thinking: bool
+  disable_thinking: bool | None
   reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None
   tokenizer_path: str | None
+  top_p_override: float | None
+  top_k_override: int | None
 
 
 class DeploymentsCreateParams(TypedDict, total=False):
   checkpoint_id: Required[str]
-  model_slug: Required[str]
+  test_model_slug: Required[str]
   agent_id: str | None
   """
-  Owning agent; inferred from the checkpoint or serving name when omitted.
+  Owning agent; inferred from the checkpoint when omitted.
   """
-  role: Literal["production", "test"]
   model_endpoint_config: ModelEndpointConfigParam | None
   """
-  Generation and tokenizer settings for the deployment. Defaults to the configuration persisted
-  for the originating Training Service run.
+  Model and tokenizer identity for the deployment; defaults to the originating Training Service
+  run. Sampling overrides and training limits are cleared.
   """

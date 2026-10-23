@@ -91,6 +91,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxySetModeRequest as SerialProxySetModeRequestPb,
     SerialProxyWriteRequest as SerialProxyWriteRequestPb,
     SirenCommandRequest,
+    StoreYamlCapabilities as StoreYamlCapabilitiesPb,
     SubscribeHomeassistantServicesRequest,
     SubscribeHomeAssistantStateResponse,
     SubscribeHomeAssistantStatesRequest,
@@ -140,6 +141,7 @@ from aioesphomeapi.core import (
     APIConnectionError,
     BluetoothConnectionParamsAPIError,
     BluetoothGATTAPIError,
+    ConnectionNotEstablishedAPIError,
     PingFailedAPIError,
     TimeoutAPIError,
     UnhandledAPIConnectionError,
@@ -193,6 +195,7 @@ from aioesphomeapi.model import (
     SerialProxyRequestResponse,
     SerialProxyRequestType,
     SerialProxyStatus,
+    StoreYamlCapabilities,
     UpdateCommand,
     UserService,
     UserServiceArg,
@@ -433,7 +436,8 @@ async def test_request_while_handshaking() -> None:
 
     await asyncio.sleep(0)
     with pytest.raises(
-        APIConnectionError, match="Authenticated connection not ready yet"
+        ConnectionNotEstablishedAPIError,
+        match="Authenticated connection not ready yet",
     ):
         await cli.device_info()
 
@@ -2287,7 +2291,7 @@ async def test_device_capabilities_compat_no_api_version() -> None:
         bluetooth_proxy_feature_flags=3,
         bluetooth_mac_address="AA:BB:CC:DD:EE:FF",
     )
-    with pytest.raises(APIConnectionError, match="Not connected"):
+    with pytest.raises(ConnectionNotEstablishedAPIError, match="Not connected"):
         await client.device_capabilities_compat(device_info)
 
 
@@ -2328,6 +2332,23 @@ async def test_device_capabilities_sendspin(
     assert caps.sendspin == SendspinCapabilities(
         feature_flags=SendspinFeature.PAIRING_TOKEN, client_id=client_id
     )
+
+
+async def test_device_capabilities_store_yaml(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """device_capabilities surfaces store_yaml.supported."""
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.device_capabilities())
+    await asyncio.sleep(0)
+    response: message.Message = DeviceCapabilitiesResponse(
+        store_yaml=StoreYamlCapabilitiesPb(supported=True)
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    caps = await task
+    assert caps.store_yaml == StoreYamlCapabilities(supported=True)
 
 
 async def test_sendspin_pairing_token(

@@ -19,8 +19,15 @@ from typing import Any, ClassVar, Dict, List, Set, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
+from .asset_related import RelatedIncident
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
@@ -42,13 +49,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-
-from .asset_related import RelatedIncident
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -2643,6 +2643,7 @@ def _incident_to_nested(incident: Incident) -> IncidentNested:
         is_incomplete=incident.is_incomplete,
         provenance_type=incident.provenance_type,
         home_id=incident.home_id,
+        delete_handler=incident.delete_handler,
         depth=incident.depth,
         immediate_upstream=incident.immediate_upstream,
         immediate_downstream=incident.immediate_downstream,
@@ -2689,6 +2690,7 @@ def _incident_from_nested(nested: IncidentNested) -> Incident:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

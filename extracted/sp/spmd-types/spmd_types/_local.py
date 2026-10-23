@@ -208,6 +208,7 @@ def reinterpret(  # noqa: C901
     expert_mode: bool = False,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """``reinterpret(x, mesh_axis, src, dst)``
@@ -232,6 +233,10 @@ def reinterpret(  # noqa: C901
         dst: Destination local SPMD type (R, I, V, P)
         op_dtype: Cast input to this dtype before the operation.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: Accepted for uniformity with the collectives; this op issues
+            no communication in the forward pass. Use
+            ``backward_options={"async_op": True}`` to defer a collective issued in
+            the backward pass.
         backward_options: Dict of options passed to the backward operation.
 
     **Supported coercions:**
@@ -321,6 +326,7 @@ def reinterpret(  # noqa: C901
             expert_mode=expert_mode,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Validate no Shard types
@@ -371,6 +377,7 @@ def reinterpret(  # noqa: C901
             expert_mode=True,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     if src is I and dst is R:
@@ -381,6 +388,7 @@ def reinterpret(  # noqa: C901
             dst=R,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
 
@@ -393,6 +401,8 @@ def reinterpret(  # noqa: C901
         backward_has_reduction=False,
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
+        async_op=async_op,
+        input_is_leaf=x.requires_grad and x.grad_fn is None,
     )
 
     if src is R and dst is V:
@@ -452,7 +462,10 @@ def _replicate_to_varying(
         chunks = torch.chunk(x, world_size, dim=split_dim)
         result = chunks[rank].contiguous()
     if result.untyped_storage() is x.untyped_storage():
-        return result._lazy_clone()
+        # TODO: Switch back to result._lazy_clone() (CoW) once we are on a
+        # PyTorch version without the CoW bug:
+        # https://github.com/pytorch/pytorch/issues/200155
+        return result.clone()
     return result
 
 
@@ -734,6 +747,7 @@ def convert(  # noqa: C901
     expert_mode: bool = False,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """``convert(x, mesh_axis, src, dst)``
@@ -767,8 +781,13 @@ def convert(  # noqa: C901
              derived from the shard index.  Plain V always uses dim 0.
         op_dtype: Cast input to this dtype before the operation.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: Accepted for uniformity with the collectives; this op issues
+            no communication in the forward pass. Use
+            ``backward_options={"async_op": True}`` to defer a collective issued in
+            the backward pass.
         backward_options: Dict of options passed to the backward operation.
-            Supports ``op_dtype``, ``out_dtype``, and ``backward_options`` keys.
+            Supports ``op_dtype``, ``out_dtype``, ``async_op``, and
+            ``backward_options`` keys.
 
     **Supported conversions:**
 
@@ -1020,6 +1039,7 @@ def convert(  # noqa: C901
             expert_mode=expert_mode,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     # Canonicalize negative Shard dims
@@ -1078,6 +1098,8 @@ def convert(  # noqa: C901
         backward_has_reduction=backward_has_reduction,
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
+        async_op=async_op,
+        input_is_leaf=x.requires_grad and x.grad_fn is None,
     )
 
     if src_base is R and dst_base is V:
@@ -1127,6 +1149,7 @@ def shard(
     dst: PerMeshAxisSpmdType,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """Convenience alias: ``shard(src, S(i))`` is ``convert(src, S(i))``.
@@ -1141,6 +1164,10 @@ def shard(
         dst: Destination shard type, must be S(i)
         op_dtype: Cast input to this dtype before the operation.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: Accepted for uniformity with the collectives; this op issues
+            no communication in the forward pass. Use
+            ``backward_options={"async_op": True}`` to defer a collective issued in
+            the backward pass.
         backward_options: Dict of options passed to the backward operation.
     """
     if not isinstance(dst, Shard):
@@ -1152,6 +1179,7 @@ def shard(
         dst=dst,
         op_dtype=op_dtype,
         out_dtype=out_dtype,
+        async_op=async_op,
         backward_options=backward_options,
     )
 
@@ -1162,6 +1190,7 @@ def invariant_to_replicate(
     *,
     op_dtype: torch.dtype | None = None,
     out_dtype: torch.dtype | None = None,
+    async_op: bool = False,
     backward_options: dict | None = None,
 ):
     """Convenience alias: ``invariant_to_replicate`` is ``convert(I, R)``.
@@ -1185,6 +1214,10 @@ def invariant_to_replicate(
         axis: The mesh axis to operate on (ProcessGroup)
         op_dtype: Cast input to this dtype before the operation.
         out_dtype: Cast output to this dtype after the operation.
+        async_op: Accepted for uniformity with the collectives; this op issues
+            no communication in the forward pass. Use
+            ``backward_options={"async_op": True}`` to defer a collective issued in
+            the backward pass.
         backward_options: Dict of options passed to the backward operation.
     """
     # Directly call the autograd function rather than going through
@@ -1200,6 +1233,7 @@ def invariant_to_replicate(
             axis,
             op_dtype=op_dtype,
             out_dtype=out_dtype,
+            async_op=async_op,
             backward_options=backward_options,
         )
     dtype_options = _process_dtype_options(
@@ -1210,5 +1244,7 @@ def invariant_to_replicate(
         backward_has_reduction=True,
         input_dtype=x.dtype,
         requires_grad=x.requires_grad,
+        async_op=async_op,
+        input_is_leaf=x.requires_grad and x.grad_fn is None,
     )
     return _InvariantToReplicate.apply(x, axis, dtype_options)

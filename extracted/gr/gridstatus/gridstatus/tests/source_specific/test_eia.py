@@ -1,15 +1,17 @@
 import datetime
-from typing import List
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import gridstatus
+from gridstatus.base import NoDataFoundException
 from gridstatus.eia import EIA, HENRY_HUB_TIMEZONE
 from gridstatus.eia_constants import (
     CANCELED_OR_POSTPONED_GENERATOR_COLUMNS,
     EIA_FUEL_MIX_COLUMNS,
+    FACILITY_FUEL_COLUMNS,
+    FACILITY_FUEL_FLOAT_COLUMNS,
     GENERATOR_FLOAT_COLUMNS,
     GENERATOR_INT_COLUMNS,
     OPERATING_GENERATOR_COLUMNS,
@@ -98,7 +100,7 @@ def test_list_facets():
 
     facets = eia.list_facets("electricity/rto/region-data")
 
-    assert "type" in facets.keys()
+    assert "type" in facets
 
 
 @pytest.mark.integration
@@ -183,6 +185,27 @@ def test_fuel_type():
     assert df["Interval End"].max() == end
 
     _check_fuel_type(df)
+
+
+@pytest.mark.integration
+def test_get_dataset_no_data_found():
+    eia = gridstatus.EIA()
+
+    # Far enough ahead that EIA cannot have published data for the window. A
+    # request past the end of published data returns zero rows, which used to
+    # surface as a KeyError on the missing "period" column.
+    start = (pd.Timestamp.utcnow() + pd.Timedelta(days=30)).normalize()
+    end = start + pd.Timedelta(days=1)
+
+    with pytest.raises(
+        NoDataFoundException,
+        match="No EIA data found for electricity/rto/interchange-data",
+    ):
+        eia.get_dataset(
+            dataset="electricity/rto/interchange-data",
+            start=start,
+            end=end,
+        )
 
 
 @pytest.mark.integration
@@ -343,15 +366,13 @@ def _check_henry_hub_natural_gas_spot_prices(df):
     assert (df["Interval End"] - df["Interval Start"]).unique() == pd.Timedelta(days=1)
 
     # Only RNGWHHD is present after 2024-04-05
-    assert set(df["series"].unique()) == set(
-        [
-            "RNGWHHD",
-            "RNGC1",
-            "RNGC2",
-            "RNGC3",
-            "RNGC4",
-        ],
-    )
+    assert set(df["series"].unique()) == {
+        "RNGWHHD",
+        "RNGC1",
+        "RNGC2",
+        "RNGC3",
+        "RNGC4",
+    }
 
     assert df["area_name"].isna().any()
     assert not df["price"].isna().any()
@@ -395,11 +416,11 @@ def test_get_henry_hub_natural_gas_spot_prices_historical_date_range():
 def _check_generators_data(
     df: pd.DataFrame,
     generator_status: str,
-    columns: List[str] = None,
-    expected_rows: int = None,
-    expected_period: datetime.date = None,
+    columns: list[str] | None = None,
+    expected_rows: int | None = None,
+    expected_period: datetime.date | None = None,
     expected_updated_at: pd.Timestamp = None,
-    expected_all_na_columns: List[str] = None,
+    expected_all_na_columns: list[str] | None = None,
 ):
     assert df.columns.tolist() == columns
     if expected_rows is not None:
@@ -449,6 +470,65 @@ def _check_generators_data(
     for col in GENERATOR_INT_COLUMNS:
         if col in df.columns:
             assert pd.api.types.is_integer_dtype(df[col])
+
+
+def _check_facility_fuel_data(
+    df: pd.DataFrame,
+    expected_periods: list[datetime.date],
+):
+    assert df.columns.tolist() == FACILITY_FUEL_COLUMNS
+
+    assert df.shape[0] > 0
+    assert sorted(df["Period"].unique()) == expected_periods
+
+    assert isinstance(df["Updated At"].dtype, pd.DatetimeTZDtype)
+    assert df["Updated At"].notna().all()
+
+    period_years = pd.to_datetime(df["Period"]).dt.year
+    for year, group in df.groupby(period_years):
+        assert group["Updated At"].nunique() == 1
+        assert (group["Updated At"].dt.year >= year).all()
+
+    assert pd.api.types.is_integer_dtype(df["Plant Code"])
+    assert df["Plant Code"].notna().all()
+
+    for col in FACILITY_FUEL_FLOAT_COLUMNS:
+        assert pd.api.types.is_float_dtype(df[col])
+
+    assert (
+        df.duplicated(
+            subset=["Period", "Plant Code", "Fuel Code", "Fuel Type", "Prime Mover"],
+        ).sum()
+        == 0
+    )
+
+
+def test_get_facility_fuel_single_month():
+    date = "2024-01-01"
+
+    with api_vcr.use_cassette("test_get_facility_fuel_single_month_2024-01"):
+        df = EIA().get_facility_fuel(date)
+
+    _check_facility_fuel_data(
+        df,
+        expected_periods=[datetime.date(2024, 1, 1)],
+    )
+
+
+def test_get_facility_fuel_date_range():
+    start = "2023-12-01"
+    end = "2024-01-01"
+
+    with api_vcr.use_cassette("test_get_facility_fuel_date_range_2023-12_2024-01"):
+        df = EIA().get_facility_fuel(start, end=end)
+
+    _check_facility_fuel_data(
+        df,
+        expected_periods=[
+            datetime.date(2023, 12, 1),
+            datetime.date(2024, 1, 1),
+        ],
+    )
 
 
 def test_get_generators_relative_date():
@@ -539,3 +619,28 @@ def test_get_generators_absolute_date_with_missing_columns():
                 "Unit Code",
             ],
         )
+
+
+def test_handle_generator_data_drops_rows_with_blank_plant_id():
+    # The August 2026 EIA-860M retired sheet has a Punta Higuera row whose Plant ID
+    # is blank but not NaN, so it survives the footer dropna and only becomes null
+    # after the integer conversion.
+    raw = pd.DataFrame(
+        {
+            "Plant ID": ["3", " ", "nan", "7.0"],
+            "Plant Name": ["Barry", "Punta Higuera", "Unknown", "Gadsden"],
+            "Generator ID": ["1", "1", "2", "3"],
+        },
+    )
+
+    df = EIA(api_key="test")._handle_generator_data(
+        raw,
+        period=datetime.date(2026, 8, 1),
+        updated_at=pd.Timestamp("2026-09-23 22:24:21", tz="UTC"),
+        columns=["Period", "Updated At", "Plant ID", "Plant Name", "Generator ID"],
+        generator_status="retired",
+    )
+
+    assert df["Plant ID"].tolist() == [3, 7]
+    assert df["Plant Name"].tolist() == ["Barry", "Gadsden"]
+    assert df["Plant ID"].notna().all()

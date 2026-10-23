@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: plato-sdk-v2
-Version: 2.181.0
+Version: 2.182.2
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -51,6 +51,9 @@ Requires-Dist: basedpyright>=1.18; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: ruff>=0.1; extra == 'dev'
+Provides-Extra: pi
+Requires-Dist: playwright==1.58.0; extra == 'pi'
+Requires-Dist: vncdotool==1.4.2; extra == 'pi'
 Provides-Extra: segmentation
 Requires-Dist: numpy>=1.24.0; extra == 'segmentation'
 Requires-Dist: pillow>=10.0.0; extra == 'segmentation'

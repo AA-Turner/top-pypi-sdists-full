@@ -23,6 +23,7 @@ from snowflake.snowpark_connect.relation.read.path_anchoring import (
 )
 from snowflake.snowpark_connect.relation.utils import random_string
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
 
@@ -127,8 +128,9 @@ class StageLocator:
         self.session = session
 
     def _fully_qualified_stage_name(self, unqualified_stage_name: str) -> str:
-        db = unquote_if_quoted(self.session.get_current_database())
-        schema = unquote_if_quoted(self.session.get_current_schema())
+        with scos_internal_query_tag():
+            db = unquote_if_quoted(self.session.get_current_database())
+            schema = unquote_if_quoted(self.session.get_current_schema())
         bare_name = unqualified_stage_name.lstrip("@")
         return f"@{db}.{schema}.{bare_name}"
 

@@ -64,6 +64,8 @@ from matrx_scraper.web_crawl.insights import (
     load_link_graph,
     load_progress_series,
 )
+from matrx_scraper._ext import get_ext, has_ext
+from matrx_scraper.web_crawl.broker import CrawlRunLive
 from matrx_scraper.web_crawl.persistence import CrawlStartConflict, build_user_claims
 from matrx_scraper.web_crawl.service import (
     PreparedAnalysis,
@@ -96,6 +98,18 @@ def _stream_headers(
     response.headers["X-Crawl-Session-Id"] = prepared.session_id
     response.headers["X-Site-Id"] = prepared.site_id
     return response
+
+
+async def _live_crawl_409(exc: CrawlRunLive) -> HTTPException:
+    """The refusal for a resume of a crawl that is LIVE: the platform's canonical
+    ``run_in_progress`` 409 naming the request to rejoin (services/runtime/
+    FEATURE.md "Live-run refusal"). The body is built host-side — this package
+    may not import aidream — through the ``run_in_progress_error`` ext; a host
+    without the runtime spine (the standalone scraper service) keeps the plain
+    409 with the session id."""
+    if has_ext("crawl_run_in_progress_error"):
+        return await get_ext("crawl_run_in_progress_error")(exc.session_id, str(exc))
+    return HTTPException(status_code=409, detail=str(exc))
 
 
 def _runtime_http_error(exc: RuntimeError) -> HTTPException:
@@ -166,6 +180,8 @@ async def resume_crawl(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except CrawlRunLive as exc:
+        raise await _live_crawl_409(exc) from exc
     except RuntimeError as exc:
         if "already active" in str(exc):
             raise HTTPException(status_code=409, detail=str(exc)) from exc

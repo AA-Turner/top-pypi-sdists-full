@@ -146,6 +146,7 @@ from cozy_runtime.internal import (
     int8_linear,
     kernel_cache,
     kernel_compile,
+    library_oom,
     model_config,
     package_interface,
     prebuilt,
@@ -155,6 +156,7 @@ from cozy_runtime.internal import (
     sandbox,
     spawn,
     stage_memo,
+    streams,
     tolerant,
     tools,
     zygote,
@@ -307,21 +309,6 @@ def _gpu_numbers(degree: int) -> list[int]:
 def _gpu(rank: int) -> str:
     """How people name the GPU group process `rank` drives: `GPU 3`, nvidia-smi's number."""
     return execution_evidence.gpu_name(_sealed_entries(), rank)
-
-
-def _qualification_cache() -> str:
-    """Where a measured qualification is kept between executors, from the SEAL.
-
-    `COZY_HOME` is already a reviewed imposition — the executor resolves the same CAS as
-    the worker through it — and the worker already keeps node-local caches under it. This
-    is a path, not a switch: an unset or relative value means nowhere to keep a result and
-    the suite simply runs, which is what every executor did before cr-103. The directory
-    is not created here; `qualification.qualified` makes it when it has something to keep.
-    """
-    home = _SEALED.get("COZY_HOME", "").strip()
-    if not home or not Path(home).is_absolute():
-        return ""
-    return str(Path(home) / "qualification")
 
 
 def _restore_seal() -> tuple[str, ...]:
@@ -616,11 +603,6 @@ def _trees(command: Invoke) -> dict[str, tuple[Path, str]]:
     return {ref: (Path(root), digest) for ref, (root, digest) in command.trees.items()}
 
 
-def _allocations(torch: Any) -> int:
-    """GPU 0's progress in a group call: the allocations its ops made (`group.watched`)."""
-    return int(torch.cuda.memory_stats().get("allocation.all.allocated", 0))
-
-
 def _serving(module: str, export: str, surface: Any) -> _CallType:
     """A callable bound from its own code, called as every function is: `{payload, models}`.
     Its direct caller passes the model slots beside the request fields (`_CallType.models`)."""
@@ -721,8 +703,6 @@ _CONSTRUCTION_MODULES = (
     "cozy_runtime.internal.derive",
     "cozy_runtime.internal.encoding",
     "cozy_runtime.internal.fill",
-    "cozy_runtime.internal.planfacts",
-    "cozy_runtime.internal.probe",
     "cozy_runtime.internal.weights",
     "cozy_runtime.internal.resolution",
     "cozy_runtime.internal.triton_kernels",
@@ -1472,7 +1452,6 @@ class Executor:
                     spool=lambda: owner._attempt_spool,
                     cancelled=owner._attempt_cancelled,
                     reform=owner._group_reform,
-                    progress=functools.partial(_allocations, torch),
                     device=self._rank_device(torch),
                 )
         hosted = mirror.hosting_plan(
@@ -2308,7 +2287,7 @@ class Executor:
         self._group_model_key = f"{self.construction}#{binding.model_binding_path}"
         started = time.perf_counter()
         # THE SEGMENT LEDGER (cr-102). A `prepare` that reports one total and one fill leg
-        # cannot say which of construction, qualification or lease acquisition spent the
+        # cannot say which of construction, resolution or lease acquisition spent the
         # wall clock, and that ambiguity kept a 20s cost unattributed across three issues.
         stages: list[tuple[str, float]] = []
         _mark = [started]
@@ -2345,8 +2324,6 @@ class Executor:
         from cozy_runtime.author._model import component_use
         from cozy_runtime.internal.derive import Observations, serving_substrate
         from cozy_runtime.internal.encoding import launch_providers, measure_device, measure_runtime
-        from cozy_runtime.internal.planfacts import PlanFacts
-        from cozy_runtime.internal.qualification import qualified
         from cozy_runtime.internal.resolution import (
             ConstructionFacts,
             PlanRefusal,
@@ -2404,8 +2381,8 @@ class Executor:
         # mixed artifact reported the rung and contained the tensors, and the rung was hashed
         # into generation identity while having no execution authority at all. What is
         # resolved here is the whole plan — the exact snapshot map, every tensor's provider,
-        # route and validated geometry, the device and runtime identity, the placement and
-        # the objective — and its digest is what enters identity. The LABEL derives from it.
+        # route and validated geometry, the device and runtime identity and the placement —
+        # and its digest is what enters identity. The LABEL derives from it.
         #
         # The artifact is surveyed from its HEADER (cr-006 measured the real fp8 UNet's
         # whole per-tensor encoding plan at 400,592 B read, zero tensor bytes), so this
@@ -2438,7 +2415,6 @@ class Executor:
             store=binding.store,
             snapshot=binding.snapshot,
             snapshots=dict(per_component),
-            reference=True,
         )
         vmap = reference.snapshot_map()
         host = self.host
@@ -2465,29 +2441,12 @@ class Executor:
                 f"on ({device_facts.driver} here): serve an f16 lane",
             )
         # NVML is queried with the sealed device (#549.9): inside the seal, card zero IS the
-        # lane's card, so a multi-GPU pod's records name the card the fill actually uses.
+        # lane's card, so a multi-GPU pod's plan names the card the fill actually uses.
         runtime_identity = measure_runtime(torch, binding.release)
-        # Only the schemes these rows store: a machine measures the decoders a model needs (a
-        # table grows as models arrive), not every scheme the Runtime can read.
+        # Only the schemes these rows store. Which may serve here is a rule of the card's
+        # tensor cores (`selection.admit`, xs-065): no suite runs and nothing is measured.
         stored = {row.encoded.scheme for row in rows}
         providers = {s: c for s, c in launch_providers().items() if s in stored}
-        # MEASURED ONCE PER (card, build, providers, dtypes), NOT ONCE PER PREPARE
-        # (cr-103). The decode suite is 3.2-6.1 s of every model-bearing prepare and none
-        # of its inputs change between two models on one warm pod, which is the swap case
-        # exactly. `qualified` keys the result on the whole of what determines it and
-        # keeps it under COZY_HOME; a term that moves is a miss and the suite runs.
-        qualification = qualified(
-            torch,
-            providers,
-            device_facts,
-            sorted({dtype_name(r.dtype) for r in rows}),
-            release=binding.release,
-            runtime=runtime_identity,
-            cache=_qualification_cache(),
-        )
-        qualified_pair = (qualification.capabilities, qualification.result)
-        stage("qualify")
-        objective = binding.objective or "latency"
         model_cls = next(
             cls for cls in self._model_classes() if cls.__name__ == binding.model_class
         )
@@ -2516,21 +2475,16 @@ class Executor:
         # the plan already chosen and the package already imported; a plan whose route the
         # package cannot consent to is not a candidate, so it is never built.
         consent = str(getattr(model_cls, "__encoded_leaves__", "refuse"))
-        facts = PlanFacts()
         try:
             plan = resolve(
-                variants=[reference],
-                rows_for={reference.name: rows},
+                variant=reference,
+                rows=rows,
                 providers=providers,
-                capabilities=qualification.capabilities,
                 device=device_facts,
                 runtime=runtime_identity,
                 construction=construction,
-                facts=facts,
-                objective=objective,
                 placement=binding.placement or "all_resident",
                 encoded_leaves=consent,
-                steps_basis=binding.steps_basis or 20,
                 dtype_name=dtype_name,
             )
         except PlanRefusal as exc:
@@ -2538,7 +2492,7 @@ class Executor:
                 "ok": False,
                 "code": exc.code,
                 "detail": str(exc).splitlines()[0][:900],
-                "plan": {"walk": msgspec.to_builtins(exc.steps), "objective": binding.objective},
+                "plan": {"walk": msgspec.to_builtins(exc.steps)},
             }
         stage("resolve")
         mine = GroupPlan(
@@ -2584,6 +2538,9 @@ class Executor:
                 )
             _split.install(cuts.split)
             attention_ulysses.install(cuts.attend)
+            streams.install(cuts.launch)
+            if device.type == "cuda":
+                library_oom.install(torch)
         backend = Backend(
             checkpoints,
             rows,
@@ -2592,8 +2549,6 @@ class Executor:
             memory=host.memory,
             device=device,
             construction=self._group_model_key,
-            # The suite already ran, above, to resolve the plan.
-            qualified=qualified_pair,
             device_facts=device_facts,
             custody=binding.custody,
             grant=self._read_grant,
@@ -2841,7 +2796,6 @@ class Executor:
             "prepared_unix_ms": int(time.time() * 1000),
             # THE SEGMENT LEDGER (cr-102), in execution order.
             "stages": list(stages) + [(f"construct.{name}", ms) for name, ms in record.stage_ms],
-            "qualification": qualification.document(),
             "substrate_census": list(record.weightless),
             "execution_plan": planned,
             "filled": record.filled,
@@ -3032,10 +2986,6 @@ class Executor:
             ),
             "routes": routes,
             "kernels": kernels,
-            "calibrated": all(bool(row.get("calibrated")) for row in deliveries.values()),
-            "objective": ", ".join(
-                sorted({str(row.get("objective", "")) for row in deliveries.values()})
-            ),
         }
         self.facts = {
             "cuda_init_ms": sum(float(facts.get("cuda_init_ms", 0)) for _, facts in facts_rows),
@@ -4694,13 +4644,17 @@ class Executor:
         lane's device: the worker sealed this process to exactly its lane (cr-066)."""
         return Device(self.device_kind, 0) if self.torch is not None else Device()
 
-    def _request(self, request_id: str) -> contextlib.AbstractContextManager[MemoryRequest | None]:
+    @contextlib.contextmanager
+    def _request(self, request_id: str) -> Iterator[MemoryRequest | None]:
         """The attempt as varena's request (memory-varena §5.7): everything it allocated is freed
-        at its end, failed or not, and its steps are measured."""
+        at its end, failed or not, and its steps are measured. Its thread's allocation failures
+        are varena's to answer, never a library's silent fallback (`library_oom`)."""
         memory = self.host.memory
         if memory is None:
-            return contextlib.nullcontext()
-        return memory.request(request_id)
+            yield None
+            return
+        with memory.request(request_id) as request, library_oom.surfaced():
+            yield request
 
     def _quiescent(self) -> bool:
         """No author computation may still mutate GPU or output state when a terminal is

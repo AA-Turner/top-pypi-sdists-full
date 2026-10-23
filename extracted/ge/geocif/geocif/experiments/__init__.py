@@ -30,10 +30,11 @@ from geocif import geocif_runner as gc
 from geocif import logger as log
 from geocif import utils as ut
 
-# Shared fixed palette for model/experiment colors: ten distinct hues (the
-# first eight match yield_outlook's model-comparison palette), then tab20's
-# light shades. Plain tab20 order paired each hue with its own light shade,
-# so neighbouring models (CatBoost/Cubist, Kumo/TabPFN) read as one colour.
+# Shared fixed palette for model/experiment colors: thirteen distinct hues
+# (the first eight match yield_outlook's model-comparison palette; thirteen
+# covers every CID type of a cid_ablation), then tab20's light shades. Plain
+# tab20 order paired each hue with its own light shade, so neighbouring
+# models (CatBoost/Cubist, Kumo/TabPFN) read as one colour.
 _FIXED_PALETTE = [
     (0.122, 0.467, 0.706, 1.0),  # steel blue
     (0.839, 0.153, 0.157, 1.0),  # brick red
@@ -45,7 +46,17 @@ _FIXED_PALETTE = [
     (0.498, 0.498, 0.498, 1.0),  # grey
     (0.737, 0.741, 0.133, 1.0),  # olive
     (0.090, 0.745, 0.812, 1.0),  # cyan
+    (0.122, 0.157, 0.420, 1.0),  # navy
+    (0.000, 0.420, 0.420, 1.0),  # dark teal
+    (0.502, 0.000, 0.149, 1.0),  # maroon
 ] + [tuple(c) + (1.0,) for c in plt.cm.tab20.colors[1::2]]
+
+
+def _cid_colors(names):
+    """One fixed colour per CID name (sorted, "All CIDs" excluded: it is drawn
+    in black), shared by the CID bar chart and the CID-by-year lines."""
+    names = sorted(n for n in names if n != "All CIDs")
+    return {n: _FIXED_PALETTE[i % len(_FIXED_PALETTE)] for i, n in enumerate(names)}
 
 
 def _fmt(name: str) -> str:
@@ -302,7 +313,7 @@ def _all_cid_types():
     types = set()
     for d in (
         di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
-        di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
+        di.dict_etref, di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
         di.dict_fldas_engineered, di.dict_s2s_engineered,
     ):
         for v in d.values():
@@ -316,7 +327,7 @@ def _all_cid_indices():
     keys = []
     for d in (
         di.dict_indices, di.dict_ndvi, di.dict_gcvi, di.dict_esi4wk,
-        di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
+        di.dict_etref, di.dict_hindex, di.dict_aef, di.dict_fldas, di.dict_s2s,
         di.dict_fldas_engineered, di.dict_s2s_engineered,
     ):
         keys.extend(d.keys())
@@ -1012,7 +1023,7 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
 
 def _compute_metrics(group):
     """Compute error metrics for a group of observed/predicted pairs."""
-    from sklearn.metrics import mean_squared_error, mean_absolute_error
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
     obs = group["Observed Yield (tn per ha)"]
     pred = group["Predicted Yield (tn per ha)"]
@@ -1021,9 +1032,8 @@ def _compute_metrics(group):
     if len(obs) < 3:
         return pd.Series({"RMSE": np.nan, "R2": np.nan, "MAE": np.nan, "MAPE": np.nan})
     rmse = np.sqrt(mean_squared_error(obs, pred))
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        r2 = np.corrcoef(obs, pred)[0, 1] ** 2
+    # Coefficient of determination (1 - SSE/SST), not squared Pearson r
+    r2 = r2_score(obs, pred) if np.std(obs) > 0 else np.nan
     mae = mean_absolute_error(obs, pred)
     mape_val = np.mean(np.abs((obs - pred) / obs)) * 100
     return pd.Series({"RMSE": rmse, "R2": r2, "MAE": mae, "MAPE": mape_val})
@@ -1470,6 +1480,8 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
 
 def _compute_group_metric(df_exp, groupby_col, metric):
     """Compute a metric aggregated by groupby_col from raw obs/pred data."""
+    from sklearn.metrics import r2_score
+
     obs_col, pred_col = _get_obs_pred_cols(df_exp)
     if not obs_col:
         return pd.Series(dtype=float)
@@ -1486,7 +1498,7 @@ def _compute_group_metric(df_exp, groupby_col, metric):
         elif metric == "RMSE":
             results[name] = np.sqrt(np.mean((obs - pred) ** 2))
         elif metric == "R2":
-            results[name] = np.corrcoef(obs, pred)[0, 1] ** 2 if np.std(obs) > 0 else np.nan
+            results[name] = r2_score(obs, pred) if np.std(obs) > 0 else np.nan
     return pd.Series(results)
 
 
@@ -1515,9 +1527,8 @@ def _plot_metric_by_cid(df_exp_data, experiment_name, dir_plots, metric="MAPE"):
 
     with plt.style.context(["science", "no-latex"]):
         fig, ax = plt.subplots(figsize=(max(8, len(vals) * 0.8), 5))
-        bar_colors = ["black" if idx == "All CIDs"
-                       else _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
-                       for i, idx in enumerate(vals.index)]
+        colors = _cid_colors(vals.index)
+        bar_colors = ["black" if idx == "All CIDs" else colors[idx] for idx in vals.index]
         vals.plot(kind="bar", ax=ax, color=bar_colors)
         ax.set_xlabel("")
         ax.set_ylabel(ylabel)
@@ -1560,7 +1571,13 @@ def _plot_metric_by_cid_region(df_exp_data, experiment_name, dir_plots, metric="
             pivot = pivot[cols]
 
         fig, ax = plt.subplots(figsize=(max(8, len(pivot.columns) * 1.2), max(5, len(pivot) * 0.4)))
-        sns.heatmap(pivot, annot=True, fmt=fmt, cmap=cmap, ax=ax, linewidths=0.5)
+        # R² is unbounded below, so one region where a CID loses to the
+        # regional mean would flatten the colour scale. Colour stops at -1;
+        # annotations still show the actual value.
+        heat_kw = ({"vmin": -1, "vmax": 1, "center": 0,
+                    "cbar_kws": {"label": "R² (colour clipped at -1)"}}
+                   if metric == "R2" else {})
+        sns.heatmap(pivot, annot=True, fmt=fmt, cmap=cmap, ax=ax, linewidths=0.5, **heat_kw)
         ax.set_title(f"{ylabel} by Region × CID — {country}\n({experiment_name})")
         ax.set_xlabel("")
         from geocif.viz import diagnostics as _diag
@@ -1593,8 +1610,7 @@ def _plot_metric_by_cid_year(df_exp_data, experiment_name, dir_plots, metric="MA
     metric_by_year = pd.DataFrame(rows).sort_values("Harvest Year")
 
     cid_names = sorted(pv for pv in metric_by_year["param_value"].unique() if pv != "All CIDs")
-    cid_colors = {name: _FIXED_PALETTE[i % len(_FIXED_PALETTE)]
-                  for i, name in enumerate(cid_names)}
+    cid_colors = _cid_colors(cid_names)
     groups = dict(list(metric_by_year.groupby("param_value")))
 
     with plt.style.context(["science", "no-latex"]):

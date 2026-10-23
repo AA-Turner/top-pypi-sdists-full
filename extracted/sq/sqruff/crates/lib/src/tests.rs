@@ -472,6 +472,7 @@ fn test_reindent_no_false_positive_in_jinja_for_loop() {
         templater_violations: vec![],
         filename: "a.sql".to_string(),
         source_str: source.to_string(),
+        newline_map: crate::core::linter::common::NewlineMap::default(),
     };
 
     let lnt = crate::core::linter::core::Linter::new(
@@ -727,6 +728,7 @@ fn test_lt12_reports_missing_source_newline_after_jinja_block() {
         templater_violations: vec![],
         filename: "a.sql".to_string(),
         source_str: source.to_string(),
+        newline_map: crate::core::linter::common::NewlineMap::default(),
     };
 
     let lnt = crate::core::linter::core::Linter::new(
@@ -1187,10 +1189,10 @@ fn test_clickhouse_datetime64_rejects_timezone_without_precision() {
     );
 }
 
-/// Trailing source-only Jinja blocks should not hide extra rendered newlines
-/// from LT12.
+/// Rendered newlines before a trailing Jinja block aren't source EOF whitespace.
+/// SQLFluff accepts this source because it ends with a single newline.
 #[test]
-fn test_lt12_reports_extra_rendered_newline_before_jinja_block() {
+fn test_lt12_ignores_rendered_newlines_before_trailing_jinja_block() {
     use sqruff_lib_core::templaters::{
         RawFileSlice, TemplateSliceKind, TemplatedFile, TemplatedFileSlice,
     };
@@ -1258,6 +1260,7 @@ fn test_lt12_reports_extra_rendered_newline_before_jinja_block() {
         templater_violations: vec![],
         filename: "a.sql".to_string(),
         source_str: source.to_string(),
+        newline_map: crate::core::linter::common::NewlineMap::default(),
     };
 
     let lnt = crate::core::linter::core::Linter::new(
@@ -1275,5 +1278,5 @@ fn test_lt12_reports_extra_rendered_newline_before_jinja_block() {
         .filter(|v| v.rule_code() == "LT12")
         .map(|v| (v.line_no, v.line_pos))
         .collect();
-    assert!(!lt12.is_empty(), "expected LT12 violation");
+    assert!(lt12.is_empty(), "unexpected LT12 violations: {lt12:?}");
 }

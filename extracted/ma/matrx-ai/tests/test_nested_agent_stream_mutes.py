@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from matrx_ai.testing.holders import install_named_runner
 
 
 class _Spy:
@@ -55,7 +56,7 @@ async def test_web_read_summarizer_is_muted(monkeypatch: pytest.MonkeyPatch) -> 
     from matrx_ai.tools.implementations import _summarize_helper as mod
 
     spy = _Spy("a summary")
-    monkeypatch.setattr(mod, "run_mandated", spy)
+    install_named_runner(monkeypatch, spy)
 
     text, _usage = await mod.summarize_content("body text", "instructions", ctx=None)
 
@@ -72,7 +73,7 @@ async def test_research_condensers_are_muted(monkeypatch: pytest.MonkeyPatch, fn
     from matrx_ai.agent_runners import research as mod
 
     spy = _Spy("condensed")
-    monkeypatch.setattr(mod, "run_mandated", spy)
+    install_named_runner(monkeypatch, spy)
     monkeypatch.setattr(mod, "_stamp_web_research_source", lambda: None)
 
     result = await getattr(mod, fn_name)(

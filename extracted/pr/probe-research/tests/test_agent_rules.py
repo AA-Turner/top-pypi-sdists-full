@@ -9,6 +9,7 @@ outcome than never having written anything.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -421,6 +422,70 @@ def test_the_write_is_atomic(memory: Path) -> None:
     assert ".write_text(" not in source, "every write to CLAUDE.md must be atomic"
 
 
+@pytest.fixture
+def linked(memory: Path) -> Path:
+    """`memory` as a dotfiles setup keeps it: a symlink into a repo. Returns
+    the repo's file, the one the link points at."""
+    real = memory.parent / "dotfiles" / "AGENTS.md"
+    real.parent.mkdir()
+    real.write_text(_USER_TEXT, encoding="utf-8")
+    memory.symlink_to(Path("dotfiles") / "AGENTS.md")  # relative, as stow makes them
+    return real
+
+
+def test_install_writes_through_a_symlink(memory: Path, linked: Path) -> None:
+    """The atomic replace writes a new directory entry, so writing the LINK
+    swapped it for a regular file and detached the machine from its dotfiles
+    repo (2026-10-22, a customer's `~/.codex/AGENTS.md`)."""
+    assert agent_rules.install(memory) is True
+    assert memory.is_symlink()
+    assert agent_rules.is_installed(linked)
+    assert linked.read_text().startswith(_USER_TEXT)
+
+
+def test_remove_and_opt_out_write_through_a_symlink(memory: Path, linked: Path) -> None:
+    agent_rules.install(memory)
+    agent_rules.install(memory, spec=agent_rules.NOTE_BLOCK, block=agent_rules.render_note_block("## n", document="d"))
+
+    assert agent_rules.remove(memory, spec=agent_rules.NOTE_BLOCK) is True
+    assert memory.is_symlink()
+    assert agent_rules.remove_all(memory) is True
+    assert memory.is_symlink()
+    assert linked.read_text() == _USER_TEXT
+
+
+def test_a_dangling_symlink_is_filled_where_it_points(memory: Path) -> None:
+    """A link whose repo file is not there yet still says where the file
+    lives; replacing it would orphan the link the next checkout restores."""
+    real = memory.parent / "dotfiles" / "AGENTS.md"
+    real.parent.mkdir()
+    memory.symlink_to(real)
+
+    assert agent_rules.install(memory) is True
+    assert memory.is_symlink()
+    assert agent_rules.is_installed(real)
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root writes anywhere")
+def test_a_link_into_a_read_only_folder_is_replaced_as_before(memory: Path) -> None:
+    """A home-manager link into the read-only Nix store cannot be written
+    through. Replacing the link, as every Probe before this did, still gets
+    the block in; refusing would leave the agent without it."""
+    store = memory.parent / "store"
+    store.mkdir()
+    (store / "AGENTS.md").write_text(_USER_TEXT, encoding="utf-8")
+    store.chmod(0o555)
+    memory.symlink_to(store / "AGENTS.md")
+    try:
+        assert agent_rules.install(memory) is True
+        assert not memory.is_symlink()
+        assert agent_rules.is_installed(memory)
+        assert memory.read_text().startswith(_USER_TEXT)
+        assert (store / "AGENTS.md").read_text() == _USER_TEXT
+    finally:
+        store.chmod(0o755)
+
+
 def test_a_block_with_an_unparseable_version_is_present_not_absent(memory: Path) -> None:
     """Version 0, never None -- None would make the caller append a duplicate."""
     memory.parent.mkdir(parents=True, exist_ok=True)
@@ -707,7 +772,9 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # 45 / df3523ea2017: DAEMON_POINTER_BODY shortened; the "say your caveats" line dropped (10-14)
     # 46 / 03764757f8a3: POINTER_BODY says only what the team recorded is in Probe, and
     # "Do not call Probe for" names outside facts (cloud quotas, GPU capacity, vendor docs) (10-14)
-    assert (agent_rules.POINTER_VERSION, digest) == (46, "03764757f8a3"), (
+    # 47 / 45bb6064ee2b: DAEMON_POINTER_BODY says the agent can look at its own runs by id
+    # (`probe run get`, `probe metrics plot`); the daemon does all other reads and writes (10-22)
+    assert (agent_rules.POINTER_VERSION, digest) == (47, "45bb6064ee2b"), (
         "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

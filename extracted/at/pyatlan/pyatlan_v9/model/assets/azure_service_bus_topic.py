@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -30,6 +37,11 @@ from .asset import (
     AssetRelationshipAttributes,
     _extract_asset_attrs,
     _populate_asset_attrs,
+)
+from .azure_service_bus_related import (
+    RelatedAzureServiceBusNamespace,
+    RelatedAzureServiceBusSchema,
+    RelatedAzureServiceBusTopic,
 )
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
@@ -47,18 +59,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .azure_service_bus_related import (
-    RelatedAzureServiceBusNamespace,
-    RelatedAzureServiceBusSchema,
-    RelatedAzureServiceBusTopic,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -645,6 +645,7 @@ def _azure_service_bus_topic_to_nested(
         is_incomplete=azure_service_bus_topic.is_incomplete,
         provenance_type=azure_service_bus_topic.provenance_type,
         home_id=azure_service_bus_topic.home_id,
+        delete_handler=azure_service_bus_topic.delete_handler,
         depth=azure_service_bus_topic.depth,
         immediate_upstream=azure_service_bus_topic.immediate_upstream,
         immediate_downstream=azure_service_bus_topic.immediate_downstream,
@@ -695,6 +696,7 @@ def _azure_service_bus_topic_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -14,7 +14,7 @@ typedef std::chrono::high_resolution_clock Clock;
 void print_buf(size_t offset, uint8_t *buf, size_t size) {
   uint32_t *buf32 = (uint32_t *)buf;
   for (unsigned i = 0; i < size / (32/8); i++) {
-    fprintf(stderr, "%08lx: %08x\n", offset + i * (32/8), buf32[i]);
+    fprintf(stderr, "%08zx: %08x\n", offset + i * (32/8), buf32[i]);
   }
 }
 
@@ -133,8 +133,8 @@ int FtdiDriver::List() {
       // fprintf(stderr, "Device %d: '%s', loc %d\n", i,
       //        dev_info[i].Description, dev_info[i].LocId);
       if ('A' == dev_info[i].Description[descLen - 1]) {
-        fprintf(stderr, "Device %d: '%s', loc %d\n", i,
-               dev_info[i].Description, dev_info[i].LocId);
+        fprintf(stderr, "Device %d: '%s', loc %u\n", i,
+               dev_info[i].Description, static_cast<unsigned>(dev_info[i].LocId));
       }
     }
   }
@@ -143,8 +143,8 @@ int FtdiDriver::List() {
   return 0;
 }
 
-int FtdiDriver::Open() {
-  return OpenClk((int)SYS_CLK_80, (int)CLK_DIV_8);
+int FtdiDriver::Open(DWORD target_id) {
+  return OpenClk((int)SYS_CLK_80, (int)CLK_DIV_8, target_id);
 }
 
 int FtdiDriver::OpenClk(unsigned sys_clk, unsigned clk_div, DWORD target_id) {

@@ -9,6 +9,7 @@ Provides ``credential-helper install``, ``credential-helper uninstall``, and
 from __future__ import annotations
 
 import sys
+from urllib.parse import urlsplit
 
 import click
 
@@ -78,10 +79,14 @@ def _get_installer(name: str):
 def _terraform_helper_args(ctx, opts, repo: str | None = None) -> tuple[str, ...]:
     """Build the terraformrc ``args`` list from the resolved config.
 
-    Baking ``--org``/``-r``/``-P`` into the block means ``terraform init`` works
+    Baking ``-w``/``-r``/``-P`` into the block means ``terraform init`` works
     with no environment variables and no hand-edited config. Only values
-    actually supplied are written, so an install without ``--org``/``--repo``/
-    ``-P`` leaves ``args = []``.
+    actually supplied are written, so an install without ``-w``/``--repo``/
+    ``-P`` leaves ``args = []``. The API host and proxy are baked in too, so
+    the helper looks up domains on the same API host, through the same proxy,
+    as the install. A proxy URL with credentials is never baked in: Terraform
+    passes ``args`` on the helper's command line, where any local user can read
+    them.
 
     A non-default ``--config-file``/``--credentials-file`` is also baked in: the
     helper is later invoked by ``terraform init`` in a fresh process with none
@@ -91,7 +96,7 @@ def _terraform_helper_args(ctx, opts, repo: str | None = None) -> tuple[str, ...
     """
     args: list[str] = []
     if opts.org:
-        args.extend(["--org", opts.org])
+        args.extend(["-w", opts.org])
     if repo:
         args.extend(["-r", repo])
     profile = ctx.meta.get("profile")
@@ -103,7 +108,30 @@ def _terraform_helper_args(ctx, opts, repo: str | None = None) -> tuple[str, ...
     creds_file = ctx.meta.get("creds_file")
     if creds_file:
         args.extend(["--credentials-file", creds_file])
+    if opts.api_host:
+        args.extend(["--api-host", opts.api_host])
+    if opts.proxy and not _proxy_has_credentials(opts.proxy):
+        args.extend(["--proxy", opts.proxy])
     return tuple(args)
+
+
+def _proxy_has_credentials(proxy: str) -> bool:
+    """Return True if the proxy URL carries a username or password."""
+    parsed = urlsplit(proxy if "://" in proxy else f"//{proxy}")
+    return parsed.username is not None or parsed.password is not None
+
+
+def _terraform_proxy_next_steps(opts) -> list[str]:
+    """Return the post-install guidance when the proxy was not baked in."""
+    if not opts.proxy or not _proxy_has_credentials(opts.proxy):
+        return []
+    return [
+        (
+            "Next steps: the proxy URL contains credentials, so it was not"
+            " written to the Terraform config. export CLOUDSMITH_PROXY=<proxy-url>"
+            " in the environment that runs `terraform init`."
+        ),
+    ]
 
 
 _REPO_FLAGS = ("-r", "--repo", "--repository")
@@ -141,6 +169,31 @@ def _terraform_next_steps(helper_args: tuple[str, ...]) -> list[str]:
     ]
 
 
+def _terraform_workspace_next_steps(helper_args: tuple[str, ...]) -> list[str]:
+    """Return the post-install guidance when no Workspace is baked in.
+
+    The helper needs a Workspace to match custom domains and to scope the
+    token for a Cloudsmith-owned host.
+    """
+    if "-w" in helper_args:
+        return []
+    rc_path = _terraformrc_path()
+    return [
+        (
+            "Next steps: the Terraform helper needs a Workspace to match custom"
+            " domains and to scope tokens. Provide it in one of these ways:"
+        ),
+        (
+            "  - export CLOUDSMITH_WORKSPACE=<your-workspace> in the environment"
+            " that runs `terraform init`, or"
+        ),
+        (
+            f"  - add it to the args in {rc_path}, e.g."
+            ' args = ["-w", "<your-workspace>", ...].'
+        ),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # install
 # ---------------------------------------------------------------------------
@@ -149,7 +202,10 @@ def _terraform_next_steps(helper_args: tuple[str, ...]) -> list[str]:
 @click.command("install")
 @click.argument("helper")
 @click.option(
-    "--bin-dir", default=None, help="Directory to install the launcher binary."
+    "--bin-dir",
+    default=None,
+    help="Directory to install the launcher binary. "
+    "[default: ~/.cloudsmith/bin, or Terraform's plugin directory]",
 )
 @click.option(
     "--domain",
@@ -231,7 +287,7 @@ def install_cmd(
     \b
         # Terraform: bake the repository into the terraformrc args so
         # `terraform init` needs no CLOUDSMITH_REPO env var
-        $ cloudsmith credential-helper install terraform --org acme --repo my-repo
+        $ cloudsmith credential-helper install terraform -w acme --repo my-repo
     """
     installer = _get_installer(helper)
 
@@ -278,7 +334,11 @@ def install_cmd(
 
     next_steps: list[str] = []
     if helper == "terraform":
-        next_steps = _terraform_next_steps(helper_args)
+        next_steps = (
+            _terraform_workspace_next_steps(helper_args)
+            + _terraform_next_steps(helper_args)
+            + _terraform_proxy_next_steps(opts)
+        )
 
     data = {
         "helper": helper,
@@ -309,7 +369,10 @@ def install_cmd(
 @click.command("uninstall")
 @click.argument("helper")
 @click.option(
-    "--bin-dir", default=None, help="Directory where the launcher binary was installed."
+    "--bin-dir",
+    default=None,
+    help="Directory where the launcher binary was installed. "
+    "[default: ~/.cloudsmith/bin, or Terraform's plugin directory]",
 )
 @click.option(
     "--dry-run",

@@ -1167,9 +1167,10 @@ class BridgePinDivergence(BaseModel):
     compared the provider's own echo against itself — so a divergence looked
     like agreement and could never heal.
 
-    Which side wins a conflict is an ORG KNOB (``effective_setting`` key
-    ``coding_session_provider_pin_wins``, default: the provider wins, because
-    the coding agent is where the pin is made — Arman, 2026-09-18). Whatever the
+    Which side wins a conflict is an ORG KNOB
+    (``coding_session_bridge.provider_pin_wins`` in the scoped-knob register,
+    default: the provider wins, because the coding agent is where the pin is
+    made — Arman, 2026-09-18). Whatever the
     knob says, the disagreement is REPORTED: it is never silently dropped, and
     the identity list carries both values so a screen can show it.
     """

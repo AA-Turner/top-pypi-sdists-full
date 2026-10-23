@@ -21,14 +21,19 @@
 
 """Tests for LFS porcelain functions."""
 
+import dataclasses
 import os
 import shutil
 import sys
 import tempfile
+import threading
 import unittest
 
 from dulwich import porcelain
-from dulwich.lfs import LFSPointer, LFSStore
+from dulwich.index import index_entry_from_stat
+from dulwich.lfs import LFSError, LFSPointer, LFSStore
+from dulwich.lfs_server import run_lfs_server
+from dulwich.objects import Blob, Tree
 from dulwich.repo import Repo
 from tests import TestCase
 
@@ -148,6 +153,58 @@ class LFSPorcelainTestCase(TestCase):
         smudged_content = porcelain.lfs_smudge(self.repo, pointer_content)
 
         self.assertEqual(smudged_content, test_content)
+
+    def test_lfs_smudge_missing_object(self):
+        """Test smudging a pointer to an object that can not be found."""
+        porcelain.lfs_init(self.repo)
+        pointer_content = LFSPointer("0" * 64, 5).to_bytes()
+
+        with self.assertRaises(LFSError) as cm:
+            porcelain.lfs_smudge(self.repo, pointer_content)
+        self.assertEqual(
+            "No LFS client available from configuration", str(cm.exception)
+        )
+
+    def test_lfs_smudge_skip(self):
+        """Test that GIT_LFS_SKIP_SMUDGE leaves the pointer alone."""
+        porcelain.lfs_init(self.repo)
+        test_content = b"This is test content for smudging"
+        oid = LFSStore.from_repo(self.repo).write_object([test_content])
+        pointer_content = LFSPointer(oid, len(test_content)).to_bytes()
+
+        # Even objects that are in the local store are not smudged
+        for value in ("1", "true", "TRUE", "yes", "on", "t"):
+            self.assertEqual(
+                pointer_content,
+                porcelain.lfs_smudge(
+                    self.repo, pointer_content, env={"GIT_LFS_SKIP_SMUDGE": value}
+                ),
+            )
+
+        for value in ("0", "false", "no", "off", "y", "2", ""):
+            self.assertEqual(
+                test_content,
+                porcelain.lfs_smudge(
+                    self.repo, pointer_content, env={"GIT_LFS_SKIP_SMUDGE": value}
+                ),
+            )
+
+    def test_lfs_smudge_skip_os_environ(self):
+        """Test that GIT_LFS_SKIP_SMUDGE is read from os.environ by default."""
+        porcelain.lfs_init(self.repo)
+        test_content = b"This is test content for smudging"
+        oid = LFSStore.from_repo(self.repo).write_object([test_content])
+        pointer_content = LFSPointer(oid, len(test_content)).to_bytes()
+        self.overrideEnv("GIT_LFS_SKIP_SMUDGE", "1")
+
+        self.assertEqual(
+            pointer_content, porcelain.lfs_smudge(self.repo, pointer_content)
+        )
+
+    def test_lfs_smudge_non_pointer(self):
+        """Test that content that is not a pointer is passed through."""
+        porcelain.lfs_init(self.repo)
+        self.assertEqual(b"content", porcelain.lfs_smudge(self.repo, b"content"))
 
     def test_lfs_ls_files(self):
         """Test listing LFS files."""
@@ -496,6 +553,426 @@ class LFSPorcelainTestCase(TestCase):
             content = f.read()
 
         self.assertEqual(content, test_content)
+
+
+class LFSTransferTests(TestCase):
+    """Tests for the LFS porcelain functions that talk to a remote."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.test_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.test_dir, ignore_errors=True)
+        self.repo = Repo.init(self.test_dir)
+        self.addCleanup(self.repo.close)
+        self.local_store = LFSStore.from_repo(self.repo, create=True)
+
+        self.server_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.server_dir)
+        self.server, self.server_url = run_lfs_server(port=0, lfs_dir=self.server_dir)
+        self.server_thread = threading.Thread(target=self.server.serve_forever)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+
+        def cleanup_server() -> None:
+            self.server.shutdown()
+            self.server.server_close()
+            self.server_thread.join(timeout=1.0)
+
+        self.addCleanup(cleanup_server)
+
+    def _set_config(self, section: tuple[bytes, ...], name: bytes, value: str) -> None:
+        config = self.repo.get_config()
+        config.set(section, name, value.encode())
+        config.write_to_path()
+
+    def _pointer(self, content: bytes, store: LFSStore) -> tuple[str, bytes]:
+        """Store content in an LFS store, returning its oid and pointer."""
+        oid = store.write_object([content])
+        return oid, LFSPointer(oid, len(content)).to_bytes()
+
+    def _commit_pointer(
+        self, content: bytes, store: LFSStore, name: str = "large.bin"
+    ) -> str:
+        """Commit a pointer to content, returning its oid."""
+        oid, pointer = self._pointer(content, store)
+        with open(os.path.join(self.test_dir, name), "wb") as f:
+            f.write(pointer)
+        porcelain.add(self.repo, paths=[name])
+        porcelain.commit(self.repo, message=b"Add LFS file")
+        return oid
+
+    def _tag_tree(self, name: bytes, content: bytes, store: LFSStore) -> str:
+        """Create a tag pointing at a tree with a pointer to content."""
+        oid, pointer = self._pointer(content, store)
+        blob = Blob.from_string(pointer)
+        tree = Tree()
+        tree.add(b"large.bin", 0o100644, blob.id)
+        self.repo.object_store.add_objects([(blob, None), (tree, None)])
+        self.repo.refs[b"refs/tags/" + name] = tree.id
+        return oid
+
+    def _tag_blob(self, name: bytes, content: bytes, store: LFSStore) -> str:
+        """Create a tag pointing at a blob with a pointer to content."""
+        oid, pointer = self._pointer(content, store)
+        blob = Blob.from_string(pointer)
+        self.repo.object_store.add_object(blob)
+        self.repo.refs[b"refs/tags/" + name] = blob.id
+        return oid
+
+    def _stored(self, store: LFSStore, oids: list[str]) -> list[str]:
+        """Return the oids that are present in an LFS store."""
+        ret = []
+        for oid in oids:
+            try:
+                with store.open_object(oid):
+                    ret.append(oid)
+            except KeyError:
+                pass
+        return ret
+
+    def test_fetch(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.server.lfs_store)
+        tip = self._commit_pointer(b"tip content", self.server.lfs_store)
+
+        # Only the tree of HEAD is fetched by default
+        self.assertEqual(1, porcelain.lfs_fetch(self.repo))
+        self.assertEqual([tip], self._stored(self.local_store, [old, tip]))
+
+        # Already present locally, so nothing left to fetch
+        self.assertEqual(0, porcelain.lfs_fetch(self.repo))
+
+    def test_fetch_creates_store(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        oid = self._commit_pointer(b"content", self.server.lfs_store)
+        shutil.rmtree(self.local_store.path)
+
+        self.assertEqual(1, porcelain.lfs_fetch(self.repo))
+        self.assertEqual([oid], self._stored(self.local_store, [oid]))
+
+    def test_fetch_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.server.lfs_store)
+        self.repo.refs[b"refs/heads/other"] = self.repo.head()
+        tip = self._commit_pointer(b"tip content", self.server.lfs_store)
+
+        self.assertEqual(1, porcelain.lfs_fetch(self.repo, refs=[b"refs/heads/other"]))
+        self.assertEqual([old], self._stored(self.local_store, [old, tip]))
+
+    def test_fetch_annotated_tag(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        oid = self._commit_pointer(b"content", self.server.lfs_store)
+        porcelain.tag_create(
+            self.repo, b"v1", author=b"A <a@example.com>", message=b"v1", annotated=True
+        )
+
+        self.assertEqual(1, porcelain.lfs_fetch(self.repo, refs=[b"refs/tags/v1"]))
+        self.assertEqual([oid], self._stored(self.local_store, [oid]))
+
+    def test_fetch_tree_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._commit_pointer(b"content", self.server.lfs_store)
+        oid = self._tag_tree(b"tree", b"tree content", self.server.lfs_store)
+
+        self.assertEqual(1, porcelain.lfs_fetch(self.repo, refs=[b"refs/tags/tree"]))
+        self.assertEqual([oid], self._stored(self.local_store, [oid]))
+
+    def test_fetch_blob_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._tag_blob(b"blob", b"blob content", self.server.lfs_store)
+
+        with self.assertRaises(ValueError) as cm:
+            porcelain.lfs_fetch(self.repo, refs=[b"refs/tags/blob"])
+        self.assertEqual(
+            "b'refs/tags/blob' does not refer to a commit or tree", str(cm.exception)
+        )
+
+    def test_fetch_all(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.server.lfs_store)
+        tip = self._commit_pointer(b"tip content", self.server.lfs_store)
+        porcelain.tag_create(
+            self.repo, b"v1", author=b"A <a@example.com>", message=b"v1", annotated=True
+        )
+        tree = self._tag_tree(b"tree", b"tree content", self.server.lfs_store)
+        blob = self._tag_blob(b"blob", b"blob content", self.server.lfs_store)
+
+        self.assertEqual(4, porcelain.lfs_fetch(self.repo, all=True))
+        self.assertEqual(
+            [old, tip, tree, blob],
+            self._stored(self.local_store, [old, tip, tree, blob]),
+        )
+
+    def test_fetch_all_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.server.lfs_store)
+        tip = self._commit_pointer(b"tip content", self.server.lfs_store)
+        tree = self._tag_tree(b"tree", b"tree content", self.server.lfs_store)
+
+        self.assertEqual(2, porcelain.lfs_fetch(self.repo, refs=[b"HEAD"], all=True))
+        self.assertEqual([old, tip], self._stored(self.local_store, [old, tip, tree]))
+
+    def test_fetch_all_empty_repo(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self.assertEqual(0, porcelain.lfs_fetch(self.repo, all=True))
+
+    def test_fetch_unborn_head(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        with self.assertRaises(KeyError) as cm:
+            porcelain.lfs_fetch(self.repo)
+        self.assertEqual((b"HEAD",), cm.exception.args)
+
+    def test_fetch_unknown_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._commit_pointer(b"content", self.server.lfs_store)
+        with self.assertRaises(KeyError) as cm:
+            porcelain.lfs_fetch(self.repo, refs=[b"refs/heads/nonexistent"])
+        self.assertEqual((b"refs/heads/nonexistent",), cm.exception.args)
+
+    def test_fetch_from_named_remote(self) -> None:
+        remote_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, remote_dir)
+        with Repo.init(remote_dir) as remote_repo:
+            remote_store = LFSStore.from_repo(remote_repo, create=True)
+        oid = self._commit_pointer(b"content in another repository", remote_store)
+        self._set_config((b"remote", b"upstream"), b"url", remote_dir)
+
+        self.assertEqual(1, porcelain.lfs_fetch(self.repo, remote="upstream"))
+        self.assertEqual([oid], self._stored(self.local_store, [oid]))
+
+    def test_fetch_no_url(self) -> None:
+        self._commit_pointer(b"content", self.server.lfs_store)
+        with self.assertRaises(ValueError) as cm:
+            porcelain.lfs_fetch(self.repo)
+        self.assertEqual("No LFS URL configured for remote origin", str(cm.exception))
+
+    def _track_bin(self) -> None:
+        """Track *.bin files with LFS."""
+        with open(os.path.join(self.test_dir, ".gitattributes"), "wb") as f:
+            f.write(b"*.bin filter=lfs diff=lfs merge=lfs -text\n")
+        porcelain.add(self.repo, paths=[".gitattributes"])
+        porcelain.commit(self.repo, message=b"Track *.bin")
+
+    def _read(self, name: str) -> bytes:
+        with open(os.path.join(self.test_dir, name), "rb") as f:
+            return f.read()
+
+    def test_pull(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._track_bin()
+        server_store = self.server.lfs_store
+        tracked = self._commit_pointer(b"tracked content", server_store, "tracked.bin")
+        deleted = self._commit_pointer(b"deleted content", server_store, "deleted.bin")
+        modified = self._commit_pointer(
+            b"modified content", server_store, "modified.bin"
+        )
+        noattr = self._commit_pointer(b"noattr content", server_store, "noattr.dat")
+        # A pointer that is in the index but not in HEAD
+        staged, staged_pointer = self._pointer(b"staged content", server_store)
+        with open(os.path.join(self.test_dir, "staged.bin"), "wb") as f:
+            f.write(staged_pointer)
+        porcelain.add(self.repo, paths=["staged.bin"])
+        os.unlink(os.path.join(self.test_dir, "deleted.bin"))
+        with open(os.path.join(self.test_dir, "modified.bin"), "wb") as f:
+            f.write(b"local edit")
+
+        self.assertEqual(4, porcelain.lfs_pull(self.repo))
+
+        # Objects are fetched for the files in the index that LFS tracks
+        self.assertEqual(
+            [tracked, deleted, modified, staged],
+            self._stored(
+                self.local_store, [tracked, deleted, modified, noattr, staged]
+            ),
+        )
+        self.assertEqual(b"tracked content", self._read("tracked.bin"))
+        self.assertEqual(b"staged content", self._read("staged.bin"))
+        # Missing files are restored
+        self.assertEqual(b"deleted content", self._read("deleted.bin"))
+        # Local modifications are left alone
+        self.assertEqual(b"local edit", self._read("modified.bin"))
+        # Pointers in files that LFS does not track are left alone
+        self.assertEqual(
+            LFSPointer(noattr, len(b"noattr content")).to_bytes(),
+            self._read("noattr.dat"),
+        )
+
+        # Nothing left to do
+        self.assertEqual(0, porcelain.lfs_pull(self.repo))
+        self.assertEqual(b"tracked content", self._read("tracked.bin"))
+
+    def test_pull_updates_index(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._track_bin()
+        content = b"tracked content"
+        self._commit_pointer(content, self.server.lfs_store, "tracked.bin")
+        pointer_blob = self.repo.open_index()[b"tracked.bin"].sha
+
+        self.assertEqual(1, porcelain.lfs_pull(self.repo))
+
+        # The index still refers to the pointer, but its stat information
+        # matches the file that was written
+        st = os.lstat(os.path.join(self.test_dir, "tracked.bin"))
+        self.assertEqual(len(content), st.st_size)
+        expected = index_entry_from_stat(st, pointer_blob)
+        # The on-disk index only stores the lower 32 bits of dev and ino
+        expected = dataclasses.replace(
+            expected, dev=expected.dev & 0xFFFFFFFF, ino=expected.ino & 0xFFFFFFFF
+        )
+        self.assertEqual(expected, self.repo.open_index()[b"tracked.bin"])
+        self.assertEqual([], porcelain.status(self.repo).unstaged)
+
+    def test_pull_ignores_skip_smudge(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._track_bin()
+        self._commit_pointer(b"tracked content", self.server.lfs_store, "tracked.bin")
+        self.overrideEnv("GIT_LFS_SKIP_SMUDGE", "1")
+
+        self.assertEqual(1, porcelain.lfs_pull(self.repo))
+        self.assertEqual(b"tracked content", self._read("tracked.bin"))
+
+    def test_pull_checks_out_local_objects(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._track_bin()
+        self._commit_pointer(b"local content", self.local_store, "local.bin")
+
+        # Nothing to fetch, but the pointer is still replaced
+        self.assertEqual(0, porcelain.lfs_pull(self.repo))
+        self.assertEqual(b"local content", self._read("local.bin"))
+
+    @unittest.skipIf(sys.platform == "win32", "Requires symlink support")
+    def test_pull_symlink(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._track_bin()
+        self._commit_pointer(b"content", self.server.lfs_store, "link.bin")
+        target = os.path.join(self.test_dir, "target")
+        with open(target, "wb") as f:
+            f.write(b"target content")
+        os.unlink(os.path.join(self.test_dir, "link.bin"))
+        os.symlink(target, os.path.join(self.test_dir, "link.bin"))
+
+        # Never write through a symlink
+        self.assertEqual(1, porcelain.lfs_pull(self.repo))
+        self.assertEqual(b"target content", self._read("target"))
+
+    def test_pull_unborn_head(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        with self.assertRaises(KeyError) as cm:
+            porcelain.lfs_pull(self.repo)
+        self.assertEqual((b"HEAD",), cm.exception.args)
+
+    def test_push(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.local_store)
+        tip = self._commit_pointer(b"tip content", self.local_store)
+        tree = self._tag_tree(b"tree", b"tree content", self.local_store)
+
+        # The objects for the whole history of the ref are pushed
+        self.assertEqual(2, porcelain.lfs_push(self.repo, refs=[b"HEAD"]))
+        self.assertEqual(
+            [old, tip], self._stored(self.server.lfs_store, [old, tip, tree])
+        )
+
+    def test_push_requires_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._commit_pointer(b"content", self.local_store)
+        with self.assertRaises(ValueError) as cm:
+            porcelain.lfs_push(self.repo)
+        self.assertEqual(
+            "At least one ref must be supplied without all", str(cm.exception)
+        )
+
+    def test_push_skips_remote_tracking(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.local_store)
+        self.repo.refs[b"refs/remotes/origin/master"] = self.repo.head()
+        tip = self._commit_pointer(b"tip content", self.local_store)
+
+        # Objects the remote-tracking branches already refer to are skipped
+        self.assertEqual(1, porcelain.lfs_push(self.repo, refs=[b"HEAD"]))
+        self.assertEqual([tip], self._stored(self.server.lfs_store, [old, tip]))
+
+        # Unless all objects are requested
+        self.assertEqual(2, porcelain.lfs_push(self.repo, refs=[b"HEAD"], all=True))
+        self.assertEqual([old, tip], self._stored(self.server.lfs_store, [old, tip]))
+
+    def test_push_all(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        old = self._commit_pointer(b"old content", self.local_store)
+        tip = self._commit_pointer(b"tip content", self.local_store)
+        tip_commit = self.repo.head()
+        tree = self._tag_tree(b"tree", b"tree content", self.local_store)
+        # A commit that is only reachable from a remote-tracking branch
+        elsewhere = self._commit_pointer(b"content from elsewhere", self.local_store)
+        self.repo.refs[b"refs/remotes/elsewhere/master"] = self.repo.head()
+        self.repo.refs[b"refs/heads/master"] = tip_commit
+
+        # Only local branches and tags are pushed
+        self.assertEqual(3, porcelain.lfs_push(self.repo, all=True))
+        self.assertEqual(
+            [old, tip, tree],
+            self._stored(self.server.lfs_store, [old, tip, tree, elsewhere]),
+        )
+
+    def _other_store(self) -> LFSStore:
+        """Create an LFS store that is neither the local nor the remote one."""
+        path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, path)
+        return LFSStore.create(path)
+
+    def test_push_missing_object(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        present = self._commit_pointer(b"present", self.local_store, "a.bin")
+        missing = self._commit_pointer(b"missing", self._other_store(), "b.bin")
+
+        with self.assertRaises(LFSError) as cm:
+            porcelain.lfs_push(self.repo, refs=[b"HEAD"])
+        self.assertEqual(
+            f"LFS objects are missing locally and on the remote: {missing}",
+            str(cm.exception),
+        )
+        # Nothing is uploaded
+        self.assertEqual([], self._stored(self.server.lfs_store, [present, missing]))
+
+    def test_push_missing_object_allow_incomplete(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._set_config((b"lfs",), b"allowincompletepush", "true")
+        present = self._commit_pointer(b"present", self.local_store, "a.bin")
+        missing = self._commit_pointer(b"missing", self._other_store(), "b.bin")
+
+        self.assertEqual(1, porcelain.lfs_push(self.repo, refs=[b"HEAD"]))
+        self.assertEqual(
+            [present], self._stored(self.server.lfs_store, [present, missing])
+        )
+
+    def test_push_missing_object_on_remote(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        present = self._commit_pointer(b"present", self.local_store, "a.bin")
+        remote = self._commit_pointer(b"remote", self.server.lfs_store, "b.bin")
+
+        # Objects that are missing locally are fine if the remote has them
+        self.assertEqual(1, porcelain.lfs_push(self.repo, refs=[b"HEAD"]))
+        self.assertEqual(
+            [present, remote], self._stored(self.server.lfs_store, [present, remote])
+        )
+
+    def test_push_unborn_head(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        with self.assertRaises(KeyError) as cm:
+            porcelain.lfs_push(self.repo, refs=[b"HEAD"])
+        self.assertEqual((b"HEAD",), cm.exception.args)
+
+    def test_push_unknown_ref(self) -> None:
+        self._set_config((b"lfs",), b"url", self.server_url)
+        self._commit_pointer(b"content", self.local_store)
+        with self.assertRaises(KeyError) as cm:
+            porcelain.lfs_push(self.repo, refs=[b"refs/heads/nonexistent"])
+        self.assertEqual((b"refs/heads/nonexistent",), cm.exception.args)
+
+    def test_push_no_url(self) -> None:
+        with self.assertRaises(ValueError) as cm:
+            porcelain.lfs_push(self.repo, refs=[b"HEAD"])
+        self.assertEqual("No LFS URL configured for remote origin", str(cm.exception))
 
 
 if __name__ == "__main__":

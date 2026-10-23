@@ -12,9 +12,12 @@
 
 """Tests for client-side Sampler."""
 
-from unittest import skipUnless
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 from qiskit import QuantumCircuit
 from qiskit.circuit import BoxOp, Parameter
 from qiskit.providers.fake_provider import GenericBackendV2
@@ -28,21 +31,17 @@ from qiskit_ibm_runtime.fake_provider import FakeVigoV2
 from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService
 from qiskit_ibm_runtime.session import Session
 
-from ...decorators import mock_responses
-from ...ibm_test_case import IBMTestCase
 from ...registries import OneInstanceDryRunRegistry
-from ...utils import get_mocked_backend
+
+if TYPE_CHECKING:
+    from ...registries import BaseRegistry
 
 
-class TestSamplerSimpleCircuits(IBMTestCase):
+class TestSamplerSimpleCircuits:
     """Tests for Sampler with simple (non-parametric) circuits."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        self.backend = get_mocked_backend()
-
-    @mock_responses(OneInstanceDryRunRegistry)
-    def test_run_dry_run(self, registry):
+    @pytest.mark.registry(registry_class=OneInstanceDryRunRegistry)
+    def test_run_dry_run(self, registry: BaseRegistry) -> None:
         """Sampler can run in `dry-run` mode."""
         service = QiskitRuntimeService(token="my_token")
         backend = service.backend("ibm_foo")
@@ -53,46 +52,45 @@ class TestSamplerSimpleCircuits(IBMTestCase):
         circuit.measure_all()
 
         job = sampler.run([circuit], dry_run=True)
-        self.assertEqual(job.backend().name, "mock_foo")
+        assert job.backend().name == "mock_foo"
 
-    @mock_responses
-    def test_mode(self, registry):
-        """Estimator `mode` and `backend()` is based on `mode` init argument."""
+    @pytest.mark.parametrize("mode_id", ["job", "session", "batch"])
+    def test_mode_handling(self, mode_id: str, registry: BaseRegistry) -> None:
+        """Sampler `mode` init argument should propagate to interface and through `run()`."""
         service = QiskitRuntimeService(token="my_token")
-
-        # Job mode, online backend.
         backend = service.backend("common_backend")
-        sampler = Sampler(mode=backend)
-        self.assertEqual(sampler.backend(), backend)
-        self.assertEqual(sampler.mode, None)
 
-        # Session mode.
-        session = Session(backend)
-        sampler = Sampler(mode=session)
-        self.assertEqual(sampler.backend(), backend)
-        self.assertEqual(sampler.mode, session)
+        match mode_id:
+            case "job":
+                mode = backend
+                expected_mode = None
+                expected_session_id = None
+            case "session":
+                mode = Session(backend)
+                expected_mode = mode
+                expected_session_id = "session_12345"
+            case "batch":
+                mode = Batch(backend)
+                expected_mode = mode
+                expected_session_id = "session_12345"
 
-        # Batch mode.
-        batch = Batch(backend)
-        sampler = Sampler(mode=batch)
-        self.assertEqual(sampler.backend(), backend)
-        self.assertEqual(sampler.mode, batch)
+        # Public interfaces should respect `mode`.
+        sampler = Sampler(mode=mode)
+        assert sampler.backend() == backend
+        assert sampler.mode == expected_mode
 
-        # `None` mode (inside session).
-        with Session(backend) as session:
-            sampler = Sampler()
-            self.assertEqual(sampler.backend(), backend)
-            self.assertEqual(sampler.mode, session)
+        # Jobs issued should belong to a session under `session` / `batch`` modes.
+        circuit = QuantumCircuit(1, 1)
+        circuit.h(0)
+        circuit.measure_all()
+        job = sampler.run([circuit])
+        assert job._session_id == expected_session_id
 
 
-class TestSamplerCircuitValidation(IBMTestCase):
+class TestSamplerCircuitValidation:
     """Tests for circuit validation in Sampler."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        self.backend = FakeVigoV2()
-
-    def test_multiple_circuits_one_with_box_raises_error(self):
+    def test_multiple_circuits_one_with_box_raises_error(self) -> None:
         """Test that BoxOp in any circuit raises an error."""
         circuit1 = QuantumCircuit(1, 1)
         circuit1.h(0)
@@ -105,17 +103,17 @@ class TestSamplerCircuitValidation(IBMTestCase):
         circuit2.append(BoxOp(inner_circuit), [0, 1])
         circuit2.measure_all()
 
-        sampler = Sampler(mode=self.backend)
+        sampler = Sampler(mode=FakeVigoV2())
 
-        with self.assertRaisesRegex(IBMInputValueError, "BoxOp"):
+        with pytest.raises(IBMInputValueError, match="BoxOp"):
             sampler.run([circuit1, circuit2], shots=1024)
 
 
-@skipUnless(condition=HAS_AER, reason="qiskit-aer is required to run this test")
-class TestSamplerSimulatorMode(IBMTestCase):
+@pytest.mark.skipif(not HAS_AER, reason="qiskit-aer is required to run this test")
+class TestSamplerSimulatorMode:
     """Tests for Sampler with simulator backends (local mode)."""
 
-    def test_simulator_mode_uses_backend_sampler(self):
+    def test_simulator_mode_uses_backend_sampler(self) -> None:
         """Test that simulator mode uses BackendSampler instead of Executor."""
         backend = GenericBackendV2(num_qubits=5)
 
@@ -134,18 +132,18 @@ class TestSamplerSimulatorMode(IBMTestCase):
         result = job.result()
 
         # Verify we got results
-        self.assertEqual(len(result), 1)
-        self.assertIsNotNone(result[0].data)
+        assert len(result) == 1
+        assert result[0].data is not None
 
         # Verify the results are valid Bell state measurements
         counts = result[0].data.c.get_counts()
         # Should only have |00> and |11> states
         for bitstring in counts.keys():
-            self.assertIn(bitstring, ["00", "11"])
+            assert bitstring in ["00", "11"]
         # Total counts should equal shots
-        self.assertEqual(sum(counts.values()), 100)
+        assert sum(counts.values()) == 100
 
-    def test_simulator_options_seed(self):
+    def test_simulator_options_seed(self) -> None:
         """Test that simulator seed option produces deterministic results."""
         backend = GenericBackendV2(num_qubits=5)
 
@@ -176,7 +174,7 @@ class TestSamplerSimulatorMode(IBMTestCase):
         counts2 = result2[0].data.meas.get_counts()
 
         # Results should be identical with same seed
-        self.assertEqual(counts1, counts2)
+        assert counts1 == counts2
 
         # Third sampler with different seed should give different results
         sampler3 = Sampler(mode=backend)
@@ -188,9 +186,9 @@ class TestSamplerSimulatorMode(IBMTestCase):
         counts3 = result3[0].data.meas.get_counts()
 
         # Results should be different with different seed
-        self.assertNotEqual(counts1, counts3)
+        assert counts1 != counts3
 
-    def test_simulator_with_general_test_case(self):
+    def test_simulator_with_general_test_case(self) -> None:
         """Test simulator mode with comprehensive simulator options.
 
         This test exercises all available simulator options:
@@ -232,15 +230,15 @@ class TestSamplerSimulatorMode(IBMTestCase):
         result = job.result()
 
         # Verify results structure
-        self.assertEqual(len(result), 1)
-        self.assertIsNotNone(result[0].data)
+        assert len(result) == 1
+        assert result[0].data is not None
 
         # Verify we got results for all parameter sets
         pub_result = result[0]
-        self.assertIsNotNone(pub_result.data.meas)
+        assert pub_result.data.meas is not None
 
         # Get counts and verify basic properties
         counts = pub_result.data.meas.get_counts()
 
         # Total counts should equal shots × number of parameter sets
-        self.assertEqual(sum(counts.values()), 3000)
+        assert sum(counts.values()) == 3000

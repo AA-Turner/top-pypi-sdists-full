@@ -20,7 +20,8 @@ jobs:
           - ubuntu-24.04
           - macos-15
           - windows-2025
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
+        python-version:
+          ["3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"]
         resolution: ["highest", "lowest-direct"]
     env:
       # Shared env variables for all the tests
@@ -46,9 +47,17 @@ jobs:
           echo "SCCACHE_DIR=${{ github.workspace }}/.sccache" >> $GITHUB_ENV
           echo "SCCACHE_CACHE_SIZE=250M" >> $GITHUB_ENV
           echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      # sccache mis-parses the -Tp that cc passes cl.exe before .cc sources
+      # (mozilla/sccache#2062). The uncached sdist job still covers cl.exe.
+      - name: Use clang-cl
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "CC=clang-cl" >> $GITHUB_ENV
+          echo "CXX=clang-cl" >> $GITHUB_ENV
       - name: Setup rust
         run: rustup update
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync
@@ -78,13 +87,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       # uv build first generates the sdist and then builds a wheel from it isolated from the repo.
       # So it is enough to verify the sdist is usable.
       - run: uv build
 
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       # We don't need the built extension for linting
       UV_NO_PROJECT: "true"
@@ -93,9 +102,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup rust
         run: rustup update
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
       - run: uv sync --locked
       - run: uv run poe lint
       - run: uv run poe format

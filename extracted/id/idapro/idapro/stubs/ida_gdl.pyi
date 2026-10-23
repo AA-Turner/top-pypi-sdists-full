@@ -12,85 +12,7 @@ r"""Low level graph drawing operations.
 
 class BasicBlock:
     r"""Basic block class. It is returned by the Flowchart class"""
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self, id: Any, bb: Any, fc: Any) -> Any:
-        ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __repr__(self) -> str:
-        r"""Return repr(self)."""
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def preds(self) -> Any:
         r"""
@@ -113,27 +35,6 @@ class FlowChart:
     """
     @property
     def size(self) -> Any: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
     def __getitem__(self, index: Any) -> Any:
         r"""
         Returns a basic block
@@ -141,15 +42,6 @@ class FlowChart:
         :returns: BasicBlock
         
         """
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
         ...
     def __init__(self, f: Any = None, bounds: Any = None, flags: Any = 0) -> Any:
         r"""
@@ -160,55 +52,7 @@ class FlowChart:
         
         """
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
     def __iter__(self) -> Any:
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __repr__(self) -> str:
-        r"""Return repr(self)."""
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def refresh(self) -> Any:
         r"""Refreshes the flow chart"""
@@ -217,86 +61,13 @@ class FlowChart:
 class cancellable_graph_t(gdl_graph_t):
     @property
     def cancelled(self) -> bool: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
+    @cancelled.setter
+    def cancelled(self, value: bool) -> None: ...
     def __disown__(self) -> Any:
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -348,248 +119,39 @@ class cancellable_graph_t(gdl_graph_t):
 class edge_t:
     @property
     def dst(self) -> int: ...
+    @dst.setter
+    def dst(self, value: int) -> None: ...
     @property
     def src(self) -> int: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
+    @src.setter
+    def src(self, value: int) -> None: ...
     def __eq__(self, y: edge_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
     def __init__(self, x: int = 0, y: int = 0) -> Any:
-        ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
         ...
     def __lt__(self, y: edge_t) -> bool:
         ...
     def __ne__(self, y: edge_t) -> bool:
         ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class edgevec_t:
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class gdl_graph_t:
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
     def __disown__(self) -> Any:
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -639,164 +201,23 @@ class gdl_graph_t:
         ...
 
 class node_iterator:
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
     def __eq__(self, n: Any) -> bool:
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
         ...
     def __init__(self, _g: gdl_graph_t, n: int) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
     def __ne__(self, n: Any) -> bool:
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
         ...
     def __ref__(self) -> int:
         ...
     def __repr__(self) -> Any:
         ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
-        ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
 
 class node_ordering_t:
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -818,41 +239,19 @@ class node_ordering_t:
 class qbasic_block_t:
     @property
     def end_ea(self) -> ida_idaapi.ea_t: ...
+    @end_ea.setter
+    def end_ea(self, value: ida_idaapi.ea_t) -> None: ...
     @property
     def start_ea(self) -> ida_idaapi.ea_t: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
+    @start_ea.setter
+    def start_ea(self, value: ida_idaapi.ea_t) -> None: ...
     def __eq__(self, r: range_t) -> bool:
         ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
     def __ge__(self, r: range_t) -> bool:
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
         ...
     def __gt__(self, r: range_t) -> bool:
         ...
     def __init__(self) -> Any:
-        ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
         ...
     def __le__(self, r: range_t) -> bool:
         ...
@@ -860,34 +259,9 @@ class qbasic_block_t:
         ...
     def __ne__(self, r: range_t) -> bool:
         ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
         ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
     def __str__(self) -> str:
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -938,98 +312,35 @@ class qbasic_block_t:
 class qflow_chart_ea_t(cancellable_graph_t, gdl_graph_t):
     @property
     def bounds(self) -> range_t: ...
+    @bounds.setter
+    def bounds(self, value: range_t) -> None: ...
     @property
     def cancelled(self) -> bool: ...
+    @cancelled.setter
+    def cancelled(self, value: bool) -> None: ...
     @property
     def flags(self) -> int: ...
+    @flags.setter
+    def flags(self, value: int) -> None: ...
     @property
     def func_ea(self) -> ida_idaapi.ea_t: ...
+    @func_ea.setter
+    def func_ea(self, value: ida_idaapi.ea_t) -> None: ...
     @property
     def nproper(self) -> int: ...
+    @nproper.setter
+    def nproper(self, value: int) -> None: ...
     @property
     def title(self) -> str: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
+    @title.setter
+    def title(self, value: str) -> None: ...
     def __disown__(self) -> Any:
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
         ...
     def __getitem__(self, n: int) -> qbasic_block_t:
         ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -1097,98 +408,35 @@ class qflow_chart_ea_t(cancellable_graph_t, gdl_graph_t):
 class qflow_chart_t(cancellable_graph_t, gdl_graph_t):
     @property
     def bounds(self) -> range_t: ...
+    @bounds.setter
+    def bounds(self, value: range_t) -> None: ...
     @property
     def cancelled(self) -> bool: ...
+    @cancelled.setter
+    def cancelled(self, value: bool) -> None: ...
     @property
     def flags(self) -> int: ...
+    @flags.setter
+    def flags(self, value: int) -> None: ...
     @property
     def nproper(self) -> int: ...
+    @nproper.setter
+    def nproper(self, value: int) -> None: ...
     @property
     def pfn(self) -> func_t: ...
+    @pfn.setter
+    def pfn(self, value: func_t) -> None: ...
     @property
     def title(self) -> str: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
+    @title.setter
+    def title(self, value: str) -> None: ...
     def __disown__(self) -> Any:
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
         ...
     def __getitem__(self, n: int) -> qbasic_block_t:
         ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...

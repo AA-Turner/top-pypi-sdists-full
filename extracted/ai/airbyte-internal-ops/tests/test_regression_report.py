@@ -1657,20 +1657,328 @@ def test_duplicate_pks_are_listed_per_version():
         {"users": [["id"]]},
     )
 
+    assert model.passed is False
+    target_check = next(
+        c for c in model.checks if c.name == "Primary key integrity (target)"
+    )
+    assert target_check.status == "fail"
     (section,) = model.stream_sections
     assert section.status == "fail"
-    assert "1 duplicate PK(s) in target" in section.headline
+    assert "1 new duplicate PK(s) in target" in section.headline
     # One check-level block whose title summarizes the test, with one child
     # per version that actually has duplicates: no control child exists.
     group = next(
         b
         for b in section.diff_blocks
-        if b.title == "Duplicate primary keys — 1 in target"
+        if b.title == "Duplicate primary keys — 1 in target (1 new in target)"
     )
     assert not group.split_rows
     (child,) = group.children
     assert child.title == "In target — 1 PK value(s)"
-    assert [line.text for line in child.lines] == ["[1] \u00d72"]
+    assert [(line.kind, line.text) for line in child.lines] == [
+        ("del", "[1] \u00d72 (new in target)")
+    ]
+
+
+def test_pre_existing_duplicate_pks_warn_without_failing_the_run():
+    """Duplicates both versions emit are a finding about the connector, not
+    about the change under test: every surface shows them as a warning."""
+    rows = [{"id": 1, "n": "a"}, {"id": 1, "n": "a"}, {"id": 2, "n": "b"}]
+    model = _comparison_with_records(
+        {"users": rows}, {"users": rows}, {"users": [["id"]]}
+    )
+
+    assert model.passed is True
+    assert model.verdict_label == "PASS"
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Primary key integrity (control)"] == "warn"
+    assert statuses["Primary key integrity (target)"] == "warn"
+    assert statuses["Record counts"] == "pass"
+    control_check = next(
+        c for c in model.checks if c.name == "Primary key integrity (control)"
+    )
+    assert control_check.summary == (
+        "Pre-existing duplicate primary keys in control (not a regression) — "
+        "1 stream: users"
+    )
+    assert control_check.details == (
+        "Stream users has 1 pre-existing duplicate primary key value(s), "
+        "unchanged between control and target",
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "warn"
+    assert section.headline.endswith("— 1 pre-existing duplicate PK(s), unchanged")
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title
+        == "Duplicate primary keys — 1 in control, 1 in target (1 pre-existing)"
+    )
+    assert [child.title for child in group.children] == [
+        "In control — 1 PK value(s)",
+        "In target — 1 PK value(s)",
+    ]
+    for child in group.children:
+        assert [(line.kind, line.text) for line in child.lines] == [
+            ("ctx", "[1] \u00d72 (pre-existing)")
+        ]
+
+    summary = render_inline_summary(model)
+    assert "| Primary key integrity (control) | ⚠️" in summary
+    assert "| Primary key integrity (target) | ⚠️" in summary
+    assert "✅ PASS" in summary
+    html = render_html_report(model)
+    assert 'class="stream stream--warn"' in html
+
+
+def test_a_duplicate_with_lost_records_is_not_called_fixed_on_any_surface():
+    """Control `7: hold, release` + `1`, target `7: hold` + `1` + `2`."""
+    model = _comparison_with_records(
+        {
+            "users": [
+                {"id": 7, "event": "T1110"},
+                {"id": 7, "event": "T1111"},
+                {"id": 1},
+            ]
+        },
+        {"users": [{"id": 7, "event": "T1110"}, {"id": 1}, {"id": 2}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Primary key integrity (control)"] == "warn"
+    assert statuses["Field values"] == "fail"
+    control_check = next(
+        c for c in model.checks if c.name == "Primary key integrity (control)"
+    )
+    assert control_check.summary.startswith(
+        "Duplicate primary keys in control with records the target dropped or changed"
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "1 duplicate PK(s) in control with records dropped or changed in target" in (
+        section.headline
+    )
+    assert "fixed in target" not in section.headline
+    group = next(
+        b for b in section.diff_blocks if b.title.startswith("Duplicate primary keys")
+    )
+    assert group.title == (
+        "Duplicate primary keys — 1 in control (1 with records dropped or changed "
+        "in target)"
+    )
+    (child,) = group.children
+    assert [(line.kind, line.text) for line in child.lines] == [
+        ("del", "[7] \u00d72 (records dropped or changed in target)")
+    ]
+    summary = render_inline_summary(model)
+    assert "| Primary key integrity (control) | ⚠️ |" in summary
+    assert "| Field values | ❌ |" in summary
+
+
+def test_a_control_value_is_called_fixed_only_while_the_lost_list_is_complete():
+    """The dropped-or-changed list is capped; past the cap a value missing
+    from it may still belong there, so it is not labelled fixed."""
+    from airbyte_ops_mcp.regression_tests.regression.comparators import (
+        StreamComparisonResult,
+    )
+    from airbyte_ops_mcp.regression_tests.report import _duplicate_pk_block
+
+    def control_lines(lost_count: int) -> list[str]:
+        result = StreamComparisonResult(
+            stream_name="users",
+            passed=True,
+            duplicate_pks=[(1,), (2,), (3,)],
+            duplicate_pk_counts={(1,): 2, (2,): 2, (3,): 2},
+            fixed_duplicate_pk_count=3 - lost_count,
+            lost_duplicate_pk_count=lost_count,
+            lost_duplicate_pks=[(2,)],
+        )
+        block = _duplicate_pk_block("control", result, None)
+        return [line.text for line in block.lines]
+
+    assert control_lines(1) == [
+        "[1] \u00d72 (fixed in target)",
+        "[2] \u00d72 (records dropped or changed in target)",
+        "[3] \u00d72 (fixed in target)",
+    ]
+    # Two values dropped or changed, one listed: 1 and 3 cannot be told apart.
+    assert control_lines(2) == [
+        "[1] \u00d72 (not duplicated in target)",
+        "[2] \u00d72 (records dropped or changed in target)",
+        "[3] \u00d72 (not duplicated in target)",
+    ]
+
+
+def test_one_added_copy_reads_in_the_singular():
+    a, b = {"id": 7, "c": "A"}, {"id": 7, "c": "B"}
+    model = _comparison_with_records(
+        {"users": [a, a, b]}, {"users": [a, b, b]}, {"users": [["id"]]}
+    )
+
+    assert model.passed is True
+    (section,) = model.stream_sections
+    assert "1 more identical copy in target under 1 duplicated PK(s)" in (
+        section.headline
+    )
+
+
+def test_duplicate_pks_the_target_fixed_warn_on_the_control_row():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}, {"id": 1, "n": "a"}, {"id": 2, "n": "b"}]},
+        {"users": [{"id": 1, "n": "a"}, {"id": 2, "n": "b"}, {"id": 3, "n": "c"}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is True
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Primary key integrity (control)"] == "warn"
+    assert statuses["Primary key integrity (target)"] == "pass"
+    control_check = next(
+        c for c in model.checks if c.name == "Primary key integrity (control)"
+    )
+    assert control_check.summary == (
+        "Duplicate primary keys in control fixed in target (not a regression) — "
+        "1 stream: users"
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "warn"
+    assert "1 duplicate PK(s) in control fixed in target" in section.headline
+    group = next(
+        b
+        for b in section.diff_blocks
+        if b.title == "Duplicate primary keys — 1 in control (1 fixed in target)"
+    )
+    (child,) = group.children
+    assert [(line.kind, line.text) for line in child.lines] == [
+        ("del", "[1] \u00d72 (fixed in target)")
+    ]
+
+
+def test_dropped_duplicate_rows_warn_on_the_record_counts_row():
+    """A target that stops emitting a duplicated PK's extra copies has fewer
+    records; the count allows for them and every surface shows a warning."""
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}] * 3 + [{"id": 2, "n": "b"}]},
+        {"users": [{"id": 1, "n": "a"}, {"id": 2, "n": "b"}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is True
+    assert model.verdict_label == "PASS"
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Record counts"] == "warn"
+    assert statuses["Primary key integrity (control)"] == "warn"
+    assert statuses["Field values"] == "pass"
+    counts_check = next(c for c in model.checks if c.name == "Record counts")
+    assert counts_check.summary == (
+        "Record counts match once duplicate rows are left out — 1 stream: users"
+    )
+    assert counts_check.details == (
+        "Stream users has 2 fewer records in target, within the duplicate rows "
+        "the target dropped (2 in control, 0 in target); field values check that "
+        "the dropped rows were copies",
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "warn"
+    assert (
+        "2 fewer record(s) in target, within the duplicate rows it dropped"
+        in section.headline
+    )
+
+    summary = render_inline_summary(model)
+    assert "| Record counts | ⚠️ |" in summary
+    assert "within the duplicate rows the target dropped" in summary
+    assert 'class="stream stream--warn"' in render_html_report(model)
+
+
+def test_a_count_shortfall_that_is_not_duplicate_rows_still_fails():
+    model = _comparison_with_records(
+        {"users": [{"id": 1, "n": "a"}] * 2 + [{"id": 2, "n": "b"}]},
+        {"users": [{"id": 1, "n": "a"}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Record counts"] == "fail"
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "2 fewer record(s) in target" in section.headline
+    assert "within the duplicate rows" not in section.headline
+
+
+def test_a_lost_record_warns_on_the_count_and_fails_on_the_field_values():
+    """3 distinct rows to 2: the shortfall is within the duplicate rows dropped,
+    so the count only warns, and the field values fail on the lost row."""
+    model = _comparison_with_records(
+        {"users": [{"id": 7, "c": "a"}, {"id": 7, "c": "b"}, {"id": 7, "c": "c"}]},
+        {"users": [{"id": 7, "c": "a"}, {"id": 7, "c": "b"}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Record counts"] == "warn"
+    assert statuses["Field values"] == "fail"
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert (
+        "1 fewer record(s) in target, within the duplicate rows it dropped"
+        in section.headline
+    )
+    summary = render_inline_summary(model)
+    assert "| Record counts | ⚠️ |" in summary
+    assert "| Field values | ❌ |" in summary
+
+
+def test_a_new_duplicate_pk_next_to_pre_existing_ones_fails_the_run():
+    model = _comparison_with_records(
+        {"users": [{"id": 1}, {"id": 1}, {"id": 2}]},
+        {"users": [{"id": 1}, {"id": 1}, {"id": 2}, {"id": 2}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    assert model.verdict_label == "FAIL (regression)"
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Primary key integrity (control)"] == "warn"
+    assert statuses["Primary key integrity (target)"] == "fail"
+    target_check = next(
+        c for c in model.checks if c.name == "Primary key integrity (target)"
+    )
+    assert target_check.details == (
+        "Stream users has 1 new duplicate primary key value(s) in target (not "
+        "duplicated in control); Stream users has 1 pre-existing duplicate "
+        "primary key value(s), unchanged between control and target",
+    )
+    summary = render_inline_summary(model)
+    assert "- Stream users has 1 new duplicate primary key value(s) in target" in (
+        summary
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert (
+        "1 new duplicate PK(s) in target; 1 pre-existing duplicate PK(s), unchanged"
+        in (section.headline)
+    )
+    group = next(
+        b for b in section.diff_blocks if b.title.startswith("Duplicate primary keys")
+    )
+    assert group.title == (
+        "Duplicate primary keys — 1 in control, 2 in target (1 pre-existing, 1 new in target)"
+    )
+    target_child = next(c for c in group.children if c.title.startswith("In target"))
+    assert [(line.kind, line.text) for line in target_child.lines] == [
+        ("ctx", "[1] \u00d72 (pre-existing)"),
+        ("del", "[2] \u00d72 (new in target)"),
+    ]
 
 
 def test_records_without_their_declared_pk_are_reported():
@@ -1929,6 +2237,178 @@ def test_value_diff_examples_pin_the_pk_fields_above_the_diff():
     assert pinned.right is not None and pinned.right.text == "pk id = 132"
 
 
+def test_a_differing_duplicate_pk_group_renders_both_sides_unmatched_records():
+    """A PK emitted twice carries lists of records in its example; the block
+    still pins the PK and diffs the two sides."""
+    model = _comparison_with_records(
+        {
+            "users": [
+                {"id": 7, "code": "T1110", "amount": 5},
+                {"id": 7, "code": "T1111", "amount": 5},
+            ]
+        },
+        {
+            "users": [
+                {"id": 7, "code": "T1111", "amount": 5},
+                {"id": 7, "code": "T1110", "amount": 500},
+            ]
+        },
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    (section,) = model.stream_sections
+    assert section.status == "fail"
+    assert "1 record(s) with value diffs" in section.headline
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs")
+    )
+    divider = next(
+        i for i, row in enumerate(block.split_rows) if "pk = [7]" in row.header
+    )
+    pinned = block.split_rows[divider + 1]
+    assert pinned.left is not None and pinned.left.text == "pk id = 7"
+    assert pinned.right is not None and pinned.right.text == "pk id = 7"
+    left_text = " ".join(row.left.text for row in block.split_rows if row.left)
+    right_text = " ".join(row.right.text for row in block.split_rows if row.right)
+    assert '"amount": 5' in left_text and '"amount": 500' in right_text
+    # The matching T1111 rows are not part of the example.
+    assert "T1111" not in left_text and "T1111" not in right_text
+    assert "emitted_at" not in left_text
+
+    html = render_html_report(model)
+    assert "500" in html
+
+
+def test_a_record_lost_inside_a_duplicated_pk_renders_with_an_empty_target_side():
+    """A lost record has no target records to show: the target column stays
+    empty rather than claiming a missing PK field or printing `[]`, and the
+    note says what happened."""
+    model = _comparison_with_records(
+        {"users": [{"id": 7, "code": "T1110"}, {"id": 7, "code": "T1111"}]},
+        {"users": [{"id": 7, "code": "T1110"}, {"id": 8, "code": "T1110"}]},
+        {"users": [["id"]]},
+    )
+
+    assert model.passed is False
+    (section,) = model.stream_sections
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs —")
+    )
+    header = next(row for row in block.split_rows if row.header)
+    assert header.header == (
+        "record pk = [7] — the target no longer emits 1 record of this PK"
+    )
+    pinned = block.split_rows[block.split_rows.index(header) + 1]
+    assert pinned.left is not None and pinned.left.text == "pk id = 7"
+    assert pinned.right is None
+    body = block.split_rows[block.split_rows.index(header) + 2 :]
+    assert all(row.right is None for row in body)
+    assert all(row.left is not None and row.left.kind == "del" for row in body)
+    assert '"T1111"' in " ".join(row.left.text for row in body if row.left)
+
+    raw = next(
+        b
+        for b in section.diff_blocks
+        if b.title.startswith("Field value diffs \u2014 raw")
+    )
+    assert raw.lines[0] == DiffLine(
+        kind="meta",
+        text="record pk = [7] — the target no longer emits 1 record of this PK",
+    )
+    assert "the target no longer emits 1 record of this PK" in render_html_report(model)
+
+
+def test_a_lost_record_under_a_nested_composite_pk_pins_every_pk_field():
+    def reading(code):
+        return {"location": {"id": "a"}, "day": "d1", "code": code}
+
+    model = _comparison_with_records(
+        {"readings": [reading("T1110"), reading("T1111")]},
+        {"readings": [reading("T1110")]},
+        {"readings": [["location", "id"], ["day"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs —")
+    )
+    header = next(row for row in block.split_rows if row.header)
+    assert header.header == (
+        'record pk = ["a", "d1"] — the target no longer emits 1 record of this PK'
+    )
+    start = block.split_rows.index(header) + 1
+    pinned = block.split_rows[start : start + 2]
+    assert [row.left.text for row in pinned if row.left] == [
+        'pk location.id = "a"',
+        'pk day = "d1"',
+    ]
+    assert all(row.right is None for row in pinned)
+
+
+def test_a_capped_group_example_renders_a_bounded_block():
+    """Hundreds of differing records under one PK render only the capped
+    example, so the report stays small and quick to build."""
+    model = _comparison_with_records(
+        {"users": [{"id": 7, "seq": i} for i in range(500)]},
+        {"users": [{"id": 7, "seq": i, "new": 1} for i in range(500)]},
+        {"users": [["id"]]},
+    )
+
+    (section,) = model.stream_sections
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Field value diffs —")
+    )
+    header = next(row for row in block.split_rows if row.header)
+    assert header.header.endswith(
+        "500 control and 500 target records of this PK do not match "
+        "(first 20 of each shown)"
+    )
+    # 20 records a side, not the 33 or so the 200-row block cap would let in.
+    assert sum('"seq":' in row.left.text for row in block.split_rows if row.left) == 20
+
+
+def test_added_copies_warn_on_the_field_values_row():
+    """Control `7: A, B`, target `(A, B) x 50`: a warning on every surface,
+    with the PK and its extra copies listed, and the run passes."""
+    rows = [{"id": 7, "event": "A"}, {"id": 7, "event": "B"}]
+    model = _comparison_with_records(
+        {"users": rows}, {"users": rows * 50}, {"users": [["id"]]}
+    )
+
+    assert model.passed is True
+    statuses = {check.name: check.status for check in model.checks}
+    assert statuses["Field values"] == "warn"
+    field_check = next(c for c in model.checks if c.name == "Field values")
+    assert field_check.summary == (
+        "All records match, apart from identical copies the target added "
+        "— 1 stream: users"
+    )
+    assert field_check.details == (
+        "Stream users: 1 duplicated PK value(s) emit 98 more identical copies in "
+        "target than in control",
+    )
+
+    (section,) = model.stream_sections
+    assert section.status == "warn"
+    assert "98 more identical copies in target under 1 duplicated PK(s)" in (
+        section.headline
+    )
+    block = next(
+        b for b in section.diff_blocks if b.title.startswith("Identical copies added")
+    )
+    assert block.title == (
+        "Identical copies added in target — 98 more under 1 PK value(s)"
+    )
+    assert [line.text for line in block.lines if line.kind == "add"] == ["[7] +98"]
+    assert not any(b.title.startswith("Field value diffs") for b in section.diff_blocks)
+
+    summary = render_inline_summary(model)
+    assert "| Field values | ⚠️ |" in summary
+    assert "✅ PASS" in summary
+    assert 'class="stream stream--warn"' in render_html_report(model)
+
+
 def test_missing_pk_records_name_the_missing_fields():
     model = _comparison_with_records(
         {"users": [{"id": 1, "n": "a"}]},
@@ -2083,6 +2563,45 @@ def test_failing_streams_are_never_pushed_past_the_section_cap(monkeypatch):
     assert sections[0].stream == "zzz"
     assert sections[0].status == "fail"
     assert sections[0].diff_blocks
+
+
+def test_warning_streams_cannot_push_a_failing_stream_past_the_section_cap(
+    monkeypatch,
+):
+    """Failing streams first, then warning ones, then passing ones, by name
+    within each group: alphabetically-earlier warnings must not take the
+    failing stream's place under the cap."""
+    monkeypatch.setattr(
+        "airbyte_ops_mcp.regression_tests.report.MAX_STREAM_SECTIONS", 3
+    )
+    rows = [{"id": 1, "n": "a"}, {"id": 2, "n": "b"}]
+    duplicated = [{"id": 1, "n": "a"}, {"id": 1, "n": "a"}, {"id": 2, "n": "b"}]
+    pks = {name: [["id"]] for name in ("aaa", "bbb", "ccc", "yyy", "zzz")}
+    model = _comparison_with_records(
+        {
+            "aaa": duplicated,
+            "bbb": duplicated,
+            "ccc": rows,
+            "yyy": rows,
+            "zzz": rows,
+        },
+        {
+            "aaa": duplicated,
+            "bbb": duplicated,
+            "ccc": rows,
+            "yyy": rows[:1],
+            "zzz": rows[:1],
+        },
+        pks,
+    )
+
+    assert [(s.stream, s.status) for s in model.stream_sections] == [
+        ("yyy", "fail"),
+        ("zzz", "fail"),
+        ("aaa", "warn"),
+    ]
+    assert model.omitted_stream_count == 2
+    assert all(section.diff_blocks for section in model.stream_sections)
 
 
 def test_an_errored_comparison_reports_fail_inconclusive():

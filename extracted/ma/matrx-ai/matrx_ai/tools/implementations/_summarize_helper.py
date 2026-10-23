@@ -7,7 +7,7 @@ from matrx_utils import vcprint
 from pydantic import BaseModel
 
 from matrx_ai.agents.named import NamedAgent
-from matrx_ai.mandates import run_mandated
+from matrx_ai.mandates import Offer, RunOptions, carried_principal, get_mandate_runner
 from matrx_ai.tools.models import ToolContext
 
 if TYPE_CHECKING:
@@ -45,22 +45,29 @@ async def summarize_content(
     Returns ``(summary_text, usage_history)``.
     """
     try:
-        result = await run_mandated(
-            SummarizeContentAgent,
-            inputs=SummarizeContentAgent.Inputs(
-                instructions=instructions,
-                content=content[:100000],
-            ),
-            label="summarize_content",
-            source_feature="summarize_content",
-            config_overrides={"model": model_id},
-            # NESTED-AGENT STREAM LEAK: this runs INSIDE the web_read tool
-            # while the caller's agent is streaming to a user, so without a
-            # mute the summarizer's tokens ride the caller's user-facing
-            # NDJSON stream. suppress_stream gives it its own SilentEmitter;
-            # the summary still returns on AgentRunResult.output.
-            suppress_stream=True,
-        )
+        result = (
+            await get_mandate_runner().run(
+                SummarizeContentAgent.mandate_key,
+                Offer.from_inputs(
+                    SummarizeContentAgent,
+                    inputs=SummarizeContentAgent.Inputs(
+                        instructions=instructions,
+                        content=content[:100000],
+                    ),
+                    label="summarize_content",
+                    source_feature="summarize_content",
+                    config_overrides={"model": model_id},
+                    # NESTED-AGENT STREAM LEAK: this runs INSIDE the web_read tool
+                    # while the caller's agent is streaming to a user, so without a
+                    # mute the summarizer's tokens ride the caller's user-facing
+                    # NDJSON stream. suppress_stream gives it its own SilentEmitter;
+                    # the summary still returns on AgentRunResult.output.
+                    suppress_stream=True,
+                ),
+                who=carried_principal(),
+                opts=RunOptions(door="named_agent"),
+            )
+        ).raw
         if not result.success:
             return f"[Summarization failed: {result.error}]", list(result.usage_history)
         return result.output, list(result.usage_history)

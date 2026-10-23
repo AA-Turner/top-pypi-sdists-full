@@ -524,6 +524,20 @@ class TestRequestBody:
         assert response.status_code == 200
         assert response.json()['form']['Impit-Test'] == '👾🕵🏻‍♂️🧑‍💻'
 
+    def test_form_keeps_custom_content_type(self, browser: Browser) -> None:
+        impit = Client(browser=browser)
+
+        with echoing_server() as port:
+            response = impit.post(
+                f'http://localhost:{port}/',
+                data={'Impit-Test': 'foo'},
+                headers={'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'},
+                timeout=5,
+            )
+
+        assert 'content-type: application/x-www-form-urlencoded; charset=utf-8\r\n' in response.text.lower()
+        assert response.text.endswith('Impit-Test=foo')
+
     def test_passing_binary_body(self, browser: Browser) -> None:
         impit = Client(browser=browser)
 
@@ -718,6 +732,21 @@ class TestStreamRequest:
 
             with pytest.raises(RemoteProtocolError):
                 _ = b''.join(response.iter_bytes())
+
+        thread.join()
+
+    def test_read_truncated_body_raises_remote_protocol_error(self, browser: Browser) -> None:
+        port_holder = [0]
+        thread = threading.Thread(target=truncating_server, args=(port_holder,))
+        thread.start()
+        time.sleep(0.1)
+
+        impit = Client(browser=browser)
+
+        with impit.stream('GET', f'http://localhost:{port_holder[0]}/', timeout=5) as response:
+            assert response.status_code == 200
+            with pytest.raises(RemoteProtocolError):
+                response.read()
 
         thread.join()
 

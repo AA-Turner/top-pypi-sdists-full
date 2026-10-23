@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -45,20 +53,13 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sigma_related import (
     RelatedSigmaDataElement,
     RelatedSigmaPage,
     RelatedSigmaWorkbook,
 )
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -332,6 +333,54 @@ class SigmaPage(Asset):
         if self.guid is not UNSET:
             return RelatedSigmaPage(guid=self.guid)
         return RelatedSigmaPage(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        workbook_qualified_name: str,
+        workbook_name: str,
+        page_id: str,
+    ) -> "SigmaPage":
+        validate_required_fields(
+            ["name", "workbook_qualified_name", "workbook_name", "page_id"],
+            [name, workbook_qualified_name, workbook_name, page_id],
+        )
+        fields = workbook_qualified_name.split("/")
+        if len(fields) != 4:
+            raise ValueError(
+                f"Invalid workbook_qualified_name: {workbook_qualified_name}. "
+                "Expected format: default/sigma/<epoch>/<workbook_id>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{workbook_qualified_name}/{page_id}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            sigma_workbook_qualified_name=workbook_qualified_name,
+            sigma_workbook_name=workbook_name,
+            sigma_workbook=RelatedSigmaWorkbook(
+                unique_attributes={"qualifiedName": workbook_qualified_name}
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "SigmaPage":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "SigmaPage":
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "SigmaPage":
+        return cls.updater(**kwargs)
+
+    def trim_to_required(self) -> "SigmaPage":
+        return SigmaPage.updater(qualified_name=self.qualified_name, name=self.name)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -651,6 +700,7 @@ def _sigma_page_to_nested(sigma_page: SigmaPage) -> SigmaPageNested:
         is_incomplete=sigma_page.is_incomplete,
         provenance_type=sigma_page.provenance_type,
         home_id=sigma_page.home_id,
+        delete_handler=sigma_page.delete_handler,
         depth=sigma_page.depth,
         immediate_upstream=sigma_page.immediate_upstream,
         immediate_downstream=sigma_page.immediate_downstream,
@@ -697,6 +747,7 @@ def _sigma_page_from_nested(nested: SigmaPageNested) -> SigmaPage:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

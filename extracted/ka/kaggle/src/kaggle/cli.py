@@ -26,14 +26,14 @@ from requests.exceptions import HTTPError
 import kaggle
 from kaggle import KaggleApi
 from kaggle import api
-from kaggle.api.kaggle_api_extended import print_auth_help, OutputFormat
+from kaggle.api.kaggle_api_extended import ISSUE_TRACKER_URL, format_http_error, print_auth_help, OutputFormat
 
 # from rest import ApiException
 ApiException = IOError
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, epilog=Help.examples)
 
     parser.add_argument(
         "-v",
@@ -49,6 +49,12 @@ def main() -> None:
         action="store_true",
         help="Disable out-of-date API version warning",
     )
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        help="Print the full traceback when an unexpected error occurs",
+    )
 
     subparsers = parser.add_subparsers(title="commands", help=Help.kaggle, dest="command")
     subparsers.required = True
@@ -63,6 +69,7 @@ def main() -> None:
     parse_config(subparsers)
     parse_auth(subparsers)
     parse_quota(subparsers)
+    parse_search(subparsers)
     args = parser.parse_args()
     command_args = {}
     command_args.update(vars(args))
@@ -71,6 +78,7 @@ def main() -> None:
     if command_args["disable_version_warning"]:
         KaggleApi.already_printed_version_warning = True
     del command_args["disable_version_warning"]
+    debug = command_args.pop("debug")
     if not api._authenticated:
         api.authenticate()
 
@@ -81,7 +89,7 @@ def main() -> None:
         if e.response is not None and e.response.status_code == 401:
             print_auth_help()
         else:
-            print(e, file=sys.stderr)
+            print(format_http_error(e), file=sys.stderr)
         out = None
         error = True
     except ApiException as e:
@@ -95,6 +103,19 @@ def main() -> None:
     except KeyboardInterrupt:
         print("User cancelled operation")
         out = None
+    except Exception as e:
+        # Anything reaching here is a bug in the CLI rather than user error, so
+        # show a short message instead of a traceback the user cannot act on.
+        if debug:
+            raise
+        print(f"{type(e).__name__}: {e}", file=sys.stderr)
+        print(
+            "\nIf this is unexpected, you can re-run with `kaggle --debug [command]` to see the full\n"
+            f"traceback. If you think this is a bug, please report it at {ISSUE_TRACKER_URL}",
+            file=sys.stderr,
+        )
+        out = None
+        error = True
     if out is not None:
         print(out, end="")
 
@@ -224,6 +245,9 @@ def parse_competitions(subparsers) -> None:
         "-w", "--wp", dest="path", action="store_const", const=".", required=False, help=Help.param_wp
     )
     parser_competitions_download_optional.add_argument(
+        "--unzip", dest="unzip", action="store_true", help=Help.param_unzip
+    )
+    parser_competitions_download_optional.add_argument(
         "-o", "--force", dest="force", action="store_true", help=Help.param_force
     )
     parser_competitions_download_optional.add_argument(
@@ -255,6 +279,24 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_submit_optional.add_argument(
         "--sandbox", dest="sandbox", action="store_true", help=Help.param_sandbox
     )
+    parser_competitions_submit_optional.add_argument(
+        "--wait",
+        dest="wait",
+        type=int,
+        nargs="?",
+        const=0,
+        default=None,
+        required=False,
+        help=Help.param_submit_wait,
+    )
+    parser_competitions_submit_optional.add_argument(
+        "--poll-interval",
+        dest="poll_interval",
+        type=int,
+        default=60,
+        required=False,
+        help=Help.param_submit_poll_interval,
+    )
     parser_competitions_submit._action_groups.append(parser_competitions_submit_optional)
     parser_competitions_submit.set_defaults(func=api.competition_submit_cli)
 
@@ -281,6 +323,20 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_submissions._action_groups.append(parser_competitions_submissions_optional)
     parser_competitions_submissions.set_defaults(func=api.competition_submissions_cli)
+
+    # Competitions get single submission
+    parser_competitions_submission = subparsers_competitions.add_parser(
+        "submission", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_competitions_submission
+    )
+    parser_competitions_submission_optional = parser_competitions_submission._action_groups.pop()
+    parser_competitions_submission_optional.add_argument(
+        "submission_ref", nargs="?", default=None, help=Help.param_submission_ref
+    )
+    parser_competitions_submission_optional.add_argument(
+        "-r", "--ref", dest="submission_ref_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_submission._action_groups.append(parser_competitions_submission_optional)
+    parser_competitions_submission.set_defaults(func=api.competition_submission_cli)
 
     # Competitions leaderboard
     parser_competitions_leaderboard = subparsers_competitions.add_parser(
@@ -356,6 +412,31 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_submission_limits._action_groups.append(parser_competitions_submission_limits_optional)
     parser_competitions_submission_limits.set_defaults(func=api.competition_get_submission_limits_cli)
+
+    # Competitions download a single submission's file
+    parser_competitions_submission_download = subparsers_competitions.add_parser(
+        "submission-download",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_submission_download,
+    )
+    parser_competitions_submission_download_optional = parser_competitions_submission_download._action_groups.pop()
+    parser_competitions_submission_download_optional.add_argument(
+        "submission_id", nargs="?", default=None, type=int, help=Help.param_submission_id
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-i", "--id", dest="submission_id_opt", required=False, type=int, help=argparse.SUPPRESS
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-p", "--path", dest="path", required=False, help=Help.param_downfolder
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-o", "--force", dest="force", action="store_true", help=Help.param_force
+    )
+    parser_competitions_submission_download_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_submission_download._action_groups.append(parser_competitions_submission_download_optional)
+    parser_competitions_submission_download.set_defaults(func=api.competition_download_submission_cli)
 
     # Competitions list episodes
     parser_competitions_episodes = subparsers_competitions.add_parser(
@@ -606,6 +687,34 @@ def parse_competitions(subparsers) -> None:
     )
     parser_competitions_hosts._action_groups.append(parser_competitions_hosts_optional)
     parser_competitions_hosts.set_defaults(func=api.competition_list_hosts_cli)
+
+    # Competitions host-add (grant host access to a user)
+    # Flat rather than a `hosts add` subcommand: argparse can't disambiguate the
+    # `hosts` parent positional from a subcommand token, which would break the
+    # existing `kaggle competitions hosts <competition>` form.
+    parser_competitions_host_add = subparsers_competitions.add_parser(
+        "host-add",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_competitions_host_add,
+    )
+    parser_competitions_host_add_optional = parser_competitions_host_add._action_groups.pop()
+    parser_competitions_host_add_optional.add_argument(
+        "competition", nargs="?", default=None, help=Help.param_competition
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-c", "--competition", dest="competition_opt", required=False, help=argparse.SUPPRESS
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-u", "--user", dest="user_name", required=True, help=Help.param_competitions_host_add_user
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-y", "--yes", dest="no_confirm", action="store_true", help=Help.param_yes
+    )
+    parser_competitions_host_add_optional.add_argument(
+        "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
+    )
+    parser_competitions_host_add._action_groups.append(parser_competitions_host_add_optional)
+    parser_competitions_host_add.set_defaults(func=api.competition_add_host_cli)
 
     # Competitions data (group: update)
     parser_competitions_data = subparsers_competitions.add_parser(
@@ -1313,6 +1422,9 @@ def parse_kernels(subparsers) -> None:
         "-t", "--timeout", type=int, dest="timeout", help=Help.param_kernel_timeout
     )
     parser_kernels_push_optional.add_argument("--accelerator", dest="acc", help=Help.param_kernel_acc)
+    parser_kernels_push_optional.add_argument(
+        "--no-run", dest="no_run", action="store_true", help=Help.param_kernel_no_run
+    )
     parser_kernels_push._action_groups.append(parser_kernels_push_optional)
     parser_kernels_push.set_defaults(func=api.kernels_push_cli)
 
@@ -1325,7 +1437,9 @@ def parse_kernels(subparsers) -> None:
     )
     parser_kernels_pull_optional = parser_kernels_pull._action_groups.pop()
     parser_kernels_pull_optional.add_argument("kernel", nargs="?", default=None, help=Help.param_kernel)
-    parser_kernels_pull_optional.add_argument("-k", "--kernel", dest="kernel", required=False, help=argparse.SUPPRESS)
+    parser_kernels_pull_optional.add_argument(
+        "-k", "--kernel", dest="kernel_opt", required=False, help=argparse.SUPPRESS
+    )
     parser_kernels_pull_optional.add_argument("-p", "--path", dest="path", required=False, help=Help.param_downfolder)
     parser_kernels_pull_optional.add_argument(
         "-w", "--wp", dest="path", action="store_const", const=".", required=False, help=Help.param_wp
@@ -1891,6 +2005,7 @@ def parse_benchmarks(subparsers) -> None:
     parse_benchmark_tasks(subparsers_benchmarks)
     parse_benchmarks_auth(subparsers_benchmarks)
     parse_benchmarks_init(subparsers_benchmarks)
+    parse_benchmarks_quota(subparsers_benchmarks)
     parse_benchmarks_leaderboard(subparsers_benchmarks)
 
     shared_topics = _get_shared_topics_parser()
@@ -1978,6 +2093,14 @@ def parse_benchmarks_init(subparsers) -> None:
     )
     parser_init._action_groups.append(parser_init_optional)
     parser_init.set_defaults(func=api.benchmarks_init_cli)
+
+
+def parse_benchmarks_quota(subparsers) -> None:
+    parser_quota = subparsers.add_parser(
+        "quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.command_benchmarks_quota
+    )
+    _add_output_format_args(parser_quota)
+    parser_quota.set_defaults(func=api.benchmarks_quota_cli)
 
 
 def parse_benchmarks_leaderboard(subparsers) -> None:
@@ -2279,7 +2402,8 @@ def parse_auth(subparsers) -> None:
         "--expiration",
         dest="expiration_duration",
         required=False,
-        help="Override the default expiration duration. Example: 6h for 6 hours, 2:30 for 2 hours and 30 minutes.",
+        help="Override the default expiration duration. A positive integer followed by a unit: "
+        "s (seconds), m (minutes), h (hours), d (days) or w (weeks). Example: 6h for 6 hours, 30m for 30 minutes.",
     )
     parser_auth_print_access_token.set_defaults(func=api.auth_print_access_token)
 
@@ -2299,6 +2423,26 @@ def parse_quota(subparsers) -> None:
     parser_quota = subparsers.add_parser("quota", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_quota)
     _add_output_format_args(parser_quota)
     parser_quota.set_defaults(func=api.quota_view_cli)
+
+
+def parse_search(subparsers) -> None:
+    parser_search = subparsers.add_parser(
+        "search", formatter_class=argparse.RawTextHelpFormatter, help=Help.group_search
+    )
+    parser_search_optional = parser_search._action_groups.pop()
+    parser_search_optional.add_argument("query", help=Help.param_search_query)
+    parser_search_optional.add_argument(
+        "-t", "--type", dest="document_type", required=False, help=Help.param_search_document_type
+    )
+    parser_search_optional.add_argument("-m", "--mine", dest="mine", action="store_true", help=Help.param_search_mine)
+    parser_search_optional.add_argument("--sort-by", dest="sort_by", required=False, help=Help.param_search_sort_by)
+    parser_search_optional.add_argument(
+        "--page-size", dest="page_size", default=20, type=int, required=False, help=Help.param_page_size
+    )
+    parser_search_optional.add_argument("--page-token", dest="page_token", required=False, help=Help.param_page_token)
+    _add_output_format_args(parser_search_optional)
+    parser_search._action_groups.append(parser_search_optional)
+    parser_search.set_defaults(func=api.search_cli)
 
 
 # ------------------------------------------------------------------
@@ -2412,6 +2556,7 @@ class Help(object):
         "config",
         "auth",
         "quota",
+        "search",
     ]
     competitions_choices = [
         "list",
@@ -2419,14 +2564,17 @@ class Help(object):
         "download",
         "submit",
         "submissions",
+        "submission",
         "leaderboard",
         "team-submissions",
         "submission-limits",
+        "submission-download",
         "episodes",
         "replay",
         "logs",
         "pages",
         "hosts",
+        "host-add",
         "data",
         "settings",
         "solution",
@@ -2478,7 +2626,7 @@ class Help(object):
     model_instances_choices = ["versions", "v", "get", "files", "list", "init", "create", "delete", "update"]
     model_instance_versions_choices = ["init", "create", "download", "delete", "files", "list"]
     files_choices = ["upload"]
-    benchmarks_choices = ["tasks", "t", "auth", "init", "topics", "leaderboard"]
+    benchmarks_choices = ["tasks", "t", "auth", "init", "quota", "topics", "leaderboard"]
     benchmarks_tasks_choices = [
         "push",
         "run",
@@ -2541,6 +2689,26 @@ class Help(object):
     kaggle += "\nauth {" + ", ".join(auth_choices) + "}"
     kaggle += "\nquota"
 
+    examples = """examples:
+  Log in (opens a browser; only needed once):
+    kaggle auth login
+
+  Find something to work on:
+    kaggle competitions list
+    kaggle datasets list -s "air quality"
+
+  Download competition data into the current directory:
+    kaggle competitions download -c titanic
+
+  Submit to a competition:
+    kaggle competitions submit -c titanic -f submission.csv -m "my first entry"
+
+  Download a dataset and unzip it:
+    kaggle datasets download -d zillow/zecon --unzip
+
+Run 'kaggle <command> --help' (e.g. 'kaggle competitions --help') for the
+options a specific command accepts."""
+
     group_competitions = "Commands related to Kaggle competitions"
     group_datasets = "Commands related to Kaggle datasets"
     group_kernels = "Commands related to Kaggle kernels"
@@ -2554,6 +2722,7 @@ class Help(object):
     group_config = "Configuration settings"
     group_auth = "Commands related to authentication"
     group_quota = "Show the current user's weekly GPU and TPU accelerator quota"
+    group_search = "Search across Kaggle competitions, datasets, notebooks, models, users, and discussions"
 
     # Entity topics commands (shared across entity types)
     command_entity_topics_show = "Display a topic with all its comments in tree form"
@@ -2564,11 +2733,13 @@ class Help(object):
     command_competitions_download = "Download competition files"
     command_competitions_submit = "Make a new competition submission"
     command_competitions_submissions = "Show your competition submissions"
+    command_competitions_submission = "Show status and score for a single submission by its ref"
     command_competitions_leaderboard = "Get competition leaderboard information"
     command_competitions_team_submissions = "List a team's public submissions (every active submission for simulation competitions, or the public leaderboard submission for regular competitions)"
     command_competitions_submission_limits = (
         "Show your team's submission counts and remaining daily allowance for a competition"
     )
+    command_competitions_submission_download = "Download the submitted file for a single submission by its id"
     command_competitions_episodes = "List episodes for a submission in a simulation competition"
     command_competitions_episode_replay = "Download the replay for a simulation episode"
     command_competitions_episode_logs = "Download agent logs for a simulation episode"
@@ -2577,6 +2748,7 @@ class Help(object):
     command_competitions_pages_update = "Update fields on an existing competition page"
     command_competitions_pages_delete = "Delete a page from a competition you host"
     command_competitions_hosts = "List hosts (users with host access) for a competition"
+    command_competitions_host_add = "Grant host access on a competition you host to a Kaggle user"
     command_competitions_data = "Manage a competition's data files"
     command_competitions_data_update = "Update (version) the data files for a competition you host"
     command_competitions_settings = "Manage settings for a competition you host"
@@ -2637,6 +2809,7 @@ class Help(object):
     command_benchmarks_init = (
         "Fetch and persist  Model Proxy credentials and other Kaggle Benchmarks environment variables"
     )
+    command_benchmarks_quota = "Show the current user's Model Proxy (AI inference) spend quota, in USD"
     command_benchmarks_tasks_push = "Create or update a task from a Python source file"
     command_benchmarks_tasks_run = "Run a task against model(s)"
 
@@ -2685,6 +2858,19 @@ class Help(object):
     )
     param_code_kernel = "Name of kernel (notebook) to submit to a code competition"
     param_code_version = 'Version of kernel to submit to a code competition, e.g. "3"'
+    param_submit_wait = (
+        "Wait for the submission to finish scoring. Optionally specify a timeout in seconds "
+        "(0 or omit value = wait up to 12 hours, the maximum notebook runtime)"
+    )
+    param_submit_poll_interval = (
+        "Maximum seconds between status polls while waiting (default: 60, minimum: 5). "
+        "Polling starts at 5s and increases automatically"
+    )
+    param_submission_ref = "The numeric submission ref (printed by 'kaggle competitions submit')"
+    param_submission_id = (
+        "The numeric submission id (printed by 'kaggle competitions submit' or "
+        "listed by 'kaggle competitions submissions <competition>')"
+    )
     param_csv = "Print results in CSV format (if not set print in table format)"
     param_format = (
         "Print results in selected format (csv, table, json). For details on "
@@ -2697,6 +2883,19 @@ class Help(object):
     param_page_token = "Page token for results paging."
     param_search = "Term(s) to search for"
     param_mine = "Display only my items"
+
+    # Search params
+    param_search_query = "Term(s) to search for across Kaggle content"
+    param_search_document_type = (
+        "Restrict results to a comma-separated list of content types.\n"
+        "Valid types: competition, dataset, notebook, model, user, discussion, benchmark.\n"
+        "Example: --type dataset,model.\n"
+        "If omitted, all CLI-supported content types (the types listed above) are searched."
+    )
+    param_search_mine = "Restrict the search to your own content"
+    param_search_sort_by = (
+        "Sort order. One of: relevance (default), hotness, votes, dateCreated, dateUpdated, totalComments, lastViewed"
+    )
 
     # Forums params
     param_forum = (
@@ -2716,6 +2915,7 @@ class Help(object):
         "to show options)\nIf empty, the default competition "
         'will be used (use "kaggle config set competition")"'
     )
+    param_competitions_host_add_user = "Kaggle user name (URL slug, e.g. 'kerneler') of the user to add as a host"
     param_competition_nonempty = 'Competition URL suffix (use "kaggle competitions list" to show ' "options)"
     param_competition_leaderboard_view = "Show the top of the leaderboard"
     param_competition_leaderboard_download = "Download entire leaderboard"
@@ -2830,7 +3030,16 @@ class Help(object):
     param_kernel_output_file_pattern = (
         "Regex pattern to match against filenames. Only files matching the pattern will be downloaded."
     )
-    param_kernel_acc = "Specify the type of accelerator to use for the kernel run"
+    param_kernel_no_run = (
+        "Save a new version without running the notebook, the equivalent of Quick Save in the web UI.\n"
+        "The version is created but no cell is executed. Use this when only prose, metadata or\n"
+        "sources changed."
+    )
+    param_kernel_acc = (
+        "Specify the type of accelerator to use for the kernel run (e.g. 'NvidiaTeslaT4' for GPU T4 x2 "
+        "or 'TpuV5E8' for TPU v5e-8). Retired accelerators such as "
+        "'NvidiaTeslaP100' are accepted but warn, since the session runs on a replacement instead."
+    )
     param_kernel_logs_follow = "Stream live execution logs from the running session (like tail -f)"
     param_kernel_logs_interval = argparse.SUPPRESS  # Deprecated; live streaming is push-based.
 

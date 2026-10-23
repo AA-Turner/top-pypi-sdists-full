@@ -129,6 +129,36 @@ class MediaPersistResult:
     page_count: int | None = None
 
 
+class MediaOwnerMissing(RuntimeError):
+    """No person owns this save: neither the file manager nor the active context names a user.
+
+    ``files.files.created_by`` is that person, so the write could only fail inside the database
+    (``invalid input syntax for type uuid: ""``). Raised before any storage work, with words
+    that name the real cause: the caller lost the person's context (D1, 2026-10-22)."""
+
+    error_type = "media_owner_missing"
+
+    def __init__(self, feature: str) -> None:
+        super().__init__(
+            f"cannot save {feature} media: no signed-in person is active in this context "
+            "(the caller lost the request's identity), so the file has no owner"
+        )
+        self.feature = feature
+
+
+def resolve_media_owner(fm, feature: str) -> str:
+    """The user id a save is filed under: the file manager's own, else the active context's.
+    Empty is refused with :class:`MediaOwnerMissing`, never sent to the database."""
+    owner = str(getattr(fm.sync_engine, "user_id", "") or "")
+    if not owner:
+        from matrx_utils.ctx import get_active_user_id
+
+        owner = str(get_active_user_id() or "")
+    if not owner:
+        raise MediaOwnerMissing(feature)
+    return owner
+
+
 class AIMediaHandler:
     """Persists AI-generated media through the cloud_sync FileManager."""
 
@@ -260,6 +290,7 @@ class AIMediaHandler:
         path = folder.path(filename)
 
         fm = self._get_cloud_fm()
+        owner_id = resolve_media_owner(fm, feature)
         from matrx_files import FileService
 
         file_service = FileService.for_file_manager(fm)
@@ -291,7 +322,7 @@ class AIMediaHandler:
         result = await file_service.upload_simple(
             body,
             file_path=path,
-            user_id=fm.sync_engine.user_id,
+            user_id=owner_id,
             mime_type=effective_mime,
             published_to_web=published_to_web,
             shown_to=shown_to,
@@ -332,7 +363,7 @@ class AIMediaHandler:
             if isinstance(record, dict)
             else {
                 "id": result.file_id,
-                "owner_id": fm.sync_engine.user_id,
+                "owner_id": owner_id,
                 "storage_uri": result.storage_uri,
                 "published_to_web": published_to_web,
             }

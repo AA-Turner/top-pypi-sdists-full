@@ -14,10 +14,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from ddt import data, ddt
+import pytest
 from qiskit import QuantumCircuit
 from qiskit.quantum_info import PauliLindbladMap
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -25,7 +25,6 @@ from qiskit_aer import AerSimulator
 
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 
-from ....ibm_test_case import IBMTestCase
 from .utils import (
     create_estimator_test_data,
     create_estimator_test_data_extended,
@@ -75,11 +74,10 @@ TWIRLING_TREX = {
 }
 
 
-@ddt
-class TestEstimatorWithNoise(IBMTestCase):
+class TestEstimatorWithNoise:
     """Tests client-side Estimator using simulator with noise through local mode."""
 
-    def test_result_quality_for_different_resilience_levels(self):
+    def test_result_quality_for_different_resilience_levels(self) -> None:
         """Tests the effect of resilience on Estimator results.
 
         Estimator result quality is expected to increase with increasing resilience level.
@@ -112,11 +110,8 @@ class TestEstimatorWithNoise(IBMTestCase):
         np.testing.assert_array_less(errors[2], errors[1], err_msg=debug_message)
         np.testing.assert_array_less(errors[1], errors[0], err_msg=debug_message)
 
-    @data(
-        TWIRLING_TREX_PEC,
-        TWIRLING_TREX_PEA,
-    )
-    def test_result_quality_with_noise_injection(self, option_overrides):
+    @pytest.mark.parametrize("option_overrides", [TWIRLING_TREX_PEC, TWIRLING_TREX_PEA])
+    def test_result_quality_with_noise_injection(self, option_overrides: dict[str, Any]) -> None:
         """Tests the effect of resilience on Estimator results.
 
         Estimator result quality is expected to increase with PEC.
@@ -125,6 +120,7 @@ class TestEstimatorWithNoise(IBMTestCase):
         """
         backend = AerSimulator(basis_gates=["cz", "rz", "sx", "x"])
         preset_pass_manager = generate_preset_pass_manager(optimization_level=1, backend=backend)
+        error = 0.005
 
         pub, ideal_evs = create_estimator_test_data(backend, preset_pass_manager, False)
 
@@ -140,8 +136,16 @@ class TestEstimatorWithNoise(IBMTestCase):
         # Add noise to every unique layer, independent of its content (gates or measurements).
         layers = base_level_estimator.find_unique_layers([pub], types="all")
         simulated_noise_model = [
-            (layer, PauliLindbladMap.from_list([("X" * layer.operation.num_qubits, 0.005)]))
-            for layer in layers
+            (layer, PauliLindbladMap.from_list([("X" * layer.operation.num_qubits, error)]))
+            for layer in layers[:-1]
+        ]
+        simulated_noise_model += [
+            (
+                layers[-1],
+                PauliLindbladMap.from_list(
+                    [("X" + "I" * (layers[-1].operation.num_qubits - 1), error)]
+                ),
+            )
         ]
         base_level_estimator.options.simulator.layer_noise_model = simulated_noise_model
 
@@ -160,7 +164,7 @@ class TestEstimatorWithNoise(IBMTestCase):
         estimator.options.simulator.layer_noise_model = simulated_noise_model
         # Run a noisy simulation, injecting the same noise as in the simulation
         estimator.options.resilience.layer_noise_model = [
-            (layer, PauliLindbladMap.from_list([("X" * layer.operation.num_qubits, 0.005)]))
+            (layer, PauliLindbladMap.from_list([("X" * layer.operation.num_qubits, error)]))
             for layer in estimator.find_unique_layers([pub], types="gates")
         ]
         result = estimator.run([pub]).result()
@@ -184,7 +188,7 @@ class TestEstimatorWithNoise(IBMTestCase):
         debug_message = f"Ideal errors: {errors}\nDivergent errors: {divergent_errors}"
         np.testing.assert_array_less(errors, divergent_errors, err_msg=debug_message)
 
-    def test_result_quality_with_measurement_noise_injection(self):
+    def test_result_quality_with_measurement_noise_injection(self) -> None:
         """Tests that measurement noise injection works as expected.
 
         Estimator result quality is expected to degrade with measurement noise injection, but
@@ -231,29 +235,26 @@ class TestEstimatorWithNoise(IBMTestCase):
         np.testing.assert_array_less(unmitigated_evs, mitigated_evs)
 
 
-@ddt
-class TestEstimatorWithoutNoise(IBMTestCase):
+class TestEstimatorWithoutNoise:
     """Tests client-side Estimator using noise-less simulator through local mode."""
 
-    def setUp(self):
-        """Test level setup."""
-        super().setUp()
-        self.backend = AerSimulator(basis_gates=["cz", "rz", "sx", "x"])
-        self.preset_pass_manager = generate_preset_pass_manager(
-            optimization_level=1, backend=self.backend
-        )
-
-    @data(
-        RESILIENCE_LEVEL_0,
-        RESILIENCE_LEVEL_1,
-        RESILIENCE_LEVEL_2_LINEAR,
-        TWIRLING_TREX_PEC,
-        TWIRLING_TREX_PEA,
+    @pytest.mark.parametrize(
+        "option_overrides",
+        [
+            RESILIENCE_LEVEL_0,
+            RESILIENCE_LEVEL_1,
+            RESILIENCE_LEVEL_2_LINEAR,
+            TWIRLING_TREX_PEC,
+            TWIRLING_TREX_PEA,
+        ],
     )
-    def test_correct_estimates(self, option_overrides):
+    def test_correct_estimates(self, option_overrides: dict[str, Any]) -> None:
         """Tests Estimator configurations to produce correct results in a noise-less environment."""
+        backend = AerSimulator(basis_gates=["cz", "rz", "sx", "x"])
+        preset_pass_manager = generate_preset_pass_manager(optimization_level=1, backend=backend)
+
         estimator = create_local_mode_estimator(
-            self.backend,
+            backend,
             num_randomizations=100,
             shots_per_randomization=200,
             options_overrides=option_overrides,
@@ -261,7 +262,7 @@ class TestEstimatorWithoutNoise(IBMTestCase):
 
         include_projections = not estimator.finalize_options().resilience.measure_mitigation
         pub, ideal_evs = create_estimator_test_data_extended(
-            self.backend, self.preset_pass_manager, include_projections
+            backend, preset_pass_manager, include_projections
         )
 
         # TODO: no DD possible on AER without gate durations.

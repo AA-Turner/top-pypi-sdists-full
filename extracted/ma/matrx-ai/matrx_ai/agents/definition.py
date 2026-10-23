@@ -21,7 +21,7 @@ from matrx_ai.config.template_substitution import VariablesAlreadyAppliedError
 from matrx_ai.config.unified_config import UnifiedConfig, UnifiedMessage
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
 from matrx_ai.orchestrator.executor import execute_ai_request
-from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
+from matrx_ai.orchestrator.mandate_carrier import HolderCarrier
 from matrx_ai.orchestrator.requests import CompletedRequest
 
 VARIABLES_ALREADY_APPLIED_KIND = "variables_already_applied"
@@ -672,13 +672,8 @@ class Agent:
         self.config.append_or_extend_user_input(user_input)
         return self
 
-    @mandate_carrier_passthrough(
-        "the generic agent runtime: the Agent IS the Holder — loaded by run_agent / "
-        "run_mandate / a NamedAgent's mandate resolution, which stamp the mandate on "
-        "request_metadata and the AppContext. It chooses no model or prompt itself."
-    )
     async def execute(
-        self,
+        self: HolderCarrier["Agent"],
         user_input: str | list[dict[str, Any]] | None = None,
         *,
         max_iterations: int | None = None,

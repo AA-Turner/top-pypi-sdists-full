@@ -1,8 +1,14 @@
 import ast
+import bisect
+import io
 import operator
+import tokenize
+from dataclasses import dataclass
 from pathlib import Path
+from string import Formatter
 
 from skylos.rules.base import SkylosRule
+from skylos.rules.quality._mutable_defaults import copy_only_default_ids
 
 MUTABLE_CONSTRUCTORS = {
     "list",
@@ -32,6 +38,9 @@ class MutableDefaultRule(SkylosRule):
     name = "Mutable Default Argument"
 
     def visit_node(self, node, context):
+        if isinstance(node, ast.Module):
+            context["_mutable_default_copy_proof"] = (node, copy_only_default_ids(node))
+            return None
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             return None
 
@@ -57,6 +66,9 @@ class MutableDefaultRule(SkylosRule):
                         is_mutable = True
 
             if is_mutable:
+                copy_proof = context.get("_mutable_default_copy_proof")
+                if copy_proof is not None and id(default) in copy_proof[1]:
+                    continue
                 findings.append(
                     {
                         "rule_id": self.rule_id,
@@ -1381,18 +1393,332 @@ class DuplicateBranchRule(SkylosRule):
         }
 
 
-def _is_function_level_try(node: ast.Try, parent_body: list[ast.stmt]) -> bool:
-    if len(parent_body) == 1 and parent_body[0] is node:
-        return True
-    if (
-        len(parent_body) == 2
-        and isinstance(parent_body[0], ast.Expr)
-        and isinstance(parent_body[0].value, ast.Constant)
-        and isinstance(parent_body[0].value.value, str)
-        and parent_body[1] is node
-    ):
-        return True
+_TRY_TYPES = (ast.Try,) + ((ast.TryStar,) if hasattr(ast, "TryStar") else ())
+_LOOP_TYPES = (ast.For, ast.AsyncFor, ast.While)
+_CONTROL_FLOW_TYPES = (ast.If, ast.For, ast.AsyncFor, ast.While)
+_NESTED_SCOPE_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+_IMPORT_ERROR_NAMES = frozenset({"ImportError", "ModuleNotFoundError"})
+_NON_CODE_TOKENS = frozenset(
+    {
+        tokenize.COMMENT,
+        tokenize.NL,
+        tokenize.NEWLINE,
+        tokenize.INDENT,
+        tokenize.DEDENT,
+        tokenize.ENDMARKER,
+        tokenize.ENCODING,
+    }
+)
+
+
+def _is_string_statement(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    )
+
+
+def _has_escaping_jump(statements: list[ast.stmt]) -> bool:
+    """Whether a return/break/continue in these statements leaves them.
+
+    A break or continue inside a loop that is itself nested in the
+    statements only steers that loop; nested definitions are separate code.
+    """
+    stack = [(stmt, False) for stmt in statements]
+    while stack:
+        node, inside_own_loop = stack.pop()
+        if isinstance(node, _NESTED_SCOPE_TYPES):
+            continue
+        if isinstance(node, ast.Return):
+            return True
+        if isinstance(node, (ast.Break, ast.Continue)) and not inside_own_loop:
+            return True
+        if isinstance(node, _LOOP_TYPES):
+            stack.extend((child, True) for child in node.body)
+            stack.extend((child, inside_own_loop) for child in node.orelse)
+            continue
+        stack.extend((child, inside_own_loop) for child in ast.iter_child_nodes(node))
     return False
+
+
+def _rebinds_name(statements: list[ast.stmt], name: str) -> bool:
+    for stmt in statements:
+        for node in ast.walk(stmt):
+            if isinstance(node, ast.Name) and node.id == name:
+                if not isinstance(node.ctx, ast.Load):
+                    return True
+            elif isinstance(node, ast.ExceptHandler) and node.name == name:
+                return True
+            elif isinstance(node, ast.alias):
+                if (node.asname or node.name.split(".")[0]) == name:
+                    return True
+            elif (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == name
+            ):
+                return True
+    return False
+
+
+def _handler_only_reraises(handler: ast.ExceptHandler) -> bool:
+    """A handler that always re-raises the caught exception catches nothing."""
+    if not handler.body:
+        return False
+    last = handler.body[-1]
+    if not isinstance(last, ast.Raise) or last.cause is not None:
+        return False
+    if last.exc is not None:
+        if not (
+            handler.name
+            and isinstance(last.exc, ast.Name)
+            and last.exc.id == handler.name
+            and not _rebinds_name(handler.body, handler.name)
+        ):
+            return False
+    return not _has_escaping_jump(handler.body)
+
+
+def _try_catches(node: ast.AST) -> bool:
+    """Whether an exception raised in the try body can stop propagating there.
+
+    It can when a handler does not re-raise, or when the finally block leaves
+    via return/break/continue (which discards the in-flight exception).
+    """
+    if _has_escaping_jump(node.finalbody):
+        return True
+    return any(not _handler_only_reraises(handler) for handler in node.handlers)
+
+
+def _exception_leaf_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _handler_catches_only_import_errors(handler: ast.ExceptHandler) -> bool:
+    if handler.type is None:
+        return False
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return bool(types) and all(
+        _exception_leaf_name(exc_type) in _IMPORT_ERROR_NAMES for exc_type in types
+    )
+
+
+def _is_import_fallback_try(node: ast.AST) -> bool:
+    return bool(node.handlers) and all(
+        _handler_catches_only_import_errors(handler) for handler in node.handlers
+    )
+
+
+def _protected_children(node: ast.AST):
+    """Syntax evaluated now, rather than a callable's deferred body.
+
+    Function defaults/decorators and class bodies execute at definition time.
+    Calling the resulting function later does not run inside this catch scope.
+    """
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        yield node.args
+        yield from node.decorator_list
+        if node.returns is not None:
+            yield node.returns
+        yield from getattr(node, "type_params", ())
+    elif isinstance(node, ast.Lambda):
+        yield node.args
+    else:
+        yield from ast.iter_child_nodes(node)
+
+
+def _protected_nodes(body: list[ast.stmt]):
+    pending = list(body)
+    while pending:
+        node = pending.pop()
+        yield node
+        pending.extend(_protected_children(node))
+
+
+def _deferred_callable_spans(body: list[ast.stmt]):
+    for node in _protected_nodes(body):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            first, last = node.body[0], node.body[-1]
+        elif isinstance(node, ast.Lambda):
+            first = last = node.body
+        else:
+            continue
+        yield (
+            (first.lineno, first.col_offset),
+            (last.end_lineno, last.end_col_offset),
+        )
+
+
+def _protected_operation_count(body: list[ast.stmt]) -> int:
+    """Count operations, not the visual layout of one multiline expression."""
+    count = 0
+    for current in _protected_nodes(body):
+        # One wrapped call with literal/name arguments remains one operation.
+        # Nested calls in its arguments are independent protected work, even
+        # though all of them are formatted as one assignment statement.
+        if isinstance(current, ast.Call):
+            count += 1
+        elif isinstance(current, ast.stmt) and not _is_string_statement(current):
+            value = getattr(current, "value", None)
+            if not isinstance(value, ast.Call):
+                count += 1
+    return count
+
+
+def _scan_protected_body(body: list[ast.stmt], nested_is_broad=None) -> tuple[int, bool]:
+    """Count control flow and find confusing nested catching in a try body.
+
+    An inner try counts as nested catching unless it catches nothing, is an
+    optional-import fallback, or sits inside a loop within the outer try
+    (per-item isolation).
+    """
+    control_flow_count = 0
+    has_nested_try = False
+    stack = [(stmt, False) for stmt in body]
+    while stack:
+        node, inside_loop = stack.pop()
+        if isinstance(node, _CONTROL_FLOW_TYPES):
+            control_flow_count += 1
+        if (
+            isinstance(node, _TRY_TYPES)
+            and not inside_loop
+            and not has_nested_try
+            and _try_catches(node)
+            and not _is_import_fallback_try(node)
+            and (nested_is_broad is None or nested_is_broad(node))
+        ):
+            has_nested_try = True
+        if isinstance(node, _LOOP_TYPES):
+            stack.extend((child, True) for child in node.body)
+            stack.extend((child, inside_loop) for child in node.orelse)
+            continue
+        stack.extend((child, inside_loop) for child in _protected_children(node))
+    return control_flow_count, has_nested_try
+
+
+def _is_guard_clause(stmt: ast.stmt) -> bool:
+    return (
+        isinstance(stmt, ast.If)
+        and not stmt.orelse
+        and bool(stmt.body)
+        and isinstance(stmt.body[-1], (ast.Return, ast.Raise))
+    )
+
+
+def _is_boundary_prefix_statement(stmt: ast.stmt) -> bool:
+    return (
+        _is_string_statement(stmt)
+        or isinstance(
+            stmt,
+            (
+                ast.Import,
+                ast.ImportFrom,
+                ast.FunctionDef,
+                ast.AsyncFunctionDef,
+                ast.ClassDef,
+            ),
+        )
+        or _is_guard_clause(stmt)
+    )
+
+
+def _is_function_level_try(node: ast.AST, parent_body: list[ast.stmt]) -> bool:
+    """The try is the function's error boundary: its last statement, preceded
+    only by docstrings, imports, nested definitions and guard clauses.
+
+    A second common form initializes local result/state variables, handles the
+    work, then returns those results. Initialization and packaging the result
+    do not turn that whole-function boundary into a smaller catch scope.
+    """
+    if not parent_body:
+        return False
+    if parent_body[-1] is node:
+        return all(_is_boundary_prefix_statement(stmt) for stmt in parent_body[:-1])
+    if len(parent_body) < 2 or parent_body[-2] is not node:
+        return False
+    result = parent_body[-1]
+    if not isinstance(result, ast.Return):
+        return False
+
+    def result_atom(expression):
+        return isinstance(expression, (ast.Name, ast.Constant)) or (
+            isinstance(expression, (ast.Tuple, ast.List))
+            and all(result_atom(item) for item in expression.elts)
+        )
+
+    value = result.value
+    # An arbitrary call can persist, transform or fetch data; simple-looking
+    # arguments do not establish that it merely packages a result.
+    if value is not None and not result_atom(value):
+        return False
+    outer_names = {
+        name
+        for statement in parent_body
+        for child in ast.walk(statement)
+        if isinstance(child, (ast.Global, ast.Nonlocal))
+        for name in child.names
+    }
+    for statement in parent_body[:-2]:
+        if _is_boundary_prefix_statement(statement):
+            continue
+        if not isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            return False
+        targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+        if not targets or any(
+            not isinstance(target, ast.Name) or target.id in outer_names for target in targets
+        ):
+            return False
+        # Calls, attributes and subscriptions can do substantive work outside
+        # the catch. Only source-visible literal/name initialization is safe.
+        if statement.value is not None and not result_atom(statement.value):
+            return False
+    return True
+
+
+def _significant_token_spans(source: str):
+    """Start rows and spans of tokens that carry code (not comments/blanks)."""
+    starts = []
+    spans = []
+    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+        if tok.type in _NON_CODE_TOKENS:
+            continue
+        starts.append(tok.start[0])
+        spans.append((tok.start, tok.end))
+    return starts, spans
+
+
+def _ast_code_rows(body: list[ast.stmt], first: int, last: int) -> set[int]:
+    """Approximate code rows from node positions when source is unavailable."""
+    rows = set()
+    comment_rows = set()
+    for stmt in body:
+        for node in _protected_nodes([stmt]):
+            start = getattr(node, "lineno", None)
+            if start is None:
+                continue
+            end = getattr(node, "end_lineno", None) or start
+            if _is_string_statement(node):
+                comment_rows.update(range(start, end + 1))
+            elif isinstance(node, (ast.Constant, ast.JoinedStr)):
+                rows.update(range(start, end + 1))
+            else:
+                rows.update((start, end))
+    deferred_rows = {
+        row
+        for (start, _), (end, _) in _deferred_callable_spans(body)
+        for row in range(start, end + 1)
+    }
+    active_starts = {
+        node.lineno for node in _protected_nodes(body) if hasattr(node, "lineno")
+    }
+    return {
+        row for row in rows - comment_rows
+        if first <= row <= last and (row not in deferred_rows or row in active_starts)
+    }
 
 
 class TryBlockPatternsRule(SkylosRule):
@@ -1402,45 +1728,100 @@ class TryBlockPatternsRule(SkylosRule):
     def __init__(self, max_lines=15, max_control_flow=3):
         self.max_lines = max_lines
         self.max_control_flow = max_control_flow
+        self._token_source = None
+        self._token_index = None
+
+    def _token_spans_for(self, source):
+        if source is not self._token_source:
+            self._token_source = source
+            try:
+                self._token_index = _significant_token_spans(source)
+            except (tokenize.TokenError, SyntaxError, ValueError):
+                self._token_index = None
+        return self._token_index
+
+    def _code_line_count(self, node, context) -> int:
+        """Lines in the try body that carry code.
+
+        Blank lines, comment-only lines and string-literal statements used as
+        block comments are not counted; every line of a multi-line expression
+        or string value is.
+        """
+        first = node.body[0].lineno
+        last = getattr(node.body[-1], "end_lineno", None) or first
+        source = context.get("source")
+        index = self._token_spans_for(source) if isinstance(source, str) else None
+        if index is None:
+            return len(_ast_code_rows(node.body, first, last))
+
+        comment_strings = [
+            ((n.lineno, n.col_offset), (n.end_lineno, n.end_col_offset))
+            for stmt in node.body
+            for n in ast.walk(stmt)
+            if _is_string_statement(n)
+        ]
+        excluded_spans = [*comment_strings, *_deferred_callable_spans(node.body)]
+        starts, spans = index
+        rows = set()
+        for i in range(bisect.bisect_left(starts, first), len(starts)):
+            (srow, scol), (erow, _) = spans[i]
+            if srow > last:
+                break
+            if any(lo <= (srow, scol) < hi for lo, hi in excluded_spans):
+                continue
+            rows.update(range(srow, min(erow, last) + 1))
+        return len(rows)
 
     def visit_node(self, node, context):
-        if not isinstance(node, ast.Try):
+        if not isinstance(node, _TRY_TYPES):
+            return None
+        # When no handler can stop an exception (none, or each re-raises it)
+        # and the finally block does not discard it, the try is a cleanup
+        # scope like try/finally: error-catching scope advice does not apply.
+        if not _try_catches(node):
             return None
 
-        parent_body = context.get("_parent_body")
-        is_func_level = parent_body is not None and _is_function_level_try(
-            node, parent_body
-        )
+        # A try that forms the whole function after its docstring, imports,
+        # nested definitions and guard clauses is the function's intentional
+        # error boundary. Its size and branching are the function's size and
+        # complexity (C304/Q301/Q306), so those checks are skipped; nested
+        # catch scopes inside it are not measured elsewhere and stay checked.
+        parent = context.get("_parent_node")
+        is_boundary = isinstance(
+            parent, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ) and _is_function_level_try(node, parent.body)
 
         findings = []
 
-        if node.body and not is_func_level:
-            start = node.body[0].lineno
-            end = getattr(node.body[-1], "end_lineno", start)
-            length = end - start + 1
+        if node.body and not is_boundary:
+            length = self._code_line_count(node, context)
 
-            if length > self.max_lines:
+            if length > self.max_lines and _protected_operation_count(node.body) > self.max_lines:
                 findings.append(
                     self._create_finding(
                         node,
                         context,
                         severity="LOW",
                         value=length,
-                        msg=f"Try block covers {length} lines (limit: {self.max_lines}). Reduce scope to the risky operation only.",
+                        msg=(
+                            f"Try block covers {length} lines of code "
+                            f"(limit: {self.max_lines}; blank and comment lines "
+                            "are not counted). Reduce scope to the risky "
+                            "operation only."
+                        ),
                     )
                 )
 
-        control_flow_count = 0
-        has_nested_try = False
+        def nested_is_broad(inner):
+            controls, _ = _scan_protected_body(inner.body)
+            return controls > self.max_control_flow or (
+                _protected_operation_count(inner.body) > self.max_lines
+                and self._code_line_count(inner, context) > self.max_lines
+            )
 
-        for stmt in node.body:
-            for child in _walk_scope([stmt]):
-                if child is stmt:
-                    continue
-                if isinstance(child, ast.Try):
-                    has_nested_try = True
-                if isinstance(child, (ast.If, ast.For, ast.While)):
-                    control_flow_count += 1
+        control_flow_count, has_nested_try = _scan_protected_body(
+            node.body, nested_is_broad=nested_is_broad
+        )
 
         if has_nested_try:
             findings.append(
@@ -1449,11 +1830,14 @@ class TryBlockPatternsRule(SkylosRule):
                     context,
                     severity="MEDIUM",
                     value="nested",
-                    msg="Nested 'try' block detected. Flatten logic or move inner try to a helper function.",
+                    msg=(
+                        "Nested 'try' block also protects a broad scope. "
+                        "Reduce the inner catch scope to its risky operations."
+                    ),
                 )
             )
 
-        if control_flow_count > self.max_control_flow:
+        if not is_boundary and control_flow_count > self.max_control_flow:
             findings.append(
                 self._create_finding(
                     node,
@@ -1490,9 +1874,89 @@ class UnusedExceptVarRule(SkylosRule):
     rule_id = "SKY-L005"
     name = "Unused Exception Variable"
 
+    def __init__(self):
+        self._namespace_builtins = set()
+        self._namespace_source = None
+
+    def _explicit_namespace_use(self, handler):
+        capture_rebound = _rebinds_name(handler.body, handler.name)
+        pending = list(handler.body)
+        while pending:
+            current = pending.pop()
+            if isinstance(current, _NESTED_SCOPE_TYPES + (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+                continue
+            namespace = key = None
+            if isinstance(current, ast.Subscript):
+                namespace, key = current.value, current.slice
+            elif isinstance(current, ast.Call) and isinstance(current.func, ast.Attribute) and current.func.attr == "get" and current.args:
+                namespace, key = current.func.value, current.args[0]
+            elif (
+                isinstance(current, ast.Call)
+                and isinstance(current.func, ast.Attribute)
+                and current.func.attr == "format_map"
+                and isinstance(current.func.value, ast.Constant)
+                and isinstance(current.func.value.value, str)
+                and len(current.args) == 1
+                and not current.keywords
+            ):
+                # Literal str.format_map reads named mapping fields itself;
+                # there need not be a Name node for that captured exception.
+                try:
+                    fields = [
+                        field.split(".", 1)[0].split("[", 1)[0]
+                        for _, field, _, _ in Formatter().parse(current.func.value.value)
+                        if field is not None
+                    ]
+                except ValueError:
+                    fields = []
+                if handler.name in fields and not capture_rebound:
+                    namespace = current.args[0]
+                    key = ast.Constant(value=handler.name)
+            if (
+                isinstance(key, ast.Constant) and key.value == handler.name
+                and isinstance(namespace, ast.Call) and not namespace.args and not namespace.keywords
+                and isinstance(namespace.func, ast.Name) and namespace.func.id in self._namespace_builtins
+            ):
+                return True
+            pending.extend(ast.iter_child_nodes(current))
+        return False
+
     def visit_node(self, node, context):
+        if isinstance(node, ast.Module):
+            # Resolve only these builtin no-argument namespace lookups. Any
+            # source binding or dynamic namespace makes that proof uncertain.
+            possible = {"locals", "vars"}
+            for child in ast.walk(node):
+                if isinstance(child, ast.Name) and not isinstance(child.ctx, ast.Load):
+                    possible.discard(child.id)
+                elif isinstance(child, ast.arg):
+                    possible.discard(child.arg)
+                elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    possible.discard(child.name)
+                elif isinstance(child, ast.ExceptHandler):
+                    possible.discard(child.name)
+                elif isinstance(child, ast.alias):
+                    possible.discard(child.asname or child.name.split(".")[0])
+                    if child.name == "*":
+                        possible.clear()
+                elif isinstance(child, ast.Attribute) and not isinstance(child.ctx, ast.Load):
+                    possible.discard(child.attr)
+                elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id in {"exec", "eval", "globals"}:
+                    possible.clear()
+            self._namespace_builtins = possible
+            self._namespace_source = context.get("source", context.get("_source"))
+            return None
         if not isinstance(node, ast.ExceptHandler):
             return None
+        # The optimized rule dispatcher visits ExceptHandler only. Preserve
+        # its narrow dispatch while resolving source evidence once per file.
+        source = context.get("source", context.get("_source"))
+        if isinstance(source, str) and source is not self._namespace_source:
+            try:
+                self.visit_node(ast.parse(source), context)
+            except (SyntaxError, ValueError, TypeError):
+                self._namespace_builtins = set()
+                self._namespace_source = source
         if not node.name:
             return None
         if node.name == "_":
@@ -1500,10 +1964,18 @@ class UnusedExceptVarRule(SkylosRule):
 
         use_count = 0
         for child in ast.walk(node):
-            if isinstance(child, ast.Name) and child.id == node.name:
+            if (
+                isinstance(child, ast.Name)
+                and child.id == node.name
+                and isinstance(child.ctx, ast.Load)
+            ) or (
+                isinstance(child, ast.AugAssign)
+                and isinstance(child.target, ast.Name)
+                and child.target.id == node.name
+            ):
                 use_count += 1
 
-        if use_count == 0:
+        if use_count == 0 and not self._explicit_namespace_use(node):
             return [
                 {
                     "rule_id": self.rule_id,
@@ -1717,12 +2189,311 @@ def _handler_is_narrow_trivial_fallback(node):
     return _handler_body_is_trivial(node.body)
 
 
+# ``try``/``except*`` statements; ``ast.TryStar`` exists on Python 3.11+.
+TRY_NODE_TYPES = (ast.Try,) + ((ast.TryStar,) if hasattr(ast, "TryStar") else ())
+# Deletion functions by module; bare names count only when imported from it.
+_DELETION_FUNCTIONS = {
+    "os": frozenset({"remove", "unlink", "rmdir", "removedirs"}),
+    "shutil": frozenset({"rmtree"}),
+}
+# pathlib.Path methods that delete; the receiver must be shown to be a path.
+_PATH_DELETION_METHODS = frozenset({"unlink", "rmdir"})
+_PATH_CLASSES = frozenset({"Path", "PosixPath", "WindowsPath"})
+_PATH_RETURNING_METHODS = frozenset(
+    {"absolute", "expanduser", "joinpath", "resolve", "with_name", "with_stem",
+     "with_suffix"}
+)  # fmt: skip
+_SCOPE_TYPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+
+
+@dataclass(frozen=True)
+class _DeletionNames:
+    """What names a module binds to deletion functions and path types."""
+
+    modules: dict  # local name -> "os" / "shutil" / "pathlib"
+    functions: frozenset  # bare deletion functions (``from shutil import rmtree``)
+    path_classes: frozenset  # ``from pathlib import Path``
+
+
+def _deletion_names(module):
+    """Names imported from os/shutil/pathlib that nothing else in the module
+    binds (a local ``def remove`` or a parameter ``os`` is something else)."""
+    modules, functions, path_classes = {}, set(), set()
+    for node in ast.walk(module):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name in ("os", "shutil", "pathlib"):
+                    modules[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.ImportFrom) and not node.level:
+            for alias in node.names:
+                local = alias.asname or alias.name
+                if alias.name in _DELETION_FUNCTIONS.get(node.module, ()):
+                    functions.add(local)
+                elif node.module == "pathlib" and alias.name in _PATH_CLASSES:
+                    path_classes.add(local)
+    rebound = _names_bound_other_than_by_import(module)
+    return _DeletionNames(
+        {name: kind for name, kind in modules.items() if name not in rebound},
+        frozenset(functions - rebound),
+        frozenset(path_classes - rebound),
+    )
+
+
+def _names_bound_other_than_by_import(module):
+    names = set()
+    for node in ast.walk(module):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            names.add(node.id)
+        elif isinstance(node, ast.arg):
+            names.add(node.arg)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            names.add(node.name)
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            names.update(node.names)
+    return names
+
+
+def _scope_statements(scope):
+    """Nodes of ``scope`` outside nested function, class and lambda bodies."""
+    pending = list(ast.iter_child_nodes(scope))
+    while pending:
+        node = pending.pop()
+        yield node
+        if not isinstance(node, _SCOPE_TYPES):
+            pending.extend(ast.iter_child_nodes(node))
+
+
+def _is_path_annotation(annotation, names):
+    if isinstance(annotation, ast.Name):
+        return annotation.id in names.path_classes
+    return (
+        isinstance(annotation, ast.Attribute)
+        and annotation.attr in _PATH_CLASSES
+        and isinstance(annotation.value, ast.Name)
+        and names.modules.get(annotation.value.id) == "pathlib"
+    )
+
+
+def _is_path_expr(expr, names, path_vars):
+    """``expr`` evaluates to a pathlib path."""
+    if isinstance(expr, ast.Name):
+        return expr.id in path_vars
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Div):
+        return _is_path_expr(expr.left, names, path_vars)
+    if isinstance(expr, ast.Attribute) and expr.attr == "parent":
+        return _is_path_expr(expr.value, names, path_vars)
+    if not isinstance(expr, ast.Call):
+        return False
+    func = expr.func
+    if _is_path_annotation(func, names):
+        return True
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr in _PATH_RETURNING_METHODS
+        and _is_path_expr(func.value, names, path_vars)
+    )
+
+
+def _path_variables(scope, names, inherited=frozenset()):
+    """Names that hold a path in ``scope``: every binding of the name is a
+    path (a ``Path``-annotated parameter or an assignment of a path), and
+    names of enclosing scopes the scope does not rebind."""
+    bindings = {}
+    args = getattr(scope, "args", None)
+    if isinstance(args, ast.arguments):
+        for arg in (*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg):
+            if arg is not None:
+                bindings.setdefault(arg.arg, []).append(("annotation", arg.annotation))
+    for node in _scope_statements(scope):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    bindings.setdefault(target.id, []).append(("value", node.value))
+                else:
+                    for name in ast.walk(target):
+                        if isinstance(name, ast.Name):
+                            bindings.setdefault(name.id, []).append(("other", None))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            kind = "annotation" if node.value is None else "value"
+            value = node.annotation if node.value is None else node.value
+            bindings.setdefault(node.target.id, []).append((kind, value))
+        elif isinstance(node, (ast.AugAssign, ast.For, ast.AsyncFor, ast.withitem, ast.NamedExpr)):
+            target = getattr(node, "target", None) or getattr(node, "optional_vars", None)
+            for name in ast.walk(target) if target is not None else ():
+                if isinstance(name, ast.Name):
+                    bindings.setdefault(name.id, []).append(("other", None))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bindings.setdefault(node.name, []).append(("other", None))
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bindings.setdefault(node.name, []).append(("other", None))
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                bindings.setdefault((alias.asname or alias.name).split(".")[0], []).append(("other", None))
+
+    path_vars = {name for name in inherited if name not in bindings}
+    changed = True
+    while changed:
+        changed = False
+        for name, items in bindings.items():
+            if name in path_vars:
+                continue
+            if all(
+                (kind == "annotation" and _is_path_annotation(value, names))
+                or (kind == "value" and _is_path_expr(value, names, path_vars))
+                for kind, value in items
+            ):
+                path_vars.add(name)
+                changed = True
+    return frozenset(path_vars)
+
+
+def _try_path_variables(module, names):
+    """Each ``try`` statement mapped to the path variables of its scope."""
+    result = {}
+    pending = [(module, frozenset())]
+    while pending:
+        scope, inherited = pending.pop()
+        path_vars = _path_variables(scope, names, inherited)
+        for node in _scope_statements(scope):
+            if isinstance(node, TRY_NODE_TYPES):
+                result[id(node)] = (node, path_vars)
+        for node in _scope_statements(scope):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                pending.append((node, path_vars))
+            elif isinstance(node, ast.ClassDef):
+                # Class bodies do not enclose their methods' names.
+                for item in ast.iter_child_nodes(node):
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        pending.append((item, path_vars))
+    return result
+
+
+def _is_path_argument(expr, names):
+    """A path expression without side effects: names, attributes, constants,
+    f-strings, ``/`` and ``+`` joins, and ``os.path.*``/``str``/``Path`` calls
+    on such values (``self.pending.pop()`` is not one)."""
+    for node in ast.walk(expr):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "str":
+            continue
+        if _is_path_annotation(func, names):
+            continue
+        dotted = []
+        while isinstance(func, ast.Attribute):
+            dotted.append(func.attr)
+            func = func.value
+        if (
+            isinstance(func, ast.Name)
+            and names.modules.get(func.id) == "os"
+            and dotted
+            and (dotted[-1] == "path" or dotted == ["fspath"])
+        ):
+            continue
+        return False
+    return True
+
+
+def _is_deletion_statement(stmt, names, path_vars):
+    if isinstance(stmt, ast.Pass):
+        return True
+    if not isinstance(stmt, ast.Expr) or not isinstance(stmt.value, ast.Call):
+        return False
+    call = stmt.value
+    if not all(_is_path_argument(arg, names) for arg in call.args) or not all(
+        _is_path_argument(keyword.value, names) for keyword in call.keywords
+    ):
+        return False
+    func = call.func
+    if isinstance(func, ast.Name):
+        return func.id in names.functions
+    if not isinstance(func, ast.Attribute):
+        return False
+    receiver = func.value
+    if isinstance(receiver, ast.Name) and receiver.id in names.modules:
+        return func.attr in _DELETION_FUNCTIONS.get(names.modules[receiver.id], ())
+    return func.attr in _PATH_DELETION_METHODS and _is_path_expr(receiver, names, path_vars)
+
+
+_INTERRUPT_EXCEPTIONS = frozenset(
+    {"BaseException", "KeyboardInterrupt", "SystemExit", "GeneratorExit"}
+)
+
+
+def _swallows_base_exceptions(handler):
+    """A bare ``except:``, or one naming ``BaseException``,
+    ``KeyboardInterrupt``, ``SystemExit`` or ``GeneratorExit``: it swallows
+    a stop request, not a failed deletion."""
+    return handler.type is None or bool(
+        _INTERRUPT_EXCEPTIONS & set(_exception_type_names(handler.type))
+    )
+
+
+def _finally_statements(try_node):
+    """Statements inside a ``finally`` block, without nested scopes."""
+    pending = list(try_node.finalbody)
+    while pending:
+        stmt = pending.pop()
+        yield stmt
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        for field in ("body", "orelse", "finalbody"):
+            pending.extend(getattr(stmt, field, None) or [])
+        for handler in getattr(stmt, "handlers", None) or []:
+            pending.extend(handler.body)
+
+
 class EmptyErrorHandlerRule(SkylosRule):
     rule_id = "SKY-L007"
     name = "Empty Error Handler"
 
+    def __init__(self):
+        # Error handlers that only give up on deleting a path inside a
+        # ``finally`` block. Nodes are kept (not just ids) so an id cannot be
+        # reused by another node; the maps are reset for every module.
+        self._finally_cleanup = {}
+        self._deletion_names = _DeletionNames({}, frozenset(), frozenset())
+        self._try_paths = {}
+
+    def _record_finally_cleanup(self, try_node):
+        scope = self._try_paths.get(id(try_node))
+        path_vars = scope[1] if scope and scope[0] is try_node else frozenset()
+        for stmt in _finally_statements(try_node):
+            body = getattr(stmt, "body", None)
+            if not body or not all(
+                _is_deletion_statement(item, self._deletion_names, path_vars)
+                for item in body
+            ):
+                continue
+            if isinstance(stmt, ast.With):
+                if not any(
+                    arg == "BaseException"
+                    for item in stmt.items
+                    if isinstance(item.context_expr, ast.Call)
+                    for arg in self._iter_broad_suppress_args(item.context_expr)
+                ):
+                    self._finally_cleanup[id(stmt)] = stmt
+            elif isinstance(stmt, TRY_NODE_TYPES):
+                for handler in stmt.handlers:
+                    if not _swallows_base_exceptions(handler):
+                        self._finally_cleanup[id(handler)] = handler
+
     def visit_node(self, node, context):
         findings = []
+
+        if isinstance(node, ast.Module):
+            self._finally_cleanup = {}
+            self._deletion_names = _deletion_names(node)
+            self._try_paths = _try_path_variables(node, self._deletion_names)
+            return None
+        if isinstance(node, TRY_NODE_TYPES):
+            self._record_finally_cleanup(node)
+            return None
+        if self._finally_cleanup.get(id(node)) is node:
+            return None
 
         if isinstance(node, ast.ExceptHandler):
             except_finding = self._check_except_handler(node, context)
@@ -1846,6 +2617,184 @@ RESOURCE_FUNCTIONS = {
     "http.client.HTTPSConnection",
 }
 
+# These context-manager protocols close the handle, rather than merely commit
+# a transaction. Keep database connections out: sqlite3's ``with conn`` does
+# not close the connection. New resource contracts can be added explicitly.
+_CLOSING_RESOURCE_CONTEXTS = frozenset({
+    "open", "Path.open", "socket.socket", "requests.Session",
+    "tempfile.NamedTemporaryFile", "tempfile.TemporaryFile",
+    "tempfile.SpooledTemporaryFile", "http.client.HTTPConnection",
+    "http.client.HTTPSConnection",
+})
+
+
+def _closing_resource_context_call_ids(module):
+    """Prove constructor identity before relying on its context protocol."""
+    imports = {}
+    for statement in module.body:
+        if isinstance(statement, ast.Import):
+            for alias in statement.names:
+                local = alias.asname or alias.name.split(".")[0]
+                imports[local] = alias.name if alias.asname else local
+        elif isinstance(statement, ast.ImportFrom) and not statement.level:
+            for alias in statement.names:
+                imports[alias.asname or alias.name] = f"{statement.module}.{alias.name}"
+
+    def dotted(node):
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            base = dotted(node.value)
+            return f"{base}.{node.attr}" if base else ""
+        return ""
+
+    def imported(node):
+        name = dotted(node)
+        head, dot, tail = name.partition(".")
+        return imports.get(head, head) + (dot + tail if dot else "")
+
+    constructors = (_CLOSING_RESOURCE_CONTEXTS - {"open", "Path.open"}) | {
+        "builtins.open", "pathlib.Path",
+    }
+
+    def related(name):
+        return bool(name) and any(
+            name == constructor or name.startswith(constructor + ".")
+            or constructor.startswith(name + ".")
+            for constructor in constructors
+        )
+
+    rebound = set()
+    parents = {}
+    for node in ast.walk(module):
+        for child in ast.iter_child_nodes(node):
+            parents[id(child)] = node
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            rebound.add(node.id)
+        elif isinstance(node, ast.arg):
+            rebound.add(node.arg)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            rebound.add(node.name)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            rebound.add(node.name)
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+            rebound.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            rebound.add(node.rest)
+        elif isinstance(node, ast.Attribute) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            if related(imported(node)):
+                return set()
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                local = alias.asname or alias.name.split(".")[0]
+                if imports.get(local) != (alias.name if alias.asname else local):
+                    rebound.add(local)
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == "*":
+                    return set()
+                local = alias.asname or alias.name
+                if node.level or imports.get(local) != f"{node.module}.{alias.name}":
+                    rebound.add(local)
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            if related(imported(node.value)) or dotted(node.value) == "open":
+                return set()
+        if isinstance(node, ast.Call):
+            name = imported(node.func)
+            target = node.args[0] if node.args else next(
+                (kw.value for kw in node.keywords if kw.arg == "target"), None
+            )
+            if name.endswith("patch") and isinstance(target, ast.Constant):
+                if isinstance(target.value, str) and related(target.value):
+                    return set()
+            if name.endswith("patch.object"):
+                attribute = node.args[1] if len(node.args) >= 2 else next(
+                    (kw.value for kw in node.keywords if kw.arg == "attribute"), None
+                )
+                if isinstance(attribute, ast.Constant) and isinstance(attribute.value, str):
+                    if related(f"{imported(target)}.{attribute.value}"):
+                        return set()
+
+    reflection = {
+        "exec", "eval", "locals", "globals", "vars", "getattr", "setattr", "delattr",
+        "__import__", "__builtins__", "currentframe", "_getframe",
+        "attrgetter", "methodcaller", "__getattribute__", "__getattr__",
+    }
+
+    local_functions = {
+        statement.name: statement for statement in module.body
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    def has_reflection(scope, seen=frozenset()):
+        if id(scope) in seen:
+            # This direct-call cycle adds no new source. Its active callers
+            # still inspect every other statement for reflection.
+            return False
+        seen = seen | {id(scope)}
+        pending = list(scope.body)
+        while pending:
+            node = pending.pop()
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if isinstance(scope, ast.Module):
+                    # Defaults, annotations and decorators execute now. A
+                    # function's body waits for a call; class bodies do not.
+                    for field, value in ast.iter_fields(node):
+                        if field == "body":
+                            continue
+                        if isinstance(value, ast.AST):
+                            pending.append(value)
+                        elif isinstance(value, list):
+                            pending.extend(item for item in value if isinstance(item, ast.AST))
+                    continue
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                helper = local_functions.get(node.func.id)
+                if helper is not None and has_reflection(helper, seen):
+                    return True
+            if isinstance(node, (ast.Name, ast.Attribute)):
+                if imported(node).rsplit(".", 1)[-1] in reflection:
+                    return True
+            if isinstance(node, ast.Attribute) and node.attr in {
+                "__dict__", "__globals__", "f_globals", "f_locals",
+            }:
+                return True
+            pending.extend(ast.iter_child_nodes(node))
+        return False
+
+    if has_reflection(module):
+        return set()
+    result = set()
+    for call in ast.walk(module):
+        if not isinstance(call, ast.Call):
+            continue
+        resource = _call_matches_resource(call)
+        if resource not in _CLOSING_RESOURCE_CONTEXTS:
+            continue
+        func = call.func
+        if resource == "Path.open":
+            func = func.value.func
+            canonical = imported(func)
+            valid = canonical == "pathlib.Path" and dotted(func).split(".")[0] in imports
+        else:
+            canonical = imported(func)
+            if canonical == "open" and "open" not in imports:
+                canonical = "builtins.open"
+            head = dotted(func).split(".")[0]
+            valid = canonical in constructors and (
+                head in imports or head == "open" and canonical == "builtins.open"
+            )
+        if not valid or dotted(func).split(".")[0] in rebound:
+            continue
+        scope = call
+        while id(scope) in parents and not isinstance(
+            scope, (ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            scope = parents[id(scope)]
+        if not has_reflection(scope):
+            result.add(id(call))
+    return result
+
+
 _RESOURCE_SIMPLE_NAMES = set()
 _RESOURCE_ATTR_NAMES = {}
 
@@ -1898,6 +2847,10 @@ class MissingResourceCleanupRule(SkylosRule):
     def visit_node(self, node, context):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Module)):
             return None
+        if isinstance(node, ast.Module):
+            context["_closing_resource_context_proof"] = (
+                node, _closing_resource_context_call_ids(node)
+            )
 
         filename = context.get("filename", "")
         basename = Path(filename).name
@@ -1948,6 +2901,8 @@ class MissingResourceCleanupRule(SkylosRule):
 
         var_name = self._get_assign_name(stmt)
         if var_name:
+            if self._has_following_cleanup(stmt, var_name, resource_name, scope_body, context):
+                return None
             if self._is_returned_or_yielded(var_name, scope_body):
                 return None
             if self._has_close_in_finally(var_name, scope_body):
@@ -1992,6 +2947,67 @@ class MissingResourceCleanupRule(SkylosRule):
         if assign_node.targets and isinstance(assign_node.targets[0], ast.Name):
             return assign_node.targets[0].id
         return None
+
+    def _has_following_cleanup(self, assignment, name, resource_name, scope_body, context):
+        """Prove immediate cleanup without assuming arbitrary later close calls.
+
+        Opening before ``with handle`` is useful when acquisition errors need
+        their own handler. Require immediate context entry, and require any
+        failed-open handler to exit; a conditional or delayed cleanup is not
+        proof. No target code is evaluated.
+        """
+        if len(assignment.targets) != 1:
+            return False
+        tree = ast.Module(body=scope_body, type_ignores=[])
+
+        def next_statement(target):
+            for parent in ast.walk(tree):
+                for _field, value in ast.iter_fields(parent):
+                    if not isinstance(value, list):
+                        continue
+                    for index, item in enumerate(value):
+                        if item is target:
+                            return value[index + 1] if index + 1 < len(value) else None
+            return None
+
+        following = next_statement(assignment)
+        if following is None:
+            for candidate in ast.walk(tree):
+                if not (
+                    isinstance(candidate, ast.Try)
+                    and candidate.body == [assignment]
+                    and candidate.handlers
+                    and not candidate.orelse
+                    and not candidate.finalbody
+                    and all(
+                        handler.body and isinstance(handler.body[-1], (ast.Return, ast.Raise))
+                        for handler in candidate.handlers
+                    )
+                ):
+                    continue
+                following = next_statement(candidate)
+                break
+
+        if isinstance(following, ast.Expr):
+            call = following.value
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "close"
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == name
+                and not call.args and not call.keywords
+            ):
+                return True
+        if isinstance(following, ast.With) and resource_name in _CLOSING_RESOURCE_CONTEXTS:
+            proof = context.get("_closing_resource_context_proof")
+            if proof is None or id(assignment.value) not in proof[1]:
+                return False
+            # Entering another context first can raise before this handle is
+            # registered, so only the first item establishes this proof.
+            manager = following.items[0].context_expr
+            return isinstance(manager, ast.Name) and manager.id == name
+        return False
 
     def _is_returned_or_yielded(self, var_name, scope_body):
         for node in ast.walk(ast.Module(body=scope_body, type_ignores=[])):

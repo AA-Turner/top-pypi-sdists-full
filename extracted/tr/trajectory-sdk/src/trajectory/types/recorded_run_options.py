@@ -45,6 +45,22 @@ class RecordedRunOptions(BaseModel):
     Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
   ) = None
 
+  temperature: float | None = None
+
+  top_p: float | None = None
+
+  top_k: int | None = None
+
+  evaluation_reasoning_effort: (
+    Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
+  ) = None
+
+  evaluation_temperature: float | None = None
+
+  evaluation_top_p: float | None = None
+
+  evaluation_top_k: int | None = None
+
   num_steps: int | None = None
 
   train_batch_size: int | None = None

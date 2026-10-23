@@ -82,11 +82,12 @@ def fail(message: str) -> NoReturn:
     raise DbtBouncerFailedCheckError(message)
 
 
-@overload
+# Overload stubs are typing-only; their bodies never execute.
+@overload  # pragma: no cover
 def check(fn: Callable[..., None]) -> type[BaseCheck]: ...
 
 
-@overload
+@overload  # pragma: no cover
 def check(
     fn: None = None,
     *,
@@ -256,8 +257,13 @@ def _build_check_class(
             f"Module {fn.__module__!r} not in sys.modules; "
             f"injecting {class_name} via stack frame fallback."
         )
-        frame = inspect.stack()[1]
-        frame.frame.f_globals[class_name] = cls
+        # Walk past this module's own frames (`_build_check_class`, then
+        # `check` or its `wrapper`) to the module that applied the decorator.
+        frame = inspect.currentframe()
+        while frame is not None and frame.f_globals.get("__name__") == __name__:
+            frame = frame.f_back
+        if frame is not None:  # pragma: no branch - a decorator always has a caller
+            frame.f_globals[class_name] = cls
 
     return cls
 

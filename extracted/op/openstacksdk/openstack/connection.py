@@ -279,7 +279,7 @@ import argparse
 import concurrent.futures
 import copy
 import importlib.metadata as importlib_metadata
-from typing import Any, Optional, Self, TYPE_CHECKING, cast
+from typing import Any, Self, TYPE_CHECKING, cast
 
 import keystoneauth1.exceptions
 from keystoneauth1 import session as ks_session
@@ -318,7 +318,7 @@ _logger = _log.setup_logging('openstack')
 
 def from_config(
     cloud: str | None = None,
-    config: Optional['cloud_region.CloudRegion'] = None,
+    config: 'cloud_region.CloudRegion | None' = None,
     options: argparse.Namespace | None = None,
     **kwargs: Any,
 ) -> 'Connection':
@@ -368,7 +368,7 @@ class Connection(
     def __init__(
         self,
         cloud: str | None = None,
-        config: Optional['cloud_region.CloudRegion'] = None,
+        config: 'cloud_region.CloudRegion | None' = None,
         session: ks_session.Session | None = None,
         app_name: str | None = None,
         app_version: str | None = None,
@@ -379,7 +379,7 @@ class Connection(
         use_direct_get: bool | None = None,
         task_manager: Any = None,
         rate_limit: float | dict[str, float] | None = None,
-        oslo_conf: Optional['cfg.ConfigOpts'] = None,
+        oslo_conf: 'cfg.ConfigOpts | None' = None,
         service_types: list[str] | None = None,
         global_request_id: str | None = None,
         strict_proxies: bool = False,
@@ -646,6 +646,25 @@ class Connection(
 
         for key, value in kwargs.items():
             params['auth'][key] = value
+
+        # get_one() merges the base cloud config back in, and
+        # _fix_backwards_auth() prefers top-level values (where OS_*
+        # environment variables live) over the auth dict. Pass the overridden
+        # settings that function handles as top-level values too so they win,
+        # and clear the other half of each id/name pair with an empty string so
+        # an inherited id or name cannot change the scope.
+        for name_key, id_key in (
+            ('project_name', 'project_id'),
+            ('project_domain_name', 'project_domain_id'),
+            ('user_domain_name', 'user_domain_id'),
+            ('domain_name', 'domain_id'),
+        ):
+            if name_key in kwargs or id_key in kwargs:
+                params[name_key] = kwargs.get(name_key) or ''
+                params[id_key] = kwargs.get(id_key) or ''
+        for key in ('token', 'passcode'):
+            if key in kwargs:
+                params[key] = kwargs[key] or ''
 
         cloud_region = config.get_one(**params)
         # Attach the discovery cache from the old session so we won't

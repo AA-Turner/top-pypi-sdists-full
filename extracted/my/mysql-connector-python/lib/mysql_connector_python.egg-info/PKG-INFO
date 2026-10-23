@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mysql-connector-python
-Version: 26.7.0
+Version: 26.10.0
 Summary: A self-contained Python driver for communicating with MySQL servers, using an API that is compliant with the Python Database API Specification v2.0 (PEP 249).
 Author: Oracle and/or its affiliates
 Author-email: 
@@ -37,9 +37,9 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: dns-srv
-Requires-Dist: dnspython==2.6.1; extra == "dns-srv"
+Requires-Dist: dnspython==2.8.0; extra == "dns-srv"
 Provides-Extra: gssapi
-Requires-Dist: gssapi==1.8.3; extra == "gssapi"
+Requires-Dist: gssapi==1.12.0; extra == "gssapi"
 Provides-Extra: webauthn
 Requires-Dist: fido2==1.1.2; extra == "webauthn"
 Provides-Extra: telemetry
@@ -109,7 +109,7 @@ files, available in this repository, for further details.
 Contributing
 ------------
 
-We greatly appreciate feedback from our users, including bug reports and code contributions. Your input helps us improve, and we thank you for any issues you report or code you contribute. Please refer to the `CONTRIBUTING.md <https://github.com/mysql/mysql-connector-python/blob/trunk/CONTRIBUTING.md>`__ document for additional information.
+We greatly appreciate feedback from our users, including bug reports and code contributions. Your input helps us improve, and we thank you for any issues you report or code you contribute. Please refer to the `contributing <https://github.com/mysql/mysql-connector-python/blob/trunk/CONTRIBUTING.md>`__ document for additional information.
 
 Installation
 ------------

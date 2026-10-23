@@ -40,5 +40,8 @@ def test_every_writer_reads_the_state_file_the_marker_writes():
     marker = (AGENT / "src" / "probe" / "sdk" / "session_marker.py").read_text(encoding="utf-8")
     assert '(session_id + ".state")' in marker
     assert _ts_string("STATE_SUFFIX") == ".state"
-    assert '(sid + ".state")' in (TAP / "hooks" / "turn-end.sh").read_text(encoding="utf-8")
+    hook = (TAP / "hooks" / "turn-end.sh").read_text(encoding="utf-8")
+    assert '(sid + ".state")' in hook
+    # Its bash pre-check (no python start outside the daemon) reads the same file.
+    assert '/probe/sessions/$TURN_SID.state"' in hook and '"${XDG_STATE_HOME:-$HOME/.local/state}' in hook
     assert '(session_id + ".state")' in (TAP / "tap" / "companion_lease.py").read_text(encoding="utf-8")

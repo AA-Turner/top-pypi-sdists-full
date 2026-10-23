@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: falcon-mcp
-Version: 0.19.0
+Version: 0.20.0
 Summary: CrowdStrike Falcon MCP Server
 Author-email: CrowdStrike <cloud-integrations@crowdstrike.com>
 License: MIT
@@ -45,7 +45,7 @@ Dynamic: license-file
 **falcon-mcp** is a Model Context Protocol (MCP) server that connects AI agents with the CrowdStrike Falcon platform, powering intelligent security analysis in your agentic workflows. It delivers programmatic access to essential security capabilities—including detections, threat intelligence, and host management—establishing the foundation for advanced security operations and automation.
 
 > [!IMPORTANT]
-> **🚧 Public Preview**: This project is currently in public preview and under active development. Features and functionality may change before the stable 1.0 release. While we encourage exploration and testing, please avoid production deployments. We welcome your feedback through [GitHub Issues](https://github.com/crowdstrike/falcon-mcp/issues) to help shape the final release.
+> **Pre-1.0 release**: falcon-mcp is under active development ahead of 1.0. Tool names, parameters, and response shapes can still change between minor releases, so pin a version and check the [changelog](CHANGELOG.md) before upgrading. The project is actively maintained by CrowdStrike and supported through [GitHub Issues](https://github.com/crowdstrike/falcon-mcp/issues); CrowdStrike customers can also raise questions through their usual Technical Support channels. See [SUPPORT.md](SUPPORT.md) for details.
 
 ## Documentation
 
@@ -61,7 +61,7 @@ Full docs are available at **[developer.crowdstrike.com/falcon-mcp](https://deve
 | [Cloud Security](https://developer.crowdstrike.com/falcon-mcp/modules/cloud/) | Kubernetes containers, image vulnerabilities, CSPM asset inventory, IOM findings, suppression rules, cloud risks, cloud insights, and cloud groups |
 | [Correlation Rules](https://developer.crowdstrike.com/falcon-mcp/modules/correlationrules/) | Search, create, update, and manage NG-SIEM correlation rules |
 | [Custom IOA](https://developer.crowdstrike.com/falcon-mcp/modules/custom-ioa/) | Create and manage Custom IOA behavioral detection rules and rule groups |
-| [Data Protection](https://developer.crowdstrike.com/falcon-mcp/modules/data-protection/) | Search Data Protection classifications, policies, and content patterns |
+| [Data Security](https://developer.crowdstrike.com/falcon-mcp/modules/data-security/) | Search, create, and update Data Security classifications, policies, content patterns, applications, web locations, sensitivity labels, and file types |
 | [Detections](https://developer.crowdstrike.com/falcon-mcp/modules/detections/) | Find, aggregate, and analyze detections to understand malicious activity |
 | [Discover](https://developer.crowdstrike.com/falcon-mcp/modules/discover/) | Search application inventory and managed/unmanaged assets, including drive encryption and system-insights posture |
 | [Exclusions](https://developer.crowdstrike.com/falcon-mcp/modules/exclusions/) | Search, create, update, and delete IOA, machine learning, sensor visibility, and certificate-based exclusions |

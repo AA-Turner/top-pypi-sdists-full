@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-evals
-Version: 3.9.2
+Version: 3.9.3
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -28,12 +28,12 @@ Requires-Dist: typing-extensions<5,>=4.5
 Provides-Extra: dev
 Requires-Dist: anthropic<2,>=1; extra == 'dev'
 Requires-Dist: boto3; extra == 'dev'
-Requires-Dist: litellm>=1.83.14; (python_version < '3.14') and extra == 'dev'
+Requires-Dist: litellm!=1.107.0,>=1.83.14; (python_version < '3.14') and extra == 'dev'
 Requires-Dist: openai>=1.0.0; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: anthropic<2,>=1; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
-Requires-Dist: litellm>=1.83.14; (python_version < '3.14') and extra == 'test'
+Requires-Dist: litellm!=1.107.0,>=1.83.14; (python_version < '3.14') and extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'
 Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
@@ -50,7 +50,7 @@ Description-Content-Type: text/markdown
     <a href="https://pypi.org/project/arize-phoenix-evals/">
         <img src="https://img.shields.io/pypi/v/arize-phoenix-evals" alt="PyPI Version">
     </a>
-    <a href="https://arize-phoenix.readthedocs.io/projects/evals/en/latest/index.html">
+    <a href="https://arize-phoenix.readthedocs.io/projects/evals/">
         <img src="https://img.shields.io/badge/docs-blue?logo=readthedocs&logoColor=white" alt="Documentation">
     </a>
     <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=8e8e8b34-7900-43fa-a38f-1f070bd48c64&page=packages/phoenix-evals/README.md" />
@@ -226,7 +226,7 @@ results_df = asyncio.run(
 
 ## Documentation
 
-- **[Full Documentation](https://arize-phoenix.readthedocs.io/projects/evals/en/latest/index.html)** - Complete API reference and guides
+- **[Full Documentation](https://arize-phoenix.readthedocs.io/projects/evals/)** - Complete API reference and guides
 - **[Phoenix Docs](https://arize.com/docs/phoenix)** - Detailed use-cases and examples
 - **[OpenInference](https://github.com/Arize-ai/openinference)** - Auto-instrumentation libraries for frameworks
 

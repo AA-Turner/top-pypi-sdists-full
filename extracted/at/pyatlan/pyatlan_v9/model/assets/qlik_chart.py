@@ -20,6 +20,14 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -43,19 +51,12 @@ from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
+from .qlik_related import RelatedQlikChart, RelatedQlikColumn, RelatedQlikSheet
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .qlik_related import RelatedQlikChart, RelatedQlikColumn, RelatedQlikSheet
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -278,9 +279,7 @@ class QlikChart(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/chart/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -351,6 +350,67 @@ class QlikChart(Asset):
         if self.guid is not UNSET:
             return RelatedQlikChart(guid=self.guid)
         return RelatedQlikChart(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        qlik_id: str,
+        sheet_qualified_name: str,
+        space_qualified_name: Union[str, None] = None,
+    ) -> "QlikChart":
+        """
+        Build a Qlik chart; qualifiedName is {app_qualified_name}/chart/{qlik_id}.
+
+        The chart's qualifiedName hangs off the app, not the sheet: the app is
+        taken from sheet_qualified_name ({app_qualified_name}/sheet/{id}).
+        space_qualified_name is optional and only fills the denormalised
+        qlik_space_id / qlik_space_qualified_name of the app's space or stream.
+        """
+        validate_required_fields(
+            ["name", "qlik_id", "sheet_qualified_name"],
+            [name, qlik_id, sheet_qualified_name],
+        )
+        sheet_parts = sheet_qualified_name.rsplit("/", 4)
+        if (
+            len(sheet_parts) != 5
+            or sheet_parts[1] != "app"
+            or sheet_parts[3] != "sheet"
+        ):
+            raise ValueError("sheet_qualified_name must end in /app/<id>/sheet/<id>")
+        connection_qualified_name, _, app_id, _, _ = sheet_parts
+        app_qualified_name = f"{connection_qualified_name}/app/{app_id}"
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        asset = cls(
+            name=name,
+            qualified_name=f"{app_qualified_name}/chart/{qlik_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            qlik_id=qlik_id,
+            qlik_app_id=app_id,
+            qlik_app_qualified_name=app_qualified_name,
+            qlik_sheet=RelatedQlikSheet(qualified_name=sheet_qualified_name),
+        )
+        if space_qualified_name:
+            space_parts = space_qualified_name.rsplit("/", 2)
+            if len(space_parts) != 3 or space_parts[1] not in ("space", "stream"):
+                raise ValueError(
+                    "space_qualified_name must end in /space/<id> or /stream/<id>"
+                )
+            asset.qlik_space_id = space_parts[2]
+            asset.qlik_space_qualified_name = space_qualified_name
+        return asset
+
+    @classmethod
+    def create(cls, **kwargs) -> "QlikChart":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "QlikChart":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -693,6 +753,7 @@ def _qlik_chart_to_nested(qlik_chart: QlikChart) -> QlikChartNested:
         is_incomplete=qlik_chart.is_incomplete,
         provenance_type=qlik_chart.provenance_type,
         home_id=qlik_chart.home_id,
+        delete_handler=qlik_chart.delete_handler,
         depth=qlik_chart.depth,
         immediate_upstream=qlik_chart.immediate_upstream,
         immediate_downstream=qlik_chart.immediate_downstream,
@@ -739,6 +800,7 @@ def _qlik_chart_from_nested(nested: QlikChartNested) -> QlikChart:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

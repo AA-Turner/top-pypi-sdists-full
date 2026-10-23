@@ -499,3 +499,45 @@ def test_session_ref_carries_the_runs_own_stats():
 def test_session_ref_tolerates_a_statless_session():
     built = D.session_ref(session("s"))
     assert built.pages_fetched is None and built.pages_failed is None
+
+
+def test_a_counting_method_change_is_not_a_page_change():
+    """Word counts from different text-fingerprint versions are never compared
+    (2026-10-22: script/style/template text left the count); said once, in counts."""
+    before = state("a", words=480)
+    before.text_version = 1
+    after = state("a", words=120)
+    after.text_version = 2
+    result = run_diff(pages(before), pages(after))
+    assert result.counts.pages_changed == 0
+    assert result.counts.pages_unchanged == 1
+    assert result.counts.word_count_method_changed == 1
+    # Same version: a different word count is still a change.
+    same = state("a", words=120)
+    same.text_version = 2
+    result = run_diff(pages(after), pages(state("a", words=90) if False else same))
+    assert result.counts.pages_changed == 0
+    changed = state("a", words=90)
+    changed.text_version = 2
+    result = run_diff(pages(after), pages(changed))
+    assert result.counts.pages_changed == 1 and result.changed[0].changed_fields == ["word_count"]
+
+
+def test_a_page_that_became_empty_is_a_change_not_a_method_change():
+    before = state("a", words=480)
+    before.text_version = 2
+    after = state("a", words=0)
+    after.text_version = None  # no fingerprint over no text
+    result = run_diff(pages(before), pages(after))
+    assert result.counts.word_count_method_changed == 0
+    assert result.counts.pages_changed == 1 and "word_count" in result.changed[0].changed_fields
+
+
+def test_a_legacy_snapshot_is_a_method_change_not_an_emptying():
+    """No fingerprint version but text = counted before versioning (legacy)."""
+    before = state("a", words=480)
+    before.text_version = None  # legacy: has text, no version
+    after = state("a", words=120)
+    after.text_version = 2
+    result = run_diff(pages(before), pages(after))
+    assert result.counts.word_count_method_changed == 1 and result.counts.pages_changed == 0

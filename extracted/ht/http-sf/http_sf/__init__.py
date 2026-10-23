@@ -25,9 +25,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 from typing import Callable, Dict, List, Optional, Tuple
+
+from typing_extensions import Buffer
 
 from http_sf.dictionary import parse_dictionary, ser_dictionary
 from http_sf.errors import StructuredFieldError
@@ -65,15 +67,28 @@ __all__ = [
 
 
 def parse(
-    value: bytes,
+    value: Buffer,
     name: Optional[str] = None,
     tltype: Optional[str] = None,
     on_duplicate_key: Optional[OnDuplicateKeyType] = None,
 ) -> StructuredType:
+    data: bytes
+    if isinstance(value, bytes):
+        data = value
+    else:
+        try:
+            data = bytes(memoryview(value))
+        except TypeError:
+            message = (
+                f"parse() requires a bytes-like object, not {type(value).__name__}"
+            )
+            if isinstance(value, str):
+                message += "; use .encode() to convert a str first"
+            raise TypeError(message) from None
     structure: StructuredType
     if name is not None:
         tltype = retrofit.get(name.lower(), tltype)
-    state = ParserState(value)
+    state = ParserState(data)
     discard_ows(state)
     try:
         if tltype in ["dict", "dictionary"]:
@@ -85,12 +100,8 @@ def parse(
         else:
             raise KeyError("unrecognised top-level type")
         discard_ows(state)
-        if state.has_data():
-            raise StructuredFieldError(
-                "Trailing characters after value (missing comma?)",
-                position=state.cursor,
-                offending_char=state.data[state.cursor],
-            )
+        if state.cursor < len(data):
+            state.fail("Trailing characters after value (missing comma?)")
         return structure
     except StructuredFieldError as why:
         if why.position is None:

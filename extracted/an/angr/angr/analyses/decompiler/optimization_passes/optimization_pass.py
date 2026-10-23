@@ -148,6 +148,7 @@ class OptimizationPass(BaseOptimizationPass):
         force_loop_single_exit: bool = True,
         refine_loops_with_single_successor: bool = False,
         expose_loop_head_backedges: bool = False,
+        force_single_loop_entry: bool = False,
         fold_expressions: bool = True,
         avoid_vvar_ids: set[int] | None = None,
         arg_vvars: dict[int, tuple[ailment.Expr.VirtualVariable, SimVariable]] | None = None,
@@ -159,7 +160,7 @@ class OptimizationPass(BaseOptimizationPass):
         super().__init__(func, manager)
         # self._blocks is just a cache
         self._blocks_by_addr: dict[int, set[ailment.Block]] = blocks_by_addr or {}
-        self._blocks_by_addr_and_idx: dict[tuple[int, int | None], ailment.Block] = blocks_by_addr_and_idx or {}
+        self._blocks_by_addr_and_idx: dict[tuple[int, int], ailment.Block] = blocks_by_addr_and_idx or {}
         self._graph = graph
         self._dvars_kb = kb
         self._ri = region_identifier
@@ -168,12 +169,11 @@ class OptimizationPass(BaseOptimizationPass):
         self._new_block_addrs = set()
         self._arg_vvars = arg_vvars
         self.vvar_id_start = vvar_id_start
-        self.entry_node_addr: tuple[int, int | None] = (
-            entry_node_addr if entry_node_addr is not None else (func.addr, None)
-        )
+        self.entry_node_addr: tuple[int, int] = entry_node_addr if entry_node_addr is not None else (func.addr, 0)
         self._force_loop_single_exit = force_loop_single_exit
         self._refine_loops_with_single_successor = refine_loops_with_single_successor
         self._expose_loop_head_backedges = expose_loop_head_backedges
+        self._force_single_loop_entry = force_single_loop_entry
         self._avoid_vvar_ids = avoid_vvar_ids or set()
         self._fold_expressions = fold_expressions
         self._peephole_optimizations = peephole_optimizations
@@ -207,7 +207,7 @@ class OptimizationPass(BaseOptimizationPass):
         return self._blocks_by_addr
 
     @property
-    def blocks_by_addr_and_idx(self) -> dict[tuple[int, int | None], ailment.Block]:
+    def blocks_by_addr_and_idx(self) -> dict[tuple[int, int], ailment.Block]:
         return self._blocks_by_addr_and_idx
 
     #
@@ -263,7 +263,7 @@ class OptimizationPass(BaseOptimizationPass):
         if not self._blocks_by_addr:
             return None
         idx_specified = "idx" in kwargs
-        idx = kwargs.get("idx")
+        idx = kwargs.get("idx", 0)
         if not idx_specified:
             blocks = self._blocks_by_addr.get(addr, None)
         else:
@@ -343,7 +343,7 @@ class OptimizationPass(BaseOptimizationPass):
         self,
         ail_graph: networkx.DiGraph,
         cache: dict | None = None,
-        only_blocks: set[tuple[int, int | None]] | None = None,
+        only_blocks: set[tuple[int, int]] | None = None,
     ):
         """
         Simplify all blocks in self._blocks.
@@ -357,7 +357,7 @@ class OptimizationPass(BaseOptimizationPass):
         :return:                        None
         """
 
-        blocks_by_addr_and_idx: dict[tuple[int, int | None], ailment.Block] = {}
+        blocks_by_addr_and_idx: dict[tuple[int, int], ailment.Block] = {}
 
         for ail_block in ail_graph.nodes():
             if only_blocks is not None and (ail_block.addr, ail_block.idx) not in only_blocks:
@@ -433,7 +433,7 @@ class OptimizationPass(BaseOptimizationPass):
         # On the first iteration every block is simplified. Afterwards we only re-simplify the blocks that the previous
         # AILSimplifier run actually modified: block-level simplification is idempotent, so unchanged blocks cannot
         # simplify any further.
-        dirty_blocks: set[tuple[int, int | None]] | None = None
+        dirty_blocks: set[tuple[int, int]] | None = None
         for _ in range(MAX_SIMP_ITERATION):
             self._simplify_blocks(graph, only_blocks=dirty_blocks)
             simp = self.project.analyses.AILSimplifier(
@@ -464,6 +464,7 @@ class OptimizationPass(BaseOptimizationPass):
             force_loop_single_exit=self._force_loop_single_exit,
             refine_loops_with_single_successor=self._refine_loops_with_single_successor,
             expose_loop_head_backedges=self._expose_loop_head_backedges,
+            force_single_loop_entry=self._force_single_loop_entry,
             entry_node_addr=self.entry_node_addr,
         )
 
@@ -514,7 +515,7 @@ class StructuringOptimizationPass(OptimizationPass):
         simplify_ail: bool = True,
         require_gotos: bool = True,
         readd_labels: bool = False,
-        edges_to_remove: list[tuple[tuple[int, int | None], tuple[int, int | None]]] | None = None,
+        edges_to_remove: list[tuple[tuple[int, int], tuple[int, int]]] | None = None,
         **kwargs,
     ):
         super().__init__(func, manager, **kwargs)
@@ -702,6 +703,7 @@ class StructuringOptimizationPass(OptimizationPass):
             cond_proc=self._ri.cond_proc,
             force_loop_single_exit=False,
             expose_loop_head_backedges=True,
+            force_single_loop_entry=True,
             entry_node_addr=self.entry_node_addr,
         )
         if ri is None:

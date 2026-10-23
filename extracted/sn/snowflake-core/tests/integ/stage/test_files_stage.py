@@ -13,7 +13,6 @@ from tests.utils import random_string
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.usefixtures("skip_for_snowflake_account")
 def test_files(stages):
@@ -49,7 +48,6 @@ def test_files(stages):
         s.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.usefixtures("skip_for_snowflake_account")
 def test_files_legacy(stages):

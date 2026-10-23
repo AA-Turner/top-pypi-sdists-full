@@ -86,6 +86,10 @@ from skylos.api._upload_contract import (
 )
 from skylos.api._upload_paths import upload_location_uri
 from skylos.api._upload_preflight import apply_upload_contract, strip_secret_snippets
+from skylos.reporting.metadata_paths import (
+    relativize_definitions,
+    relativize_upload_finding,
+)
 from skylos.api._upload_transport import (
     SAVED_HINT as _SAVED_HINT,
     RetryPolicy,
@@ -841,6 +845,13 @@ def _parse_blame_line_number(raw: str) -> int | None:
         return None
 
 
+def _upload_scan_root(base_dir, project_root):
+    """The scanned project folder that nested evidence paths are relative to."""
+    if project_root in (None, "", "."):
+        return base_dir
+    return os.path.join(base_dir, project_root)
+
+
 def _prepare_report_upload(
     result_json,
     *,
@@ -894,6 +905,9 @@ def _prepare_report_upload(
     _annotate_findings_with_blame(all_findings, git_root)
     # Managed GitLab uploads keep their existing, stricter path handling.
     base_dir = git_root or os.getcwd()
+    scan_root = _upload_scan_root(base_dir, project_root)
+    for finding in all_findings:
+        relativize_upload_finding(finding, scan_root)
     preflight = (
         None
         if gitlab_managed
@@ -927,7 +941,7 @@ def _prepare_report_upload(
     else:
         provenance_data = _detect_report_provenance_data(git_root)
 
-    definitions = result_json.get("definitions")
+    definitions = relativize_definitions(result_json.get("definitions"), scan_root)
     grade_data = result_json.get("grade") if isinstance(result_json, dict) else None
     assessment_data = result_json.get("assessment") if isinstance(result_json, dict) else None
     workspace_data = _extract_workspace_upload_metadata(result_json)
@@ -979,6 +993,15 @@ def _prepare_report_upload(
     )
     strip_secret_snippets(compatibility_payload)
     scan_summary = _build_report_scan_summary(all_findings, core_payload, definitions)
+    if result_json.get("listing_policy_version") == 1:
+        visibility = result_json.get("advice_visibility")
+        properties = core_payload["runs"][0].setdefault("properties", {})
+        properties["listing_policy_version"] = 1
+        if isinstance(visibility, dict):
+            properties["advice_visibility"] = json.loads(json.dumps(visibility))
+        properties.setdefault("summary", {}).update(scan_summary)
+        legacy_payload["summary"] = dict(scan_summary)
+        compatibility_payload["summary"] = dict(scan_summary)
     analysis_summary = result_json.get("analysis_summary")
     if isinstance(analysis_summary, dict):
         # Preserve completion and scope alongside the findings in every

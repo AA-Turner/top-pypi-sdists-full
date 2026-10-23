@@ -177,6 +177,9 @@ class PacketType(IntEnum):
     AGENT_NODE = 52
     """Agent job packet"""
 
+    KRONOS_NODE = 53
+    """Kronos job packet"""
+
 
 class Packet(System.Object):
     """Base class for packet messaging system"""

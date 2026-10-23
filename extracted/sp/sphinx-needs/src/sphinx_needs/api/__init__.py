@@ -5,8 +5,10 @@ from .configuration import (
     add_dynamic_function,
     add_extra_option,
     add_field,
+    add_need_layout,
     add_need_type,
     get_need_types,
+    reads,
 )
 from .need import (
     add_external_need,
@@ -26,6 +28,7 @@ __all__ = (
     "add_extra_option",
     "add_field",
     "add_need",
+    "add_need_layout",
     "add_need_type",
     "del_need",
     "generate_need",
@@ -33,4 +36,5 @@ __all__ = (
     "get_need_types",
     "get_needs_view",
     "ingest_need_record",
+    "reads",
 )

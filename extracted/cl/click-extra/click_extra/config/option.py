@@ -43,11 +43,10 @@ import copy
 import json
 import logging
 import os
-import plistlib
 import shlex
+import stat
 from collections import ChainMap
 from collections.abc import Iterable
-from configparser import ConfigParser, ExtendedInterpolation
 from enum import Enum
 from functools import cached_property, partial
 from gettext import gettext as _
@@ -57,7 +56,6 @@ from threading import Lock
 import click
 from boltons.iterutils import flatten, unique
 from boltons.pathutils import shrinkuser
-from boltons.urlutils import URL
 from click import (
     UNPROCESSED,
     Choice,
@@ -68,10 +66,6 @@ from click import (
 from click._utils import UNSET
 from click.core import ParameterSource
 from click.parser import _split_opt
-from deepmerge import always_merger
-from extra_platforms import is_windows
-from extra_platforms._utils import _remove_blanks
-from wcmatch import fnmatch, glob
 
 from .. import context
 from ..logging import LogLevel, requested_level
@@ -103,6 +97,7 @@ from .schema import (
     _merge_into_template,
     _normalize_conf,
     _opaque_paths,
+    _rooted_path,
     _scope_app_sections,
     _select_app_section,
     _strip_opaque_subtrees,
@@ -115,6 +110,8 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
     from typing import Any, Literal
+
+    from boltons.urlutils import URL
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +199,15 @@ fall between them.
 _JSON_ENCODED_TYPES = frozenset({list, tuple, set, frozenset, dict})
 """Parameter types a typeless format carries as JSON-serialized strings."""
 
+_PATH_READ_FORMATS = (ConfigFormat.SQLITE, ConfigFormat.PLIST)
+"""Formats a local file is parsed from by its path, not from its text.
+
+A SQLite database is binary, and so is the binary variant of a plist: see
+{meth}`ConfigOption.load_sqlite_config` and {meth}`ConfigOption.load_plist_config`.
+{meth}`ConfigOption.search_and_read_file` returns such a file with an empty
+placeholder as its content.
+"""
+
 
 class Sentinel(Enum):
     """Enum used to define sentinel values.
@@ -243,6 +249,21 @@ def _join_format_labels(formats: Iterable[ConfigFormat]) -> str:
     return f"{', '.join(labels[:-1])} or {labels[-1]}"
 
 
+class _EmptyConfigError(ValueError):
+    """A file the user names parses, but holds no configuration.
+
+    Like a TOML file of comments only, or an argfile naming no option. The message
+    names the formats that parse it, which says how the file was read: a file of
+    `key = value` lines named `*.conf` is read as an argfile, not as INI.
+    """
+
+    def __init__(self, location: Path | URL, formats: Iterable[ConfigFormat]) -> None:
+        super().__init__(
+            f"{location} parses as {_join_format_labels(formats)} "
+            "but holds no configuration."
+        )
+
+
 def _coerce_scalar(target_type: type | None, raw_value: str, subject: str) -> Any:
     """Convert text read from a typeless format to a parameter's Python type.
 
@@ -259,6 +280,9 @@ def _coerce_scalar(target_type: type | None, raw_value: str, subject: str) -> An
     :raises ValueError: when `target_type` has no conversion, or `raw_value`
         does not read as one.
     """
+    # Deferred import: keeps configparser off the startup path of every CLI.
+    from configparser import ConfigParser
+
     try:
         if target_type in (None, str):
             return raw_value
@@ -402,17 +426,11 @@ class ConfigOption(ExtraOption, ParamStructure):
         | Iterable[ConfigFormat]
         | ConfigFormat
         | None = None,
-        file_pattern_flags: int = fnmatch.NEGATE | fnmatch.SPLIT,
+        file_pattern_flags: int | None = None,
         show_file_patterns: bool | None = None,
         roaming: bool = True,
         force_posix: bool = False,
-        search_pattern_flags: int = glob.GLOBSTAR
-        | glob.FOLLOW
-        | glob.DOTGLOB
-        | glob.BRACE
-        | glob.SPLIT
-        | glob.GLOBTILDE
-        | glob.NODIR,
+        search_pattern_flags: int | None = None,
         search_parents: bool = False,
         stop_at: Path | str | Literal[Sentinel.VCS] | None = Sentinel.VCS,
         cascade: bool = False,
@@ -515,22 +533,9 @@ class ConfigOption(ExtraOption, ParamStructure):
         if not self.file_format_patterns:
             raise ValueError("No configuration format is enabled.")
 
-        # Validate file pattern flags.
-        if not file_pattern_flags & glob.SPLIT:
-            logger.warning("Forcing SPLIT flag for file patterns.")
-            file_pattern_flags |= glob.SPLIT
-
-        self.file_pattern_flags = file_pattern_flags
-        """Flags provided to all calls of `wcmatch.fnmatch`.
-
-        Applies to the matching of file names against supported format patterns
-        specified in `file_format_patterns`.
-
-        ```{important}
-        The `SPLIT` flag is always forced, as our multi-pattern design relies on
-        it.
-        ```
-        """
+        # Validated and defaulted on first use by the `file_pattern_flags`
+        # property, which is what keeps wcmatch out of every CLI's startup.
+        self._file_pattern_flags = file_pattern_flags
 
         self.show_file_patterns = show_file_patterns
         """Whether the help screen prints the file patterns of the default.
@@ -557,28 +562,9 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         kwargs.setdefault("default", self.default_pattern)
 
-        # Force BRACE to ensure multi-format default patterns expand correctly.
-        if not search_pattern_flags & glob.BRACE:
-            logger.warning("Forcing BRACE flag for search patterns.")
-            search_pattern_flags |= glob.BRACE
-
-        # Force NODIR to optimize search for files only.
-        if not search_pattern_flags & glob.NODIR:
-            logger.warning("Forcing NODIR flag for search patterns.")
-            search_pattern_flags |= glob.NODIR
-
-        self.search_pattern_flags = search_pattern_flags
-        """Flags provided to all calls of `wcmatch.glob`.
-
-        Applies to both the default pattern and any user-provided pattern.
-
-        ```{important}
-        The `BRACE` flag is always forced, so that multi-format default
-        patterns using ``{pat1,pat2,...}`` syntax expand correctly.
-
-        The `NODIR` flag is always forced, to optimize the search for files only.
-        ```
-        """
+        # Validated and defaulted on first use by the `search_pattern_flags`
+        # property, for the same reason as the file pattern flags above.
+        self._search_pattern_flags = search_pattern_flags
 
         self.search_parents = search_parents
         """Indicates whether to walk back the tree of parent folders when searching for
@@ -764,11 +750,166 @@ class ConfigOption(ExtraOption, ParamStructure):
             **kwargs,
         )
 
-        self._check_pattern_sanity()
+        # Run by the first `load_conf` call rather than here: its checks need
+        # wcmatch, which stays off the startup path of every CLI.
+        self._pattern_sanity_checked = False
 
         # The group this option lands on is not built yet, and may be of a class
         # click-extra does not own.
         _patch_group_parse_args()
+
+    def apply_command_settings(
+        self,
+        *,
+        config_schema: type | Callable[[dict[str, Any]], Any] | None = None,
+        config_strict: bool = False,
+        schema_strict: bool = False,
+        fallback_sections: Sequence[str] = (),
+        config_validators: Sequence[ConfigValidator] = (),
+        included_params: Iterable[str] | None = None,
+        excluded_params: Iterable[str] | None = None,
+    ) -> None:
+        """Take over the configuration settings a command was built with.
+
+        {class}`~click_extra.commands.Command` accepts the settings of its default
+        `--config` option as keyword arguments of its own, so a CLI tunes that
+        option without replacing the whole default parameter list, and hands them
+        over here once its parameters are known. Each argument defaults to the
+        value meaning "leave the option as it is".
+
+        `excluded_params` is additive, where the option's own argument replaces
+        the default blocklist: the forwarded IDs join it, through
+        {attr}`extra_excluded_params` while the blocklist is still the dynamic
+        default, and straight into the frozen value otherwise. The
+        `config_validators` join click-extra's built-in ones the same way, as they
+        do when passed to the option itself.
+
+        :raises ValueError: when `excluded_params` is forwarded to an option
+            carrying its own `included_params`, the two filters being mutually
+            exclusive.
+        """
+        if included_params is not None:
+            self.included_params = frozenset(included_params)
+            # Schema-only section: see the same inference in `__init__`.
+            self.schema_warn_unknown = not self.included_params
+        if excluded_params is not None:
+            if self.included_params is not None:
+                msg = (
+                    "excluded_params conflicts with the config option's own "
+                    "included_params."
+                )
+                raise ValueError(msg)
+            if "excluded_params" in self.__dict__:
+                # The option carries an explicit blocklist: extend the frozen
+                # instance value directly.
+                self.excluded_params = self.excluded_params | frozenset(excluded_params)
+            else:
+                # Stash the additions for the dynamic default property to merge
+                # at resolution time, when the runtime context is available.
+                self.extra_excluded_params = frozenset(excluded_params)
+        if config_strict:
+            self.strict = config_strict
+        if schema_strict:
+            self.schema_strict = schema_strict
+        if config_schema is not None:
+            self.config_schema = config_schema
+            self._config_schema_callable = make_schema_callable(
+                config_schema,
+                strict=self.schema_strict,
+                warn_unknown=self.schema_warn_unknown,
+            )
+        if fallback_sections:
+            self.fallback_sections = tuple(fallback_sections)
+        if config_validators:
+            self.config_validators = _builtin_config_validators() + tuple(
+                config_validators
+            )
+        # Recompute the opaque-path union whenever the schema or validators have
+        # been forwarded, so the strict-check skip set stays in sync with them.
+        if config_schema is not None or config_validators:
+            self._opaque_paths = _opaque_paths(
+                self.config_schema, self.config_validators
+            )
+
+    @cached_property
+    def file_pattern_flags(self) -> int:
+        """Flags provided to all calls of `wcmatch.fnmatch`.
+
+        Applies to the matching of file names against supported format patterns
+        specified in `file_format_patterns`. `None` at construction picks
+        `NEGATE | SPLIT`.
+
+        ```{important}
+        The `SPLIT` flag is always forced, as our multi-pattern design relies on
+        it.
+        ```
+
+        Resolved on first use rather than in `__init__`, so building the option
+        imports nothing from wcmatch.
+        """
+        # Deferred import: keeps wcmatch off the startup path of every CLI.
+        from wcmatch import fnmatch
+
+        flags = self._file_pattern_flags
+        if flags is None:
+            return fnmatch.NEGATE | fnmatch.SPLIT
+        if not flags & fnmatch.SPLIT:
+            logger.warning("Forcing SPLIT flag for file patterns.")
+            flags |= fnmatch.SPLIT
+        return flags
+
+    @cached_property
+    def search_pattern_flags(self) -> int:
+        """Flags provided to all calls of `wcmatch.glob`.
+
+        Applies to both the default pattern and any user-provided pattern. `None`
+        at construction picks `GLOBSTAR | FOLLOW | DOTGLOB | BRACE | SPLIT |
+        GLOBTILDE | NODIR`.
+
+        ```{important}
+        The `BRACE` flag is always forced, so that multi-format default
+        patterns using ``{pat1,pat2,...}`` syntax expand correctly.
+
+        The `NODIR` flag is always forced, to optimize the search for files only.
+        ```
+
+        Resolved on first use rather than in `__init__`, so building the option
+        imports nothing from wcmatch.
+        """
+        # Deferred import: keeps wcmatch off the startup path of every CLI.
+        from wcmatch import glob
+
+        flags = self._search_pattern_flags
+        if flags is None:
+            return (
+                glob.GLOBSTAR
+                | glob.FOLLOW
+                | glob.DOTGLOB
+                | glob.BRACE
+                | glob.SPLIT
+                | glob.GLOBTILDE
+                | glob.NODIR
+            )
+        if not flags & glob.BRACE:
+            logger.warning("Forcing BRACE flag for search patterns.")
+            flags |= glob.BRACE
+        if not flags & glob.NODIR:
+            logger.warning("Forcing NODIR flag for search patterns.")
+            flags |= glob.NODIR
+        return flags
+
+    def _tilde_in_search_flags(self) -> bool:
+        """Whether the search flags carry `GLOBTILDE`.
+
+        The default set does, which the help screen can know without resolving
+        the flags: that keeps wcmatch off the `--help` path of every CLI.
+        """
+        if self._search_pattern_flags is None:
+            return True
+        # Deferred import: keeps wcmatch off the startup path of every CLI.
+        from wcmatch import glob
+
+        return bool(self.search_pattern_flags & glob.GLOBTILDE)
 
     def _check_pattern_sanity(self) -> None:
         """Emit DEBUG-level logs for common `ConfigOption` misconfigurations.
@@ -803,6 +944,9 @@ class ConfigOption(ExtraOption, ParamStructure):
                             f"extension {ext!r} is canonically associated with "
                             f"{canonical_names}."
                         )
+
+        # Deferred import: keeps wcmatch off the startup path of every CLI.
+        from wcmatch import fnmatch, glob
 
         # --- Checks 1, 2, 4 require an explicit default ---
         if not isinstance(self.default, str):
@@ -966,7 +1110,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         default = self.get_default(ctx)
         if default is NO_CONFIG:
             return "disabled"
-        if self.search_pattern_flags & glob.GLOBTILDE:
+        if self._tilde_in_search_flags():
             # When the default already starts with `~` (user-supplied tilde
             # pattern), use it as-is. Passing through `Path()` would
             # normalize forward slashes to backslashes on Windows.
@@ -1082,6 +1226,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         Stops when reaching the root folder, the `stop_at` boundary, or an
         inaccessible directory.
         """
+        # Deferred import: keeps wcmatch off the startup path of every CLI.
+        from wcmatch import glob
 
         # Normalize path separators for magic detection: on Windows, backslashes
         # in paths are mistaken for glob escape characters by wcmatch.
@@ -1144,8 +1290,9 @@ class ConfigOption(ExtraOption, ParamStructure):
         one matching the pattern. `location` is normalized and `content` raw.
         `media_type` is the bare `type/subtype` the server advertised in its
         `Content-Type` header, and is `None` for a local file, whose format is
-        derived from its name. Only files are returned, directories are silently
-        skipped.
+        derived from its name. Only regular files are returned, directories are
+        silently skipped. The exception is a `pattern` naming a character device
+        or a named pipe, like `/dev/null`: it is read from that path.
 
         This method returns the raw content of all matching patterns, without trying to
         parse them. If the content is empty, it is still returned as-is.
@@ -1156,6 +1303,12 @@ class ConfigOption(ExtraOption, ParamStructure):
         Raises `FileNotFoundError` if no file was found after searching all locations.
         """
         files_found = 0
+
+        # Deferred imports: keep boltons.urlutils, extra_platforms and wcmatch off
+        # the startup path of every CLI.
+        from boltons.urlutils import URL
+        from extra_platforms import is_windows
+        from wcmatch import glob
 
         # Check if the pattern is an URL.
         location = URL(pattern)
@@ -1204,6 +1357,20 @@ class ConfigOption(ExtraOption, ParamStructure):
                 pattern = str(win_path.as_posix())
                 logger.debug(f"Windows pattern converted from {win_path} to {pattern}")
 
+            # A path naming a character device or a named pipe, like the null
+            # device, is read as given. The glob below keeps to regular files, so a
+            # pattern never blocks on a pipe it happens to match, and could not find
+            # the `nul` device of Windows anyway, which no directory lists.
+            try:
+                mode = os.stat(pattern).st_mode
+            except OSError:
+                mode = 0
+            if stat.S_ISCHR(mode) or stat.S_ISFIFO(mode):
+                stream = Path(pattern)
+                logger.debug(f"Read {stream} as a stream.")
+                yield stream, stream.read_text(encoding="utf-8"), None
+                return
+
             for root_dir, file_pattern in self.parent_patterns(pattern):
                 # Sort matches within each directory: iglob yields in filesystem
                 # order, so without this the winner among sibling files (and
@@ -1222,12 +1389,7 @@ class ConfigOption(ExtraOption, ParamStructure):
                         logger.debug(f"Skipping non-file {file_path}")
                         continue
                     files_found += 1
-                    if format_from_path(
-                        file_path, (ConfigFormat.SQLITE, ConfigFormat.PLIST)
-                    ):
-                        # SQLite databases and binary plists are read from
-                        # their path, not from a text payload: see
-                        # load_sqlite_config() and load_plist_config().
+                    if format_from_path(file_path, _PATH_READ_FORMATS):
                         yield file_path, "", None
                     else:
                         yield file_path, file_path.read_text(encoding="utf-8"), None
@@ -1255,7 +1417,9 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         ```{attention}
         Formats whose parsing raises an exception or does not return a `dict`
-        are considered a failure and are skipped.
+        are considered a failure and are skipped. A format parsing the content
+        to `None`, as YAML does for a document of comments only, yields an empty
+        `dict` instead.
 
         This follows the *parse, don't validate* principle.
         ```
@@ -1287,7 +1451,9 @@ class ConfigOption(ExtraOption, ParamStructure):
                 continue
 
             # A parseable but empty configuration is expected to return an empty dict.
-            if not isinstance(conf, dict) or conf is None:
+            if conf is None:
+                conf = {}
+            elif not isinstance(conf, dict):
                 logger.debug(
                     f"{fmt} parsing failed: expecting a dict, got {conf!r} instead."
                 )
@@ -1357,6 +1523,29 @@ class ConfigOption(ExtraOption, ParamStructure):
         """
         return next(iter(self._search_pyproject_cwd_all()), (None, None))
 
+    def _parse_matches(
+        self,
+        pattern: str,
+    ) -> Iterable[tuple[Path | URL, dict[str, Any] | None, tuple[ConfigFormat, ...]]]:
+        """Parse every file matching `pattern`, in discovery order.
+
+        Yields a `(location, conf, empty_formats)` triple per file, as
+        {meth}`_parse_one_conf` returns them. A file found again, as matched by its
+        resolved location, is skipped.
+
+        Raises `FileNotFoundError` if no file at all matched the pattern.
+        """
+        seen: set[str] = set()
+
+        for location, content, media_type in self.search_and_read_file(pattern):
+            if str(location) in seen:
+                logger.debug(f"Skipping duplicate {location}.")
+                continue
+            seen.add(str(location))
+
+            conf, empty_formats = self._parse_one_conf(location, content, media_type)
+            yield location, conf, empty_formats
+
     def read_and_parse_all_conf(
         self,
         pattern: str,
@@ -1371,17 +1560,9 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         Raises `FileNotFoundError` if no file at all matched the pattern.
         """
-        seen: set[str] = set()
-
-        for location, content, media_type in self.search_and_read_file(pattern):
-            if str(location) in seen:
-                logger.debug(f"Skipping duplicate {location}.")
-                continue
-            seen.add(str(location))
-
-            conf = self._parse_one_conf(location, content, media_type)
-            if conf is None:
-                logger.debug(f"No parseable configuration in {location}.")
+        for location, conf, _empty_formats in self._parse_matches(pattern):
+            if not conf:
+                logger.debug(f"Nothing to load from {location}.")
                 continue
 
             yield location, conf
@@ -1391,7 +1572,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         location: Path | URL,
         content: str,
         media_type: str | None = None,
-    ) -> dict[str, Any] | None:
+    ) -> tuple[dict[str, Any] | None, tuple[ConfigFormat, ...]]:
         """Parse a single file's `content` into a configuration dict.
 
         Candidate formats come from two sources, and are tried in order until
@@ -1407,9 +1588,31 @@ class ConfigOption(ExtraOption, ParamStructure):
         still tried behind it. A media type never widens the format set either,
         as it is resolved against `file_format_patterns` alone.
 
-        Returns `None` when the file matches no format or no parse attempt
-        produces a non-empty structure.
+        Returns a `(conf, empty_formats)` pair. `conf` is the first non-empty
+        structure a format produces, or an empty dict for a blank source, one
+        holding nothing but whitespace. A blank source is caught before any format
+        is tried: there is nothing to parse, so a source no format matches, like
+        `/dev/null`, is blank too. `conf` is `None` when the file matches no
+        format, or no parse attempt produces a non-empty structure:
+        `empty_formats` then names the formats that parse it to an empty one.
         """
+        # Deferred imports: keep boltons.urlutils and wcmatch off the startup path
+        # of every CLI.
+        from boltons.urlutils import URL
+        from wcmatch import fnmatch
+
+        # A file parsed from its path carries an empty placeholder as content,
+        # which says nothing about the file itself: its size decides.
+        if isinstance(location, Path) and format_from_path(
+            location, _PATH_READ_FORMATS
+        ):
+            blank = location.stat().st_size == 0
+        else:
+            blank = not content.strip()
+        if blank:
+            logger.debug(f"{location} is blank.")
+            return {}, ()
+
         if isinstance(location, URL):
             filename = location.path_parts[-1]
         else:
@@ -1446,17 +1649,18 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         if not matching_formats:
             logger.debug(f"{location} does not match {self.file_pattern}.")
-            return None
+            return None, ()
 
         logger.debug(f"Parsing {location} with {','.join(map(str, matching_formats))}")
-        for conf in self.parse_conf(
-            content, formats=matching_formats, location=location
-        ):
-            if conf:
-                return conf
-            logger.debug("Empty configuration, try next format.")
+        empty_formats = []
+        for fmt in matching_formats:
+            for conf in self.parse_conf(content, formats=(fmt,), location=location):
+                if conf:
+                    return conf, ()
+                logger.debug("Empty configuration, try next format.")
+                empty_formats.append(fmt)
 
-        return None
+        return None, tuple(empty_formats)
 
     def read_and_parse_conf(
         self,
@@ -1470,7 +1674,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         Only return the first match that:
 
         - exists,
-        - is a file,
+        - is a file, or a character device or a named pipe that `pattern` names,
         - is not empty,
         - match file format patterns,
         - can be parsed successfully, and
@@ -1483,6 +1687,41 @@ class ConfigOption(ExtraOption, ParamStructure):
         """
         return next(iter(self.read_and_parse_all_conf(pattern)), (None, None))
 
+    def _read_explicit_conf(
+        self,
+        pattern: str,
+    ) -> tuple[Path | URL, dict[str, Any]] | tuple[None, None]:
+        """Read the configuration at a location the user names on purpose.
+
+        Works like {meth}`read_and_parse_conf`, for `--config` and
+        `--validate-config`, with two differences when no match holds a
+        configuration:
+
+        - The first blank match loads an empty configuration. This is how
+          `--config /dev/null` runs the CLI on its defaults.
+        - Failing that, the first match that a format parses to nothing raises
+          {class}`_EmptyConfigError`, which names that format.
+
+        Raises `FileNotFoundError` if no file at all matched the pattern.
+
+        Returns `(None, None)` if files were found but no format could parse them.
+        """
+        first_blank: tuple[Path | URL, dict[str, Any]] | None = None
+        first_empty: tuple[Path | URL, tuple[ConfigFormat, ...]] | None = None
+        for location, conf, empty_formats in self._parse_matches(pattern):
+            if conf:
+                return location, conf
+            if conf is not None:
+                first_blank = first_blank or (location, conf)
+            elif empty_formats:
+                first_empty = first_empty or (location, empty_formats)
+
+        if first_blank:
+            return first_blank
+        if first_empty:
+            raise _EmptyConfigError(*first_empty)
+        return None, None
+
     def load_ini_config(self, content: str) -> dict[str, Any]:
         """Utility method to parse INI configuration file.
 
@@ -1493,6 +1732,12 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         Returns a ready-to-use data structure.
         """
+        # Deferred imports: keep configparser and deepmerge off the startup path of
+        # every CLI.
+        from configparser import ConfigParser, ExtendedInterpolation
+
+        from deepmerge import always_merger
+
         ini_config = ConfigParser(interpolation=ExtendedInterpolation())
         ini_config.read_string(content)
 
@@ -1698,6 +1943,9 @@ class ConfigOption(ExtraOption, ParamStructure):
         finally:
             connection.close()
 
+        # Deferred import: keeps deepmerge off the startup path of every CLI.
+        from deepmerge import always_merger
+
         conf: dict[str, Any] = {}
         for key, raw_value in rows:
             conf = always_merger.merge(
@@ -1721,6 +1969,9 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         Returns a ready-to-use data structure.
         """
+        # Deferred import: keeps plistlib off the startup path of every CLI.
+        import plistlib
+
         conf: dict[str, Any] = plistlib.loads(path.read_bytes())
         return conf
 
@@ -1763,9 +2014,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         if not self._opaque_paths:
             return normalized_conf
         app_name = self._app_section_name(ctx)
-        prefixed_paths = (
-            f"{app_name}.{path}" if app_name else path for path in self._opaque_paths
-        )
+        prefixed_paths = (_rooted_path(app_name, path) for path in self._opaque_paths)
         return _strip_opaque_subtrees(normalized_conf, prefixed_paths)
 
     def _resolve_app_section(
@@ -1826,6 +2075,24 @@ class ConfigOption(ExtraOption, ParamStructure):
         overrides = themes_from_config(themes_subtree)
         if overrides:
             context.set(ctx, context.THEME_OVERRIDES, overrides)
+
+    def _publish_report(
+        self,
+        ctx: click.Context,
+        report: ValidationReport,
+        user_conf: dict[str, Any],
+    ) -> None:
+        """Publish on `ctx.meta` what a passing validation of `user_conf` produced.
+
+        The typed instance the schema callable built, under
+        {data}`~click_extra.context.TOOL_CONFIG`, when a schema is configured, and
+        the themes the document defines, under
+        {data}`~click_extra.context.THEME_OVERRIDES`. The pipeline validated the
+        themes table already, so building it here cannot surface a user error.
+        """
+        if self._config_schema_callable is not None:
+            context.set(ctx, context.TOOL_CONFIG, report.schema_instance)
+        self._apply_theme_overrides(ctx, user_conf)
 
     def merge_default_map(self, ctx: click.Context, user_conf: dict) -> None:
         """Save the user configuration into the context's `default_map`.
@@ -1903,6 +2170,9 @@ class ConfigOption(ExtraOption, ParamStructure):
             assert report.merged_conf is not None  # params_template is always set.
             per_file_conf.append(report.merged_conf)
 
+        # Deferred import: keeps deepmerge off the startup path of every CLI.
+        from deepmerge import always_merger
+
         # Deep-merge the raw documents, highest-precedence layer winning, for
         # the schema and the extension validators. Merging starts from the
         # lowest-precedence file so each later merge overwrites it.
@@ -1929,9 +2199,7 @@ class ConfigOption(ExtraOption, ParamStructure):
             self._install_default_map(ctx, merged_conf)
         logger.debug(f"New defaults: {ctx.default_map}")
 
-        if self._config_schema_callable is not None:
-            context.set(ctx, context.TOOL_CONFIG, report.schema_instance)
-        self._apply_theme_overrides(ctx, merged_view)
+        self._publish_report(ctx, report, merged_view)
         return merged_view
 
     def _install_default_map(
@@ -1945,6 +2213,9 @@ class ConfigOption(ExtraOption, ParamStructure):
         layer wins on key lookup, which makes parameter-source precedence explicit
         and future-proofs for multi-file config loading.
         """
+        # Deferred import: keeps extra_platforms off the startup path of every CLI.
+        from extra_platforms._utils import _remove_blanks
+
         # Clean-up the conf by removing all blank values left-over by the template
         # structure.
         clean_conf = _remove_blanks(filtered_conf, remove_str=False)
@@ -1987,6 +2258,10 @@ class ConfigOption(ExtraOption, ParamStructure):
         # completion, and any `make_context(resilient_parsing=True)` path.
         if ctx.resilient_parsing:
             return
+
+        if not self._pattern_sanity_checked:
+            self._pattern_sanity_checked = True
+            self._check_pattern_sanity()
 
         # A bare invocation already loaded this document ahead of the no-args help
         # screen: skip the visit Click's parameter loop makes next.
@@ -2058,7 +2333,12 @@ class ConfigOption(ExtraOption, ParamStructure):
                     if str(layer[0]) not in found
                 )
             elif not layers:
-                result = self.read_and_parse_conf(path_pattern)
+                # A source the user points at with nothing in it, like `/dev/null`,
+                # loads an empty configuration. Autodiscovery skips it.
+                if explicit_conf:
+                    result = self._read_explicit_conf(path_pattern)
+                else:
+                    result = self.read_and_parse_conf(path_pattern)
                 if result[0] is not None:
                     layers.append(result)
         # Exit the CLI if no user-provided config file was found. Else, it
@@ -2072,6 +2352,9 @@ class ConfigOption(ExtraOption, ParamStructure):
                     ctx.exit(2)
                 else:
                     logger.debug(message)
+        except _EmptyConfigError as ex:
+            logger.critical(str(ex))
+            ctx.exit(2)
         else:
             if not layers:
                 formats = _join_format_labels(self.file_format_patterns)
@@ -2112,18 +2395,13 @@ class ConfigOption(ExtraOption, ParamStructure):
                 _exit_on_validation_error(ctx, report)
 
                 # Validation passed. Install the recognized values into default_map,
-                # publish the typed schema instance built by the pipeline, then apply
-                # theme overrides (the [tool.<cli>.themes.<name>] table was already
-                # validated above, so building it here cannot surface user error).
-                # The pipeline already filtered user_conf against the template, so the
-                # merged result is installed directly instead of recomputing it via
-                # merge_default_map.
+                # then publish what the pipeline built. It already filtered
+                # user_conf against the template, so the merged result is installed
+                # directly instead of recomputing it via merge_default_map.
                 assert report.merged_conf is not None  # params_template is always set.
                 self._install_default_map(ctx, report.merged_conf)
                 logger.debug(f"New defaults: {ctx.default_map}")
-                if self._config_schema_callable is not None:
-                    context.set(ctx, context.TOOL_CONFIG, report.schema_instance)
-                self._apply_theme_overrides(ctx, user_conf)
+                self._publish_report(ctx, report, user_conf)
 
         # When a schema is configured but no config file was found, still
         # produce the default instance so get_tool_config() never returns None.
@@ -2278,9 +2556,8 @@ class ValidateConfigOption(ExtraOption):
     ```{note}
     The value is left `UNPROCESSED` so it accepts everything
     {class}`ConfigOption` accepts: a file, a folder, a glob pattern, or an
-    `http://` or `https://` URL. Both options hand their value to the same
-    {meth}`ConfigOption.read_and_parse_conf`, so a configuration a CLI can
-    load is a configuration it can also validate.
+    `http://` or `https://` URL. Both options read their value the same way,
+    so a configuration a CLI can load is a configuration it can also validate.
     ```
     """
 
@@ -2342,9 +2619,12 @@ class ValidateConfigOption(ExtraOption):
 
         # Read and parse the config file.
         try:
-            _conf_path, user_conf = config_option.read_and_parse_conf(value)
+            _conf_path, user_conf = config_option._read_explicit_conf(value)
         except FileNotFoundError:
             info_msg(f"Configuration file not found: {value}")
+            ctx.exit(2)
+        except _EmptyConfigError as ex:
+            info_msg(str(ex))
             ctx.exit(2)
 
         if user_conf is None:
@@ -2606,8 +2886,8 @@ class ExportConfigOption(ExtraOption):
         Walks the sibling {class}`ConfigOption`'s parameter structure, resolves
         each parameter's effective value by replaying
         {data}`~click_extra.context.RAW_ARGS` (falling back to defaults when the
-        command did not capture them), drops the
-        {attr}`~click_extra.parameters.ParamStructure.excluded_params`, and
+        command did not capture them), drops the parameters
+        {meth}`~click_extra.parameters.ParamStructure.is_excluded` rejects, and
         layers the coerced values into the ``{cli-name: {param: value, ...}}``
         shape a configuration file uses. Parameter keys are rendered in their
         kebab-case spelling, the canonical presentation for configuration
@@ -2620,11 +2900,6 @@ class ExportConfigOption(ExtraOption):
         harmless: {meth}`ConfigOption._install_default_map` cleans blank
         values out of the merged result.
         """
-        # Force the included_params -> excluded_params resolution that happens
-        # the first time the parameter tree is built.
-        config_option.params_objects  # noqa: B018
-        excluded = config_option.excluded_params
-
         opts = replay_raw_args(ctx)
         has_raw_args = context.get(ctx, context.RAW_ARGS) is not None
         if not has_raw_args:
@@ -2633,9 +2908,14 @@ class ExportConfigOption(ExtraOption):
                 "inherit from Command; dumping defaults.",
             )
 
+        # Deferred imports: keep deepmerge and extra_platforms off the startup path
+        # of every CLI.
+        from deepmerge import always_merger
+        from extra_platforms._utils import _remove_blanks
+
         tree: dict[str, Any] = {}
         for keys, target in config_option.walk_params():
-            if PARAM_PATH_SEP.join(keys) in excluded:
+            if config_option.is_excluded(PARAM_PATH_SEP.join(keys)):
                 continue
             # A sub-tree the schema marks opaque holds app-owned data, not CLI
             # parameters: the loader hands it to the app's own validator, which
@@ -2670,6 +2950,9 @@ class ExportConfigOption(ExtraOption):
         value: str | None,
     ) -> None:
         """Render the resolved configuration to `<stdout>` and exit."""
+        # Deferred import: keeps extra_platforms off the startup path of every CLI.
+        from extra_platforms._utils import _remove_blanks
+
         # Stay dormant during help rendering and shell completion, like Click's
         # own eager callbacks, so a typed `--export-config FORMAT` does not
         # export and exit mid-completion.

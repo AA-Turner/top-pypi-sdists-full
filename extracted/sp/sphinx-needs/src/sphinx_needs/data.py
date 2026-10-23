@@ -23,6 +23,7 @@ from sphinx_needs.views import NeedsView
 if TYPE_CHECKING:
     from typing import NotRequired
 
+    from docutils.statemachine import StringList
     from sphinx.application import Sphinx
     from sphinx.environment import BuildEnvironment
 
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
 
 LOGGER = getLogger(__name__)
 
-ENV_DATA_VERSION: Final = 11
+ENV_DATA_VERSION: Final = 13
 """Version of the data stored in the environment.
 
 Bumped whenever the shape of that data changes, so that Sphinx re-reads instead of
@@ -76,6 +77,18 @@ skipped by ``check_linked_values`` and a ``links_only`` ``calc_sum``, ``copy`` w
 ``needs``), so the same sources give other values. As for version 10, an unbumped
 rebuild over an existing ``_build`` would leave the old values on the pages whose
 sources did not change.
+
+Version 12 changes what the stored values mean again: a rule with the ``join`` role,
+which 9.0.0 refused as reserved and left empty, now computes, and ``links_from_match``,
+an unknown function in 9.0.0, now links; the configuration does not change, so without
+the bump an upgraded build would keep the empty values on the pages whose sources did
+not change.
+
+Version 13 adds the names of the derived fields to every stored need (a slot of
+:class:`~sphinx_needs.need_item.NeedItem`, which ``need[name] = value`` reads to refuse
+one). An unbumped rebuild over an existing ``_build`` unpickles needs without it, and
+the first write into one ends with an ``AttributeError`` rather than re-reading the
+documents.
 
 See https://www.sphinx-doc.org/en/master/extdev/index.html#extension-metadata
 """
@@ -607,14 +620,17 @@ class NeedsBarType(NeedsBaseDataType):
 
     error_id: str
     title: str | None
-    content: str
+    content: StringList
+    """The directive's content: one row of the chart per line."""
     legend: bool
-    x_axis_title: str
-    xlabels: list[str]
-    xlabels_rotation: str
-    y_axis_title: str
-    ylabels: list[str]
-    ylabels_rotation: str
+    x_axis_title: str | None
+    xlabels: list[str] | None
+    """``:xlabels:`` split on ``,``, None if the option was not given."""
+    xlabels_rotation: str | None
+    y_axis_title: str | None
+    ylabels: list[str] | None
+    """``:ylabels:`` split on ``,``, None if the option was not given."""
+    ylabels_rotation: str | None
     separator: str
     stacked: bool
     show_sum: bool | None
@@ -623,8 +639,9 @@ class NeedsBarType(NeedsBaseDataType):
     transpose: bool
     horizontal: bool
     style: str
-    colors: list[str]
-    text_color: str
+    colors: list[str] | None
+    """``:colors:`` split on ``,``, None if the option was not given."""
+    text_color: str | None
 
 
 class ExtendType(StrEnum):
@@ -669,7 +686,8 @@ class NeedsFilteredBaseType(NeedsBaseDataType):
     types: list[str]
     filter: str | None
     sort_by: str | None
-    filter_code: list[str]
+    filter_code: StringList
+    """The directive's content: filter code, empty if it has none."""
     filter_func: str | None
     filter_warning: str | None
     """If set, the filter is exported with this ID in the needs.json file."""
@@ -701,8 +719,8 @@ class NeedsFilteredDiagramBaseType(NeedsFilteredBaseType):
 class NeedsExtractType(NeedsFilteredBaseType):
     """Data to extract needs from a document."""
 
-    layout: str
-    style: str
+    layout: str | None
+    style: str | None
     show_filters: bool
     filter_arg: str | None
 
@@ -1042,6 +1060,33 @@ class SphinxNeedsData:
     @needs_is_post_processed.setter
     def needs_is_post_processed(self, value: bool) -> None:
         self.env._needs_is_post_processed = value
+
+    @property
+    def need_types_read_with(self) -> list[dict[str, Any]] | None:
+        """The need types the documents of the environment were read with.
+
+        ``None`` for an environment that has not recorded them: a fresh one, or one
+        pickled before they were recorded.
+        """
+        return getattr(self.env, "_needs_types_read_with", None)
+
+    @need_types_read_with.setter
+    def need_types_read_with(self, value: list[dict[str, Any]]) -> None:
+        self.env._needs_types_read_with = value
+
+    @property
+    def builtin_services_read_with(self) -> tuple[str, ...] | None:
+        """The built-in GitHub services configured when the documents of the
+        environment were read.
+
+        ``None`` for an environment that has not recorded them: a fresh one, or one
+        pickled before they were recorded.
+        """
+        return getattr(self.env, "_needs_builtin_services_read_with", None)
+
+    @builtin_services_read_with.setter
+    def builtin_services_read_with(self, value: tuple[str, ...]) -> None:
+        self.env._needs_builtin_services_read_with = value
 
     def get_or_create_services(self) -> ServiceManager:
         """Get information about services.

@@ -69,12 +69,12 @@ mark_fast_copy_syscall_fallback()
 // Set at init; survives toggling fast_copy_active.
 inline bool safe_memcpy_initialized = false;
 
+// Pyroscope patch: true when safe_memcpy could not be initialized.
+inline bool failed_safe_copy = false;
+
 #if defined PL_LINUX
 // Whether the process_vm_readv probe succeeded at constructor time.
 inline bool process_vm_readv_available = false;
-
-// True when neither safe_memcpy nor process_vm_readv could be initialized.
-inline bool failed_safe_copy = false;
 
 inline ssize_t (*safe_copy)(pid_t,
                             const struct iovec*,
@@ -85,14 +85,12 @@ inline ssize_t (*safe_copy)(pid_t,
 #endif // PL_LINUX
 
 /**
- * Initialize the safe copy operation on macOS
- *
- * Tries safe_memcpy first (unless disabled via env var), falls back to
- * mach_vm_read_overwrite.
- * Pyroscope patch: called from pyroscope_stack_configure, not at static init.
+ * Install the SIGSEGV/SIGBUS handlers and switch safe_copy to safe_memcpy.
+ * Pyroscope patch: called from pyroscope_stack_configure, not at static init;
+ * sets failed_safe_copy instead of falling back to a syscall copy.
  */
 void
-init_safe_copy(bool fast_copy_requested);
+init_safe_copy();
 
 // Switch the active copy method at runtime.  Must be called before the
 // sampling thread is started.

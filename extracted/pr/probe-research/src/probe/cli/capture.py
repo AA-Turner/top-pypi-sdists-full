@@ -131,6 +131,15 @@ class TurnOffResult:
     #: MACHINE-WIDE" section.
     preserved_for: list[str] = field(default_factory=list)
 
+    #: The Probe service's answer (`recorders.finish`): did one confirm what it
+    #: records (False: none runs -- nothing hosted -- or one runs and did not
+    #: confirm, which leaves `daemon_stopped` False; None: not asked yet), and
+    #: the sessions whose recorder in it finished, or was still finishing when
+    #: the wait ran out.
+    service_answered: bool | None = None
+    hosted_finished: list[str] = field(default_factory=list)
+    hosted_unfinished: list[str] = field(default_factory=list)
+
     @property
     def verified(self) -> bool:
         """Off means ALL THREE, not just the credentials.
@@ -157,22 +166,29 @@ class TurnOffResult:
         ]
         return not unexplained and self.killswitch_set and self.daemon_stopped
 
+    def _hosted_line(self) -> str:
+        """What the Probe service stopped, as a sentence to append ("" for nothing)."""
+        count = len(self.hosted_finished)
+        if not count:
+            return ""
+        return f" The Probe service stopped recording {count} session{'' if count == 1 else 's'}."
+
     def summary(self) -> str:
         if self.verified:
             if self.preserved_for:
                 who = ", ".join(self.preserved_for)
                 return (
                     f"Session capture is off for {_source_label(self.source)}. "
-                    f"The shared capture credential remains for: {who}."
+                    f"The shared capture credential remains for: {who}." + self._hosted_line()
                 )
             if self.source:
                 # Name the agent: another agent's own credential (Claude Code's
                 # shared token, say) may well still be there, and its capture on.
                 return (
                     f"Session capture is off for {_source_label(self.source)}: "
-                    "none of its credentials resolves on this device."
+                    "none of its credentials resolves on this device." + self._hosted_line()
                 )
-            return "Session capture is off. No credential resolves on this device."
+            return "Session capture is off. No credential resolves on this device." + self._hosted_line()
         blockers: list[str] = [
             source.value
             for source in self.remaining
@@ -515,6 +531,19 @@ def _stop_daemon() -> tuple[bool, list[str]]:
     return (not survivors), warnings
 
 
+def _finish_hosted_recorders(source: str):
+    """Ask the Probe service to finish every recorder it runs for `source`
+    (`recorders.finish`), waiting a few seconds for them. None when no service
+    runs (nothing is hosted); `.error` when one runs and did not confirm. The
+    service logs who asked (`service.log`), the stopper's side of the record
+    `_stop_daemon` journals here."""
+    if not source:
+        return None
+    from probe.cli import service_calls
+
+    return service_calls.finish_recorders(source)
+
+
 def _uninstall_plugin() -> tuple[bool, list[str]]:
     selected = agent_source()
     if selected == "pi":
@@ -596,6 +625,30 @@ def turn_off(mode: OffMode = OffMode.DISABLE) -> TurnOffResult:
     stopped, stop_warnings = _stop_daemon()
     result.daemon_stopped = stopped
     result.warnings.extend(stop_warnings)
+
+    # The recorders the Probe service runs on its own threads have no pid file
+    # to signal: ask it, now that the killswitch is set (their last pass then
+    # ships nothing, as SIGTERM after the killswitch does to `tap watch`).
+    hosted = _finish_hosted_recorders(result.source)
+    result.service_answered = hosted is not None and hosted.error is None
+    if hosted is not None and hosted.error is not None:
+        # The service runs and did not confirm: a recorder it hosts may still
+        # be uploading. Never claimed off on that.
+        result.daemon_stopped = False
+        result.warnings.append(
+            f"could not confirm the Probe service stopped its recordings of this agent: {hosted.error}; "
+            "run this again, or check `probe doctor`"
+        )
+    elif hosted is not None:
+        result.hosted_finished = hosted.finished
+        result.hosted_unfinished = hosted.unfinished
+        if hosted.unfinished:
+            result.daemon_stopped = False
+            result.warnings.append(
+                f"the Probe service is still finishing the recording of {len(hosted.unfinished)} "
+                f"session(s) ({', '.join(hosted.unfinished[:3])}); with the killswitch set it uploads "
+                "nothing more, but check `probe doctor` in a minute"
+            )
 
     if mode is OffMode.UNINSTALL:
         removed, warnings = _uninstall_plugin()

@@ -23,35 +23,6 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
-from .airflow_related import RelatedAirflowTask
-from .anomalo_related import RelatedAnomaloCheck
-from .app_related import RelatedApplication, RelatedApplicationField
-from .asset import (
-    _ASSET_REL_FIELDS,
-    Asset,
-    AssetAttributes,
-    AssetNested,
-    AssetRelationshipAttributes,
-    _extract_asset_attrs,
-    _populate_asset_attrs,
-)
-from .asset_related import RelatedAsset
-from .context_related import RelatedContextRepository
-from .data_contract_related import RelatedDataContract
-from .data_mesh_related import RelatedDataProduct
-from .gcp_dataplex_related import RelatedGCPDataplexAspectType
-from .gtc_related import RelatedAtlasGlossaryTerm
-from .knowledge_related import RelatedKnowledgeFile
-from .model_related import RelatedModelAttribute, RelatedModelEntity
-from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
-from .partial_related import RelatedPartialField, RelatedPartialObject
-from .process_related import RelatedProcess
-from .referenceable_related import RelatedReferenceable
-from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from .sql_related import RelatedColumn
 from pyatlan.errors import ErrorCode
 from pyatlan.model.enums import (
     DataQualityDimension,
@@ -75,11 +46,40 @@ from pyatlan_v9.model.structs import (
 from pyatlan_v9.model.transform import register_asset
 from pyatlan_v9.utils import init_guid, validate_required_fields
 
+from .airflow_related import RelatedAirflowTask
+from .anomalo_related import RelatedAnomaloCheck
+from .app_related import RelatedApplication, RelatedApplicationField
+from .asset import (
+    _ASSET_REL_FIELDS,
+    Asset,
+    AssetAttributes,
+    AssetNested,
+    AssetRelationshipAttributes,
+    _extract_asset_attrs,
+    _populate_asset_attrs,
+)
+from .asset_related import RelatedAsset
+from .context_related import RelatedContextRepository
+from .data_contract_related import RelatedDataContract
+from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import (
     RelatedDataQualityRule,
     RelatedDataQualityRuleTemplate,
     RelatedMetric,
 )
+from .gcp_dataplex_related import RelatedGCPDataplexAspectType
+from .gtc_related import RelatedAtlasGlossaryTerm
+from .knowledge_related import RelatedKnowledgeFile
+from .model_related import RelatedModelAttribute, RelatedModelEntity
+from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
+from .partial_related import RelatedPartialField, RelatedPartialObject
+from .process_related import RelatedProcess
+from .referenceable_related import RelatedReferenceable
+from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
+from .sql_related import RelatedColumn
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -1591,6 +1591,7 @@ def _data_quality_rule_to_nested(
         is_incomplete=data_quality_rule.is_incomplete,
         provenance_type=data_quality_rule.provenance_type,
         home_id=data_quality_rule.home_id,
+        delete_handler=data_quality_rule.delete_handler,
         depth=data_quality_rule.depth,
         immediate_upstream=data_quality_rule.immediate_upstream,
         immediate_downstream=data_quality_rule.immediate_downstream,
@@ -1639,6 +1640,7 @@ def _data_quality_rule_from_nested(nested: DataQualityRuleNested) -> DataQuality
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

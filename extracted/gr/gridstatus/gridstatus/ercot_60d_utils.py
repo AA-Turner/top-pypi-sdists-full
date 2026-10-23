@@ -34,6 +34,8 @@ DAM_PTP_OBLIGATION_OPTION_KEY = "dam_ptp_obligation_option"
 DAM_PTP_OBLIGATION_OPTION_AWARDS_KEY = "dam_ptp_obligation_option_awards"
 DAM_ESR_KEY = "dam_esr"
 DAM_ESR_AS_OFFERS_KEY = "dam_esr_as_offers"
+DAM_AS_ONLY_AWARDS_KEY = "dam_as_only_awards"
+DAM_AS_ONLY_OFFERS_KEY = "dam_as_only_offers"
 
 SCED_LOAD_RESOURCE_KEY = "sced_load_resource"
 SCED_GEN_RESOURCE_KEY = "sced_gen_resource"
@@ -234,6 +236,30 @@ DAM_ESR_COLUMNS = [
 # Same columns as gen/load resource AS offers
 DAM_ESR_AS_OFFERS_COLUMNS = DAM_RESOURCE_AS_OFFERS_COLUMNS[:]
 
+DAM_AS_ONLY_AWARDS_COLUMNS = [
+    "Interval Start",
+    "Interval End",
+    "QSE",
+    "AS Type",
+    "Offer ID",
+    "Quantity1 Award",
+    "Quantity2 Award",
+    "Quantity3 Award",
+    "Quantity4 Award",
+    "Quantity5 Award",
+    "Total Award",
+    "MCPC",
+]
+
+DAM_AS_ONLY_OFFERS_COLUMNS = [
+    "Interval Start",
+    "Interval End",
+    "QSE",
+    "AS Type",
+    "Offer ID",
+    "Offer Curve",
+]
+
 SCED_GEN_RESOURCE_COLUMNS = [
     "SCED Timestamp",
     "QSE",
@@ -424,7 +450,7 @@ def match_gen_load_names(list1, list2):
     result = {}
     for item in list1:
         prefix = item.split("_")[0]
-        if prefix in prefix_dict and prefix_dict[prefix]:
+        if prefix_dict.get(prefix):
             result[item] = prefix_dict[prefix].pop(0)
         else:
             print(f"No match found for {item}")
@@ -511,7 +537,7 @@ def make_storage_resources(data):
                 "Unit Name": "unit_name",
                 "County": "county",
                 "Zone": "zone",
-                "Generation Interconnection Project Code": "generation_interconnection_project_code",  # noqa
+                "Generation Interconnection Project Code": "generation_interconnection_project_code",
                 "In Service Year": "in_service_year",
                 "Installed Capacity Rating": "installed_capacity_rating",
                 "Summer Capacity (MW)": "summer_capacity_mw",
@@ -1084,6 +1110,55 @@ def process_dam_ptp_obligation_option_awards(df):
     return df
 
 
+def process_dam_as_only_awards(df):
+    df = df.rename(
+        columns={
+            "QSE Name": "QSE",
+            "Quantity1_Award": "Quantity1 Award",
+            "Quantity2_Award": "Quantity2 Award",
+            "Quantity3_Award": "Quantity3 Award",
+            "Quantity4_Award": "Quantity4 Award",
+            "Quantity5_Award": "Quantity5 Award",
+            "Total_Award": "Total Award",
+        },
+    )
+
+    for col in DAM_AS_ONLY_AWARDS_COLUMNS:
+        if col not in df.columns:
+            df[col] = np.nan
+
+    df = df[DAM_AS_ONLY_AWARDS_COLUMNS].sort_values(
+        ["Interval Start", "QSE", "AS Type", "Offer ID"],
+    )
+    df = _categorize_strings(df)
+    return df
+
+
+def process_dam_as_only_offers(
+    df,
+    output_format: CurveOutputFormat | str = CurveOutputFormat.LIST,
+):
+    df = df.rename(columns={"QSE Name": "QSE"})
+
+    df["Offer Curve"] = extract_curve(
+        df,
+        "AS Only Offer",
+        mw_suffix=" MW",
+        price_suffix=" Price",
+        output_format=output_format,
+    )
+
+    for col in DAM_AS_ONLY_OFFERS_COLUMNS:
+        if col not in df.columns:
+            df[col] = np.nan
+
+    df = df[DAM_AS_ONLY_OFFERS_COLUMNS].sort_values(
+        ["Interval Start", "QSE", "AS Type", "Offer ID"],
+    )
+    df = _categorize_strings(df)
+    return df
+
+
 def process_sced_gen(
     df,
     output_format: CurveOutputFormat | str = CurveOutputFormat.LIST,
@@ -1404,32 +1479,85 @@ def process_sced_resource_as_offers(
             "pg_array_as_string" returns PG array strings like '{{mw,price},{mw,price}}'
             directly, using ~3x less peak memory.
     """
-    # First create a curve_type column with the logic:
-    # regulation down : values only in _DRS columns and not in other columns
-    # offline: values in _NS and optionally _ECRS columns and not in other columns
-    # online : values in any column except for _DRS
+    # ERCOT renamed the AS-price column suffixes in late March 2026
+    # (_URS->_REGUP, _DRS->_REGDN, _NS->_NSPIN, _RRSPF->_RRSPFR,
+    # _RRSUF->_RRSUFR, _RRSFF->_RRSFFR). Rename them back to the original names
+    # so the curve-type and curve-extraction logic below works unchanged for
+    # both old and new files.
+    new_to_old_suffix = {
+        "_REGUP": "_URS",
+        "_REGDN": "_DRS",
+        "_RRSPFR": "_RRSPF",
+        "_RRSUFR": "_RRSUF",
+        "_RRSFFR": "_RRSFF",
+        "_NSPIN": "_NS",
+    }
+
+    def _rename_suffix(col):
+        for new_suffix, old_suffix in new_to_old_suffix.items():
+            if col.endswith(new_suffix):
+                return col[: -len(new_suffix)] + old_suffix
+        return col
+
+    df = df.rename(columns=_rename_suffix)
+
     price_cols = [c for c in df.columns if c.startswith("PRICE")]
-    drs_cols = [c for c in price_cols if c.endswith("_DRS")]
-    ns_cols = [c for c in price_cols if c.endswith("_NS")]
-    non_drs_cols = [c for c in price_cols if not c.endswith("_DRS")]
+    quantity_cols = [c for c in df.columns if c.startswith("QUANTITY_MW")]
 
-    # Use fillna(0) so that NaN values are treated as "no value" (same as zero).
-    # ERCOT corrected files (April 4, 2026+) use NaN instead of zero for empty
-    # AS Sub-Type Offer Prices (see ERCOT notice M-B040326-01).
-    has_drs = (df[drs_cols].fillna(0) != 0).any(axis=1)
-    has_non_drs = (df[non_drs_cols].fillna(0) != 0).any(axis=1)
-    has_ns = (df[ns_cols].fillna(0) != 0).any(axis=1)
+    if "Offer Type" in df.columns:
+        # Files starting with Operating Day June 25, 2026 carry an explicit
+        # Offer Type column, so the curve type no longer needs to be inferred
+        # from which price columns hold values. The explicit column is also
+        # required: these files contain ECRS-only rows under both ONRES and
+        # OFFNS, which no price-column pattern can tell apart.
+        offer_type_to_curve_type = {
+            "ONRES": "Online",
+            "OFFNS": "Offline",
+            "REGDN": "Regulation Down",
+        }
+        unknown_offer_types = set(df["Offer Type"].dropna().unique()) - set(
+            offer_type_to_curve_type,
+        )
+        if unknown_offer_types:
+            raise ValueError(
+                f"Unknown offer type(s) found: {sorted(unknown_offer_types)}",
+            )
+        df["Curve Type"] = df["Offer Type"].map(offer_type_to_curve_type)
 
-    non_drs_ns_ecrs_cols = [c for c in non_drs_cols if not c.endswith(("_NS", "_ECRS"))]
-    has_non_drs_ns_ecrs = (df[non_drs_ns_ecrs_cols].fillna(0) != 0).any(axis=1)
+        # These files also pad every resource out to all three offer types with
+        # rows holding no price or quantity values. Earlier files had no such
+        # rows, so drop them to keep the output consistent.
+        has_any_value = (df[price_cols + quantity_cols].fillna(0) != 0).any(axis=1)
+        df = df[has_any_value].copy()
+    else:
+        # First create a curve_type column with the logic:
+        # regulation down : values only in _DRS columns and not in other columns
+        # offline: values in _NS and optionally _ECRS columns and not in other
+        # columns
+        # online : values in any column except for _DRS
+        drs_cols = [c for c in price_cols if c.endswith("_DRS")]
+        ns_cols = [c for c in price_cols if c.endswith("_NS")]
+        non_drs_cols = [c for c in price_cols if not c.endswith("_DRS")]
 
-    df["Curve Type"] = "unknown"
-    df.loc[has_drs & ~has_non_drs, "Curve Type"] = "Regulation Down"
-    df.loc[has_non_drs & has_non_drs_ns_ecrs, "Curve Type"] = "Online"
-    df.loc[has_ns & ~has_drs & ~has_non_drs_ns_ecrs, "Curve Type"] = "Offline"
+        # Use fillna(0) so that NaN values are treated as "no value" (same as
+        # zero). ERCOT corrected files (April 4, 2026+) use NaN instead of zero
+        # for empty AS Sub-Type Offer Prices (see ERCOT notice M-B040326-01).
+        has_drs = (df[drs_cols].fillna(0) != 0).any(axis=1)
+        has_non_drs = (df[non_drs_cols].fillna(0) != 0).any(axis=1)
+        has_ns = (df[ns_cols].fillna(0) != 0).any(axis=1)
 
-    if any(df["Curve Type"] == "unknown"):
-        raise ValueError("Unknown curve type found")
+        non_drs_ns_ecrs_cols = [
+            c for c in non_drs_cols if not c.endswith(("_NS", "_ECRS"))
+        ]
+        has_non_drs_ns_ecrs = (df[non_drs_ns_ecrs_cols].fillna(0) != 0).any(axis=1)
+
+        df["Curve Type"] = "unknown"
+        df.loc[has_drs & ~has_non_drs, "Curve Type"] = "Regulation Down"
+        df.loc[has_non_drs & has_non_drs_ns_ecrs, "Curve Type"] = "Online"
+        df.loc[has_ns & ~has_drs & ~has_non_drs_ns_ecrs, "Curve Type"] = "Offline"
+
+        if any(df["Curve Type"] == "unknown"):
+            raise ValueError("Unknown curve type found")
 
     # Map source column suffixes to output curve names
     as_type_mapping = {
@@ -1483,6 +1611,6 @@ def process_sced_resource_as_offers(
 
 
 # # backup for more node names
-# pd.read_html("https://www.ercot.com/content/cdr/html/current_np6788.html", skiprows=3)[0][0] # noqa
+# pd.read_html("https://www.ercot.com/content/cdr/html/current_np6788.html", skiprows=3)[0][0]
 # # todo add in QSE
 # # todo prefix and county match

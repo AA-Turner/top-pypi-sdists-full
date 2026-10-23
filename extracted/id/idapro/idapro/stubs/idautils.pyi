@@ -26,38 +26,8 @@ class Strings:
         
         """
         ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
     def __getitem__(self, index: Any) -> Any:
         r"""Returns a string item or None"""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
         ...
     def __init__(self, default_setup: Any = False) -> Any:
         r"""
@@ -67,55 +37,7 @@ class Strings:
         
         """
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
     def __iter__(self) -> Any:
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __repr__(self) -> str:
-        r"""Return repr(self)."""
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def clear_cache(self) -> Any:
         r"""Clears the string list cache"""
@@ -144,84 +66,9 @@ class peutils_t:
     def header_offset(self) -> Any: ...
     @property
     def imagebase(self) -> Any: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
-        ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def header(self) -> Any:
         ...
@@ -540,6 +387,9 @@ def XrefsTo(ea: Any, flags: Any = 0) -> Any:
     :param ea: Reference address
     :param flags: one of ida_xref.XREF_ALL (default), ida_xref.XREF_FAR, ida_xref.XREF_DATA
     
+    If 'ea' is 16-bit ISA code (ARM Thumb, MIPS16), the references from
+    code pointers to it, stored under 'ea'|1, come last, with xref.to == 'ea'|1.
+    
     Example::
            for xref in XrefsTo(here(), 0):
                print(xref.type, XrefTypeName(xref.type),                          'from', hex(xref.frm), 'to', hex(xref.to))
@@ -547,7 +397,7 @@ def XrefsTo(ea: Any, flags: Any = 0) -> Any:
     """
     ...
 
-cpu: _cpu  # <idautils._cpu object at 0x0000022E348A6CF0>
+cpu: _cpu  # <idautils._cpu object at 0x00000295925EB0E0>
 ida_bytes: module
 ida_dbg: module
 ida_entry: module
@@ -568,6 +418,7 @@ ida_ua: module
 ida_xref: module
 idc: _module_wrapper_t
 os: module  # <module 'os' (frozen)>
-procregs: _procregs  # <idautils._procregs object at 0x0000022E3357D6A0>
+procregs: _procregs  # <idautils._procregs object at 0x0000029592915A90>
 sys: module  # <module 'sys' (built-in)>
 types: module
+warnings: module

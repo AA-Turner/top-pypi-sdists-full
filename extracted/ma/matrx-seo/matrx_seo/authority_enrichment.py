@@ -27,6 +27,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
+from matrx_orm import JsonbMerge
 from pydantic import BaseModel, ConfigDict, Field
 
 from .adapters import SeoProgressCallback
@@ -158,14 +159,15 @@ class AuthorityEnrichmentService:
                 outcome.unmeasured += 1
                 continue
             score = score_authority(entry.to_inputs())
-            metadata = dict(row.metadata or {})
-            metadata["matrx_authority"] = score.model_dump(mode="json")
             values: dict[str, Any] = {
                 "domain_rank": entry.domain_rank,
                 "spam_score": entry.spam_score,
                 "referring_domains": entry.referring_domains,
                 "enriched_at": now,
-                "metadata": metadata,
+                # MERGED in SQL: other writers keep their metadata keys; this owns matrx_authority.
+                "metadata": JsonbMerge(
+                    "metadata", {"matrx_authority": score.model_dump(mode="json")}
+                ),
                 "updated_at": now,
             }
             if score.is_measured:

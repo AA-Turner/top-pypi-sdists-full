@@ -54,6 +54,7 @@ Usage::
         ListQueueQuickConnectsPaginator,
         ListQueuesPaginator,
         ListQuickConnectsPaginator,
+        ListReplicationFindingsPaginator,
         ListRoutingProfileManualAssignmentQueuesPaginator,
         ListRoutingProfileQueuesPaginator,
         ListRoutingProfilesPaginator,
@@ -147,6 +148,7 @@ Usage::
     list_queue_quick_connects_paginator: ListQueueQuickConnectsPaginator = client.get_paginator("list_queue_quick_connects")
     list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
     list_quick_connects_paginator: ListQuickConnectsPaginator = client.get_paginator("list_quick_connects")
+    list_replication_findings_paginator: ListReplicationFindingsPaginator = client.get_paginator("list_replication_findings")
     list_routing_profile_manual_assignment_queues_paginator: ListRoutingProfileManualAssignmentQueuesPaginator = client.get_paginator("list_routing_profile_manual_assignment_queues")
     list_routing_profile_queues_paginator: ListRoutingProfileQueuesPaginator = client.get_paginator("list_routing_profile_queues")
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
@@ -240,6 +242,7 @@ from .paginator import (
     ListQueueQuickConnectsPaginator,
     ListQueuesPaginator,
     ListQuickConnectsPaginator,
+    ListReplicationFindingsPaginator,
     ListRoutingProfileManualAssignmentQueuesPaginator,
     ListRoutingProfileQueuesPaginator,
     ListRoutingProfilesPaginator,
@@ -335,6 +338,7 @@ __all__ = (
     "ListQueueQuickConnectsPaginator",
     "ListQueuesPaginator",
     "ListQuickConnectsPaginator",
+    "ListReplicationFindingsPaginator",
     "ListRoutingProfileManualAssignmentQueuesPaginator",
     "ListRoutingProfileQueuesPaginator",
     "ListRoutingProfilesPaginator",

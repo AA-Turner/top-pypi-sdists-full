@@ -41,6 +41,9 @@ from .literals import (
     GlobalNetworkStateType,
     LinkAssociationStateType,
     LinkStateType,
+    NatGatewaySupportStateType,
+    NatGatewaySupportValueType,
+    NatRuleStateType,
     PeeringErrorCodeType,
     PeeringStateType,
     RouteAnalysisCompletionReasonCodeType,
@@ -77,6 +80,7 @@ __all__ = (
     "AssociateTransitGatewayConnectPeerRequestTypeDef",
     "AssociateTransitGatewayConnectPeerResponseTypeDef",
     "AttachmentErrorTypeDef",
+    "AttachmentNatConfigurationTypeDef",
     "AttachmentRoutingPolicyAssociationSummaryTypeDef",
     "AttachmentTypeDef",
     "BandwidthTypeDef",
@@ -218,6 +222,7 @@ __all__ = (
     "GetNetworkResourcesRequestPaginateTypeDef",
     "GetNetworkResourcesRequestTypeDef",
     "GetNetworkResourcesResponseTypeDef",
+    "GetNetworkRoutesRequestPaginateTypeDef",
     "GetNetworkRoutesRequestTypeDef",
     "GetNetworkRoutesResponseTypeDef",
     "GetNetworkTelemetryRequestPaginateTypeDef",
@@ -247,6 +252,9 @@ __all__ = (
     "GlobalNetworkTypeDef",
     "LinkAssociationTypeDef",
     "LinkTypeDef",
+    "ListAttachmentNatConfigurationsRequestPaginateTypeDef",
+    "ListAttachmentNatConfigurationsRequestTypeDef",
+    "ListAttachmentNatConfigurationsResponseTypeDef",
     "ListAttachmentRoutingPolicyAssociationsRequestPaginateTypeDef",
     "ListAttachmentRoutingPolicyAssociationsRequestTypeDef",
     "ListAttachmentRoutingPolicyAssociationsResponseTypeDef",
@@ -276,6 +284,8 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LocationTypeDef",
+    "NatRuleRequestTypeDef",
+    "NatRuleTypeDef",
     "NetworkFunctionGroupTypeDef",
     "NetworkResourceCountTypeDef",
     "NetworkResourceSummaryTypeDef",
@@ -331,6 +341,8 @@ __all__ = (
     "TransitGatewayRegistrationTypeDef",
     "TransitGatewayRouteTableAttachmentTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAttachmentNatConfigurationRequestTypeDef",
+    "UpdateAttachmentNatConfigurationResponseTypeDef",
     "UpdateConnectionRequestTypeDef",
     "UpdateConnectionResponseTypeDef",
     "UpdateCoreNetworkRequestTypeDef",
@@ -429,6 +441,12 @@ class AttachmentErrorTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
     RequestId: NotRequired[str]
 
+class NatRuleTypeDef(TypedDict):
+    RuleNumber: NotRequired[int]
+    MatchSourceCidr: NotRequired[str]
+    NatCidr: NotRequired[str]
+    State: NotRequired[NatRuleStateType]
+
 class AttachmentRoutingPolicyAssociationSummaryTypeDef(TypedDict):
     AttachmentId: NotRequired[str]
     PendingRoutingPolicies: NotRequired[list[str]]
@@ -522,6 +540,11 @@ class CoreNetworkSegmentTypeDef(TypedDict):
     Name: NotRequired[str]
     EdgeLocations: NotRequired[list[str]]
     SharedSegments: NotRequired[list[str]]
+
+class NatRuleRequestTypeDef(TypedDict):
+    RuleNumber: int
+    MatchSourceCidr: str
+    NatCidr: str
 
 class CreateCoreNetworkPrefixListAssociationRequestTypeDef(TypedDict):
     CoreNetworkId: str
@@ -780,6 +803,13 @@ class GetTransitGatewayRouteTableAttachmentRequestTypeDef(TypedDict):
 class GetVpcAttachmentRequestTypeDef(TypedDict):
     AttachmentId: str
 
+class ListAttachmentNatConfigurationsRequestTypeDef(TypedDict):
+    CoreNetworkId: NotRequired[str]
+    AttachmentId: NotRequired[str]
+    Filters: NotRequired[Mapping[str, Sequence[str]]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListAttachmentRoutingPolicyAssociationsRequestTypeDef(TypedDict):
     CoreNetworkId: str
     AttachmentId: NotRequired[str]
@@ -821,6 +851,10 @@ class ListCoreNetworkRoutingInformationRequestTypeDef(TypedDict):
     SegmentName: str
     EdgeLocation: str
     NextHopFilters: NotRequired[Mapping[str, Sequence[str]]]
+    ExactPrefixMatches: NotRequired[Sequence[str]]
+    LongestPrefixMatches: NotRequired[Sequence[str]]
+    SubnetOfMatches: NotRequired[Sequence[str]]
+    SupernetOfMatches: NotRequired[Sequence[str]]
     LocalPreferenceMatches: NotRequired[Sequence[str]]
     ExactAsPathMatches: NotRequired[Sequence[str]]
     MedMatches: NotRequired[Sequence[str]]
@@ -1044,6 +1078,19 @@ class GetTransitGatewayConnectPeerAssociationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class AttachmentNatConfigurationTypeDef(TypedDict):
+    AttachmentId: NotRequired[str]
+    NatGatewaySupport: NotRequired[NatGatewaySupportStateType]
+    NatSystemRouteSupport: NotRequired[bool]
+    NatGatewayRules: NotRequired[list[NatRuleTypeDef]]
+
+class UpdateAttachmentNatConfigurationResponseTypeDef(TypedDict):
+    AttachmentId: str
+    NatGatewaySupport: NatGatewaySupportStateType
+    NatSystemRouteSupport: bool
+    NatGatewayRules: list[NatRuleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListAttachmentRoutingPolicyAssociationsResponseTypeDef(TypedDict):
     AttachmentRoutingPolicyAssociations: list[AttachmentRoutingPolicyAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1097,24 +1144,9 @@ class CreateCoreNetworkRequestTypeDef(TypedDict):
     PolicyDocument: NotRequired[str]
     ClientToken: NotRequired[str]
 
-class CreateDirectConnectGatewayAttachmentRequestTypeDef(TypedDict):
-    CoreNetworkId: str
-    DirectConnectGatewayArn: str
-    EdgeLocations: Sequence[str]
-    RoutingPolicyLabel: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    ClientToken: NotRequired[str]
-
 class CreateGlobalNetworkRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
-
-class CreateSiteToSiteVpnAttachmentRequestTypeDef(TypedDict):
-    CoreNetworkId: str
-    VpnConnectionArn: str
-    RoutingPolicyLabel: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    ClientToken: NotRequired[str]
 
 class CreateTransitGatewayPeeringRequestTypeDef(TypedDict):
     CoreNetworkId: str
@@ -1218,15 +1250,6 @@ class CreateConnectPeerRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     SubnetArn: NotRequired[str]
 
-class CreateConnectAttachmentRequestTypeDef(TypedDict):
-    CoreNetworkId: str
-    EdgeLocation: str
-    TransportAttachmentId: str
-    Options: ConnectAttachmentOptionsTypeDef
-    RoutingPolicyLabel: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    ClientToken: NotRequired[str]
-
 ConnectPeerConfigurationTypeDef = TypedDict(
     "ConnectPeerConfigurationTypeDef",
     {
@@ -1291,6 +1314,45 @@ class RouteTableIdentifierTypeDef(TypedDict):
     TransitGatewayRouteTableArn: NotRequired[str]
     CoreNetworkSegmentEdge: NotRequired[CoreNetworkSegmentEdgeIdentifierTypeDef]
     CoreNetworkNetworkFunctionGroup: NotRequired[CoreNetworkNetworkFunctionGroupIdentifierTypeDef]
+
+class CreateConnectAttachmentRequestTypeDef(TypedDict):
+    CoreNetworkId: str
+    EdgeLocation: str
+    TransportAttachmentId: str
+    Options: ConnectAttachmentOptionsTypeDef
+    RoutingPolicyLabel: NotRequired[str]
+    NatGatewaySupport: NotRequired[NatGatewaySupportValueType]
+    NatGatewayRules: NotRequired[Sequence[NatRuleRequestTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
+
+class CreateDirectConnectGatewayAttachmentRequestTypeDef(TypedDict):
+    CoreNetworkId: str
+    DirectConnectGatewayArn: str
+    EdgeLocations: Sequence[str]
+    RoutingPolicyLabel: NotRequired[str]
+    NatGatewaySupport: NotRequired[NatGatewaySupportValueType]
+    NatSystemRouteSupport: NotRequired[bool]
+    NatGatewayRules: NotRequired[Sequence[NatRuleRequestTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
+
+class CreateSiteToSiteVpnAttachmentRequestTypeDef(TypedDict):
+    CoreNetworkId: str
+    VpnConnectionArn: str
+    RoutingPolicyLabel: NotRequired[str]
+    NatGatewaySupport: NotRequired[NatGatewaySupportValueType]
+    NatSystemRouteSupport: NotRequired[bool]
+    NatGatewayRules: NotRequired[Sequence[NatRuleRequestTypeDef]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
+
+class UpdateAttachmentNatConfigurationRequestTypeDef(TypedDict):
+    AttachmentId: str
+    NatGatewaySupport: NotRequired[NatGatewaySupportValueType]
+    NatSystemRouteSupport: NotRequired[bool]
+    NatGatewayRules: NotRequired[Sequence[NatRuleRequestTypeDef]]
+    ClientToken: NotRequired[str]
 
 CreateDeviceRequestTypeDef = TypedDict(
     "CreateDeviceRequestTypeDef",
@@ -1372,6 +1434,8 @@ class CreateVpcAttachmentRequestTypeDef(TypedDict):
     SubnetArns: Sequence[str]
     Options: NotRequired[VpcOptionsTypeDef]
     RoutingPolicyLabel: NotRequired[str]
+    NatGatewaySupport: NotRequired[NatGatewaySupportValueType]
+    NatGatewayRules: NotRequired[Sequence[NatRuleRequestTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ClientToken: NotRequired[str]
 
@@ -1485,6 +1549,12 @@ class GetTransitGatewayRegistrationsRequestPaginateTypeDef(TypedDict):
     TransitGatewayArns: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListAttachmentNatConfigurationsRequestPaginateTypeDef(TypedDict):
+    CoreNetworkId: NotRequired[str]
+    AttachmentId: NotRequired[str]
+    Filters: NotRequired[Mapping[str, Sequence[str]]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAttachmentRoutingPolicyAssociationsRequestPaginateTypeDef(TypedDict):
     CoreNetworkId: str
     AttachmentId: NotRequired[str]
@@ -1516,6 +1586,10 @@ class ListCoreNetworkRoutingInformationRequestPaginateTypeDef(TypedDict):
     SegmentName: str
     EdgeLocation: str
     NextHopFilters: NotRequired[Mapping[str, Sequence[str]]]
+    ExactPrefixMatches: NotRequired[Sequence[str]]
+    LongestPrefixMatches: NotRequired[Sequence[str]]
+    SubnetOfMatches: NotRequired[Sequence[str]]
+    SupernetOfMatches: NotRequired[Sequence[str]]
     LocalPreferenceMatches: NotRequired[Sequence[str]]
     ExactAsPathMatches: NotRequired[Sequence[str]]
     MedMatches: NotRequired[Sequence[str]]
@@ -1598,6 +1672,11 @@ class StartOrganizationServiceAccessUpdateResponseTypeDef(TypedDict):
     OrganizationStatus: OrganizationStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListAttachmentNatConfigurationsResponseTypeDef(TypedDict):
+    AttachmentNatConfigurations: list[AttachmentNatConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListConnectPeersResponseTypeDef(TypedDict):
     ConnectPeers: list[ConnectPeerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1660,6 +1739,8 @@ class AttachmentTypeDef(TypedDict):
     AttachmentPolicyRuleNumber: NotRequired[int]
     SegmentName: NotRequired[str]
     NetworkFunctionGroupName: NotRequired[str]
+    NatGatewaySupport: NotRequired[NatGatewaySupportStateType]
+    NatSystemRouteSupport: NotRequired[bool]
     Tags: NotRequired[list[TagTypeDef]]
     ProposedSegmentChange: NotRequired[ProposedSegmentChangeTypeDef]
     ProposedNetworkFunctionGroupChange: NotRequired[ProposedNetworkFunctionGroupChangeTypeDef]
@@ -1746,6 +1827,19 @@ class ListCoreNetworkRoutingInformationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class GetNetworkRoutesRequestPaginateTypeDef(TypedDict):
+    GlobalNetworkId: str
+    RouteTableIdentifier: RouteTableIdentifierTypeDef
+    ExactCidrMatches: NotRequired[Sequence[str]]
+    LongestPrefixMatches: NotRequired[Sequence[str]]
+    SubnetOfMatches: NotRequired[Sequence[str]]
+    SupernetOfMatches: NotRequired[Sequence[str]]
+    PrefixListIds: NotRequired[Sequence[str]]
+    States: NotRequired[Sequence[RouteStateType]]
+    Types: NotRequired[Sequence[RouteTypeType]]
+    DestinationFilters: NotRequired[Mapping[str, Sequence[str]]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class GetNetworkRoutesRequestTypeDef(TypedDict):
     GlobalNetworkId: str
     RouteTableIdentifier: RouteTableIdentifierTypeDef
@@ -1757,6 +1851,8 @@ class GetNetworkRoutesRequestTypeDef(TypedDict):
     States: NotRequired[Sequence[RouteStateType]]
     Types: NotRequired[Sequence[RouteTypeType]]
     DestinationFilters: NotRequired[Mapping[str, Sequence[str]]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class CreateDeviceResponseTypeDef(TypedDict):
     Device: DeviceTypeDef
@@ -1805,10 +1901,12 @@ class RouteAnalysisPathTypeDef(TypedDict):
 class GetNetworkRoutesResponseTypeDef(TypedDict):
     RouteTableArn: str
     CoreNetworkSegmentEdge: CoreNetworkSegmentEdgeIdentifierTypeDef
+    CoreNetworkNetworkFunctionGroup: CoreNetworkNetworkFunctionGroupIdentifierTypeDef
     RouteTableType: RouteTableTypeType
     RouteTableTimestamp: datetime
     NetworkRoutes: list[NetworkRouteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class PeeringTypeDef(TypedDict):
     CoreNetworkId: NotRequired[str]

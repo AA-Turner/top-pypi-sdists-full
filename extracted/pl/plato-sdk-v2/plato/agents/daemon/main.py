@@ -1,19 +1,24 @@
 """``plato-agent-daemon`` entry point.
 
 Subcommands:
-  serve   — run the RPC daemon (optionally self-daemonizing via double-fork).
+  serve   — run the RPC daemon (foreground under systemd; ``--daemonize`` for
+            the world's bootstrap SSH, which self-daemonizes via double-fork).
   status  — check whether a daemon is already running (pidfile + /healthz).
 
-``serve --daemonize`` is idempotent: if a live daemon is already bound, it
-exits 0 without starting a second one, so the world's bootstrap SSH command can
-be re-run safely.
+``serve`` is idempotent: if a live daemon is already bound, it exits 0 without
+starting a second one, so the world's bootstrap SSH command can be re-run
+safely. The pidfile is claimed only after the port is bound, so a losing racer
+never clobbers the live daemon's pidfile.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
+import errno
 import os
 import secrets
+import signal
 import sys
 from pathlib import Path
 
@@ -92,24 +97,67 @@ def _serve(args: argparse.Namespace) -> int:
 
     if args.daemonize:
         _daemonize()
-        log_path = Path(args.log_file)
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        log_fd = os.open(str(log_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-        os.dup2(log_fd, sys.stdout.fileno())
-        os.dup2(log_fd, sys.stderr.fileno())
+    if args.daemonize or not sys.stdout.isatty():
+        # Bootstrap-started (daemonized) and systemd-started (foreground, no
+        # tty) daemons both log to daemon.log — the bootstrap's diagnostics
+        # tail that file on a failed start, whichever way the daemon came up.
+        _redirect_stdio(Path(args.log_file))
 
     state_dir.mkdir(parents=True, exist_ok=True)
-    pid_path.write_text(str(os.getpid()))
+    app = build_app(state_dir=state_dir, token=token)
+    return asyncio.run(_serve_app(app, host=args.bind, port=args.port, pid_path=pid_path))
+
+
+def _redirect_stdio(log_path: Path) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_fd = os.open(str(log_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    os.dup2(log_fd, sys.stdout.fileno())
+    os.dup2(log_fd, sys.stderr.fileno())
+
+
+async def _serve_app(app: web.Application, *, host: str, port: int, pid_path: Path) -> int:
+    """Bind, THEN claim the pidfile, then serve until SIGTERM/SIGINT.
+
+    The pidfile is written only after the listening socket is bound: a second
+    ``serve`` racing a live daemon for the port used to overwrite the live
+    daemon's pidfile before failing on EADDRINUSE, then unlink it on the way
+    out — leaving the live daemon invisible to ``_already_running`` so every
+    later ``serve`` (systemd restarts included) repeated the collision.
+    """
+    runner = web.AppRunner(app)
+    await runner.setup()
     try:
-        app = build_app(state_dir=state_dir, token=token)
-        web.run_app(app, host=args.bind, port=args.port, print=None)
+        await web.TCPSite(runner, host, port).start()
+    except OSError as exc:
+        await runner.cleanup()
+        if exc.errno == errno.EADDRINUSE and await _winner_claimed(pid_path):
+            return 0  # lost the bind race to a live daemon: same idempotent exit as the pidfile check
+        raise
+    pid_path.write_text(str(os.getpid()))
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+    try:
+        await stop.wait()
     finally:
+        await runner.cleanup()
         try:
             if _read_pidfile(pid_path) == os.getpid():
                 pid_path.unlink()
         except OSError:
             pass
     return 0
+
+
+async def _winner_claimed(pid_path: Path, wait_s: float = 2.0) -> bool:
+    """Whether a live daemon claims the pidfile within ``wait_s`` (it writes it right after binding)."""
+    deadline = asyncio.get_running_loop().time() + wait_s
+    while not _already_running(pid_path):
+        if asyncio.get_running_loop().time() > deadline:
+            return False
+        await asyncio.sleep(0.1)
+    return True
 
 
 def _status(args: argparse.Namespace) -> int:

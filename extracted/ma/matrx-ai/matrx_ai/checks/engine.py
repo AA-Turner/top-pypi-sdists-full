@@ -720,6 +720,8 @@ def _required(results: list[CheckResult]) -> list[CheckResult]:
 def needs_judge(results: list[CheckResult], *, policy: str) -> bool:
     if policy == "off":
         return False
+    if any(r.outcome == "fail" and r.format_failure for r in _required(results)):
+        return False  # code already decided: the answer is not the declared output
     return any(r.outcome in ("fail", "undecided") for r in _required(results))
 
 
@@ -746,6 +748,8 @@ def compute_verdict(
     usable = judge is not None and judge.fed_ok and not judge.advisory and judge.verdict != "judge_unfed"
     fails = [r for r in req if r.outcome == "fail"]
     if fails:
+        if all(r.format_failure for r in fails):
+            return VerdictResult(verdict="fail_format", reason=f"format: {fails[0].reason}"[:300], counted=True)
         if usable and judge is not None and judge.verdict == "format_only":
             return VerdictResult(verdict="fail_format", reason="judge: only the format is wrong", counted=True)
         return VerdictResult(verdict="fail", reason=f"failed: {', '.join(r.id for r in fails[:5])}", counted=True)

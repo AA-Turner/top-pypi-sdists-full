@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -38,6 +45,11 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .matillion_related import (
+    RelatedMatillionComponent,
+    RelatedMatillionJob,
+    RelatedMatillionProject,
+)
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -47,18 +59,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .matillion_related import (
-    RelatedMatillionComponent,
-    RelatedMatillionJob,
-    RelatedMatillionProject,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -661,6 +661,7 @@ def _matillion_job_to_nested(matillion_job: MatillionJob) -> MatillionJobNested:
         is_incomplete=matillion_job.is_incomplete,
         provenance_type=matillion_job.provenance_type,
         home_id=matillion_job.home_id,
+        delete_handler=matillion_job.delete_handler,
         depth=matillion_job.depth,
         immediate_upstream=matillion_job.immediate_upstream,
         immediate_downstream=matillion_job.immediate_downstream,
@@ -709,6 +710,7 @@ def _matillion_job_from_nested(nested: MatillionJobNested) -> MatillionJob:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -302,15 +302,8 @@ def _save_request_har(request: Request, entry: dict) -> None:
         request_entry = {
             "method": entry.get("method"),
             "url": str(request.url),
-            "httpVersion": "HTTP/1.1",
             "headers": _headers_to_har(req_headers),
-            "queryString": [
-                {"name": name, "value": value}
-                for name, value in request.query_params.items()
-            ],
             "cookies": [],
-            "headersSize": -1,
-            "bodySize": len(req_text),
         }
         if entry.get("request_body") is not None:
             request_entry["postData"] = {
@@ -328,23 +321,12 @@ def _save_request_har(request: Request, entry: dict) -> None:
                         "request": request_entry,
                         "response": {
                             "status": entry.get("status"),
-                            "statusText": "",
-                            "httpVersion": "HTTP/1.1",
                             "headers": _headers_to_har(resp_headers),
                             "content": {
                                 "size": len(resp_text),
                                 "mimeType": resp_headers.get("content-type", ""),
                                 "text": resp_text,
                             },
-                            "redirectURL": "",
-                            "headersSize": -1,
-                            "bodySize": len(resp_text),
-                        },
-                        "cache": {},
-                        "timings": {
-                            "send": 0,
-                            "wait": entry.get("duration_ms", 0),
-                            "receive": 0,
                         },
                     }
                 ],
@@ -879,7 +861,9 @@ class Api:
 
         @self.app.middleware("http")
         async def authorization(request: Request, call_next):
-            user = None
+            user = request.headers.get("x-user")
+            if user and user.startswith("XX:") and request.headers.get("cf-ipcountry"):
+                user = f"{request.headers.get('cf-ipcountry')}:{user[3:]}"
             remove_authorization_header = False
             if (
                 request.method != "OPTIONS"
@@ -901,7 +885,7 @@ class Api:
                 ):
                     try:
                         new_user = await self.get_username(request)
-                        if user is None:
+                        if new_user:
                             remove_authorization_header = True
                             user = new_user
                     except HTTPException as e:
@@ -1188,7 +1172,7 @@ class Api:
                     config.timeout = AppConfig.timeout
                 if config.stream_timeout is None and config.stream:
                     config.stream_timeout = AppConfig.stream_timeout
-                if credentials is not None and credentials.credentials != "secret":
+                if credentials is not None and len(credentials.credentials) > 8:
                     config.api_key = credentials.credentials
 
                 conversation = config.conversation
@@ -1390,7 +1374,7 @@ class Api:
                     config.timeout = AppConfig.timeout
                 if config.stream_timeout is None and config.stream:
                     config.stream_timeout = AppConfig.stream_timeout
-                if credentials is not None and credentials.credentials != "secret":
+                if credentials is not None and len(credentials.credentials) > 8:
                     config.api_key = credentials.credentials
 
                 # Normalize `input` into a messages list.
@@ -1570,7 +1554,7 @@ class Api:
                     config.timeout = AppConfig.timeout
                 if config.stream_timeout is None and config.stream:
                     config.stream_timeout = AppConfig.stream_timeout
-                if credentials is not None and credentials.credentials != "secret":
+                if credentials is not None and len(credentials.credentials) > 8:
                     config.api_key = credentials.credentials
 
                 # Anthropic uses a top-level `system` field; fold it into messages.
@@ -1755,7 +1739,7 @@ class Api:
             if (
                 config.api_key is None
                 and credentials is not None
-                and credentials.credentials != "secret"
+                and len(credentials.credentials) > 8
             ):
                 config.api_key = credentials.credentials
             try:
@@ -2882,6 +2866,9 @@ class Api:
                 workspace_secret=request.headers.get("x-workspace-secret"),
             )
             response = await server.handle_request(mcp_request)
+            if response is None:
+                # JSON-RPC notification: no response body is expected.
+                return Response(status_code=202)
             body: dict = {"jsonrpc": response.jsonrpc, "id": response.id}
             if response.result is not None:
                 body["result"] = response.result

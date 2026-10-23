@@ -305,14 +305,80 @@ def test_the_backup_is_taken_once_and_never_overwritten(claude_home, plugin_root
     assert "original" == json.loads(backup.read_text())["statusLine"]["command"]
 
 
-def test_a_settings_file_that_is_not_json_is_not_destroyed_silently(
-    claude_home, plugin_root
-) -> None:
-    """It is still backed up before we replace it, so nothing is unrecoverable."""
-    (claude_home / "settings.json").write_text("{ broken", encoding="utf-8")
+@pytest.mark.parametrize("broken", ["{ broken", '{"env": {"TOKEN": "x"},}', "[]"])
+def test_a_settings_file_that_does_not_parse_is_left_alone(claude_home, plugin_root, broken) -> None:
+    """Reading it as `{}` and saving that back replaced the whole file (env
+    tokens, permission rules, hooks) with our one key. Refused instead, with
+    the file and its backup untouched."""
+    path = claude_home / "settings.json"
+    path.write_text(broken, encoding="utf-8")
+    with pytest.raises(ValueError, match="left .* alone"):
+        statusline.install(plugin_root)
+    assert path.read_text(encoding="utf-8") == broken
+    assert not (claude_home / "settings.json.probe-backup").exists()
+
+
+@pytest.mark.parametrize("empty", ["", "  \n"])
+def test_an_empty_settings_file_reads_as_no_settings(claude_home, plugin_root, empty) -> None:
+    """Claude Code reads an empty or whitespace-only settings.json as `{}`;
+    refusing it would leave the status line uninstalled for good (the wizard
+    step that writes it does not run again on a machine that is current)."""
+    (claude_home / "settings.json").write_text(empty, encoding="utf-8")
     statusline.install(plugin_root)
-    assert (claude_home / "settings.json.probe-backup").read_text() == "{ broken"
     assert statusline.MARKER in _command(claude_home)
+
+
+def test_a_settings_file_that_is_not_utf8_is_left_alone(claude_home, plugin_root) -> None:
+    path = claude_home / "settings.json"
+    path.write_bytes(b'{"env": {"NAME": "caf\xe9"}}')
+    with pytest.raises(ValueError, match="left .* alone: it is not UTF-8"):
+        statusline.install(plugin_root)
+    assert path.read_bytes() == b'{"env": {"NAME": "caf\xe9"}}'
+
+
+def test_a_broken_file_after_the_backup_was_taken_keeps_its_contents(claude_home, plugin_root) -> None:
+    """The data loss itself: the backup is taken once, so a file that broke
+    later (a trailing comma typed by hand) had no copy anywhere once replaced."""
+    _write_slot(claude_home, "", env={"TOKEN": "x"})
+    statusline.install(plugin_root)
+    assert (claude_home / "settings.json.probe-backup").exists()
+    broken = (claude_home / "settings.json").read_text(encoding="utf-8").rstrip().rstrip("}") + ',"permissions": {},}'
+    (claude_home / "settings.json").write_text(broken, encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        statusline.install(plugin_root)
+
+    assert (claude_home / "settings.json").read_text(encoding="utf-8") == broken
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads anything")
+def test_a_settings_file_that_cannot_be_read_is_left_alone(claude_home, plugin_root) -> None:
+    path = claude_home / "settings.json"
+    path.write_text('{"env": {"TOKEN": "x"}}', encoding="utf-8")
+    path.chmod(0o000)
+    try:
+        with pytest.raises(OSError):
+            statusline.install(plugin_root)
+    finally:
+        path.chmod(0o600)
+    assert json.loads(path.read_text(encoding="utf-8")) == {"env": {"TOKEN": "x"}}
+
+
+def test_the_cli_reports_a_refused_settings_file_instead_of_a_traceback(
+    claude_home, plugin_root, monkeypatch
+) -> None:
+    import importlib
+
+    from typer.testing import CliRunner
+
+    main = importlib.import_module("probe.cli.main")  # `probe.cli.main` the attribute is the entry function
+
+    (claude_home / "settings.json").write_text("{ broken", encoding="utf-8")
+    monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
+    result = CliRunner().invoke(main.app, ["statusline", "install", "--plugin-root", str(plugin_root)])
+    assert result.exit_code == 1, result.output
+    assert "was not changed" in result.output + (getattr(result, "stderr", "") or "")
+    assert (claude_home / "settings.json").read_text(encoding="utf-8") == "{ broken"
 
 
 # -- discovery --------------------------------------------------------------

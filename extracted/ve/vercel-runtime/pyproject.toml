@@ -1,10 +1,8 @@
 [project]
 name = "vercel-runtime"
-version = "0.23.3"
+version = "0.24.1"
 license = "Apache-2.0"
-license-files = [
-  "src/vercel_runtime/_vendor/*/LICEN[CS]E*",
-]
+license-files = ["src/vercel_runtime/_vendor/*/LICEN[CS]E*"]
 requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -21,7 +19,7 @@ classifiers = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.10.11,<0.11"]
+requires = ["uv_build>=0.13.5,<0.14"]
 build-backend = "uv_build"
 
 [dependency-groups]
@@ -45,7 +43,10 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 mypy_path = "src"
-packages = ["vercel_runtime", "tests"]
+packages = [
+    "vercel_runtime",
+    "tests",
+]
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
@@ -57,19 +58,33 @@ module = ["tests.fixtures.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["django", "django.conf", "django.contrib.staticfiles.handlers", "django.utils.module_loading"]
+module = [
+    "django",
+    "django.conf",
+    "django.contrib.staticfiles.handlers",
+    "django.utils.module_loading",
+]
 ignore_missing_imports = true
 
 [tool.basedpyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
-include = ["src/vercel_runtime", "tests"]
-exclude = ["src/vercel_runtime/_vendor", "tests/fixtures"]
+include = [
+    "src/vercel_runtime",
+    "tests",
+]
+exclude = [
+    "src/vercel_runtime/_vendor",
+    "tests/fixtures",
+]
 extraPaths = ["src"]
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
-extraPaths = [".", "src"]
+extraPaths = [
+    ".",
+    "src",
+]
 reportPrivateUsage = false
 
 [tool.ruff]
@@ -85,46 +100,45 @@ exclude = [
 [tool.ruff.lint]
 preview = true
 extend-select = [
-    "B",    # flake8-bugbear
-    "C4",   # flake8-comprehensions
-    "E",    # error
-    "ERA",  # flake8-eradicate
-    "F",    # pyflakes
-    "FBT",  # flake8-boolean-trap
-    "G",    # flake8-logging-format
-    "I",    # isort
-    "N",    # pep8-naming
-    "PGH",  # pygrep-hooks
-    "PIE",  # flake8-pie
-    "PLE",  # pylint-error
-    "PLW",  # pylint-warning
-    "PLC",  # pylint-convention
-    "RUF",  # ruff specific
-    "SIM",  # flake8-simplify
-    "T20",  # flake8-print
-    "TC",   # flake8-type-checking
-    "UP",   # pyupgrade
-    "W",    # warning
+    "B",
+    "C4",
+    "E",
+    "ERA",
+    "F",
+    "FBT",
+    "G",
+    "I",
+    "N",
+    "PGH",
+    "PIE",
+    "PLE",
+    "PLW",
+    "PLC",
+    "RUF",
+    "SIM",
+    "T20",
+    "TC",
+    "UP",
+    "W",
 ]
-
 extend-ignore = [
-    "D",       # pydocstyle
-    "F541",    # f-string-missing-placeholders
-    "PLW1514", # unspecified-encoding (UTF-8 is Python 3 default)
+    "D",
+    "F541",
+    "PLW1514",
     "RUF067",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = [
-    "N806",    # allow uppercase variable names
-    "PLC0415", # guarded/conditional imports in tests
-    "PLC2701", # allow private imports in tests
+    "N806",
+    "PLC0415",
+    "PLC2701",
 ]
 "tests/fixtures/**/*.py" = [
-    "N801",    # handler must be lowercase (vc_init.py convention)
-    "N802",    # do_GET is BaseHTTPRequestHandler convention
-    "T201",    # print is used intentionally in fixtures
-    "PLC0415", # conditional imports in fixtures are fine
+    "N801",
+    "N802",
+    "T201",
+    "PLC0415",
 ]
 
 [tool.pytest.ini_options]
@@ -148,15 +162,18 @@ destination = "src/vercel_runtime/_vendor/"
 patches-dir = "patches/"
 requirements = "src/vercel_runtime/_vendor/vendor.txt"
 namespace = "vercel_runtime._vendor"
-protected-files = ["__init__.py", "vendor.txt"]
+protected-files = [
+    "__init__.py",
+    "vendor.txt",
+]
 
 [tool.vendoring.transformations]
-substitute = [
-  # support uvicorn's dynamic `import_from_string`
-  { match='''"uvicorn\.(lifespan|loops|protocols)\.''', replace='''"vercel_runtime._vendor.uvicorn.\1.''' },
-]
 drop = [
-  "bin/",
-  "colorama/tests/",
-  "*.so",
+    "bin/",
+    "colorama/tests/",
+    "*.so",
 ]
+
+[[tool.vendoring.transformations.substitute]]
+match = '"uvicorn\.(lifespan|loops|protocols)\.'
+replace = '"vercel_runtime._vendor.uvicorn.\1.'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: djlint
-Version: 1.46.6
+Version: 1.47.0
 Summary: HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Liquid, Go templates)
 Project-URL: documentation, https://djlint.com
 Project-URL: repository, https://github.com/djlint/djLint
@@ -40,7 +40,7 @@ Description-Content-Type: text/markdown
 
 <h1 align="center">
   <br>
-  <a href="https://djlint.com"><img src="https://raw.githubusercontent.com/djlint/djLint/master/docs/src/static/img/icon.png" alt="djLint Logo" width="270"></a>
+  <a href="https://djlint.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/djlint/djLint/master/docs/src/static/img/logo-wide-dark.svg"><img src="https://raw.githubusercontent.com/djlint/djLint/master/docs/src/static/img/logo-wide-light.svg" alt="djLint Logo" width="300"></picture></a>
   <br>
 </h1>
 <h4 align="center">The missing formatter and linter for HTML templates.</h4>
@@ -124,16 +124,22 @@ You can [try it on your own templates in the online playground](https://djlint.c
 
 ## ✨ How?
 
-Grab it from PyPI with `pip`
+Add it to your project as a development dependency with [uv](https://docs.astral.sh/uv/)
 
 ```bash
-pip install djlint
+uv add --dev djlint
 ```
 
-Or as a standalone tool with [uv](https://docs.astral.sh/uv/)
+Or install it as a standalone tool
 
 ```bash
 uv tool install djlint
+```
+
+Or with `pip`
+
+```bash
+pip install djlint
 ```
 
 Or with [pipx](https://pipx.pypa.io/)
@@ -153,6 +159,8 @@ _Or with npm - **warning**: the npm package is only a wrapper, its install scrip
 ```bash
 npm i djlint
 ```
+
+To run djLint on every commit, see [pre-commit](https://djlint.com/docs/integrations/#pre-commit).
 
 Lint your project
 
@@ -183,7 +191,7 @@ Or use `pre-commit` to reformat, then lint!
 ```yaml
 repos:
   - repo: https://github.com/djlint/djLint
-    rev: v1.46.6 # use the latest version instead
+    rev: v1.47.0 # use the latest version instead
     hooks:
       - id: djlint-reformat
       - id: djlint

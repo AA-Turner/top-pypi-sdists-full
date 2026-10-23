@@ -103,6 +103,7 @@ def _format_min_length_error(error: ValidationError, noun: str) -> str:
     assert error.instance_path
     section = path_to_section_name(error.instance_path[:-1])
     prop_name = error.instance_path[-1]
+    assert isinstance(error.kind, (ValidationErrorKind.MinItems, ValidationErrorKind.MinLength))
     limit = error.kind.limit
     if limit != 1:
         noun += "s"
@@ -224,7 +225,7 @@ def _type_name(value: object) -> str:
 def _format_value(value: object) -> str:
     if isinstance(value, str):
         return f"'{value}'"
-    if isinstance(value, datetime.date | datetime.time):
+    if isinstance(value, (datetime.date, datetime.time)):
         # TOML spells a zero UTC offset as `Z`
         text = value.isoformat()
         if text.endswith("+00:00"):
@@ -236,7 +237,7 @@ def _format_value(value: object) -> str:
 
 def _format_type_error(error: ValidationError, replaced: dict[InstancePath, object]) -> str:
     expected = resolve_path(CONFIG_SCHEMA, error.schema_path)
-    assert isinstance(expected, str | list)
+    assert isinstance(expected, (str, list))
     if isinstance(expected, list):
         expectation = f"one of: {' or '.join(expected)}"
     else:

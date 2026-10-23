@@ -19,6 +19,15 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model import looker_qn
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -38,6 +47,7 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .looker_related import RelatedLookerField, RelatedLookerProject, RelatedLookerView
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -47,14 +57,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .looker_related import RelatedLookerField, RelatedLookerProject, RelatedLookerView
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -245,7 +247,7 @@ class LookerView(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+/[^/]+$")
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/view/[^/]+/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -314,6 +316,53 @@ class LookerView(Asset):
         if self.guid is not UNSET:
             return RelatedLookerView(guid=self.guid)
         return RelatedLookerView(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        project_qualified_name: str,
+        file_path: str,
+    ) -> "LookerView":
+        """
+        Create a new LookerView, keyed as atlan-looker-app keys it:
+        ``{project_qualified_name}/view/{md5(file_path)}/{name}``.
+
+        Args:
+            name: Name of the LookML view
+            project_qualified_name: Unique name of the project in which the view exists
+            file_path: Path of the LookML file that declares the view. Anything up to and
+                including ``cloned_repos/`` is ignored when hashing, as the app does.
+
+        Returns:
+            LookerView instance ready to be created
+        """
+        validate_required_fields(
+            ["name", "project_qualified_name", "file_path"],
+            [name, project_qualified_name, file_path],
+        )
+        view = looker_qn.looker_id(name, "name")
+        parent = looker_qn.parse_project(project_qualified_name)
+        file_hash = looker_qn.file_path_hash(file_path)
+        return cls(
+            name=name,
+            qualified_name=f"{project_qualified_name}/view/{file_hash}/{view}",
+            connection_qualified_name=parent.connection_qualified_name,
+            connector_name=looker_qn.connector_name(parent.connection_qualified_name),
+            project_name=parent.project_name,
+            looker_view_file_path=file_path,
+            project=RelatedLookerProject(qualified_name=project_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "LookerView":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "LookerView":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -616,6 +665,7 @@ def _looker_view_to_nested(looker_view: LookerView) -> LookerViewNested:
         is_incomplete=looker_view.is_incomplete,
         provenance_type=looker_view.provenance_type,
         home_id=looker_view.home_id,
+        delete_handler=looker_view.delete_handler,
         depth=looker_view.depth,
         immediate_upstream=looker_view.immediate_upstream,
         immediate_downstream=looker_view.immediate_downstream,
@@ -662,6 +712,7 @@ def _looker_view_from_nested(nested: LookerViewNested) -> LookerView:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -685,10 +736,7 @@ def _looker_view_from_nested_bytes(data: bytes, serde: Serde) -> LookerView:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 LookerView.PROJECT_NAME = KeywordField("projectName", "projectName")
 LookerView.LOOKER_VIEW_FILE_PATH = KeywordField(

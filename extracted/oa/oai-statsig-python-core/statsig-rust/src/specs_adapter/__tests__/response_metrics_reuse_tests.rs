@@ -82,6 +82,7 @@ async fn process(
     assert_eq!(bytes.load(Ordering::Relaxed), 0);
     let result = adapter
         .process_spec_data_with_metrics(
+            SpecsSyncTrigger::Initial,
             Ok(NetworkResponse {
                 data,
                 loggable_api: "test".to_owned(),
@@ -229,6 +230,7 @@ async fn custom_async_listener_keeps_original_response_and_error_classification(
     )));
     let result = adapter
         .process_spec_data_with_metrics(
+            SpecsSyncTrigger::Initial,
             Ok(NetworkResponse {
                 data,
                 loggable_api: "test".to_owned(),
@@ -371,6 +373,7 @@ async fn cancelled_custom_listener_keeps_response_classification() {
         tokio::time::timeout(
             Duration::from_millis(1),
             adapter.process_spec_data_with_metrics(
+                SpecsSyncTrigger::Initial,
                 Ok(NetworkResponse {
                     data,
                     loggable_api: "test".to_owned(),
@@ -455,6 +458,7 @@ async fn cancelled_remote_download_keeps_original_no_update_and_duplicate_metric
                 tokio::time::timeout(
                     Duration::from_millis(1),
                     adapter.process_spec_data_with_metrics(
+                        SpecsSyncTrigger::Initial,
                         Ok(NetworkResponse {
                             data,
                             loggable_api: "test".to_owned(),

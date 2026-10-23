@@ -81,7 +81,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from matrx_ai.code_call_mandate_keys import COMPARATIVE_JUDGE_MANDATE, RUBRIC_JUDGE_MANDATE
 from matrx_ai.evaluators.ai_judge import JudgeError, _format_output
 from matrx_ai.graph_nodes._strict_json import StrictJsonError
-from matrx_ai.mandates import MandateResolutionUnavailable, hold_code_call, run_held_pydantic
+from matrx_ai.mandates import (
+    MandateResolutionUnavailable,
+    Offer,
+    RunOptions,
+    carried_principal,
+    get_mandate_runner,
+)
 from matrx_ai.providers.keys import resolve_api_key
 
 logger = logging.getLogger("matrx_ai.evaluators.judge")
@@ -431,7 +437,6 @@ class Judge:
         *,
         runner: JudgeRunner | None = None,
         agent_cls: Any | None = None,
-        mandate_runner: Any | None = None,
         api_key: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
@@ -455,11 +460,6 @@ class Judge:
             )
         self._runner: JudgeRunner = runner
         self._agent_cls = agent_cls
-        # There are deliberately TWO `run_mandated` twins — `matrx_ai.mandates`
-        # (package-internal, injected resolver) and aidream's host-side one that
-        # adds ambient-AppContext principal defaulting. A host judge must pass
-        # its own, or it silently loses that defaulting.
-        self._mandate_runner = mandate_runner
         self._api_key = api_key
 
     # ── The two modes ───────────────────────────────────────────────────────
@@ -534,7 +534,7 @@ class Judge:
         sent_text: str | None = None
         sha: str | None = None
         if self._runner == "mandated":
-            verdict, invocation = await self._run_mandated(
+            verdict, invocation = await self._run_holder_agent(
                 subject, reference, context=context, user_id=user_id
             )
         elif self._runner == "direct":
@@ -582,25 +582,30 @@ class Judge:
             COMPARATIVE_JUDGE_MANDATE if contract.mode == "comparative" else RUBRIC_JUDGE_MANDATE
         )
         try:
-            held = await hold_code_call(
-                mandate_key,
-                consumer=f"matrx_ai.evaluators.Judge:{contract.key}",
-                # The web-search sentence is the Holder's (its ``web_clause``
-                # default). A contract without web access blanks it; one with
-                # web access offers nothing, so the Holder's own text applies.
-                variables={
-                    "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
-                    **({} if contract.web_access else {"web_clause": ""}),
-                    **_judge_offer(contract, subject, reference, context),
-                },
-                metadata={
-                    "source_app": "matrx-ai",
-                    "source_feature": "judge",
-                    "judge_key": contract.key,
-                    "judge_version": contract.version,
-                    **self._metadata,
-                },
-            )
+            held = (
+                await get_mandate_runner().prepare(
+                    mandate_key,
+                    Offer.given_values(
+                        {
+                            "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
+                            **({} if contract.web_access else {"web_clause": ""}),
+                            **_judge_offer(contract, subject, reference, context),
+                        }
+                    ),
+                    who=carried_principal(),
+                    opts=RunOptions(
+                        door="package_code_call",
+                        consumer=f"matrx_ai.evaluators.Judge:{contract.key}",
+                        metadata={
+                            "source_app": "matrx-ai",
+                            "source_feature": "judge",
+                            "judge_key": contract.key,
+                            "judge_version": contract.version,
+                            **self._metadata,
+                        },
+                    ),
+                )
+            ).held_call()
             # The Holder authors the user turn; the site only offers values.
             user = held.authored_user()
         except MandateResolutionUnavailable as exc:
@@ -611,8 +616,7 @@ class Judge:
         # request it sent (Agent Evaluation's input-integrity check) by this id.
         conversation_id = str(uuid.uuid4())
         try:
-            measured = await run_held_pydantic(
-                held,
+            measured = await held.send_pydantic(
                 measured=True,
                 user=user,
                 output_cls=_verdict_model(contract),
@@ -664,29 +668,37 @@ class Judge:
         # Late imports on purpose: the Holder door, the funnel and the ledger are the seams a
         # host's tests replace, and a bound module-level name would not see the replacement.
         from matrx_ai.graph_nodes._strict_json import llm_to_pydantic_measured
-        from matrx_ai.mandates import hold_code_call as hold
+        from matrx_ai.mandates import Offer, RunOptions, carried_principal, get_mandate_runner
 
         contract = self.contract
         mandate_key = (
             COMPARATIVE_JUDGE_MANDATE if contract.mode == "comparative" else RUBRIC_JUDGE_MANDATE
         )
         try:
-            held = await hold(
-                mandate_key,
-                consumer=f"matrx_ai.evaluators.Judge.direct:{contract.key}",
-                variables={
-                    "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
-                    **({} if contract.web_access else {"web_clause": ""}),
-                    **_judge_offer(contract, subject, reference, context),
-                },
-                metadata={
-                    "source_app": "matrx-ai",
-                    "source_feature": "judge",
-                    "judge_key": contract.key,
-                    "judge_version": contract.version,
-                    **self._metadata,
-                },
-            )
+            held = (
+                await get_mandate_runner().prepare(
+                    mandate_key,
+                    Offer.given_values(
+                        {
+                            "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
+                            **({} if contract.web_access else {"web_clause": ""}),
+                            **_judge_offer(contract, subject, reference, context),
+                        }
+                    ),
+                    who=carried_principal(),
+                    opts=RunOptions(
+                        door="package_code_call",
+                        consumer=f"matrx_ai.evaluators.Judge.direct:{contract.key}",
+                        metadata={
+                            "source_app": "matrx-ai",
+                            "source_feature": "judge",
+                            "judge_key": contract.key,
+                            "judge_version": contract.version,
+                            **self._metadata,
+                        },
+                    ),
+                )
+            ).held_call()
             user = held.authored_user()
         except MandateResolutionUnavailable as exc:
             raise JudgeError(f"judge {contract.key!r}: {exc}") from exc
@@ -745,7 +757,7 @@ class Judge:
             "reply_sha256": sha,
         }, sent
 
-    async def _run_mandated(
+    async def _run_holder_agent(
         self,
         subject: JudgeSubject,
         reference: JudgeSubject | None,
@@ -760,11 +772,6 @@ class Judge:
         verdict vocabulary here rather than forcing every judge agent to be
         rewritten — the contract stays the authority on what a verdict may be.
         """
-        if self._mandate_runner is not None:
-            run_mandated = self._mandate_runner
-        else:
-            from matrx_ai.mandates import run_mandated
-
         contract = self.contract
         # The agent CLASS carries the mandate key (NamedAgent.mandate_key), so
         # naming the type here is what declares this a holder pass-through — the
@@ -789,17 +796,24 @@ class Judge:
             ),
             context=dict(context) if context else None,
         )
-        res = await run_mandated(
-            agent_cls,
-            inputs=inputs,
-            user_id=user_id,
-            label=f"Judge · {contract.key}",
-            request_metadata={
-                "feature": "judge",
-                "judge_key": contract.key,
-                "judge_version": contract.version,
-            },
+        # THE ONE NAMEDAGENT FUNNEL through the runner (runner plan 25 step 5), for the carried principal
+        # (``user_id`` names the person when the caller knows it).
+        done = await get_mandate_runner().run(
+            agent_cls.mandate_key,
+            Offer.from_inputs(
+                agent_cls,
+                inputs,
+                label=f"Judge · {contract.key}",
+                request_metadata={
+                    "feature": "judge",
+                    "judge_key": contract.key,
+                    "judge_version": contract.version,
+                },
+            ),
+            who=carried_principal(user_id),
+            opts=RunOptions(door="named_agent"),
         )
+        res = done.raw
         parsed = res.parsed
         if parsed is None:
             # Name WHY: a run that never ran (refused, failed) and a run whose answer did not

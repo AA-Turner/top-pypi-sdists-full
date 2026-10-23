@@ -49,6 +49,9 @@ from omnimarket.events.topics import (
     DELEGATE_SKILL_COMPLETED_TOPIC_V1,
     DELEGATE_SKILL_FAILED_TOPIC_V1,
 )
+from omnimarket.handlers.handler_modelled_terminal_savings import (
+    apply_modelled_terminal_savings,
+)
 from omnimarket.models.delegation.quality_bar_evidence import (
     extract_quality_bar_evidence,
 )
@@ -58,6 +61,7 @@ from omnimarket.models.delegation.wire.model_delegate_skill_response import (
 from omnimarket.models.delegation.wire.model_delegate_skill_terminal_projection import (
     ModelDelegateSkillTerminalProjection,
     ModelDelegationEventProjectionRow,
+    ModelTaskDelegatedSavingsSource,
 )
 from omnimarket.models.delegation.wire.model_quality_gate import (
     ModelQualityGateResult,
@@ -95,7 +99,10 @@ from omnimarket.nodes.node_projection_delegation.models.model_terminal_precedenc
     fold_terminal_ownership,
     supersedes_handler_failure,
 )
-from omnimarket.pricing import recompute_actual_cost_and_savings
+from omnimarket.pricing import (
+    build_premium_counterfactual,
+    recompute_actual_cost_and_savings,
+)
 from omnimarket.projection.discovery import load_projection_exposures_from_contract
 from omnimarket.projection.envelope import (
     DATA_SOURCE_REAL,
@@ -284,7 +291,8 @@ class ModelProjectionGenerationCompletedEvent(BaseModel):
     corpus_checked: bool = Field(default=False)
     corpus_passed: bool = Field(default=False)
     corpus_errors: list[str] = Field(default_factory=list)
-    cost_inference_usd: float = Field(default=0.0)
+    # OMN-20834: None when the run's model is unpriced; stored as NULL, never 0.
+    cost_inference_usd: float | None = Field(default=None)
     timestamp: str | None = Field(default=None, description="ISO 8601 timestamp.")
     # OMN-12780 (Wave 1C): full generated output — empty string is the
     # failed/incomplete-generation sentinel, never coerced to NULL, never truncated.
@@ -331,6 +339,9 @@ class ModelProjectionTaskDelegatedEvent(BaseModel):
     terminal_failure_cause: EnumDelegationTerminalFailureCause | None = Field(
         default=None
     )
+    # Canonical terminals state an outcome even when the producer names no
+    # cause. None leaves non-terminal task-delegated events unclassified.
+    terminal_ok: bool | None = Field(default=None, strict=True)
     # OMN-19448: canonical terminal trace_id, model_used and route respectively.
     trace_id: str | None = Field(default=None)
     routed_model: str | None = Field(default=None)
@@ -789,17 +800,27 @@ class HandlerProjectionDelegation:
                 terminal, db_raw, data_source=envelope_data_source(input_data)
             )
             return result.model_dump(mode="json")
+        canonical_counterfactual = None
         if "delegation-completed" in event_type or "delegation-failed" in event_type:
+            canonical_counterfactual = (
+                ModelTaskDelegatedSavingsSource.counterfactual_from_canonical_payload(
+                    payload, counterfactual_builder=build_premium_counterfactual
+                )
+            )
             payload = _canonical_result_to_task_delegated_payload(payload)
 
         event = ModelTaskDelegatedEvent.model_validate(payload)
-        result = self.project(event, db_raw)
+        result = self.project(
+            event, db_raw, canonical_counterfactual=canonical_counterfactual
+        )
         return result.model_dump(mode="json")
 
     def project(
         self,
         event: ModelTaskDelegatedEvent,
         db: DatabaseAdapter,
+        *,
+        canonical_counterfactual: ModelPremiumCounterfactual | None = None,
     ) -> ModelProjectionResult:
         """UPSERT a single delegation event."""
         now = datetime.now(tz=UTC).isoformat()
@@ -864,6 +885,8 @@ class HandlerProjectionDelegation:
             "override_within_bounds": event.override_within_bounds,
         }
         _stamp_declared_failure_cause(row, event.terminal_failure_cause)
+        if event.terminal_ok is not None:
+            row["terminal_ok"] = event.terminal_ok
         _stamp_terminal_trace_and_routing(row, event)
         _stamp_terminal_stop_reason(row, event.finish_reason, event.truncated)
         # Resolve only the event's declared tenant against the registry.
@@ -886,6 +909,13 @@ class HandlerProjectionDelegation:
         )
         row.update(evidence)
         _preserve_existing_evidence(db, row)
+        # OMN-20303: the canonical completion can outlive the outer handler
+        # during shutdown. Keep the same token-derived baseline the savings
+        # writer uses, only after retaining any originally pinned baseline.
+        if row.get("premium_counterfactual") is None and canonical_counterfactual:
+            row["premium_counterfactual"] = canonical_counterfactual.model_dump(
+                mode="json"
+            )
         ok = bool(
             self._write_delegation_row(db, row, insert_only_columns=tenant_insert_only)
         )
@@ -1120,6 +1150,7 @@ class HandlerProjectionDelegation:
         # delegation-completed.v1 canonical event. _preserve_existing_evidence
         # retains the existing non-blank value when the incoming row has none.
         _preserve_existing_evidence(db, row)
+        apply_modelled_terminal_savings(row, event)
         ok = bool(
             self._write_delegation_row(db, row, insert_only_columns=tenant_insert_only)
         )
@@ -1739,6 +1770,9 @@ def _canonical_result_to_task_delegated_payload(
         "content_verdict": payload.get("content_verdict"),
         # OMN-19448: the terminal's own cause; the converter used to drop it.
         "terminal_failure_cause": payload.get("terminal_failure_cause"),
+        # A canonical-only failure must participate in failed-row readbacks,
+        # including one whose producer omitted the typed cause.
+        "terminal_ok": quality_passed and payload.get("terminal_failure_cause") is None,
         # OMN-19448: copy the producer's trace and routing fields; UUID traces
         # are stored as TEXT so the asyncpg writer binds a string safely.
         "trace_id": (
@@ -2195,6 +2229,10 @@ def _stamp_accepting_attempt(
     The accepting attempt is the first rung whose quality gate passed and that
     carries no failure class. A terminal with no accepted rung names neither
     column, so the row stores NULL, never an empty backend.
+
+    The accepting attempt is also the routed model and answering backend the
+    canonical terminal names as model_used and route (OMN-19448), so a
+    delegate-skill-only row stores them too.
     """
     for attempt in attempts:
         if not attempt.quality_gate_passed or (attempt.failure_class or "").strip():
@@ -2203,6 +2241,12 @@ def _stamp_accepting_attempt(
             text = _blank_to_none(value)
             if text is not None:
                 row[key] = text
+        routed_model = _blank_to_none(attempt.model_id)
+        if routed_model is not None:
+            row["routed_model"] = routed_model
+        answering_backend = _blank_to_none(attempt.backend_id)
+        if answering_backend is not None:
+            row["answering_backend"] = answering_backend
         return
 
 

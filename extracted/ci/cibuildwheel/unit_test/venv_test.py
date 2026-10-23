@@ -1,11 +1,19 @@
 import os
+import subprocess
 import sys
 from pathlib import Path
 
+import certifi
 import pytest
 
 import cibuildwheel.venv
-from cibuildwheel.venv import activate_virtualenv, find_uv, virtualenv
+from cibuildwheel.venv import (
+    activate_virtualenv,
+    find_uv,
+    target_marker_env,
+    uv_ca_warning,
+    virtualenv,
+)
 
 
 def test_activate_virtualenv(tmp_path: Path) -> None:
@@ -58,3 +66,65 @@ def test_virtualenv_no_base_python_bin_dir_on_windows(
     )
     paths = env["PATH"].split(os.pathsep)
     assert str(Path(sys.executable).parent) not in paths
+
+
+@pytest.mark.skipif(find_uv() is None, reason="requires uv")
+@pytest.mark.parametrize(("version", "expected"), [("3.9", True), ("3.10", False)])
+def test_virtualenv_pip_cert(tmp_path: Path, version: str, *, expected: bool) -> None:
+    env = virtualenv(
+        version, Path(sys.executable), tmp_path / "venv", None, use_uv=True, env={"PATH": ""}
+    )
+    assert ("PIP_CERT" in env) == expected
+    if expected:
+        assert env["PIP_CERT"] == certifi.where()
+
+
+@pytest.mark.skipif(find_uv() is None, reason="requires uv")
+def test_virtualenv_pip_cert_graalpy(tmp_path: Path) -> None:
+    # truststore is not supported on GraalPy, so pip uses its bundled certifi
+    env = virtualenv(
+        "3.12",
+        Path(sys.executable),
+        tmp_path / "venv",
+        None,
+        use_uv=True,
+        env={"PATH": ""},
+        marker_env=target_marker_env(implementation_id="gp312_250"),
+    )
+    assert env["PIP_CERT"] == certifi.where()
+
+
+@pytest.mark.skipif(find_uv() is None, reason="requires uv")
+def test_virtualenv_pip_cert_user_override(tmp_path: Path) -> None:
+    env = virtualenv(
+        "3.9",
+        Path(sys.executable),
+        tmp_path / "venv",
+        None,
+        use_uv=True,
+        env={"PATH": "", "PIP_CERT": "/my/cert.pem"},
+    )
+    assert env["PIP_CERT"] == "/my/cert.pem"
+
+
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        ("uv 0.13.3 (abc 2026-10-01)", True),
+        ("uv 0.9.0", True),
+        ("uv 0.13.4 (Homebrew 2026-10-20 aarch64-apple-darwin)", False),
+        ("uv 1.0.0", False),
+        ("garbage", False),
+    ],
+)
+def test_uv_ca_warning(monkeypatch: pytest.MonkeyPatch, output: str, *, expected: bool) -> None:
+    def fake_run(args: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args, 0, stdout=output + "\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    warning = uv_ca_warning(Path("uv"))
+    if expected:
+        assert warning is not None
+        assert output.split()[1] in warning
+    else:
+        assert warning is None

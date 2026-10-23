@@ -11,7 +11,7 @@ name = "sphinx-needs"
 # `src/sphinx_needs/__init__.py` (which is stamped into every generated `needs.json`, so it
 # cannot become an `importlib.metadata` lookup); `tools/src/sn_tools/check_workspace.py` is
 # what keeps the two equal.
-version = "9.0.0"
+version = "9.1.0"
 # `description` stays dynamic: flit_core reads the module docstring by AST, so a static
 # version alongside a dynamic description is a supported combination.
 dynamic = ["description"]
@@ -33,6 +33,7 @@ classifiers = [
   'Programming Language :: Python :: 3.14',
   'Topic :: Documentation',
   'Topic :: Utilities',
+  'Typing :: Typed',
   'Framework :: Sphinx :: Extension',
 ]
 requires-python = ">=3.11,<4"
@@ -47,6 +48,7 @@ dependencies = [
   "typing-extensions>=4.14.0",   # for `**kwargs: Unpack[...]` (PEP 692), which typing supports from 3.12
   "minijinja~=2.15",             # lightweight jinja2-compatible template engine
   "ub-project>=1.1.0,<2",        # reads the `[variants]` table of `needs_from_toml`
+  "ub-needs-exchange>=1.1.0,<2", # reads needs.json: `needimport`, `needs_external_needs`
 ]
 
 [project.optional-dependencies]
@@ -59,6 +61,7 @@ docs = [
   "sphinx-design~=0.6",
   "sphinx-ai-index>=1.0.0,<2",
   "sphinx-syntax-example~=0.2.0",      # the `syntax-example` directive
+  "sphinxcontrib-mermaid>=1.0.0,<3",   # the `mermaid` directive
 ]
 theme-im = ["sphinx-immaterial>=0.11.11,<0.14.0"]
 # furo before 2025.12.19 caps sphinx at <9.0, which the `sphinx-9` group cannot resolve.

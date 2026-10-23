@@ -78,7 +78,7 @@ def _buildable_flatten(
   metadata = BuildableTraverserMetadata(
       fn_or_cls=buildable.__fn_or_cls__,
       argument_names=keys,
-      argument_tags=argument_tags,
+      argument_tags=argument_tags,  # pyrefly: ignore[bad-argument-type]
       argument_history=argument_history,
   )
   return values, metadata
@@ -88,7 +88,7 @@ def _buildable_path_elements(
     buildable: Buildable, include_defaults: bool = False
 ) -> Tuple[daglish.PathElement]:
   """Implement Buildable.__path_elements__ method."""
-  return tuple(
+  return tuple(  # pyrefly: ignore[bad-return]
       daglish.Attr(name) if isinstance(name, str) else daglish.Index(name)
       for name in ordered_arguments(
           buildable, include_defaults=include_defaults
@@ -111,6 +111,8 @@ def _register_buildable_defaults_aware_traversers(cls: Type[Buildable]):
 def _compare_buildable(x: Buildable, y: Buildable, check_dag: bool = False):
   """Compare if two Buildables are equal, including DAG structure."""
   assert isinstance(x, Buildable)
+  if x is y:
+    return True  # Fast path to avoid navigating the tree.
   if type(x) is not type(y):
     return False
   if x.__fn_or_cls__ != y.__fn_or_cls__:
@@ -196,7 +198,7 @@ class BuildableTraverserMetadata(NamedTuple):
 
   def arguments(self, values: Iterable[Any]) -> Dict[str, Any]:
     """Returns a dictionary combining ``self.argument_names`` with ``values``."""
-    return dict(zip(self.argument_names, values))
+    return dict(zip(self.argument_names, values))  # pyrefly: ignore[bad-return]
 
   def tags(self) -> Dict[str, set[tag_type.TagType]]:
     return collections.defaultdict(
@@ -234,6 +236,7 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
   def __init__(
       self,
       fn_or_cls: Union['Buildable[T]', TypeOrCallableProducingT[T]],
+      /,
       *args,
       **kwargs,
   ):
@@ -262,7 +265,7 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
             f'Unexpected type received for the argument name: {key!r}'
         )
 
-    for name, tags in tag_type.find_tags_from_annotations(fn_or_cls).items():
+    for name, tags in tag_type.find_tags_from_annotations(fn_or_cls).items():  # pyrefly: ignore[bad-argument-type]
       self.__argument_tags__[name].update(tags)
       self.__argument_history__.add_updated_tags(
           name, self.__argument_tags__[name]
@@ -304,7 +307,7 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
     _register_buildable_defaults_aware_traversers(cls)
 
   @abc.abstractmethod
-  def __build__(self, *args, **kwargs):
+  def __build__(self, /, *args, **kwargs):
     """Builds output for this instance; see subclasses for details."""
     raise NotImplementedError()
 
@@ -345,18 +348,22 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
     ) and _field_uses_default_factory(self.__fn_or_cls__, name):
       raise ValueError(
           "Can't get default value for dataclass field "
-          + f'{self.__fn_or_cls__.__qualname__}.{name} '
+          + f'{self._fn_or_cls_name_repr()}.{name} '
           + 'since it uses a default_factory.'
       )
     if param is not None and param.default is not param.empty:
       return param.default
-    msg = f"No parameter '{name}' has been set on {self!r}."
+    msg = (
+        f"No parameter '{name}' has been set on {self!r} "
+        f"(Buildable='{self._fn_or_cls_name_repr()}', missing "
+        f"parameter='{name}')."
+    )
     # TODO(b/219988937): Implement an edit distance function and display valid
     # attributes that are close to `name`.
     if hasattr(self.__fn_or_cls__, name):
       msg += (
           f' Note: {self.__fn_or_cls__.__module__}.'
-          f'{self.__fn_or_cls__.__qualname__} has an attribute/method with '
+          f'{self._fn_or_cls_name_repr()} has an attribute/method with '
           'this name, so this could be caused by using a '
           f'fdl.{self.__class__.__qualname__} in '
           'place of the actual function or class being configured. Did you '
@@ -438,7 +445,7 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
     new_placeholders = old_placeholders.copy()
     # Traverse from largest index to maintain order of undeleted indices.
     for index in indices[::-1]:
-      if index < var_positional_start:
+      if index < var_positional_start:  # pyrefly: ignore[unsupported-operation]
         k = self.__signature_info__.index_to_key(index, self.__arguments__)
         if k in self.__arguments__:
           self._arguments_del_value(k)
@@ -446,7 +453,7 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
         del new_placeholders[index]
 
     # Delete var-positional args and compact the *args list.
-    for index in range(var_positional_start, len(old_placeholders)):
+    for index in range(var_positional_start, len(old_placeholders)):  # pyrefly: ignore[bad-argument-type]
       if index < len(new_placeholders):
         if new_placeholders[index] != old_placeholders[index]:
           new_value = self.__arguments__[new_placeholders[index].index]
@@ -456,7 +463,7 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
 
   def _set_item_by_index(self, key: int, value: Any):
     """Set positional arguments by index."""
-    key = self.__signature_info__.index_to_key(key, self.__arguments__)
+    key = self.__signature_info__.index_to_key(key, self.__arguments__)  # pyrefly: ignore[bad-assignment]
     positional_num = self.__signature_info__.var_positional_start
     if positional_num is None:
       # *args does not exist
@@ -548,14 +555,21 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
     set_argument_names = self.__arguments__.keys()
     valid_param_names = set(self.__signature_info__.valid_param_names)
     all_names = valid_param_names.union(set_argument_names)
-    return all_names
+    return all_names  # pyrefly: ignore[bad-return]
 
-  def __repr__(self):
+  # Buildable are mutable so do not make this `@functools.cached_property`
+  def _fn_or_cls_name_repr(self) -> str:
+    """Display name of the config object."""
     if hasattr(self.__fn_or_cls__, '__qualname__'):
-      formatted_fn_or_cls = self.__fn_or_cls__.__qualname__
+      return self.__fn_or_cls__.__qualname__
     else:
-      formatted_fn_or_cls = str(self.__fn_or_cls__)
-    formatted_params = []
+      return str(self.__fn_or_cls__)
+
+  def _params_name_tags_and_value(
+      self,
+  ) -> Iterable[tuple[str, Set[tag_type.TagType], Any]]:
+    """Returns the dict mapping each param name to its tags and value."""
+
     # Show parameters from signature first (in signature order) followed by
     # **varkwarg parameters (in the order they were set).
     param_names = list(self.__signature_info__.parameters) + [
@@ -565,8 +579,15 @@ class Buildable(Generic[T], metaclass=abc.ABCMeta):
     ]
 
     for name in param_names:
-      tags = self.__argument_tags__.get(name, ())
+      tags = self.__argument_tags__.get(name, set())
       value = self.__arguments__.get(name, NO_VALUE)
+      yield name, tags, value  # pyrefly: ignore[invalid-yield]
+
+  def __repr__(self):
+    formatted_fn_or_cls = self._fn_or_cls_name_repr()
+
+    formatted_params = []
+    for name, tags, value in self._params_name_tags_and_value():
       if tags or (value is not NO_VALUE):
         param_str = str(name)
         if tags:
@@ -767,7 +788,7 @@ class Config(Generic[T], Buildable[T]):
   __fn_or_cls__: TypeOrCallableProducingT[T]
   __signature_info__: signatures.SignatureInfo
 
-  def __build__(self, *args, **kwargs):
+  def __build__(self, /, *args, **kwargs):
     """Builds this ``Config`` for the given ``args`` and ``kwargs``.
 
     This method is called during `build` to get the output for this `Config`.
@@ -804,7 +825,7 @@ def tagged_value_fn(
     if tags:
       msg += ' Unset tags: ' + str(tags)
     raise tag_type.TaggedValueNotFilledError(msg)
-  return value
+  return value  # pyrefly: ignore[bad-return]
 
 
 class TaggedValueCls(Generic[T], Config[T]):
@@ -824,13 +845,13 @@ class TaggedValueCls(Generic[T], Config[T]):
   def tags(self):
     return self.__argument_tags__['value']
 
-  def __build__(self, *args: Any, **kwargs: Any) -> T:
+  def __build__(self, /, *args: Any, **kwargs: Any) -> T:
     if self.__fn_or_cls__ is not tagged_value_fn:
       raise RuntimeError(
           'Unexpected __fn_or_cls__ in TaggedValueCls; found:'
           f'{self.__fn_or_cls__}'
       )
-    return self.__fn_or_cls__(tags=self.tags, *args, **kwargs)
+    return self.__fn_or_cls__(tags=self.tags, *args, **kwargs)  # pyrefly: ignore[unexpected-keyword]
 
 
 def _field_uses_default_factory(dataclass_type: Type[Any], field_name: str):
@@ -920,11 +941,11 @@ def ordered_arguments(
 
   if include_var_keyword:
     for name, value in buildable.__arguments__.items():
-      param = buildable.__signature_info__.parameters.get(name)
+      param = buildable.__signature_info__.parameters.get(name)  # pyrefly: ignore[bad-argument-type]
       if param is None or param.kind == param.VAR_KEYWORD:
         result[name] = value
 
   if not include_positional:
     result = {k: v for k, v in result.items() if isinstance(k, str)}
 
-  return result
+  return result  # pyrefly: ignore[bad-return]

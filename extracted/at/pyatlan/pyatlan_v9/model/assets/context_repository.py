@@ -18,6 +18,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .agent_related import RelatedAgent
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -32,6 +40,7 @@ from .asset import (
     _populate_asset_attrs,
 )
 from .asset_related import RelatedAsset
+from .context_related import RelatedContextArtifact, RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
@@ -48,14 +57,6 @@ from .schema_registry_related import RelatedSchemaRegistrySubject
 from .skill_related import RelatedSkill
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .context_related import RelatedContextArtifact, RelatedContextRepository
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -319,6 +320,35 @@ class ContextRepository(Asset):
         if self.guid is not UNSET:
             return RelatedContextRepository(guid=self.guid)
         return RelatedContextRepository(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        scope_owner: str,
+        connection_qualified_name: str,
+    ) -> "ContextRepository":
+        validate_required_fields(
+            ["scope_owner", "connection_qualified_name"],
+            [scope_owner, connection_qualified_name],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=scope_owner,
+            qualified_name=f"{connection_qualified_name}/skills/{scope_owner}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "ContextRepository":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "ContextRepository":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -663,6 +693,7 @@ def _context_repository_to_nested(
         is_incomplete=context_repository.is_incomplete,
         provenance_type=context_repository.provenance_type,
         home_id=context_repository.home_id,
+        delete_handler=context_repository.delete_handler,
         depth=context_repository.depth,
         immediate_upstream=context_repository.immediate_upstream,
         immediate_downstream=context_repository.immediate_downstream,
@@ -713,6 +744,7 @@ def _context_repository_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

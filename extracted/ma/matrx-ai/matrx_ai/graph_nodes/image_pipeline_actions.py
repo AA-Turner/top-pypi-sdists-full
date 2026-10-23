@@ -47,7 +47,7 @@ from matrx_ai.graph_nodes._strict_json import (
     node_panel_hooks,
 )
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
-from matrx_ai.mandates import hold_code_call, run_held_pydantic
+from matrx_ai.mandates import Offer, RunOptions, carried_principal, get_mandate_runner
 
 _MODEL_FIELD_DESCRIPTION = (
     "Leave empty to run the model this step's mandate Holder names; set it only to "
@@ -139,23 +139,27 @@ async def image_concept_generate(
     on_delta, on_reset = node_panel_hooks(getattr(getattr(ctx, "app", None), "emitter", None))
     # The Holder AUTHORS the user turn around these named values (2026-10-07):
     # no clause is composed here.
-    held = await hold_code_call(
-        IMAGE_CONCEPT_MANDATE,
-        consumer="ai.image.concept_generate",
-        variables={
-            "topic_text": inputs.topic,
-            "concept_count": inputs.num_concepts,
-            **({"audience_text": inputs.audience} if inputs.audience else {}),
-            **({"style_hint_text": inputs.style_hint} if inputs.style_hint else {}),
-        },
-    )
+    held = (
+        await get_mandate_runner().prepare(
+            IMAGE_CONCEPT_MANDATE,
+            Offer.given_values(
+                {
+                    "topic_text": inputs.topic,
+                    "concept_count": inputs.num_concepts,
+                    **({"audience_text": inputs.audience} if inputs.audience else {}),
+                    **({"style_hint_text": inputs.style_hint} if inputs.style_hint else {}),
+                }
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="package_code_call", consumer="ai.image.concept_generate"),
+        )
+    ).held_call()
 
     try:
         # Raised errors (ImagePipelineError) are synthesized by the scheduler
         # into the same Failure shape — code = exception class name.
         return success(
-            await run_held_pydantic(
-                held,
+            await held.send_pydantic(
                 user=held.authored_user(),
                 output_cls=ConceptGenerateOutput,
                 model=inputs.model,
@@ -276,29 +280,33 @@ async def image_prompt_write(
         style_layers.append(preset_text)
     style_block = ", ".join(s for s in style_layers if s)
 
-    held = await hold_code_call(
-        IMAGE_PROMPT_WRITE_MANDATE,
-        consumer="ai.image.prompt_write",
-        variables={
-            "concept_name": inputs.concept.name,
-            "concept_description": inputs.concept.description,
-            **(
-                {"concept_suggested_style": inputs.concept.suggested_style}
-                if inputs.concept.suggested_style
-                else {}
+    held = (
+        await get_mandate_runner().prepare(
+            IMAGE_PROMPT_WRITE_MANDATE,
+            Offer.given_values(
+                {
+                    "concept_name": inputs.concept.name,
+                    "concept_description": inputs.concept.description,
+                    **(
+                        {"concept_suggested_style": inputs.concept.suggested_style}
+                        if inputs.concept.suggested_style
+                        else {}
+                    ),
+                    **({"style_preset": inputs.style_preset} if inputs.style_preset else {}),
+                    "style_guidance": style_block or "none",
+                    "aspect_ratio_text": inputs.aspect_ratio,
+                    "prompt_count": inputs.n_prompts,
+                }
             ),
-            **({"style_preset": inputs.style_preset} if inputs.style_preset else {}),
-            "style_guidance": style_block or "none",
-            "aspect_ratio_text": inputs.aspect_ratio,
-            "prompt_count": inputs.n_prompts,
-        },
-    )
+            who=carried_principal(),
+            opts=RunOptions(door="package_code_call", consumer="ai.image.prompt_write"),
+        )
+    ).held_call()
 
     try:
         # Raised errors (ImagePipelineError) are synthesized by the scheduler
         # into the same Failure shape — code = exception class name.
-        written = await run_held_pydantic(
-            held,
+        written = await held.send_pydantic(
             user=held.authored_user(),
             output_cls=_PromptWriteLlmOutput,
             model=inputs.model,
@@ -476,20 +484,24 @@ async def image_qc_judge(
     # Offered for mapping only (pass_by_name=False in the host's provision): the
     # current default-pin Holder never receives these.
     concept = inputs.expected_concept
-    held = await hold_code_call(
-        IMAGE_QC_JUDGE_MANDATE,
-        consumer="ai.image.qc_judge",
-        variables={
-            "rubric_text": rubric_text,
-            **({"expected_concept_name": concept.name} if concept else {}),
-            **({"expected_concept_description": concept.description} if concept else {}),
-            "extra_criteria": list(inputs.extra_criteria),
-            **({"image_url": inputs.image_url} if inputs.image_url else {}),
-        },
-    )
+    held = (
+        await get_mandate_runner().prepare(
+            IMAGE_QC_JUDGE_MANDATE,
+            Offer.given_values(
+                {
+                    "rubric_text": rubric_text,
+                    **({"expected_concept_name": concept.name} if concept else {}),
+                    **({"expected_concept_description": concept.description} if concept else {}),
+                    "extra_criteria": list(inputs.extra_criteria),
+                    **({"image_url": inputs.image_url} if inputs.image_url else {}),
+                }
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="package_code_call", consumer="ai.image.qc_judge"),
+        )
+    ).held_call()
     try:
-        verdict = await run_held_pydantic(
-            held,
+        verdict = await held.send_pydantic(
             # The image rides beside the text the Holder authors, in one turn.
             messages=[
                 {

@@ -74,7 +74,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from probe._compat import StrEnum
-from probe.sdk.durable import write_text_atomic
+from probe.sdk.durable import through_symlink, write_text_atomic
 
 BEGIN_MARKER = "<!-- probe-research:begin (managed by `probe wizard`) -->"
 END_MARKER = "<!-- probe-research:end -->"
@@ -121,7 +121,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 46
+POINTER_VERSION = 47
 
 POINTER_BODY = """## Probe Research
 
@@ -204,13 +204,14 @@ class Profile(StrEnum):
     DAEMON = "daemon"
 
 
-#: The Probe section for the DAEMON profile: the main agent only instruments and
-#: asks; the daemon reads and records. The approved text:
-#: `~/daemon-prompts/reads/agent-facing/managed-block.PROPOSED.md`. Versioned with
-#: POINTER_VERSION (one stamp, one bump).
+#: The Probe section for the DAEMON profile: the main agent instruments its runs,
+#: reads them back and asks; the daemon does every other read and write. The
+#: approved text, pinned by `test_daemon_profile.py`:
+#: `agent/tests/fixtures/daemon_prompts/reads/agent-facing/managed-block.PROPOSED.md`.
+#: Versioned with POINTER_VERSION (one stamp, one bump).
 DAEMON_POINTER_BODY = """## Probe Research
 
-Probe records a team's ML work: projects, experiments, runs, files and agent sessions. A Probe daemon runs beside you and does all Probe reads and writes. You only instrument your runs (`instrument-code` skill).
+Probe records a team's ML work: projects, experiments, runs, files and agent sessions. You instrument your runs (`instrument-code` skill) and can look at one by its id (`probe run get <id>`, `probe metrics plot <id>`). A Probe daemon runs beside you and does all other Probe reads and writes.
 
 ### ASK THE DAEMON:
 
@@ -716,16 +717,17 @@ def install(path: Path | None = None, *, spec: BlockSpec = POINTER_BLOCK, block:
     Everything outside the markers is preserved byte for byte. This file is the
     researcher's own memory -- the rules they wrote for themselves are the
     reason it is worth writing to at all, and clobbering them would be a worse
-    outcome than never having written anything.
+    outcome than never having written anything. That includes where it lives:
+    a file symlinked into a dotfiles repo is written through, never replaced.
     """
-    path = path or memory_path()
+    path = through_symlink(path or memory_path())
     block = render_block() if block is None else block
 
     try:
         original = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         path.parent.mkdir(parents=True, exist_ok=True)
-        write_text_atomic(path, block)
+        write_text_atomic(path, block, keep_mode=True)
         return True
 
     span = _find_block(original, spec)
@@ -741,7 +743,7 @@ def install(path: Path | None = None, *, spec: BlockSpec = POINTER_BLOCK, block:
 
     if updated == original:
         return False
-    write_text_atomic(path, updated)
+    write_text_atomic(path, updated, keep_mode=True)
     return True
 
 
@@ -751,7 +753,7 @@ def remove(path: Path | None = None, *, spec: BlockSpec = POINTER_BLOCK) -> bool
     Unticking the menu row must not delete a file the researcher owns, so a
     file whose ONLY content was our block is left empty rather than unlinked.
     """
-    path = path or memory_path()
+    path = through_symlink(path or memory_path())
     try:
         original = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -764,7 +766,7 @@ def remove(path: Path | None = None, *, spec: BlockSpec = POINTER_BLOCK) -> bool
     span = _find_block(original, spec)
     if span is None:
         return False
-    write_text_atomic(path, _without(original, span))
+    write_text_atomic(path, _without(original, span), keep_mode=True)
     return True
 
 
@@ -789,7 +791,7 @@ def remove_all(path: Path | None = None) -> bool:
     uninstall must still take out the rules that point at skills it removed --
     and is left for the next sync, which reports it (`render_blocks`).
     """
-    path = path or memory_path()
+    path = through_symlink(path or memory_path())
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -809,7 +811,7 @@ def remove_all(path: Path | None = None) -> bool:
             updated = _without(updated, span)
     if updated == text:
         return False
-    write_text_atomic(path, updated)
+    write_text_atomic(path, updated, keep_mode=True)
     return True
 
 

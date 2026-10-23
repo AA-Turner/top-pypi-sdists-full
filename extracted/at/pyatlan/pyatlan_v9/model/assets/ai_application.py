@@ -19,6 +19,17 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan.model.enums import AtlanConnectorType
+from pyatlan.utils import to_camel_case
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
+from .ai_related import RelatedAIApplication, RelatedAIModel
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,17 +58,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan.model.enums import AtlanConnectorType
-from pyatlan.utils import to_camel_case
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .ai_related import RelatedAIApplication, RelatedAIModel
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -721,6 +721,7 @@ def _ai_application_to_nested(ai_application: AIApplication) -> AIApplicationNes
         is_incomplete=ai_application.is_incomplete,
         provenance_type=ai_application.provenance_type,
         home_id=ai_application.home_id,
+        delete_handler=ai_application.delete_handler,
         depth=ai_application.depth,
         immediate_upstream=ai_application.immediate_upstream,
         immediate_downstream=ai_application.immediate_downstream,
@@ -769,6 +770,7 @@ def _ai_application_from_nested(nested: AIApplicationNested) -> AIApplication:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -794,10 +796,7 @@ def _ai_application_from_nested_bytes(data: bytes, serde: Serde) -> AIApplicatio
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 AIApplication.AI_APPLICATION_VERSION = KeywordField(
     "aiApplicationVersion", "aiApplicationVersion"

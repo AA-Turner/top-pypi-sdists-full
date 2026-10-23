@@ -20,6 +20,8 @@ use sqlbuild_analysis::planner_identity::main::topological_order::topological_or
 use sqlbuild_analysis::planner_identity::models::{AvailableUpstreams, GraphKey, MissingUpstream};
 
 use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::resource_reads;
 use crate::bindings::_helpers::graph::algorithms::{closure, inverted};
 use crate::bindings::_helpers::graph::keys::KeyCache;
 use crate::bindings::_helpers::planner_identity::hashing::graph_key;
@@ -89,21 +91,27 @@ pub(crate) fn build_execution_upstream_deps<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     let py: Python<'py> = project.py();
     let upstream: Bound<'py, PyDict> = PyDict::new(py);
-    for collection in ["models", "sources", "seeds", "functions"] {
-        for resource in native_field(project, collection)?.try_iter()? {
+    let collections: [Bound<'py, PyAny>; 4] = [
+        project_reads::models(project)?,
+        project_reads::sources(project)?,
+        project_reads::seeds(project)?,
+        project_reads::functions(project)?,
+    ];
+    for collection in collections {
+        for resource in collection.try_iter()? {
             let resource: Bound<'py, PyAny> = resource?;
             upstream.set_item(
-                native_field(&resource, "key")?,
+                resource_reads::key(&resource)?,
                 PyList::new(
                     py,
-                    native_field(&resource, "deps")?
+                    resource_reads::deps(&resource)?
                         .try_iter()?
                         .collect::<PyResult<Vec<_>>>()?,
                 )?,
             )?;
         }
     }
-    for test in native_field(project, "sql_tests")?.try_iter()? {
+    for test in project_reads::sql_tests(project)?.try_iter()? {
         let test: Bound<'py, PyAny> = test?;
         let test_key: Bound<'py, PyAny> = native_field(&test, "key")?;
         let scope_deps: Bound<'py, PyAny> = native_field(&test, "scope_deps")?;
@@ -172,7 +180,7 @@ pub(crate) fn build_execution_edge_origins<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     let py: Python<'py> = project.py();
     let origins: Bound<'py, PyDict> = PyDict::new(py);
-    for test in native_field(project, "sql_tests")?.try_iter()? {
+    for test in project_reads::sql_tests(project)?.try_iter()? {
         let test: Bound<'py, PyAny> = test?;
         let test_name: String = native_field(&test, "name")?.extract()?;
         for target_key in native_field(&test, "scope_deps")?.try_iter()? {

@@ -39,7 +39,10 @@ class SseValidator:
         self._deserialize_payload: Callable[[str, str], Any] | None = None
         keywords = _make_keywords(validator_cls, schema, self)
         self._validator = validator_cls(
-            schema, validate_formats=True, keywords=keywords, formats=supplemental_formats(validator_cls)
+            schema,
+            validate_formats=True,
+            keywords=keywords,
+            formats=supplemental_formats(validator_cls),
         )
 
     @contextmanager

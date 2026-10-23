@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_kafkaconnect.literals import ConnectorOperationStateType
 
-    data: ConnectorOperationStateType = "PENDING"
+    data: ConnectorOperationStateType = "PAUSE_COMPLETE"
     ```
 """
 
@@ -45,10 +45,16 @@ __all__ = (
 )
 
 ConnectorOperationStateType = Literal[
+    "PAUSE_COMPLETE",
+    "PAUSE_FAILED",
+    "PAUSE_IN_PROGRESS",
     "PENDING",
     "RESTART_COMPLETE",
     "RESTART_FAILED",
     "RESTART_IN_PROGRESS",
+    "RESUME_COMPLETE",
+    "RESUME_FAILED",
+    "RESUME_IN_PROGRESS",
     "ROLLBACK_COMPLETE",
     "ROLLBACK_FAILED",
     "ROLLBACK_IN_PROGRESS",
@@ -68,12 +74,24 @@ ConnectorOperationStepTypeType = Literal[
 ]
 ConnectorOperationTypeType = Literal[
     "ISOLATE_CONNECTOR",
+    "PAUSE_CONNECTOR",
     "RESTART_CONNECTOR",
     "RESTORE_CONNECTOR",
+    "RESUME_CONNECTOR",
     "UPDATE_CONNECTOR_CONFIGURATION",
     "UPDATE_WORKER_SETTING",
 ]
-ConnectorStateType = Literal["CREATING", "DELETING", "FAILED", "RESTARTING", "RUNNING", "UPDATING"]
+ConnectorStateType = Literal[
+    "CREATING",
+    "DELETING",
+    "FAILED",
+    "PAUSED",
+    "PAUSING",
+    "RESTARTING",
+    "RESUMING",
+    "RUNNING",
+    "UPDATING",
+]
 CustomPluginContentTypeType = Literal["JAR", "ZIP"]
 CustomPluginStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -195,6 +213,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",

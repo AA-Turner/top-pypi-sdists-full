@@ -114,6 +114,10 @@ class ClientContext(BaseModel):
     that computer's. Carries no capability and arms no tools (``sandbox-fs`` does that, only when the
     computer is connected); the server reads the row to tell the agent which computer it is
     (``desktop_chat_framing``), after checking the caller may see it."""
+    binding_id: str | None = None
+    """The surface binding (``agent.menu_surface.id``) whose Run door started this run. The host
+    checks it as the caller (exists, in reach, binds this agent) before the request row records it
+    as ``chat.user_request.binding_id``; an unproven id is ignored, never a refusal."""
     apply_policy: Literal["auto", "ask", "off"] | None = None
     """Surface layer of the output-directive apply cascade (agent → SURFACE →
     user). The calling surface's policy for model-emitted side effects; overrides

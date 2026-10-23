@@ -139,6 +139,10 @@ def safety_settings_for_request() -> list[types.SafetySetting]:
 # ============================================================================
 
 
+#: A Lyria track is never shorter than this; the floor for the cut-off-take check (the asked length is not known here).
+MIN_MUSIC_TRACK_SECONDS = 3.0
+
+
 class GoogleProviderConfig(TypedDict):
     """Type hint for Google API configuration dictionary"""
 
@@ -1616,7 +1620,16 @@ JSON Schema:
                 await ensure_pricing_lookup()
             except Exception:  # noqa: BLE001 — a cold lookup leaves the tokens as reported (basis unresolvable)
                 pass
-            apply_track_billing(token_usage, tracks=tracks, matrx_model_name=matrx_model_name, api="google_chat")
+            if apply_track_billing(token_usage, tracks=tracks, matrx_model_name=matrx_model_name, api="google_chat"):
+                # A paid music track that is only a stub is a cut-off take, never a bed (speech/take_check.py).
+                from matrx_ai.speech.take_check import raise_if_truncated_music
+
+                for c in content:
+                    size = getattr(c, "file_size", None)
+                    if isinstance(c, AudioContent) and isinstance(size, int) and size > 0:
+                        raise_if_truncated_music(
+                            provider="google", audio_size_bytes=size, seconds=MIN_MUSIC_TRACK_SECONDS, usage=token_usage
+                        )
 
         raw_response = last_chunk
         if last_chunk is not None:

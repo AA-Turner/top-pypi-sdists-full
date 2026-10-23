@@ -51,6 +51,13 @@ def _pristine_matrx_ai_host_seams():
     from matrx_ai.tools.declaration_ledger import reset_for_tests as _reset_tool_ledger
 
     restore_baseline(_PRISTINE_HOST_SEAMS)
+    # Package code reaches mandates only through the runner port (runner plan 25 steps 5-6). A package test has
+    # no host runner, so it gets the package's test runner: ``prepare`` is the real ``hold_code_call`` over
+    # whatever resolver the test installs (``run`` refuses — a NamedAgent test installs ``install_named_runner``).
+    import matrx_ai.mandates as _mandates
+    from matrx_ai.testing.holders import HolderBackedRunner
+
+    _mandates._MANDATE_RUNNER = HolderBackedRunner()
     # The conversation tool-declaration ledger is process memory keyed by
     # conversation id; tests reuse ids, so each test starts with none.
     _reset_tool_ledger()

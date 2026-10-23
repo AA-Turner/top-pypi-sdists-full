@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,6 +51,7 @@ from .dbt_related import (
     RelatedDbtSource,
     RelatedDbtTest,
 )
+from .dremio_related import RelatedDremioColumn
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -75,14 +83,6 @@ from .sql_related import (
     RelatedTablePartition,
     RelatedView,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .dremio_related import RelatedDremioColumn
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -1944,6 +1944,7 @@ def _dremio_column_to_nested(dremio_column: DremioColumn) -> DremioColumnNested:
         is_incomplete=dremio_column.is_incomplete,
         provenance_type=dremio_column.provenance_type,
         home_id=dremio_column.home_id,
+        delete_handler=dremio_column.delete_handler,
         depth=dremio_column.depth,
         immediate_upstream=dremio_column.immediate_upstream,
         immediate_downstream=dremio_column.immediate_downstream,
@@ -1992,6 +1993,7 @@ def _dremio_column_from_nested(nested: DremioColumnNested) -> DremioColumn:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

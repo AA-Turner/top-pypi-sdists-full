@@ -215,6 +215,8 @@ class LLMParams(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
     top_k: int | None = None
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
 
     tool_choice: Literal["none", "auto", "required"] | None = None
     parallel_tool_calls: bool | None = None

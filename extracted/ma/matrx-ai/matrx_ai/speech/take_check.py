@@ -68,3 +68,52 @@ def raise_if_truncated_take(
     if usage is not None:
         attach_billed_usage(truncated, usage)  # type: ignore[arg-type]
     raise truncated
+
+
+# --------------------------------------------------------------------------- #
+# MUSIC BODIES. A music bed is a paid audio body too: the same cut-off failure (HTTP 200, a stub body) applies.
+# The floor is per SECOND asked: a real mp3 is ~16,000 bytes a second (128 kbps); even the thinnest music encoding is
+# thousands. 1,500 B/s catches only a body that cannot hold the length that was asked and billed.
+# --------------------------------------------------------------------------- #
+
+#: Bytes per second of audio asked below which a music body cannot be the whole track.
+MIN_MUSIC_BYTES_PER_SECOND = 1_500
+
+
+def truncated_music_reason(audio_size_bytes: int, seconds: float) -> str | None:
+    """Why ``audio_size_bytes`` cannot be ``seconds`` of music, or ``None`` when it can."""
+    floor = int(max(1.0, float(seconds)) * MIN_MUSIC_BYTES_PER_SECOND)
+    if audio_size_bytes >= floor:
+        return None
+    return (
+        f"the audio is {audio_size_bytes} bytes for {float(seconds):.0f} seconds of music; "
+        f"a complete track is at least {floor} bytes, so the response was cut off"
+    )
+
+
+def raise_if_truncated_music(
+    *,
+    provider: str,
+    audio_size_bytes: int,
+    seconds: float,
+    usage: object | None = None,
+) -> None:
+    """The accept-point check every music adapter runs on a paid audio body, before storage (same contract as
+    :func:`raise_if_truncated_take`: retryable ``incomplete_response``, usage attached so the spend is recorded once)."""
+    cut_off = truncated_music_reason(audio_size_bytes, seconds)
+    if cut_off is None:
+        return
+    from matrx_ai.providers.errors import RetryableError, attach_billed_usage
+
+    truncated = TruncatedSpeechError(f"{provider} music: {cut_off}")
+    truncated.error_info = RetryableError(  # type: ignore[attr-defined]
+        error_type="incomplete_response",
+        message=str(truncated),
+        retry_after=2.0,
+        is_retryable=True,
+        user_message=f"The music from {provider} was cut off before it finished.",
+        details={"provider": provider, "modality": "audio", "audio_bytes": audio_size_bytes, "seconds": float(seconds)},
+    )
+    if usage is not None:
+        attach_billed_usage(truncated, usage)  # type: ignore[arg-type]
+    raise truncated

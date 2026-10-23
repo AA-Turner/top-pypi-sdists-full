@@ -22,6 +22,14 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .adf_related import RelatedAdfActivity
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -50,21 +58,13 @@ from .knowledge_related import RelatedKnowledgeFile
 from .matillion_related import RelatedMatillionComponent
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .power_bi_related import RelatedPowerBIDataflow
+from .process_related import RelatedColumnProcess, RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_related import RelatedFunction, RelatedProcedure
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .process_related import RelatedColumnProcess, RelatedProcess
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -407,12 +407,24 @@ class ColumnProcess(Asset):
         parent: Any,
         process_id: Union[str, None] = None,
     ) -> str:
-        """Generate column process qualified name using explicit process_id or deterministic hash."""
+        """Generate column process qualified name using explicit process_id or deterministic hash.
+
+        When process_id is None, the name is an MD5 hash of name, connection,
+        parent guid and input/output guids. Only guids feed the hash:
+        inputs/outputs referenced by qualifiedName add nothing, so same-named
+        processes in one connection collide. Pass process_id in that case.
+
+        :raises ValueError: if process_id is given but empty or whitespace
+        """
         validate_required_fields(
             ["name", "connection_qualified_name", "inputs", "outputs", "parent"],
             [name, connection_qualified_name, inputs, outputs, parent],
         )
-        if process_id and process_id.strip():
+        if process_id is not None:
+            if not process_id.strip():
+                raise ValueError(
+                    "process_id cannot be blank; omit it (None) to use the hash fallback"
+                )
             return f"{connection_qualified_name}/{process_id}"
         buffer = StringIO()
         buffer.write(name)
@@ -817,6 +829,7 @@ def _column_process_to_nested(column_process: ColumnProcess) -> ColumnProcessNes
         is_incomplete=column_process.is_incomplete,
         provenance_type=column_process.provenance_type,
         home_id=column_process.home_id,
+        delete_handler=column_process.delete_handler,
         depth=column_process.depth,
         immediate_upstream=column_process.immediate_upstream,
         immediate_downstream=column_process.immediate_downstream,
@@ -865,6 +878,7 @@ def _column_process_from_nested(nested: ColumnProcessNested) -> ColumnProcess:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

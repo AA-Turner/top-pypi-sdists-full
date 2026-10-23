@@ -35,6 +35,7 @@ from omnimarket.models.context_profile_resolve.model_context_profile_resolve_req
 )
 from omnimarket.nodes.node_context_pack_orchestrator.handlers.handler_context_pack_orchestrator import (
     TASK_KIND_UNKNOWN,
+    HandlerContextPackOrchestrator,
     default_implementation_identity,
 )
 from omnimarket.nodes.node_context_pack_orchestrator.protocols import (
@@ -42,6 +43,12 @@ from omnimarket.nodes.node_context_pack_orchestrator.protocols import (
 )
 from omnimarket.nodes.node_context_profile_resolver_effect.handlers.handler_context_profile_resolver import (
     HandlerContextProfileResolver,
+)
+from omnimarket.nodes.node_session_context_sources_effect.handlers.handler_session_context_sources import (
+    HandlerSessionContextSources,
+)
+from omnimarket.nodes.node_session_context_sources_effect.models import (
+    EnumSessionSourceFailure,
 )
 
 from .conftest import (
@@ -82,6 +89,66 @@ def test_compaction_fixture_builds_with_four_required_factors() -> None:
     assert built.stable_prefix_hash
     assert built.body_hash
     assert built.final_pack_hash
+
+
+@pytest.mark.parametrize("budget", [None, 300])
+def test_tier_read_timings_survive_budget_selection(budget: int | None) -> None:
+    bound = sources(
+        open_work=ManySource(EnumContextFactor.OPEN_WORK, _open_work_rows()),
+        conversation_tail=FixtureSource(
+            EnumContextFactor.CONVERSATION_TAIL, text="t" * 2000
+        ),
+        tail_summary=FixtureSource(EnumContextFactor.TAIL_SUMMARY, text="summary"),
+    )
+    selected = (
+        *COMPACTION_REQUIRED,
+        EnumContextFactor.REPO_STATE,
+        EnumContextFactor.CONVERSATION_TAIL,
+        EnumContextFactor.TAIL_SUMMARY,
+    )
+    ticks = iter(
+        value
+        for index in range(len(selected))
+        for value in (float(index), index + (index + 1) / 16)
+    )
+    built = HandlerContextPackOrchestrator(bound, clock=lambda: next(ticks)).handle(
+        command(token_budget_override=budget)
+    )
+    assert built.status is EnumContextPackOrchestratorStatus.OK, built.errors
+    tiers = {tier.factor: tier for tier in built.tier_statuses}
+    for index, factor in enumerate(selected):
+        assert tiers[factor].read_ms == (index + 1) * 62.5
+    assert tiers[EnumContextFactor.TRANSCRIPT_EXTRACTS].read_ms is None
+    assert built.model_section_ms() == tiers[EnumContextFactor.TAIL_SUMMARY].read_ms
+    if budget is not None:
+        assert not tiers[EnumContextFactor.TAIL_SUMMARY].included
+        assert tiers[EnumContextFactor.OPEN_WORK].trimmed_entry_count > 0
+
+
+def test_no_model_written_read_has_no_model_section_timing() -> None:
+    built = orchestrator().handle(command())
+    assert built.status is EnumContextPackOrchestratorStatus.OK, built.errors
+    assert built.model_section_ms() is None
+
+
+def test_raising_source_still_records_read_timing() -> None:
+    class Broken(FixtureSource):
+        def handle(
+            self, request: ModelContextSourceRequest
+        ) -> ModelContextSourceResult:
+            raise RuntimeError("boom")
+
+    bound = sources(open_work=Broken(EnumContextFactor.OPEN_WORK))
+    ticks = iter(float(index) / 4 for index in range(12))
+    built = HandlerContextPackOrchestrator(bound, clock=lambda: next(ticks)).handle(
+        command()
+    )
+    assert built.failure_class is EnumContextPackFailure.REQUIRED_FACTOR_MISSING
+    tier = next(
+        t for t in built.tier_statuses if t.factor is EnumContextFactor.OPEN_WORK
+    )
+    assert tier.status is EnumContextSourceStatus.UNAVAILABLE
+    assert tier.read_ms == 250.0
 
 
 def test_generated_at_is_the_newest_source_timestamp() -> None:
@@ -414,6 +481,55 @@ def test_required_tier_trim_without_citations_keeps_newest_first() -> None:
     assert _carried(text) == {"day-4", "day-5"}
 
 
+def test_cited_entries_over_an_equal_share_build_when_the_budget_holds_them() -> None:
+    bound = sources(
+        open_work=ManySource(EnumContextFactor.OPEN_WORK, _open_work_rows()),
+        orchestration_state=ManySource(
+            EnumContextFactor.ORCHESTRATION_STATE,
+            (
+                ("s" * 400, AS_OF, "state/small"),
+                ("s" * 2800, AS_OF, "state/large"),
+            ),
+        ),
+    )
+    budget = 800
+    cited = tuple(f"row/{day}" for day in range(1, 6))
+    built = orchestrator(bound).handle(
+        command(token_budget_override=budget, cited_refs=cited)
+    )
+    assert built.status is EnumContextPackOrchestratorStatus.OK, built.errors
+    text = "\n".join(m.text for m in built.messages)
+    assert _carried(text) == {f"day-{day}" for day in range(1, 6)}
+    assert sum(built.factor_token_estimates.values()) <= budget
+    tier = {t.factor: t for t in built.tier_statuses}[
+        EnumContextFactor.ORCHESTRATION_STATE
+    ]
+    assert tier.trimmed_entry_count == 1
+
+
+def test_cited_entries_over_the_whole_budget_fail_naming_the_tiers() -> None:
+    bound = sources(
+        open_work=ManySource(EnumContextFactor.OPEN_WORK, _open_work_rows()),
+        orchestration_state=FixtureSource(
+            EnumContextFactor.ORCHESTRATION_STATE, text="s" * 1600
+        ),
+    )
+    cited = (
+        *(f"row/{day}" for day in range(1, 6)),
+        "fixture/orchestration_state@0000000",
+    )
+    built = orchestrator(bound).handle(
+        command(token_budget_override=800, cited_refs=cited)
+    )
+    assert built.status is EnumContextPackOrchestratorStatus.FAILED
+    assert built.failure_class is EnumContextPackFailure.TOKEN_BUDGET_EXCEEDED
+    assert any(
+        "cited entries need" in error
+        and error.endswith(": open_work, orchestration_state")
+        for error in built.errors
+    )
+
+
 def test_cited_entries_over_the_tier_budget_fail_never_dropped() -> None:
     bound = sources(
         open_work=ManySource(EnumContextFactor.OPEN_WORK, _open_work_rows())
@@ -460,3 +576,70 @@ def test_tier_revisions_change_the_candidate() -> None:
         command(tier_revisions={EnumContextFactor.OPERATOR_RULINGS: "r-1"})
     )
     assert plain.candidate_id != pinned.candidate_id
+
+
+# OMN-17427 (TA.9 seam): a pinned build names its replay case the way the session
+# source reads it, and carries exactly one mode scope.
+
+
+def _scopes_sent(**fields: object) -> tuple[str, ...]:
+    bound = sources()
+    orchestrator(bound).handle(command(**fields))
+    sent = {request.scopes for source in bound.values() for request in source.requests}
+    assert len(sent) == 1
+    return sent.pop()
+
+
+def test_a_pinned_build_sends_the_case_scope_and_no_session_scope() -> None:
+    scopes = _scopes_sent(mode="pinned", manifest_case="case-a")
+    assert "case:case-a" in scopes
+    assert not [s for s in scopes if s.startswith(("session:", "manifest_case:"))]
+
+
+def test_a_live_build_sends_the_session_scope_and_no_case_scope() -> None:
+    scopes = _scopes_sent()
+    assert "session:session-1" in scopes
+    assert not [s for s in scopes if s.startswith(("case:", "manifest_case:"))]
+
+
+@pytest.mark.parametrize(
+    ("fields", "mode_scope"),
+    [
+        ({"mode": "pinned", "manifest_case": "case-a"}, "case:case-a"),
+        ({}, "session:session-1"),
+    ],
+    ids=["pinned", "live"],
+)
+def test_the_session_source_accepts_the_scopes_the_orchestrator_sends(
+    fields: dict[str, object], mode_scope: str
+) -> None:
+    scopes = _scopes_sent(**fields)
+    assert mode_scope in scopes
+    result = HandlerSessionContextSources(env={}).handle(
+        ModelContextSourceRequest(
+            factor=EnumContextFactor.OPERATOR_WORDS_UNRECORDED,
+            scopes=scopes,
+            access=command().access,
+            revision="r",
+        )
+    )
+    assert result.error_message is not None
+    assert not result.error_message.startswith(
+        EnumSessionSourceFailure.SCOPE_INVALID.value
+    ), result.error_message
+
+
+@pytest.mark.parametrize("days", [(1, 2, 3, 4, 5), (5, 4, 3, 2, 1), (3, 1, 5, 2, 4)])
+def test_a_tier_renders_its_entries_in_source_order(days: tuple[int, ...]) -> None:
+    """The order a source answers in is the order the pack carries, not hash order."""
+    rows = dict(enumerate(_open_work_rows(), start=1))
+    bound = sources(
+        open_work=ManySource(
+            EnumContextFactor.OPEN_WORK, tuple(rows[day] for day in days)
+        )
+    )
+    built = orchestrator(bound).handle(command())
+    assert built.status is EnumContextPackOrchestratorStatus.OK, built.errors
+    text = "\n".join(m.text for m in built.messages)
+    positions = [text.index(f"day-{day} ") for day in days]
+    assert positions == sorted(positions)

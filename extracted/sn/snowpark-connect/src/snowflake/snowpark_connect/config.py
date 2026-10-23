@@ -2,16 +2,18 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import functools
 import os
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Callable
 from copy import copy, deepcopy
 
 # Proto source for reference:
 # https://github.com/apache/spark/blob/branch-3.5/connector/connect/common/src/main/protobuf/spark/connect/base.proto#L420
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, ParamSpec, TypeVar
 
 import jpype
 import pyspark.sql.connect.proto.base_pb2 as proto_base
@@ -35,7 +37,7 @@ from snowflake.snowpark_connect.native_function_target import (
 from snowflake.snowpark_connect.type_support import set_integral_types_conversion
 from snowflake.snowpark_connect.utils.cache import (
     analyze_memo_clear_session,
-    df_cache_map_clear_session,
+    df_cache_map_clear_session_plans,
     sql_plan_cache_clear_session,
 )
 from snowflake.snowpark_connect.utils.concurrent import SynchronizedDict
@@ -188,7 +190,59 @@ def spark_max_partition_bytes_to_target_file_size(value: str | None) -> str | No
 # SNOW-3969691: Spark exposes this as static metadata, but each Connect session
 # needs an independent runtime overlay so one client's setting cannot leak to another.
 CASE_SENSITIVE_CONFIG = "spark.sql.caseSensitive"
+STRING_DATETIME_COMPARISON_CONFIG = (
+    "snowpark.connect.comparison.sparkStringDatetimeCast"
+)
+STRING_DATETIME_IN_CONFIG = "snowpark.connect.comparison.sparkStringDatetimeIn"
+DEFAULT_FRAME_LAST_INCLUDES_PEERS_CONFIG = (
+    "snowpark.connect.window.defaultFrameLastIncludesPeers"
+)
+FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG = (
+    "snowpark.connect.window.firstIgnoreNullsRespectsFrame"
+)
+NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG = (
+    "snowpark.connect.nss.posexplodeWithoutTransform"
+)
+SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG = (
+    "snowpark.connect.sparkDuplicateColumnResolution"
+)
 PYTHON_RECURSION_LIMIT_CONFIG = "snowpark.connect.python.recursionLimit"
+WINDOW_MATERIALIZE_CHAIN_DEPTH_CONFIG = "snowpark.connect.window.materializeChainDepth"
+WINDOW_MATERIALIZE_INPUT_COMPLEXITY_CONFIG = (
+    "snowpark.connect.window.materializeInputComplexity"
+)
+# df["*"] carries the source plan. True matches Spark (that dataframe only).
+# False (default) expands every visible column of the relation under the
+# projection.
+SCOPE_STAR_TO_SOURCE_DATAFRAME = "snowpark.connect.column.scopeStarToSourceDataFrame"
+# SNOW-4193976: cast and format_string '%s' of float/double. Default false
+# keeps TO_VARCHAR plus the trailing ".0" rule. True opts into Java toString.
+CAST_SPARK_FLOATING_TO_STRING_CONFIG = "snowpark.connect.cast.sparkFloatingToString"
+# SNOW-3657394 BCR, opt-in: implicit timestamp-to-string uses Spark text.
+IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG = (
+    "snowpark.connect.cast.implicitTimestampToSparkString"
+)
+# SNOW-3656742 BCR opt-in: cast(<day-time interval> as integral) truncates
+# as Spark does.
+INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG = (
+    "snowpark.connect.cast.intervalToIntegralTruncates"
+)
+TO_JSON_NULL_ARRAY_ELEMENT_CONFIG = "snowpark.connect.toJson.nullArrayElement"
+GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG = "snowpark.connect.getJsonObject.dotDigitIsKey"
+# BCR (#5777): non-ANSI cast(float/double as integral) the way Spark narrows.
+# Default false keeps the pre-#5777 CASE.
+FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG = (
+    "snowpark.connect.cast.fractionalToIntegralSparkNarrowing"
+)
+# PR 5774 BCR: when true, split follows java.util.regex: \s \d \w \b ... are
+# regex classes (not the letters s, d, w, b) and the regex UDF ports Java's
+# Pattern.split. Default false keeps the Python re UDF and native SPLIT for
+# every all-escaped pattern.
+SPLIT_JAVA_REGEX_SEMANTICS_CONFIG = "snowpark.connect.split.javaRegexSemantics"
+# SNOW-4222758 BCR: when true, non-recursive text globs select files and infer
+# partition columns as Spark does, and a glob with no match raises
+# PATH_NOT_FOUND. Default false keeps the previous text glob read.
+TEXT_SPARK_GLOB_SEMANTICS_CONFIG = "snowpark.connect.text.sparkGlobSemantics"
 DEFAULT_PYTHON_RECURSION_LIMIT = 2000
 
 
@@ -208,19 +262,23 @@ def apply_python_recursion_limit(value: int | None = None) -> None:
     sys.setrecursionlimit(value)
 
 
-def _case_sensitive_session_override() -> str | None:
+def _session_scoped_override(key: str) -> str | None:
     session_config = sessions_config.get(get_spark_session_id())
     if session_config is None:
         return None
-    session_value = session_config.get(CASE_SENSITIVE_CONFIG)
+    session_value = session_config.get(key)
     return session_value if session_value != "" else None
 
 
-def _get_effective_case_sensitive_config() -> str:
-    session_override = _case_sensitive_session_override()
+def _get_effective_session_scoped_config(key: str) -> str:
+    session_override = _session_scoped_override(key)
     if session_override is not None:
         return session_override
-    return str(global_config.global_config[CASE_SENSITIVE_CONFIG])
+    return str(global_config.global_config[key])
+
+
+def _get_effective_case_sensitive_config() -> str:
+    return _get_effective_session_scoped_config(CASE_SENSITIVE_CONFIG)
 
 
 class GlobalConfig:
@@ -465,6 +523,19 @@ class GlobalConfig:
         # false, reverts to the pre-BCR DOUBLE intermediate (lossy near
         # Long.MIN/MAX). Set false to restore the prior near-boundary values.
         "snowpark.connect.cast.stringToIntegralHighPrecision": "true",
+        # SNOW-4193976 BCR: when false (default), FLOAT/DOUBLE round and bround,
+        # cast(double as decimal), cast(double as string), integral avg/mean,
+        # format_number special/large/sign handling, and pow(negative,
+        # non-integer) keep today's SQL and results. When true, those
+        # expressions follow Spark (BigDecimal(Double.toString) rounding, integral
+        # averages as double, and the related special values). Opt in with
+        # spark.conf.set("snowpark.connect.floatingPoint.sparkRounding", "true").
+        "snowpark.connect.floatingPoint.sparkRounding": "false",
+        # SNOW-4193976: cast(float/double as string) and format_string '%s'.
+        # Default false keeps TO_VARCHAR plus the trailing ".0" rule. True
+        # opts into Java Float.toString / Double.toString. Session-scoped so
+        # one client's conf.set does not change another session.
+        CAST_SPARK_FLOATING_TO_STRING_CONFIG: "false",
         # SNOW-3585745 : when true (default), sum/avg/mean/abs over a
         # StringType column use TRY_CAST (non-ANSI: malformed → NULL, ignored
         # by the aggregate). When false, reverts to the pre-BCR strict CAST
@@ -472,6 +543,29 @@ class GlobalConfig:
         # non-ANSI mode. Set false to restore prior behavior if a workload
         # relies on the 100038 error as a data-quality gate.
         "snowpark.connect.aggregate.coerceStringToNumeric": "true",
+        # SNOW-4222750: when true, cast(array<A> as array<B>) casts each
+        # element with the scalar cast path in map_cast, so fractional
+        # elements truncate as in Spark (2.5 -> 2). Overflow and other
+        # element rules are whatever that scalar path does. Default false
+        # keeps Snowflake's whole-array CAST, which rounds (2.5 -> 3), so
+        # existing workloads stay unchanged until the flag is turned on.
+        "snowpark.connect.arrayCastUsesScalarRules": "false",
+        # SNOW-3656742 BCR: Spark truncates cast(<day-time interval> as
+        # byte/short/int/long) toward zero (1.5 s -> 1, -1.5 s -> -1).
+        # Snowflake's interval -> NUMBER cast rounds half away from zero
+        # (1.5 s -> 2). When true, an interval whose end field is SECOND is
+        # cast to seconds at microsecond scale, then TRUNC. When false
+        # (default), the cast keeps today's CAST(x AS BIGINT) SQL. Session
+        # scoped, see SESSION_SCOPED_RUNTIME_CONFIGS.
+        INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG: "false",
+        # BCR (#5777): when true, non-ANSI cast(float/double as tinyint/
+        # smallint) saturates to INT and then wraps, as Spark's (byte) (int) d
+        # does (128.0 -> -128, +Infinity -> -1), int uses a two-reference
+        # LEAST/GREATEST/TRUNC clamp, and float(2^63) -> bigint saturates to
+        # Long.MAX. When false (default), the pre-#5777 CASE is kept: every
+        # target saturates at its own bounds. Session scoped, see
+        # SESSION_SCOPED_RUNTIME_CONFIGS.
+        FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG: "false",
         # SNOW-3644027 / SNOW-3730644 BCR: Spark maps a standalone two-digit
         # year ('yy') to the 2000-2099 window, while Snowflake's native 'YY'
         # parsing follows the TWO_DIGIT_CENTURY_START session parameter
@@ -481,6 +575,24 @@ class GlobalConfig:
         # native 1970 window (pre-BCR behavior) as an escape hatch for
         # workloads that relied on the old parsing.
         "snowpark.connect.use2000AsTwoDigitCenturyStart": "true",
+        # SNOW-4222759 BCR: Snowflake AUTO timestamp parsing returns NULL for a
+        # 'T' date/time separator followed by a +HH or +HHMM offset
+        # ('2024-01-01T10:00:00+02'). Spark parses that string. When true,
+        # string casts to TIMESTAMP, TIMESTAMP_NTZ and DATE, and format-less
+        # to_timestamp, to_timestamp_ltz, to_timestamp_ntz, try_to_timestamp
+        # and to_date, rewrite that 'T' to a space first. Other strings are
+        # unchanged. When false (default), the string is parsed as before.
+        "snowpark.connect.timestampParseIsoT": "false",
+        # SNOW-4222759 BCR: Spark ignores an offset in the string when it
+        # parses to TIMESTAMP_NTZ ('2024-01-01 10:00:00+02' -> 10:00). When
+        # true, a string cast to TIMESTAMP_NTZ, and format-less cast,
+        # to_timestamp and try_to_timestamp under
+        # spark.sql.timestampType=TIMESTAMP_NTZ, parse with
+        # TRY_TO_TIMESTAMP_NTZ and keep the wall clock. Offsets outside ±18:00
+        # are rejected first, so '2024-01-01 10:00:00+19' is NULL rather than
+        # 10:00. When false (default), the string is parsed as LTZ and
+        # converted to NTZ, which applies the offset.
+        "snowpark.connect.timestampNtzParseIgnoreOffset": "false",
         # SNOW-3585769: from_json requires a STRING (or untyped NULL) input. When
         # true (default), a non-string input (ARRAY/STRUCT/MAP or scalar non-string)
         # is rejected at analysis time with DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE,
@@ -496,6 +608,13 @@ class GlobalConfig:
         # path (which returned NULL rather than erroring) -- an escape hatch for
         # workloads that relied on the old behavior.
         "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction": "true",
+        # SNOW-4222751 BCR: Spark treats $.1 as object key "1", not an array
+        # index. true parses such a path with Spark's grammar and quotes its
+        # keys for GET_PATH ($.1 -> ['1'], $.a.1 -> ['a']['1']). false
+        # (default) keeps the old NULL for $.<digits> (and the 001840 errors on
+        # $.1a / $.a.1). $[0] is unchanged either way. Session scoped, see
+        # SESSION_SCOPED_RUNTIME_CONFIGS.
+        GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG: "false",
         # SNOW-3585770: json_tuple requires every argument to be a STRING (or
         # untyped NULL). When true (default), a non-string input (ARRAY/STRUCT/MAP
         # or scalar non-string) is rejected at analysis time with
@@ -512,6 +631,17 @@ class GlobalConfig:
         # returns NULL -- an escape hatch for workloads that relied on the old
         # NULL behavior.
         "snowpark.connect.enableInputTypeCheckForExtractValueFunction": "true",
+        # SNOW-3657394 BCR: when true, implicit timestamp-to-string uses Spark
+        # session-zone text: trailing zeros dropped, no zone suffix
+        # ('2024-01-02 03:04:05'). Gates concat (including a timestamp beside a
+        # non-string), ||, concat_ws, length, octet_length, bit_length,
+        # array_join, like, ilike, rlike, upper, and lpad/rpad. TIMESTAMP_TZ is
+        # shown in the session zone. Explicit cast(ts as string) is a different
+        # path and keeps the stored offset for TIMESTAMP_TZ. When false
+        # (default), the previous Snowflake CAST text (fractional seconds and a
+        # zone offset) is kept, so existing workloads are unchanged until the
+        # flag is turned on. Session scoped, see SESSION_SCOPED_RUNTIME_CONFIGS.
+        IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG: "false",
         # Native app: when set to "DB.SCHEMA" (or a bare "SCHEMA"), SCOS creates
         # its temp objects (tables, stages, file formats, built-in UDFs) in that
         # precreated schema instead of the session's current schema.  Needed when
@@ -531,12 +661,128 @@ class GlobalConfig:
         # revert to the pre-BCR ARRAY_AGG(...) OVER (... ORDER BY ...) emission
         # (Snowflake ignores the direction for that frame, returning scan order).
         "snowpark.connect.window.collectListHonorOrderByDirection": "true",
+        # SNOW-4222761: opt in to Spark's Analyzer.ResolvePivot for pivot
+        # first/last. Default false keeps ANY_VALUE over the whole group,
+        # which is the previous result (a cell can come back NULL). When true:
+        # - if any aggregate result type is outside PivotFirst (numeric
+        #   primitives, boolean and decimal), every first/last in the pivot
+        #   ignores nulls: some non-null value of the cell, NULL only when
+        #   every value is NULL;
+        # - otherwise first/last return the value of some row of the cell,
+        #   NULL only when the cell has a NULL row or no row.
+        # Which row is unspecified, as in Spark. Explicit ignorenulls=True
+        # keeps MIN/MAX, except ARRAY, MAP and STRUCT values in the first
+        # case, which use MIN_BY/MAX_BY because MIN/MAX reject them. The
+        # reader uses the session copy (same default below).
+        "snowpark.connect.pivot.firstLastIgnoresNulls": "false",
+        # SNOW-4222754 BCR: when true, to_json of an array writes a NULL element
+        # as JSON null, like Spark, instead of Snowflake's token undefined.
+        # When false (default), arrays stay TO_JSON(TO_VARIANT(...)). Session
+        # scoped, see SESSION_SCOPED_RUNTIME_CONFIGS.
+        TO_JSON_NULL_ARRAY_ELEMENT_CONFIG: "false",
+        # SNOW-4222755 BCR: when true, to_json on a struct writes fields in
+        # schema order and omits null fields by default (Spark
+        # ignoreNullFields=true). A literal options-map ignoreNullFields=false
+        # keeps those fields as JSON null. Nested structs follow the same
+        # rules. Array fields follow toJson.nullArrayElement. Maps and other
+        # to_json options (timestampFormat, dateFormat, pretty) are unchanged.
+        # spark.sql.jsonGenerator.ignoreNullFields is not read. When false
+        # (default), to_json(struct) stays
+        # TO_JSON(TO_VARIANT(...)): alphabetical keys, null fields kept.
+        "snowpark.connect.toJson.sparkCompatibleStruct": "false",
+        # I024: when false (default), format_string/printf keep today's Python
+        # ``%`` text: a null numeric conversion makes the whole result NULL, and
+        # negative ``%x``/``%X``/``%o`` stay signed (``-1``, ``-0000001``). When
+        # true, the UDF follows Java's Formatter as Spark does:
+        # - a null argument is "null" ("NULL" for upper-case conversions,
+        #   "false" for %b) with Java width and precision (``0x%08X`` of null is
+        #   ``0x    NULL``);
+        # - negative %x/%X/%o print the two's complement of the width SCOS
+        #   tracks for the argument (TINYINT 8, SMALLINT 16, INT 32, BIGINT 64;
+        #   unknown keeps the signed text, and a column read back from a
+        #   NUMBER(38,0) table may be BIGINT);
+        # - %f/%e/%g round HALF_UP on JDK 17 FloatingDecimal digits, %g keeps
+        #   trailing zeros, NaN/Infinity and %s of a double print Java text
+        #   (``1.0E10``, ``4.9E-324``);
+        # - the , and ( flags, %#o, %S, %b/%B, %c/%C, %n, booleans, %2$s/%<s
+        #   indexes (``<`` in any flag position) and extra arguments match Java;
+        # - %a, %h/%H and %t/%T raise instead of returning Python text.
+        # - DOUBLE and DECIMAL columns reach the UDF with their type (an
+        #   integral double prints 3.0, a DECIMAL keeps its scale); -0.0 loses
+        #   its sign.
+        # Spark raises but this returns text for: %d/%x of DECIMAL/DOUBLE/
+        # BOOLEAN, %f/%e/%g of INT or DECIMAL, %c of STRING, illegal flag
+        # combinations (%-08d, %+x, %.2d, %010s, %#s), and NULL for a missing
+        # argument or a format Java rejects. %s of TIMESTAMP/DATE/ARRAY/MAP/
+        # BINARY prints the variant text where Spark prints its internal
+        # value. See utils/format_string_udf.py.
+        # Opt in with
+        # spark.conf.set("snowpark.connect.formatString.sparkCompatible", "true").
+        "snowpark.connect.formatString.sparkCompatible": "false",
+        # SNOW-4222760 BCR: Spark's default ordered frame is RANGE BETWEEN
+        # UNBOUNDED PRECEDING AND CURRENT ROW, so rows that tie on the ORDER BY
+        # keys share one last(). Snowflake rejects that cumulative RANGE frame
+        # for LAST_VALUE (002303). When true, last() is LAST_VALUE over the
+        # current row's peer group, for the default frame and for an explicit
+        # rangeBetween(unboundedPreceding, currentRow). When false (default),
+        # the old SQL is kept: the default frame is ROWS, where each tied row
+        # sees only itself, and the explicit RANGE frame fails with 002303.
+        DEFAULT_FRAME_LAST_INCLUDES_PEERS_CONFIG: "false",
+        # SNOW-4261008: when true, posexplode / posexplode_outer over an array whose
+        # value is still unmodified NSS JSON scan data (directly, or through column
+        # references, struct.*, and earlier explodes) flattens it as is, instead of
+        # rebuilding it with TRANSFORM to keep SQL NULL elements. That rebuild copies
+        # the whole array and fails over the 128 MiB value cap. The NSS reader stores
+        # a null element as a defined NULL_VALUE, but reading a struct field casts it
+        # and turns that into an undefined slot (which FLATTEN drops) unless the
+        # backend has ENABLE_GET_PATH_IDENTITY_STRUCTURED_CAST on. Default false;
+        # session scoped, see SESSION_SCOPED_RUNTIME_CONFIGS.
+        NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG: "false",
+        # SNOW-4222753 BCR: when true, withColumnRenamed onto a name that
+        # already exists keeps both columns, matching Spark
+        # Dataset.withColumnRenamed, and ORDER BY of a duplicated name resolves
+        # as Spark's ResolveReferencesInSort, also on DataFrames that never
+        # renamed anything. When false (default), the previous
+        # COLUMN_ALREADY_EXISTS analysis error and the previous ORDER BY
+        # resolution are kept. Session scoped, see SESSION_SCOPED_RUNTIME_CONFIGS:
+        # spark.sql plans built under one value must not be reused after a set.
+        SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG: "false",
         # POC (SNOW-3758410): when true, apply CLD identifier rules (bare
         # unquoted names, quote only for backtick/caseSensitive) on all
         # databases, not only catalog-linked databases. Opt in via
         # snowpark.connect.identifier.useCldRules=true for regression testing;
         # default false preserves legacy quoted-uppercase behavior.
         "snowpark.connect.identifier.useCldRules": "false",
+        # I038 BCR: when true, a string compared with a date or timestamp is
+        # cast the way Spark's PromoteStrings does. ANSI off: an invalid string
+        # such as the text NULL compares as NULL (Snowflake error
+        # 100035/100040 otherwise). ANSI on: it raises CAST_INVALID_INPUT.
+        # When false (default), the implicit Snowflake cast is kept.
+        STRING_DATETIME_COMPARISON_CONFIG: "false",
+        # I038 BCR: when true, x IN (...) over strings and dates/timestamps
+        # follows Spark InConversion. ANSI off compares as strings
+        # (date/timestamp rendered like CAST(... AS STRING)); ANSI on casts the
+        # strings and raises on invalid input. When false (default),
+        # Snowflake's implicit IN cast is kept.
+        STRING_DATETIME_IN_CONFIG: "false",
+        # BCR: Snowflake FIRST_VALUE(x) IGNORE NULLS over a frame that starts
+        # at UNBOUNDED PRECEDING returns the first non-null of the whole
+        # partition. Spark returns null until that value is inside the frame.
+        # When true, first/first_value(ignorenulls=True) on that frame is a
+        # count of non-nulls over the Spark frame gating FIRST_VALUE IGNORE
+        # NULLS over the whole partition. An unspecified ordered frame is
+        # counted over its RANGE peer group. An explicit rows frame stays ROWS.
+        # When false (default), the direct FIRST_VALUE(...) IGNORE NULLS OVER
+        # (frame) is kept. Session scoped, see SESSION_SCOPED_RUNTIME_CONFIGS.
+        FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG: "false",
+        # BCR: when true, df["*"] expands that dataframe's columns (Spark
+        # Dataset.col star). When false (default), it expands every visible
+        # column of the current relation, as before.
+        SCOPE_STAR_TO_SOURCE_DATAFRAME: "false",
+        # PR 5774: opt in to java.util.regex semantics for split.
+        SPLIT_JAVA_REGEX_SEMANTICS_CONFIG: "false",
+        # SNOW-4222758: opt in to Spark's non-recursive text glob semantics.
+        TEXT_SPARK_GLOB_SEMANTICS_CONFIG: "false",
     }
 
     boolean_config_list = [
@@ -573,15 +819,37 @@ class GlobalConfig:
         "snowpark.connect.addDebugInfoToQueryTag",
         "snowpark.connect.config.raiseForUnknownKeys",
         "snowpark.connect.cast.stringToIntegralHighPrecision",
+        "snowpark.connect.floatingPoint.sparkRounding",
+        CAST_SPARK_FLOATING_TO_STRING_CONFIG,
         "snowpark.connect.aggregate.coerceStringToNumeric",
+        "snowpark.connect.arrayCastUsesScalarRules",
+        INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG,
+        FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG,
         "snowpark.connect.window.collectListHonorOrderByDirection",
+        "snowpark.connect.pivot.firstLastIgnoresNulls",
+        TO_JSON_NULL_ARRAY_ELEMENT_CONFIG,
+        "snowpark.connect.toJson.sparkCompatibleStruct",
+        "snowpark.connect.formatString.sparkCompatible",
+        "snowpark.connect.window.defaultFrameLastIncludesPeers",
+        NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG,
+        SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG,
         "snowpark.connect.use2000AsTwoDigitCenturyStart",
+        "snowpark.connect.timestampParseIsoT",
+        "snowpark.connect.timestampNtzParseIgnoreOffset",
         "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
         "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
+        GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG,
         "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
         "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
+        IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG,
         "snowpark.connect.native_app_mode",
         "snowpark.connect.identifier.useCldRules",
+        STRING_DATETIME_COMPARISON_CONFIG,
+        STRING_DATETIME_IN_CONFIG,
+        FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG,
+        SCOPE_STAR_TO_SOURCE_DATAFRAME,
+        SPLIT_JAVA_REGEX_SEMANTICS_CONFIG,
+        TEXT_SPARK_GLOB_SEMANTICS_CONFIG,
     ]
 
     int_config_list = [
@@ -665,13 +933,14 @@ class GlobalConfig:
 
     def get(self, key, default=None) -> str:
         self._initialize_if_static_config_not_set(key)
-        if key == CASE_SENSITIVE_CONFIG:
-            return _get_effective_case_sensitive_config()
+        if key in SESSION_SCOPED_RUNTIME_CONFIGS:
+            return _get_effective_session_scoped_config(key)
         return self.global_config.get(key, default)
 
     def get_all(self) -> dict[str, str]:
         values = self.global_config.copy()
-        values[CASE_SENSITIVE_CONFIG] = _get_effective_case_sensitive_config()
+        for key in SESSION_SCOPED_RUNTIME_CONFIGS:
+            values[key] = _get_effective_session_scoped_config(key)
         return values
 
     def set(self, key: str, value: str) -> None:
@@ -725,12 +994,19 @@ class GlobalConfig:
     def is_user_set(self, key: str) -> bool:
         """Whether the user explicitly set this config key (vs. a default)."""
         if (
-            key == CASE_SENSITIVE_CONFIG
-            and _case_sensitive_session_override() is not None
+            key in SESSION_SCOPED_RUNTIME_CONFIGS
+            and _session_scoped_override(key) is not None
         ):
             return True
         return key in self.user_set_keys
 
+
+# SNOW-3309109: opt-in Spark-style CSV write quoting. With it on, a write
+# without an explicit quote quotes a field only when it contains the
+# delimiter, a quote, or a line break. It changes the bytes of existing
+# writes, so the default keeps unquoted COPY text with backslash-escaped
+# delimiters. Set "true" to opt in.
+CSV_WRITE_MINIMAL_QUOTING_CONFIG = "snowpark.connect.csv.writeMinimalQuoting"
 
 # SNOW-3957220: the customer-facing NSS opt-in from the NSS SCOS v1 rollout plan.
 # Named to match the plan's published contract exactly — customers set this via
@@ -747,6 +1023,45 @@ NSS_STAGE_FILE_READER_FQN_CONFIG = "snowpark.connect.nss.stage_file_reader_fqn"
 NSS_INFER_STAGE_FILE_SCHEMA_FQN_CONFIG = (
     "snowpark.connect.nss.infer_stage_file_schema_fqn"
 )
+
+# SNOW-4222765: opt-in CSV float/double text matching Java Float.toString /
+# Double.toString. The path is a Java UDF on every floating cell (about 3-4x
+# COPY execution on a floating-heavy write), so the default stays COPY's
+# native FLOAT text. Set "true" to opt in.
+CSV_WRITE_JAVA_FLOATING_FORMAT_CONFIG = "snowpark.connect.csv.writeJavaFloatingFormat"
+
+# SNOW-4222766: opt-in to Spark's CSV read rule for a quoted "". With "true",
+# '' goes into the read NULL_IF when emptyValue equals nullValue (both default
+# to ""), so the field is NULL before INFER_SCHEMA, and stays out when they
+# differ, so the emptyValue projection still sees it. It changes results for
+# existing reads, so the default keeps the previous read, where a quoted "" is
+# '' and an explicit nullValue="" nulls it. Set "true" to opt in.
+CSV_READ_QUOTED_EMPTY_AS_NULL_CONFIG = "snowpark.connect.csv.readQuotedEmptyAsNull"
+
+# Default true: CSV reads and writes send a backslash (or '-wrapped) null token
+# (nullValue, nanValue, positiveInf, negativeInf) raw, as earlier releases did,
+# so '\N' matches and writes the collapsed token N and existing files and
+# pipelines read the same. False sends the exact token on both sides, which
+# matches Spark: \N is written and read as \N, and N is text. An unquoted
+# write needs writeMinimalQuoting too; without it the backslash ESCAPE stays
+# and \N is still written as N (SNOW-3486487).
+CSV_LEGACY_NULL_IF_TOKEN_CONFIG = "snowpark.connect.csv.legacyNullIfToken"
+
+# SNOW-4209027: opt-in to Spark's CSV write of NULL as a bare empty field when
+# nullValue is not given (NULL_IF='' plus EMPTY_FIELD_AS_NULL=FALSE, unquoted
+# writes only). It changes the bytes of existing writes, so the default keeps
+# Snowflake's \N unload. Set "true" to opt in. An explicit unquoted
+# nullValue="" writes the empty field either way (it failed with 100093 before).
+CSV_WRITE_NULL_AS_EMPTY_CONFIG = "snowpark.connect.csv.writeNullAsEmpty"
+
+# SNOW-4215403 BCR: when true, CSV writes default timestampFormat to Spark's
+# yyyy-MM-dd'T'HH:mm:ss.SSSXXX and format TIMESTAMP_NTZ with
+# timestampNTZFormat. Default false keeps yyyy-MM-dd HH:mm:ss.SSSSSS and the
+# unload's TIMESTAMP_FORMAT for every timestamp column.
+CSV_WRITE_SPARK_TIMESTAMP_FORMAT_CONFIG = (
+    "snowpark.connect.csv.writeSparkTimestampFormat"
+)
+
 
 SESSION_CONFIG_KEY_WHITELIST = {
     "spark.hadoop.fs.s3a.access.key",
@@ -770,20 +1085,37 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "mapreduce.fileoutputcommitter.marksuccessfuljobs",
     "spark.sql.parquet.enable.summary-metadata",
     "parquet.enable.summary-metadata",
+    "snowpark.connect.parquet.writeTimestampLtzAsUtcNtz",
+    "snowpark.connect.parquet.writeTimestampMicros",
+    "spark.sql.parquet.outputTimestampType",
     "spark.sql.sources.partitionOverwriteMode",
     "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
     "snowpark.connect.sql.returnDmlMetadata",
+    "snowpark.connect.regexpReplace.sparkReplacementSyntax",
     # SNOW-3859781: when true, collapse chained distinct UNION parsed from
     # spark.sql() (Distinct(Union(Distinct(Union(...))))) into a flat UNION ALL
     # chain + single terminal dedup so the plan does not nest O(N) deep.
     "snowpark.connect.sql.flattenChainedUnion",
+    # SNOW-4222753 BCR: opt-in, default false. true lets withColumnRenamed
+    # target a name that already exists, and resolves ORDER BY of duplicated
+    # names as Spark does on every DataFrame. Session scoped (default in
+    # GlobalConfig, see SESSION_SCOPED_RUNTIME_CONFIGS).
+    SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG,
     "snowpark.connect.csv.continueOnError",  # Deprecated: use .option("mode", "DROPMALFORMED")
     # SNOW-3295599: SCOS-internal knob to flip Snowflake's SKIP_BLANK_LINES on
     # CSV reads. Default TRUE preserves Spark-default semantics (Univocity also
     # defaults to skip-empty-lines). Set FALSE to surface blank lines as
     # malformed records (combine with mode=FAILFAST to raise).
     "snowpark.connect.csv.skipBlankLines",
+    CSV_WRITE_JAVA_FLOATING_FORMAT_CONFIG,
+    CSV_READ_QUOTED_EMPTY_AS_NULL_CONFIG,
+    CSV_LEGACY_NULL_IF_TOKEN_CONFIG,
+    CSV_WRITE_NULL_AS_EMPTY_CONFIG,
+    CSV_WRITE_SPARK_TIMESTAMP_FORMAT_CONFIG,
+    SPLIT_JAVA_REGEX_SEMANTICS_CONFIG,
+    TEXT_SPARK_GLOB_SEMANTICS_CONFIG,
     "spark.sql.parquet.inferTimestampNTZ.enabled",
+    CSV_WRITE_MINIMAL_QUOTING_CONFIG,
     "snowpark.connect.io.validations.mode",
     "spark.sql.iceberg.merge-schema",
     "snowpark.connect.iceberg.require_accept_any_schema_for_merge",
@@ -798,8 +1130,10 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.useJavaRegexForRlikeWhitespace",  # Deprecated: use useJavaRegexSemantics
     "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
     "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
+    GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG,
     "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
     "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
+    IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG,
     # enableNativeFunctionCalls is deliberately NOT a client config — it is an
     # operator-only kill switch set via --conf at server startup. Keeping it out
     # of the allowlist means spark.conf.set() cannot affect other sessions.
@@ -823,9 +1157,28 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.files.maxPartitionBytes",
     "snowpark.connect.config.raiseForUnknownKeys",
     "snowpark.connect.cast.stringToIntegralHighPrecision",
+    "snowpark.connect.floatingPoint.sparkRounding",
+    CAST_SPARK_FLOATING_TO_STRING_CONFIG,
     "snowpark.connect.aggregate.coerceStringToNumeric",
+    "snowpark.connect.arrayCastUsesScalarRules",
+    INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG,
+    FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG,
     "snowpark.connect.use2000AsTwoDigitCenturyStart",
+    "snowpark.connect.timestampParseIsoT",
+    "snowpark.connect.timestampNtzParseIgnoreOffset",
     "snowpark.connect.window.collectListHonorOrderByDirection",
+    "snowpark.connect.pivot.firstLastIgnoresNulls",
+    TO_JSON_NULL_ARRAY_ELEMENT_CONFIG,
+    "snowpark.connect.toJson.sparkCompatibleStruct",
+    "snowpark.connect.formatString.sparkCompatible",
+    # I038: per-session opt-ins for Spark string-vs-datetime coercion.
+    STRING_DATETIME_COMPARISON_CONFIG,
+    STRING_DATETIME_IN_CONFIG,
+    SCOPE_STAR_TO_SOURCE_DATAFRAME,
+    "snowpark.connect.window.defaultFrameLastIncludesPeers",
+    # SNOW-4285855: opt-in plan breaks in front of window projections.
+    WINDOW_MATERIALIZE_CHAIN_DEPTH_CONFIG,
+    WINDOW_MATERIALIZE_INPUT_COMPLEXITY_CONFIG,
     # NSS (Native Spark Sandbox) session-level knobs.
     #
     # SNOW-3957220: NSS enablement *is* a client config as of the PuPr rollout. The
@@ -835,9 +1188,11 @@ SESSION_CONFIG_KEY_WHITELIST = {
     # same way. Do not re-hide this key. COPY v1 stays the default when unset.
     NSS_ENABLED_SESSION_CONFIG,
     "snowpark.connect.nss.json_format_name",
+    NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG,
     "snowpark.connect.nss.csv_format_name",
     "snowpark.connect.nss.xml_format_name",
     "snowpark.connect.identifier.useCldRules",
+    FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG,
     # SNOW-3957419: forwarded to the NSS sandbox reader via SPARK_CONF. Deliberately
     # left out of ``default_session_config``: an unseeded key reads back as ``""`` and
     # ``build_spark_conf`` drops it, so only an explicit client ``conf.set`` reaches the
@@ -857,12 +1212,92 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "spark.sql.legacy.json.allowEmptyString.enabled",
 }
 
-SESSION_SCOPED_RUNTIME_CONFIGS = {CASE_SENSITIVE_CONFIG}
+# Keys whose conf.set writes only the calling session's overlay (never
+# global_config) and clears that session's plan caches, which hold SQL built
+# from the old value.
+SESSION_SCOPED_RUNTIME_CONFIGS = {
+    CASE_SENSITIVE_CONFIG,
+    DEFAULT_FRAME_LAST_INCLUDES_PEERS_CONFIG,
+    FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG,
+    FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG,
+    GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG,
+    IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG,
+    INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG,
+    NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG,
+    SCOPE_STAR_TO_SOURCE_DATAFRAME,
+    SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG,
+    SPLIT_JAVA_REGEX_SEMANTICS_CONFIG,
+    TEXT_SPARK_GLOB_SEMANTICS_CONFIG,
+    TO_JSON_NULL_ARRAY_ELEMENT_CONFIG,
+}
+
+
+def _string_datetime_comparison_changes_plans(
+    session_id: str, key: str, previous: Any, current: Any
+) -> bool:
+    """True when this conf change alters SQL already planned for the session.
+
+    The string/datetime coercion is chosen while the plan is built, and ANSI
+    picks NULL versus CAST_INVALID_INPUT. The SQL plan cache is keyed by the
+    SQL text, so without a reset the same text keeps raising after
+    ``spark.sql.ansi.enabled=false``, the remedy the error suggests. Only a real
+    change counts: re-setting the current value keeps the caches.
+    """
+    if str(previous).lower() == str(current).lower():
+        return False
+    if key in (STRING_DATETIME_COMPARISON_CONFIG, STRING_DATETIME_IN_CONFIG):
+        return True
+    if key != "spark.sql.ansi.enabled":
+        return False
+    session_config = sessions_config[session_id]
+    return any(
+        str(session_config[flag]).lower() in ("true", "1")
+        for flag in (STRING_DATETIME_COMPARISON_CONFIG, STRING_DATETIME_IN_CONFIG)
+    )
+
+
+def _is_string_datetime_plan_key(key: str) -> bool:
+    return key in (
+        STRING_DATETIME_COMPARISON_CONFIG,
+        STRING_DATETIME_IN_CONFIG,
+        "spark.sql.ansi.enabled",
+    )
+
+
+def _string_datetime_plan_value(session_id: str, key: str) -> Any:
+    """``key``'s value before a set or unset, for
+    ``_maybe_clear_string_datetime_plans``. None for keys that cannot change
+    string/datetime plans."""
+    if not _is_string_datetime_plan_key(key):
+        return None
+    if key in (STRING_DATETIME_COMPARISON_CONFIG, STRING_DATETIME_IN_CONFIG):
+        return sessions_config[session_id][key]
+    return global_config.get(key)
+
+
+def _maybe_clear_string_datetime_plans(
+    session_id: str, key: str, previous: Any, current: Any
+) -> None:
+    """Re-plan ``spark.sql`` text when a set or unset of ``key`` changes the
+    string/datetime coercion (see ``_string_datetime_comparison_changes_plans``)."""
+    if _is_string_datetime_plan_key(key) and _string_datetime_comparison_changes_plans(
+        session_id, key, previous, current
+    ):
+        _clear_session_sql_plans(session_id)
+
+
+def _clear_session_sql_plans(session_id: str) -> None:
+    """Re-plan ``spark.sql`` text. Unlike ``_clear_session_plan_caches`` this
+    keeps ``df_cache_map``, so materialized local relations and persisted
+    DataFrames are not rebuilt (and re-described)."""
+    analyze_memo_clear_session(session_id)
+    sql_plan_cache_clear_session(session_id)
 
 
 def _clear_session_plan_caches(session_id: str) -> None:
-    """Invalidate plan memoization after a session-scoped runtime config change."""
-    df_cache_map_clear_session(session_id)
+    """Invalidate plan memoization after a session-scoped runtime config change.
+    Uploaded local relations stay cached, since the client never re-uploads them."""
+    df_cache_map_clear_session_plans(session_id)
     analyze_memo_clear_session(session_id)
     sql_plan_cache_clear_session(session_id)
 
@@ -1051,6 +1486,18 @@ class SessionConfig:
         "mapreduce.fileoutputcommitter.marksuccessfuljobs": "false",
         "spark.sql.parquet.enable.summary-metadata": "false",
         "parquet.enable.summary-metadata": "false",
+        # SNOW-2436884: Snowflake cannot unload TIMESTAMP_LTZ/TZ to Parquet, so
+        # convert them to UTC TIMESTAMP_NTZ (same instant) before COPY INTO.
+        "snowpark.connect.parquet.writeTimestampLtzAsUtcNtz": "true",
+        # SNOW-2436884: when true, Parquet timestamps get Spark's precision
+        # (TimestampType follows outputTimestampType, TimestampNTZType is always
+        # µs), written as INT64; Spark's default INT96 encoding is not produced.
+        # Off by default because it changes NTZ output (ms -> µs) of writes that
+        # work today; to be enabled by default in a later release.
+        "snowpark.connect.parquet.writeTimestampMicros": "false",
+        # Read per write (not pushed to the Snowflake session): only
+        # TIMESTAMP_MILLIS changes the unit, and only for TimestampType columns.
+        "spark.sql.parquet.outputTimestampType": "INT96",
         # JDBC driver JARs - comma-separated list of local paths or Maven coordinates
         # Example: "/path/to/driver.jar" or "org.neo4j:neo4j-jdbc-driver:4.0.9"
         "spark.jars": None,
@@ -1061,6 +1508,12 @@ class SessionConfig:
         "snowpark.connect.sql.returnDmlMetadata": "false",
         # SNOW-3859781: opt-in; default off preserves existing SQL shape.
         "snowpark.connect.sql.flattenChainedUnion": "false",
+        # SNOW-4285855: before a projection that adds window functions,
+        # materialize its input into a temp table once it holds this many
+        # unmaterialized window stages (materializeChainDepth) or has at least
+        # this Snowpark complexity score (materializeInputComplexity). 0 = off.
+        WINDOW_MATERIALIZE_CHAIN_DEPTH_CONFIG: "0",
+        WINDOW_MATERIALIZE_INPUT_COMPLEXITY_CONFIG: "0",
         # Opt-in java.util.regex evaluation for patterns Snowflake's engine cannot
         # honor: non-greedy quantifiers (silently matched greedily), (?:...) groups
         # and lookarounds (rejected outright), and RLIKE \\s/\\S (tab vs POSIX
@@ -1070,9 +1523,39 @@ class SessionConfig:
         # Deprecated, shipped in 1.44.0: RLIKE-only \s/\S routing. Still honored with
         # exactly that meaning; it is NOT an alias for useJavaRegexSemantics.
         "snowpark.connect.useJavaRegexForRlikeWhitespace": "false",
+        # SNOW-4222761: same default as default_global_config. Pivot first/last
+        # mapping reads this copy, so one session's spark.conf.set does not
+        # change the plan for every other session. Default false keeps
+        # ANY_VALUE. unset restores false.
+        "snowpark.connect.pivot.firstLastIgnoresNulls": "false",
+        # SNOW-4222755: per-session opt-in. Expression mapping reads this copy,
+        # not the process-wide global_config, so one session's conf.set does not
+        # change to_json for other sessions. unset restores this default.
+        "snowpark.connect.toJson.sparkCompatibleStruct": "false",
+        # I024: per-session opt-in. Expression mapping reads this copy.
+        # Default false keeps today's format_string text.
+        "snowpark.connect.formatString.sparkCompatible": "false",
+        # SNOW-4193976: session copy of the floating-to-string flag. Expression
+        # mapping reads this. Default false keeps today's strings. conf.set
+        # true opts into Java toString; unset restores false.
+        CAST_SPARK_FLOATING_TO_STRING_CONFIG: "false",
         "snowpark.connect.csv.continueOnError": "false",  # Deprecated
         "snowpark.connect.csv.skipBlankLines": "true",  # SNOW-3295599
+        # SNOW-4222765: opt-in. "true" renders CSV float/double with Java toString.
+        # Default "false" keeps COPY's native FLOAT text and does not register
+        # the formatter UDF. A floating-heavy COPY on the UDF path is about 3-4x.
+        CSV_WRITE_JAVA_FLOATING_FORMAT_CONFIG: "false",
+        # SNOW-4222766: opt-in. "true" reads a quoted CSV "" as NULL like Spark.
+        CSV_READ_QUOTED_EMPTY_AS_NULL_CONFIG: "false",
+        # Backslash null tokens keep the legacy raw NULL_IF on read and write.
+        CSV_LEGACY_NULL_IF_TOKEN_CONFIG: "true",
+        # SNOW-4209027: opt-in. "true" writes a CSV NULL as a bare empty field.
+        CSV_WRITE_NULL_AS_EMPTY_CONFIG: "false",
+        # SNOW-4215403: opt in to Spark's CSV write timestamp formats.
+        CSV_WRITE_SPARK_TIMESTAMP_FORMAT_CONFIG: "false",
         "spark.sql.parquet.inferTimestampNTZ.enabled": "true",
+        # SNOW-3309109: opt-in. "true" quotes CSV write fields like Spark.
+        CSV_WRITE_MINIMAL_QUOTING_CONFIG: "false",
         # IO validations mode: "lenient" (default) or "strict"
         # When "strict", enforce Spark-compatible validations (e.g., SPARK-35912)
         "snowpark.connect.io.validations.mode": "lenient",
@@ -1087,6 +1570,11 @@ class SessionConfig:
         # When true (default), static Hive partition predicates on Filter→Read
         # plans narrow stage paths before LIST/COPY (SNOW-3295586 / GAP-018).
         "snowpark.connect.read.hivePartitionPruning": "true",
+        # SNOW-4202792: opt-in. When true, a literal regexp_replace replacement is
+        # read with Spark's java.util.regex syntax ($1, ${name}, \$) and translated
+        # to Snowflake's (\1). Default false preserves current behavior: \N is a
+        # group reference and $ is literal. Set true to opt into Spark's $N.
+        "snowpark.connect.regexpReplace.sparkReplacementSyntax": "false",
         # Large query breakdown: None = defer to Snowpark/server default
         "snowpark.connect.large_query_breakdown.enabled": None,
         "snowpark.connect.large_query_breakdown.complexity_lower_bound": None,
@@ -1131,6 +1619,9 @@ class SessionConfig:
         "snowpark.connect.nss.json_format_name": "",
         "snowpark.connect.nss.csv_format_name": "",
         "snowpark.connect.nss.xml_format_name": "",
+        # I038 BCR: see default_global_config. unset restores false.
+        STRING_DATETIME_COMPARISON_CONFIG: "false",
+        STRING_DATETIME_IN_CONFIG: "false",
     }
 
     def __init__(self) -> None:
@@ -1159,10 +1650,107 @@ CONFIG_ALLOWED_VALUES: dict[str, tuple] = {
         "true",
         "false",
     ),
+    DEFAULT_FRAME_LAST_INCLUDES_PEERS_CONFIG: (
+        "true",
+        "false",
+    ),
+    IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG: (
+        "true",
+        "false",
+    ),
+    # str_to_bool's spellings, so a typo fails at conf.set, not on the next write.
+    CSV_WRITE_MINIMAL_QUOTING_CONFIG: (
+        "",
+        "true",
+        "false",
+        "True",
+        "False",
+        "1",
+        "0",
+    ),
+    CSV_LEGACY_NULL_IF_TOKEN_CONFIG: (
+        "",
+        "true",
+        "false",
+        "True",
+        "False",
+        "1",
+        "0",
+    ),
+    # str_to_bool's spellings, so a typo fails at conf.set, not on the next read.
+    CSV_READ_QUOTED_EMPTY_AS_NULL_CONFIG: (
+        "",
+        "true",
+        "false",
+        "True",
+        "False",
+        "1",
+        "0",
+    ),
+    FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG: (
+        "true",
+        "false",
+    ),
+    FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG: (
+        "true",
+        "false",
+    ),
+    GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG: (
+        "true",
+        "false",
+    ),
+    INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG: (
+        "true",
+        "false",
+    ),
+    SCOPE_STAR_TO_SOURCE_DATAFRAME: (
+        "true",
+        "false",
+    ),
+    SPLIT_JAVA_REGEX_SEMANTICS_CONFIG: (
+        "true",
+        "false",
+    ),
+    TEXT_SPARK_GLOB_SEMANTICS_CONFIG: (
+        "true",
+        "false",
+    ),
+    TO_JSON_NULL_ARRAY_ELEMENT_CONFIG: (
+        "true",
+        "false",
+    ),
+    NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG: (
+        "true",
+        "false",
+    ),
+    SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG: (
+        "true",
+        "false",
+    ),
     # SNOW-3957220: constrain the NSS opt-in to values ``str_to_bool`` accepts, so a
     # typo ("ture") is rejected at set() time with INVALID_CONFIG_VALUE rather than
     # silently read as "NSS off" — a customer must never think NSS is on when it is not.
     NSS_ENABLED_SESSION_CONFIG: (
+        "",
+        "true",
+        "false",
+        "True",
+        "False",
+        "1",
+        "0",
+    ),
+    # str_to_bool's spellings, so a typo fails at conf.set, not on the next write.
+    CSV_WRITE_NULL_AS_EMPTY_CONFIG: (
+        "",
+        "true",
+        "false",
+        "True",
+        "False",
+        "1",
+        "0",
+    ),
+    # str_to_bool's spellings, so a typo fails at conf.set, not on the next write.
+    CSV_WRITE_SPARK_TIMESTAMP_FORMAT_CONFIG: (
         "",
         "true",
         "false",
@@ -1547,6 +2135,7 @@ def set_config_param(
     if key == "spark.jars" and val:
         _load_spark_jars(val)
 
+    previous_value = _string_datetime_plan_value(session_id, key)
     global_config[key] = val
     # This is the only entry point for client-driven `conf.set(...)`, so it is
     # exactly where an "explicit user set" happens (internal default
@@ -1556,6 +2145,7 @@ def set_config_param(
     if valid_session_config_key(key):
         sessions_config[session_id][key] = val
     set_snowflake_parameters(key, val, snowpark_session)
+    _maybe_clear_string_datetime_plans(session_id, key, previous_value, val)
 
 
 def unset_config_param(
@@ -1577,6 +2167,7 @@ def unset_config_param(
 
     _verify_static_config_not_modified(key)
 
+    previous_value = _string_datetime_plan_value(session_id, key)
     default_value = global_config.default_global_config.get(key, None)
 
     # Remove the key from global config. For ``spark.sql.files.maxPartitionBytes``
@@ -1598,6 +2189,7 @@ def unset_config_param(
         default_value = default_session_value
 
     set_snowflake_parameters(key, default_value, snowpark_session)
+    _maybe_clear_string_datetime_plans(session_id, key, previous_value, default_value)
 
 
 def is_iceberg_sql_extensions_enabled() -> bool:
@@ -1651,6 +2243,26 @@ def _verify_is_valid_config_value(key: str, value: Any) -> None:
     _verify_max_partition_bytes_config_value(key, value)
     _verify_native_function_config_value(key, value)
     _verify_python_recursion_limit_config_value(key, value)
+    _verify_window_materialize_config_value(key, value)
+
+
+def _verify_window_materialize_config_value(key: str, value: Any) -> None:
+    if key not in (
+        WINDOW_MATERIALIZE_CHAIN_DEPTH_CONFIG,
+        WINDOW_MATERIALIZE_INPUT_COMPLEXITY_CONFIG,
+    ):
+        return
+    if value is None or str(value).strip() == "":
+        return
+    try:
+        if int(value) < 0:
+            raise ValueError
+    except (TypeError, ValueError) as parse_error:
+        exception = ValueError(
+            f"Invalid value '{value}' for '{key}'. Expected a non-negative integer."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception from parse_error
 
 
 def _verify_python_recursion_limit_config_value(key: str, value: Any) -> None:
@@ -1775,9 +2387,43 @@ def reset_jvm_timezone_to_system_default():
         raise exception
 
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+
+def _tag_statements_scos_internal(fn: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Run `fn` with its statements tagged ``SCOS_INTERNAL_QUERY``.
+
+    A decorator rather than a wrapper function so ``inspect.getsource`` still
+    reports the decorated body: `test_nss_scan_options` scrapes the ``case``
+    labels out of `set_snowflake_parameters` to detect dispatch drift, and
+    ``inspect.getsourcelines`` follows ``functools.wraps``'s ``__wrapped__``.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        # Local import: scos_query_tag reads this module lazily for the
+        # debug-info config, so a top-level import would close the cycle.
+        from snowflake.snowpark_connect.utils.scos_query_tag import (
+            scos_internal_query_tag,
+        )
+
+        with scos_internal_query_tag():
+            return fn(*args, **kwargs)
+
+    return wrapper
+
+
+@_tag_statements_scos_internal
 def set_snowflake_parameters(
     key: str, value: Any, snowpark_session: snowpark.Session
 ) -> None:
+    """Apply the Snowflake session parameter(s) backing Spark config `key`.
+
+    The ALTER SESSION statements here are plumbing that translates a Spark
+    config, not user query text, so query history should be able to filter
+    them out — see the decorator.
+    """
     match key:
         case "spark.sql.session.timeZone":
             if value:
@@ -1851,17 +2497,6 @@ def set_snowflake_parameters(
             # TODO: SNOW-2367714 Remove this once the fix is automatically enabled in Snowpark
             snowpark.context._enable_fix_2360274 = str_to_bool(value)
             logger.debug(f"Updated snowpark session structured types fix: {value}")
-        case "spark.sql.parquet.outputTimestampType":
-            if value == "TIMESTAMP_MICROS":
-                snowpark_session.sql(
-                    "ALTER SESSION SET UNLOAD_PARQUET_TIME_TIMESTAMP_MILLIS = false"
-                ).collect()
-            else:
-                # Default: TIMESTAMP_MILLIS (or any other value)
-                snowpark_session.sql(
-                    "ALTER SESSION SET UNLOAD_PARQUET_TIME_TIMESTAMP_MILLIS = true"
-                ).collect()
-            logger.debug(f"Updated parquet timestamp output type to: {value}")
         case "snowpark.connect.scala.version":
             # force java udf helper recreation
             set_java_udf_creator_initialized_state(False)
@@ -1889,14 +2524,20 @@ def set_snowflake_parameters(
                 enabled = str_to_bool(value)
                 snowpark_session.large_query_breakdown_enabled = enabled
                 logger.debug(f"Updated large query breakdown enabled: {enabled}")
+                if enabled:
+                    _warn_if_large_query_breakdown_inactive(snowpark_session, key)
         case "snowpark.connect.large_query_breakdown.complexity_lower_bound":
             _set_large_query_breakdown_bound(
                 snowpark_session, key, value, bound_index=0
             )
+            if value is not None and value != "":
+                _warn_if_large_query_breakdown_inactive(snowpark_session, key)
         case "snowpark.connect.large_query_breakdown.complexity_upper_bound":
             _set_large_query_breakdown_bound(
                 snowpark_session, key, value, bound_index=1
             )
+            if value is not None and value != "":
+                _warn_if_large_query_breakdown_inactive(snowpark_session, key)
         case "spark.sql.files.maxPartitionBytes":
             # Validated in ``set_config_param`` via
             # ``_verify_max_partition_bytes_config_value`` before the value is
@@ -1904,6 +2545,31 @@ def set_snowflake_parameters(
             pass
         case _:
             pass
+
+
+def _warn_if_large_query_breakdown_inactive(
+    snowpark_session: snowpark.Session, key: str
+) -> None:
+    """Warn when a large query breakdown setting cannot take effect.
+
+    Snowpark only runs large query breakdown inside its query compilation stage.
+    The Snowflake parameter that turns the stage on is read once, when the Snowpark
+    session is created, so with the stage off the setting is accepted but no query
+    is ever split.
+    """
+    from snowflake.snowpark.session import (
+        _PYTHON_SNOWPARK_ENABLE_QUERY_COMPILATION_STAGE,
+    )
+
+    if not snowpark_session._query_compilation_stage_enabled:
+        logger.warning(
+            f"'{key}' has no effect in this session: Snowpark's query compilation "
+            "stage is disabled, so large query breakdown never runs. The stage is "
+            f"controlled by the Snowflake parameter "
+            f"{_PYTHON_SNOWPARK_ENABLE_QUERY_COMPILATION_STAGE}, which is read when "
+            "the session is created; set it at account or user level before login "
+            "(ALTER SESSION afterwards has no effect)."
+        )
 
 
 def _set_large_query_breakdown_bound(
@@ -1918,14 +2584,24 @@ def _set_large_query_breakdown_bound(
         bound_index: 0 for lower bound, 1 for upper bound.
     """
     from snowflake.snowpark.session import (
+        _PYTHON_SNOWPARK_LARGE_QUERY_BREAKDOWN_COMPLEXITY_LOWER_BOUND,
+        _PYTHON_SNOWPARK_LARGE_QUERY_BREAKDOWN_COMPLEXITY_UPPER_BOUND,
         DEFAULT_COMPLEXITY_SCORE_LOWER_BOUND,
         DEFAULT_COMPLEXITY_SCORE_UPPER_BOUND,
     )
 
-    defaults = (
-        DEFAULT_COMPLEXITY_SCORE_LOWER_BOUND,
-        DEFAULT_COMPLEXITY_SCORE_UPPER_BOUND,
-    )
+    # Restore what Snowpark seeded the session with: the server parameter if set,
+    # else the library default.
+    parameter, library_default = (
+        (
+            _PYTHON_SNOWPARK_LARGE_QUERY_BREAKDOWN_COMPLEXITY_LOWER_BOUND,
+            DEFAULT_COMPLEXITY_SCORE_LOWER_BOUND,
+        ),
+        (
+            _PYTHON_SNOWPARK_LARGE_QUERY_BREAKDOWN_COMPLEXITY_UPPER_BOUND,
+            DEFAULT_COMPLEXITY_SCORE_UPPER_BOUND,
+        ),
+    )[bound_index]
 
     if value is not None and value != "":
         try:
@@ -1943,7 +2619,11 @@ def _set_large_query_breakdown_bound(
         current_bounds = snowpark_session.large_query_breakdown_complexity_bounds
         bounds_list = list(current_bounds)
         bounds_list[bound_index] = (
-            int_value if int_value is not None else defaults[bound_index]
+            int_value
+            if int_value is not None
+            else snowpark_session._conn._get_client_side_session_parameter(
+                parameter, library_default
+            )
         )
         new_bounds = tuple(bounds_list)
         try:
@@ -1966,8 +2646,8 @@ def get_boolean_session_config_param(name: str) -> bool:
 
 
 def get_string_session_config_param(name: str) -> str:
-    if name == CASE_SENSITIVE_CONFIG:
-        return _get_effective_case_sensitive_config()
+    if name in SESSION_SCOPED_RUNTIME_CONFIGS:
+        return _get_effective_session_scoped_config(name)
     session_config = sessions_config[get_spark_session_id()]
     return str(session_config[name])
 
@@ -1980,6 +2660,44 @@ def is_flatten_chained_union_enabled() -> bool:
     return get_boolean_session_config_param("snowpark.connect.sql.flattenChainedUnion")
 
 
+def _get_non_negative_int_session_config_param(name: str) -> int:
+    try:
+        return max(int(get_string_session_config_param(name)), 0)
+    except ValueError:
+        return 0
+
+
+def get_window_materialize_chain_depth() -> int:
+    """Window stages an input may hold before a window projection materializes it.
+
+    0 (default) turns the depth trigger off.
+    """
+    return _get_non_negative_int_session_config_param(
+        WINDOW_MATERIALIZE_CHAIN_DEPTH_CONFIG
+    )
+
+
+def get_window_materialize_input_complexity() -> int:
+    """Complexity score at which a window projection materializes its input.
+
+    0 (default) turns the complexity trigger off.
+    """
+    return _get_non_negative_int_session_config_param(
+        WINDOW_MATERIALIZE_INPUT_COMPLEXITY_CONFIG
+    )
+
+
+def is_regexp_replace_spark_replacement_syntax_enabled() -> bool:
+    """Read literal regexp_replace replacements with Spark's syntax ($1, not \\1).
+
+    Session-scoped opt-in (SNOW-4202792). Default false: pass the replacement
+    through unchanged, which is current main behavior.
+    """
+    return get_boolean_session_config_param(
+        "snowpark.connect.regexpReplace.sparkReplacementSyntax"
+    )
+
+
 def is_add_debug_info_to_query_tag_enabled() -> bool:
     return global_config.snowpark_connect_addDebugInfoToQueryTag
 
@@ -1988,6 +2706,25 @@ def is_use_udf_for_unsupported_datetime_formats_enabled() -> bool:
     return str_to_bool(
         global_config.snowpark_connect_useUdfForUnsupportedDateTimeFormats
     )
+
+
+def is_csv_write_java_floating_format_enabled() -> bool:
+    """CSV float/double columns use Java toString when true (SNOW-4222765).
+
+    Default false: COPY's native FLOAT text, and no formatter UDF. ``true``
+    opts into Java ``Float.toString`` / ``Double.toString``.
+    """
+    return get_boolean_session_config_param(CSV_WRITE_JAVA_FLOATING_FORMAT_CONFIG)
+
+
+def is_csv_write_null_as_empty_enabled() -> bool:
+    """CSV writes without nullValue unload NULL as a bare empty field (SNOW-4209027).
+
+    Default false: Snowflake's ``\\N`` unload. ``true`` opts into Spark's
+    empty field on unquoted writes. An explicit unquoted ``nullValue=""`` gets
+    the empty field whatever this returns.
+    """
+    return get_boolean_session_config_param(CSV_WRITE_NULL_AS_EMPTY_CONFIG)
 
 
 def is_use_java_regex_semantics_enabled() -> bool:
@@ -2013,6 +2750,15 @@ def is_use_java_regex_for_rlike_whitespace_enabled() -> bool:
     return get_boolean_session_config_param(
         "snowpark.connect.useJavaRegexForRlikeWhitespace"
     )
+
+
+def is_csv_write_minimal_quoting_enabled() -> bool:
+    """CSV writes quote delimiter, quote, and newline fields like Spark.
+
+    Opt-in (SNOW-3309109), default false: unquoted COPY text with
+    backslash-escaped delimiters, as earlier releases wrote.
+    """
+    return get_boolean_session_config_param(CSV_WRITE_MINIMAL_QUOTING_CONFIG)
 
 
 def is_cte_optimization_enabled_for_connect_version(
@@ -2126,6 +2872,28 @@ def get_parquet_metadata_generation_enabled() -> bool:
     ) or get_boolean_session_config_param("parquet.enable.summary-metadata")
 
 
+def get_parquet_write_timestamp_ltz_as_utc_ntz() -> bool:
+    """Whether to write TIMESTAMP_LTZ/TZ columns to Parquet as UTC TIMESTAMP_NTZ."""
+    return get_boolean_session_config_param(
+        "snowpark.connect.parquet.writeTimestampLtzAsUtcNtz"
+    )
+
+
+def get_parquet_write_timestamp_micros() -> bool:
+    """Whether Parquet timestamps follow Spark's precision instead of Snowflake's ms."""
+    return get_boolean_session_config_param(
+        "snowpark.connect.parquet.writeTimestampMicros"
+    )
+
+
+def get_parquet_output_timestamp_type() -> str:
+    """Spark's spark.sql.parquet.outputTimestampType, upper-cased (default INT96)."""
+    value = get_string_session_config_param("spark.sql.parquet.outputTimestampType")
+    if value in ("", "None"):
+        return "INT96"
+    return value.upper()
+
+
 def get_describe_cache_ttl_seconds() -> int:
     """Get the describe query cache TTL from session config, with a default fallback."""
     session_config: SessionConfig = sessions_config[get_spark_session_id()]
@@ -2198,7 +2966,13 @@ def get_temp_object_location(session: snowpark.Session) -> Optional[list]:
     parts = _split_qualified_identifier(raw)
     if len(parts) == 1:
         # SCHEMA only — prepend current database
-        return [session.get_current_database(), parts[0]]
+        from snowflake.snowpark_connect.utils.scos_query_tag import (
+            scos_internal_query_tag,
+        )
+
+        with scos_internal_query_tag():
+            current_db = session.get_current_database()
+        return [current_db, parts[0]]
     elif len(parts) == 2:
         # DATABASE.SCHEMA
         return [parts[0], parts[1]]
@@ -2366,6 +3140,20 @@ def get_artifact_repository() -> Optional[str]:
     return repo if repo else None
 
 
+def is_timestamp_parse_iso_t_enabled() -> bool:
+    """SNOW-4222759: rewrite an ISO 'T' separator before timestamp parsing."""
+    return str_to_bool(
+        global_config.get("snowpark.connect.timestampParseIsoT", "false")
+    )
+
+
+def is_timestamp_ntz_parse_ignore_offset_enabled() -> bool:
+    """SNOW-4222759: parse a string to TIMESTAMP_NTZ keeping the wall clock."""
+    return str_to_bool(
+        global_config.get("snowpark.connect.timestampNtzParseIgnoreOffset", "false")
+    )
+
+
 _java_udf_creator_initialized = False
 
 
@@ -2403,9 +3191,68 @@ def is_cast_string_to_integral_high_precision_enabled() -> bool:
     )
 
 
+def is_floating_point_spark_rounding_enabled() -> bool:
+    """SNOW-4193976: Spark FLOAT/DOUBLE rounding and the related numeric changes.
+
+    Default false. True opts into round/bround, cast(double as decimal),
+    integral avg/mean, format_number, and pow(negative, non-integer) behavior
+    that matches Spark. Unset keeps the pre-change SQL.
+    """
+    return str_to_bool(
+        global_config.get("snowpark.connect.floatingPoint.sparkRounding", "false")
+    )
+
+
+def is_cast_spark_floating_to_string_enabled() -> bool:
+    """SNOW-4193976: Java toString for float/double cast and format_string %s.
+
+    Default false keeps TO_VARCHAR plus the trailing ``.0`` rule. True opts
+    into Java toString. Read from the session config so one session's
+    conf.set does not change another session's casts.
+    """
+    return get_boolean_session_config_param(CAST_SPARK_FLOATING_TO_STRING_CONFIG)
+
+
 def is_aggregate_string_coercion_enabled() -> bool:
     return str_to_bool(
         global_config.get("snowpark.connect.aggregate.coerceStringToNumeric", "true")
+    )
+
+
+def is_array_cast_scalar_rules_enabled() -> bool:
+    # SNOW-4222750: default false keeps the whole-array CAST. True opts into
+    # per-element scalar rules.
+    return str_to_bool(
+        global_config.get("snowpark.connect.arrayCastUsesScalarRules", "false")
+    )
+
+
+def is_interval_to_integral_truncation_enabled() -> bool:
+    """True when cast(<day-time interval> as integral) truncates toward zero.
+
+    SNOW-3656742 BCR. Spark 3.5.3 counts whole units and drops the fraction
+    (1.5 s -> 1, -1.5 s -> -1). True opts in. Default false keeps today's
+    ``CAST(x AS BIGINT)``, which Snowflake rounds half away from zero.
+
+    Session scoped: ``spark.conf.set`` writes only the calling session's
+    overlay and clears that session's plan caches, which hold SQL built with
+    the old value. Other sessions keep the process-wide value.
+    """
+    return get_boolean_session_config_param(INTERVAL_TO_INTEGRAL_TRUNCATES_CONFIG)
+
+
+def is_fractional_to_integral_spark_narrowing_enabled() -> bool:
+    """True when non-ANSI cast(float/double as integral) narrows like Spark.
+
+    BCR (#5777). Default false keeps the pre-#5777 CASE, which saturates
+    tinyint/smallint at their own bounds and guards bigint with ``> max``.
+
+    Session scoped: ``spark.conf.set`` writes only the calling session's
+    overlay and clears that session's plan caches, which hold SQL built with
+    the old value. Other sessions keep the process-wide value.
+    """
+    return get_boolean_session_config_param(
+        FRACTIONAL_TO_INTEGRAL_SPARK_NARROWING_CONFIG
     )
 
 
@@ -2417,6 +3264,124 @@ def is_collect_list_window_order_by_direction_enabled() -> bool:
     )
 
 
+def is_pivot_first_last_ignore_nulls_enabled() -> bool:
+    """SNOW-4222761. Session-scoped; default false keeps pivot first/last on ANY_VALUE.
+
+    ``spark.conf.set`` writes the process-wide ``global_config`` and the calling
+    session. Reading ``global_config`` here would let one session turn the
+    Spark plan on for every session on this process.
+    """
+    return get_boolean_session_config_param(
+        "snowpark.connect.pivot.firstLastIgnoresNulls"
+    )
+
+
+def is_to_json_null_array_element_enabled() -> bool:
+    """SNOW-4222754: to_json writes a NULL array element as JSON null.
+
+    Default false keeps ``TO_JSON(TO_VARIANT(...))``. Session scoped, so one
+    session's ``spark.conf.set`` does not change to_json for other sessions.
+    """
+    return get_boolean_session_config_param(TO_JSON_NULL_ARRAY_ELEMENT_CONFIG)
+
+
+def scope_star_to_source_dataframe() -> bool:
+    """True when ``df["*"]`` expands that dataframe's columns.
+
+    True matches Spark. False (default) expands every visible column of the
+    relation under the projection, which is the previous result.
+    """
+    return get_boolean_session_config_param(SCOPE_STAR_TO_SOURCE_DATAFRAME)
+
+
+def is_to_json_spark_compatible_struct_enabled() -> bool:
+    """SNOW-4222755: schema-order ``to_json`` structs that omit null fields.
+
+    Default false keeps today's ``TO_JSON(TO_VARIANT(struct))`` text
+    (alphabetical keys, null fields included). Read from the session config so
+    the flag is a per-session opt-in.
+    """
+    return get_boolean_session_config_param(
+        "snowpark.connect.toJson.sparkCompatibleStruct"
+    )
+
+
+def is_implicit_timestamp_to_spark_string_enabled() -> bool:
+    """SNOW-3657394: true matches Spark. Default false keeps Snowflake CAST text.
+
+    Session scoped: ``spark.conf.set`` writes only the calling session's
+    overlay and clears that session's plan caches, which hold SQL built with
+    the old text. Other sessions keep the process-wide value.
+    """
+    return get_boolean_session_config_param(IMPLICIT_TIMESTAMP_TO_SPARK_STRING_CONFIG)
+
+
+def is_format_string_spark_compatible_enabled() -> bool:
+    """I024: format_string/printf text follows Spark's Java Formatter.
+
+    Default false keeps today's Python ``%`` text (a null numeric conversion
+    makes the whole result NULL, and negative ``%x``/``%X``/``%o`` stay
+    signed). When true: null arguments print "null"/"NULL"/"false" with Java
+    width and precision; negative ``%x``/``%X``/``%o`` print the two's
+    complement of the tracked integral width; ``%f``/``%e``/``%g`` round
+    HALF_UP and ``%g`` keeps trailing zeros; ``%s`` of a double prints Java
+    ``Double.toString`` text; the ``,`` and ``(`` flags, ``%#o``, ``%S``,
+    ``%b``/``%B``, ``%c``/``%C``, ``%n``, booleans, argument indexes and
+    extra arguments match Java; ``%a``, ``%h`` and ``%t`` raise. The inputs
+    where Spark raises but this returns text are listed in
+    ``utils/format_string_udf.py``. Read from the session config so a
+    customer can opt in per session.
+    """
+    return get_boolean_session_config_param(
+        "snowpark.connect.formatString.sparkCompatible"
+    )
+
+
+def is_spark_string_datetime_comparison_enabled() -> bool:
+    """I038 BCR: cast the string side of a string/datetime comparison like Spark.
+
+    Default false keeps Snowflake's implicit cast, which raises 100035/100040
+    on text such as ``'NULL'``. Session-scoped.
+    """
+    return get_boolean_session_config_param(STRING_DATETIME_COMPARISON_CONFIG)
+
+
+def is_spark_string_datetime_in_enabled() -> bool:
+    """I038 BCR: type ``IN`` over strings and datetimes like Spark InConversion.
+
+    Default false keeps Snowflake's implicit ``IN`` cast. Session-scoped.
+    """
+    return get_boolean_session_config_param(STRING_DATETIME_IN_CONFIG)
+
+
+def is_default_frame_last_includes_peers_enabled() -> bool:
+    """True when default-frame last() includes ORDER BY peers (SNOW-4222760).
+
+    Session-scoped: a session's ``spark.conf.set`` overrides the process
+    default for that session only.
+    """
+    return get_boolean_session_config_param(DEFAULT_FRAME_LAST_INCLUDES_PEERS_CONFIG)
+
+
+def is_csv_write_spark_timestamp_format_enabled() -> bool:
+    """True when CSV writes use Spark's timestamp formats (SNOW-4215403)."""
+    return get_boolean_session_config_param(CSV_WRITE_SPARK_TIMESTAMP_FORMAT_CONFIG)
+
+
+def is_split_java_regex_semantics_enabled() -> bool:
+    """True when split uses java.util.regex semantics (PR 5774)."""
+    return get_boolean_session_config_param(SPLIT_JAVA_REGEX_SEMANTICS_CONFIG)
+
+
+def is_text_spark_glob_semantics_enabled() -> bool:
+    """True when text globs follow Spark's file selection (SNOW-4222758)."""
+    return get_boolean_session_config_param(TEXT_SPARK_GLOB_SEMANTICS_CONFIG)
+
+
+def is_nss_posexplode_without_transform_enabled() -> bool:
+    return get_boolean_session_config_param(NSS_POSEXPLODE_WITHOUT_TRANSFORM_CONFIG)
+
+
 def is_native_app_mode() -> bool:
     """True when SCOS is running inside a Snowflake Native App.
 
@@ -2426,6 +3391,20 @@ def is_native_app_mode() -> bool:
     The app provider must bundle the SCOS JARs in the app's version stage.
     """
     return str_to_bool(global_config.get("snowpark.connect.native_app_mode", "false"))
+
+
+def is_first_ignore_nulls_respects_frame_enabled() -> bool:
+    """True when running first(ignorenulls) stays inside its frame.
+
+    True matches Spark. False (default) keeps FIRST_VALUE IGNORE NULLS over
+    the original frame, which Snowflake evaluates as the whole partition when
+    the frame starts at unbounded preceding.
+
+    Session scoped: ``spark.conf.set`` writes only the calling session's
+    overlay and clears that session's plan caches, which hold SQL built with
+    the old value. Other sessions keep the process-wide value.
+    """
+    return get_boolean_session_config_param(FIRST_IGNORE_NULLS_RESPECTS_FRAME_CONFIG)
 
 
 def _force_python_udxf_inline_on_native_app_mode(session, value) -> None:
@@ -2508,6 +3487,25 @@ def emulate_partition_overwrite_for_fdn_tables() -> bool:
             "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables", "false"
         )
     )
+
+
+def is_spark_duplicate_column_resolution_enabled() -> bool:
+    """Whether duplicated column names resolve the way Spark resolves them.
+
+    Opt-in BCR, default false (SNOW-4222753). When true:
+    - ``withColumnRenamed`` may target a name that already exists, as Spark
+      ``Dataset.withColumnRenamed`` does, so the DataFrame keeps both columns.
+    - ORDER BY of a name several columns share resolves as Spark's
+      ``ResolveReferencesInSort``: one attribute repeated is one candidate,
+      otherwise the name is retried on the child plan. This applies to every
+      DataFrame, not only renamed ones.
+
+    The two are one setting because the rename is only correct with the ORDER
+    BY resolution. With ``snowpark.connect.sparkDuplicateColumnResolution``
+    false (the default), the previous COLUMN_ALREADY_EXISTS error and the
+    previous ORDER BY resolution are kept together.
+    """
+    return get_boolean_session_config_param(SPARK_DUPLICATE_COLUMN_RESOLUTION_CONFIG)
 
 
 def is_anchor_stage_paths_enabled() -> bool:

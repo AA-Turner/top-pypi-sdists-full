@@ -154,9 +154,9 @@ def assert_service_output(
     assert service.schema_name == expected_schema_name.upper()
     assert service.owner == "ACCOUNTADMIN"
     assert service.dns_name is not None and f"{expected_service_name.lower().replace('_', '-')}" in service.dns_name
-    assert service.created_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.timezone.utc)
-    assert service.updated_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.timezone.utc)
-    assert service.resumed_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.timezone.utc)
+    assert service.created_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.UTC)
+    assert service.updated_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.UTC)
+    assert service.resumed_on == datetime.datetime(1967, 6, 23, 7, 0, 0, 123000, tzinfo=datetime.UTC)
     assert service.owner_role_type == "ROLE"
     assert service.is_job is False
     assert service.spec_digest is not None

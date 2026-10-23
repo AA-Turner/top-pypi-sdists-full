@@ -55,9 +55,9 @@ class attrgetter:
 	.. code-block:: python
 
 		>>> from pathlib import Path
-		>>> attrgetter(0, 'name')([Path("dir/code.py")])
+		>>> attrgetter(0, "name")([Path("dir/code.py")])
 		'code.py'
-		>>> attrgetter(2, 'parent.name')([Path("dir/coincidence.py"), Path("dir/wheel.py"), Path("dir/operator.py")])
+		>>> attrgetter(2, "parent.name")([Path("dir/coincidence.py"), Path("dir/wheel.py"), Path("dir/operator.py")])
 		'dir'
 
 	.. seealso:: :func:`operator.attrgetter` and :func:`operator.itemgetter`
@@ -91,7 +91,7 @@ class attrgetter:
 		data = {**self._attrs, "module": self.__class__.__module__, "qualname": self.__class__.__qualname__}
 		return "{module}.{qualname}(idx={idx}, attr={attr!r})".format_map(data)
 
-	def __reduce__(self):
+	def __reduce__(self):  # noqa: MAN002
 		return self.__class__, tuple(self._attrs.values())
 
 
@@ -110,14 +110,14 @@ class itemgetter:
 
 	.. code-block:: python
 
-		>>> itemgetter(0, 1)(['ABCDEFG'])
+		>>> itemgetter(0, 1)(["ABCDEFG"])
 		'B'
-		>>> itemgetter(1, 2)(['ABC', 'DEF'])
+		>>> itemgetter(1, 2)(["ABC", "DEF"])
 		'F'
-		>>> itemgetter(0, slice(2, None))(['ABCDEFG'])
+		>>> itemgetter(0, slice(2, None))(["ABCDEFG"])
 		'CDEFG'
-		>>> army = [dict(rank='captain', name='Blackadder'), dict(rank='Private', name='Baldrick')]
-		>>> itemgetter(0, 'rank')(army)
+		>>> army = [dict(rank="captain", name="Blackadder"), dict(rank="Private", name="Baldrick")]
+		>>> itemgetter(0, "rank")(army)
 		'captain'
 
 	.. seealso:: :func:`operator.itemgetter`
@@ -141,7 +141,7 @@ class itemgetter:
 		data = {**self._items, "module": self.__class__.__module__, "qualname": self.__class__.__qualname__}
 		return "{module}.{qualname}(idx={idx}, item={item!r})".format_map(data)
 
-	def __reduce__(self):
+	def __reduce__(self):  # noqa: MAN002
 		return self.__class__, tuple(self._items.values())
 
 
@@ -158,11 +158,11 @@ class methodcaller:
 	.. code-block:: python
 
 		>>> from datetime import date
-		>>> methodcaller(0, 'upper')(["hello", "world"])
+		>>> methodcaller(0, "upper")(["hello", "world"])
 		'HELLO'
-		>>> methodcaller(1, 'center', 9, "=")(["hello", "world"])
+		>>> methodcaller(1, "center", 9, '=')(["hello", "world"])
 		'==world=='
-		>>> methodcaller(0, 'replace', year=2019)([date(2021, 7, 6)])
+		>>> methodcaller(0, "replace", year=2019)([date(2021, 7, 6)])
 		datetime.date(2019, 7, 6)
 
 	.. seealso:: :func:`operator.methodcaller` and :func:`operator.itemgetter`
@@ -182,7 +182,7 @@ class methodcaller:
 
 	if TYPE_CHECKING:
 
-		def __init__(__self, __idx: int, __name: str, *args, **kwargs):
+		def __init__(__self, __idx: int, __name: str, *args, **kwargs):  # noqa: MAN001
 			if not isinstance(__idx, int):
 				raise TypeError("'idx' must be an integer")
 
@@ -196,7 +196,7 @@ class methodcaller:
 
 	else:
 
-		def __init__(_self, _idx: int, _name: str, *args, **kwargs):
+		def __init__(_self, _idx: int, _name: str, *args, **kwargs):  # noqa: MAN001
 			if not isinstance(_idx, int):
 				raise TypeError("'_idx' must be an integer")
 
@@ -217,7 +217,7 @@ class methodcaller:
 		args.extend(f'{k}={v!r}' for k, v in self._kwargs.items())
 		return f'{self.__class__.__module__}.{self.__class__.__name__}({", ".join(args)})'
 
-	def __reduce__(self):
+	def __reduce__(self):  # noqa: MAN002
 		if not self._kwargs:
 			return self.__class__, (self._idx, self._name) + self._args
 		else:

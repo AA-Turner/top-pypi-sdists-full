@@ -16,8 +16,11 @@
 
 from __future__ import annotations
 
+import gc
+import importlib.metadata
 import inspect
 import json
+import logging
 import re
 from collections.abc import Sequence
 from itertools import permutations
@@ -68,6 +71,7 @@ from click_extra import (
 )
 from click_extra.commands import default_params
 from click_extra.config import NO_CONFIG
+from click_extra.logging import StreamHandler
 from click_extra.parameters import (
     canonical_param_name,
     iter_params_for_display,
@@ -1040,7 +1044,7 @@ def test_integrated_show_params_option(invoke, create_config):
 @pytest.mark.parametrize(
     "args_order",
     tuple(permutations(("--params", "--table-format=csv", "--no-color"))),
-    ids=lambda p: " ".join(p),
+    ids=" ".join,
 )
 def test_show_params_table_format_ordering(invoke, args_order):
     """``--params`` respects ``--table-format`` regardless of CLI order."""
@@ -1494,7 +1498,7 @@ def test_recurse_subcommands(invoke):
             "✘",
             "✘",
             "",
-            f"SHOW_PARAMS_CLI_MAIN_SHOW_PARAMS_SUB_{CLICK_HELP_PARAM_NAME.upper()}",
+            f"SHOW_PARAMS_SUB_{CLICK_HELP_PARAM_NAME.upper()}",
             False,
             "✓",
             True,
@@ -1515,7 +1519,7 @@ def test_recurse_subcommands(invoke):
             "✘",
             "✘",
             "",
-            f"SHOW_PARAMS_CLI_MAIN_SHOW_PARAMS_SUB_SHOW_PARAMS_SUB_SUB_{CLICK_HELP_PARAM_NAME.upper()}",
+            f"SHOW_PARAMS_SUB_SUB_{CLICK_HELP_PARAM_NAME.upper()}",
             False,
             "✓",
             True,
@@ -1536,10 +1540,7 @@ def test_recurse_subcommands(invoke):
             "✘",
             "✓",
             "",
-            (
-                "SHOW_PARAMS_SUB_SUB_INT_PARAM, "
-                "SHOW_PARAMS_CLI_MAIN_SHOW_PARAMS_SUB_SHOW_PARAMS_SUB_SUB_INT_PARAM"
-            ),
+            "SHOW_PARAMS_SUB_SUB_INT_PARAM",
             10,
             "✘",
             "",
@@ -2236,11 +2237,29 @@ def test_help_column_paints_the_deprecation_marker(invoke):
     assert rows["weather.city"] == "Where to look up. (DEPRECATED)"
 
 
-def test_option_deprecation_notice_names_every_spelling(invoke):
-    """The notice names the flags a user types, not the identifier Click derived.
+PARAMETER_SPEC_CLICK_VERSION = (8, 6)
+"""Click release naming a parameter by `Parameter.spec` in a deprecation notice.
 
-    Click reports `human_readable_name`, which for an option is `self.name`: the
-    one spelling that appears nowhere on the command line.
+From that release on, Click prints the flag with the longest prefix: `--apt-cyg`
+for `--apt-cyg/--no-apt-cyg`. Below it Click prints the `apt_cyg` identifier,
+which Click Extra replaces with every spelling.
+"""
+
+DEPRECATED_FLAG_NAME = (
+    "--apt-cyg"
+    if tuple(int(p) for p in importlib.metadata.version("click").split(".")[:2])
+    >= PARAMETER_SPEC_CLICK_VERSION
+    else "--apt-cyg / --no-apt-cyg"
+)
+"""How a notice names `--apt-cyg/--no-apt-cyg` on the installed Click."""
+
+
+def test_option_deprecation_notice_names_its_flags(invoke):
+    """The notice names a flag a user types, not the identifier Click derived.
+
+    Below `PARAMETER_SPEC_CLICK_VERSION`, Click reports `human_readable_name`,
+    which for an option is `self.name`: the one spelling that appears nowhere
+    on the command line.
     """
 
     @command
@@ -2251,7 +2270,7 @@ def test_option_deprecation_notice_names_every_spelling(invoke):
     result = invoke(weather, "--apt-cyg", color=False)
     assert result.exit_code == 0
     assert (
-        "DeprecationWarning: The option '--apt-cyg / --no-apt-cyg' is deprecated."
+        f"DeprecationWarning: The option {DEPRECATED_FLAG_NAME!r} is deprecated."
         " upstream is gone" in result.stderr
     )
 
@@ -2299,7 +2318,7 @@ def test_deprecation_notice_reaches_a_configuration_file(invoke, create_config):
     assert result.stdout.endswith("True\n")
     assert result.stderr.count("DeprecationWarning") == 1
     assert (
-        "DeprecationWarning: The option '--apt-cyg / --no-apt-cyg' is deprecated."
+        f"DeprecationWarning: The option {DEPRECATED_FLAG_NAME!r} is deprecated."
         " upstream is gone" in result.stderr
     )
 
@@ -2342,7 +2361,8 @@ def _option_classes() -> list[type[click.Option]]:
     """Every option class click-extra defines with a constructor of its own."""
 
     def walk(cls: type) -> list[type]:
-        return [c for sub in cls.__subclasses__() for c in (sub, *walk(sub))]
+        subclasses: list[type] = cls.__subclasses__()
+        return [c for sub in subclasses for c in (sub, *walk(sub))]
 
     return sorted(
         {
@@ -2388,3 +2408,82 @@ def test_option_constructors_share_one_shape(option_class):
         assert parameter.annotation is not inspect.Parameter.empty, parameter.name
     assert parameters[-1].kind is inspect.Parameter.VAR_KEYWORD
     assert parameters[-1].annotation == "Any"
+
+
+@pytest.mark.parametrize(
+    "option_class", _option_classes(), ids=lambda cls: cls.__qualname__
+)
+def test_option_constructors_leave_the_root_logger_alone(option_class):
+    """Building an option changes neither the handlers nor the level of ``root``.
+
+    An option is built when its command is decorated, so when the module of the
+    command is imported. The root logger belongs to the whole process by then: an
+    application importing the CLI, or pytest collecting it, has its handlers there.
+    """
+    # A run of a plain Click command that failed while parsing, in an earlier
+    # test, holds a handler until its context is collected. Collect first: a
+    # handler released in the middle of the test must not be put back after it.
+    gc.collect()
+    root = logging.getLogger()
+    handlers, level = root.handlers[:], root.level
+    try:
+        option_class()
+        assert root.handlers == handlers
+        assert root.level == level
+    finally:
+        root.handlers[:] = handlers
+        root.setLevel(level)
+
+
+@pytest.mark.parametrize(
+    "option_class", _option_classes(), ids=lambda cls: cls.__qualname__
+)
+def test_options_lend_the_root_logger_a_handler_for_the_run(option_class):
+    """Each option gives ``root`` the handler of Click Extra when Click prepares
+    to parse a command line, and takes it back when the context closes.
+
+    Any of these options may report through log records: none may count on
+    another option of the command to bring the handler that prints them.
+    """
+    # A run of a plain Click command that failed while parsing, in an earlier
+    # test, holds that handler until its context is collected.
+    gc.collect()
+    root = logging.getLogger()
+    handlers = root.handlers[:]
+    cli = click.Command("orchard", params=[option_class()])
+    ctx = click.Context(cli, info_name="orchard")
+    try:
+        # Click registers every parameter on the parser before it processes any.
+        cli.make_parser(ctx)
+        (lent,) = [h for h in root.handlers if h not in handlers]
+        assert isinstance(lent, StreamHandler)
+    finally:
+        ctx.close()
+    assert root.handlers == handlers
+
+
+def test_params_lists_the_envvars_a_subcommand_reads(invoke):
+    """A subcommand setting its own `auto_envvar_prefix` is listed under it.
+
+    The walk behind `--params` builds each subcommand's context the way Click
+    does for a real invocation, context settings included. It used to derive the
+    prefix from the parent's, and listed `GARDEN_PLANT_CROP`, a variable the CLI
+    never reads.
+    """
+
+    @group(help_command=False)
+    def garden():
+        pass
+
+    @garden.command(context_settings={"auto_envvar_prefix": "SOW"})
+    @option("--crop")
+    def plant(crop):
+        echo(f"Planting {crop}")
+
+    result = invoke(garden, "plant", env={"SOW_CROP": "beans"})
+    assert result.output == "Planting beans\n"
+
+    result = invoke(garden, "--params", "--table-format", "json", color=False)
+    assert result.exit_code == 0, result.stderr
+    rows = {row["ID"]: row for row in json.loads(result.stdout)}
+    assert rows["garden.plant.crop"]["Env. vars."] == ["SOW_CROP"]

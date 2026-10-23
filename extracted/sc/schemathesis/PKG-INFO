@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: schemathesis
-Version: 4.32.3
+Version: 4.32.4
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -31,10 +31,10 @@ Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.11
 Requires-Dist: anyio<5,>=4.5
 Requires-Dist: click<9,>=8.0
-Requires-Dist: harfile<1.0,>=0.5.0
-Requires-Dist: hypothesis-graphql<1,>=0.13.2
+Requires-Dist: harfile<1.0,>=0.6.0
+Requires-Dist: hypothesis-graphql<1,>=0.13.5
 Requires-Dist: hypothesis<7,>=6.130.12
-Requires-Dist: jsonschema-rs<0.60.0,>=0.59.0
+Requires-Dist: jsonschema-rs<0.61.0,>=0.60.0
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=8.4
 Requires-Dist: pyyaml<7.0,>=5.1
@@ -45,17 +45,18 @@ Requires-Dist: werkzeug<4,>=0.16.0
 Provides-Extra: allure
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'allure'
 Provides-Extra: bench
+Requires-Dist: pytest-asyncio<2.0,>=1.0; extra == 'bench'
 Requires-Dist: pytest-codspeed==5.0.3; extra == 'bench'
 Requires-Dist: pytest-timeout<3.0,>=2.3; extra == 'bench'
 Provides-Extra: cov
 Requires-Dist: coverage-enable-subprocess; extra == 'cov'
-Requires-Dist: coverage[toml]>=5.3; extra == 'cov'
+Requires-Dist: coverage[toml]<7.13.3,>=5.3; extra == 'cov'
 Provides-Extra: dev
 Requires-Dist: allure-pytest>=2.13.0; extra == 'dev'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'dev'
 Requires-Dist: coverage-enable-subprocess; extra == 'dev'
-Requires-Dist: coverage>=6; extra == 'dev'
-Requires-Dist: coverage[toml]>=5.3; extra == 'dev'
+Requires-Dist: coverage<7.13.3,>=6; extra == 'dev'
+Requires-Dist: coverage[toml]<7.13.3,>=5.3; extra == 'dev'
 Requires-Dist: django<6,>=5.2; extra == 'dev'
 Requires-Dist: fastapi>=0.86.0; extra == 'dev'
 Requires-Dist: flask<4.0,>=2.1.1; extra == 'dev'
@@ -91,7 +92,7 @@ Requires-Dist: tracecov>=0.21; extra == 'scripts'
 Provides-Extra: tests
 Requires-Dist: allure-pytest>=2.13.0; extra == 'tests'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'tests'
-Requires-Dist: coverage>=6; extra == 'tests'
+Requires-Dist: coverage<7.13.3,>=6; extra == 'tests'
 Requires-Dist: django<6,>=5.2; extra == 'tests'
 Requires-Dist: fastapi>=0.86.0; extra == 'tests'
 Requires-Dist: flask<4.0,>=2.1.1; extra == 'tests'

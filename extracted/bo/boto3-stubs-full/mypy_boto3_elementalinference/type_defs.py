@@ -29,6 +29,8 @@ from .literals import (
     FeedStatusType,
     OutputStatusType,
     ProfanityFilterModeType,
+    ScheduleActionErrorCodeType,
+    ScheduleActionStatusType,
     SummaryGenerationModeType,
     TranscriptionLanguageType,
 )
@@ -51,6 +53,8 @@ __all__ = (
     "CreateFeedRequestTypeDef",
     "CreateFeedResponseTypeDef",
     "CreateOutputTypeDef",
+    "CreateScheduleActionRequestTypeDef",
+    "CreateScheduleActionResponseTypeDef",
     "CroppingConfigOutputTypeDef",
     "CroppingConfigTypeDef",
     "CroppingConfigUnionTypeDef",
@@ -60,6 +64,8 @@ __all__ = (
     "DeleteFeedPolicyRequestTypeDef",
     "DeleteFeedRequestTypeDef",
     "DeleteFeedResponseTypeDef",
+    "DeleteScheduleActionRequestTypeDef",
+    "DeleteScheduleActionResponseTypeDef",
     "DictionarySummaryTypeDef",
     "DisassociateFeedRequestTypeDef",
     "DisassociateFeedResponseTypeDef",
@@ -68,6 +74,8 @@ __all__ = (
     "ExportDictionaryEntriesResponseTypeDef",
     "FeedAssociationTypeDef",
     "FeedSummaryTypeDef",
+    "FixedModeScheduleActionStartSettingsOutputTypeDef",
+    "FixedModeScheduleActionStartSettingsTypeDef",
     "FixtureSummaryTypeDef",
     "GetDictionaryRequestTypeDef",
     "GetDictionaryResponseTypeDef",
@@ -85,6 +93,9 @@ __all__ = (
     "ListFeedsRequestPaginateTypeDef",
     "ListFeedsRequestTypeDef",
     "ListFeedsResponseTypeDef",
+    "ListScheduleActionsRequestPaginateTypeDef",
+    "ListScheduleActionsRequestTypeDef",
+    "ListScheduleActionsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "OutputConfigOutputTypeDef",
@@ -92,7 +103,14 @@ __all__ = (
     "OutputConfigUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PutFeedPolicyRequestTypeDef",
+    "RemoveClippingDataSourceConfigurationTypeDef",
     "ResponseMetadataTypeDef",
+    "ScheduleActionErrorTypeDef",
+    "ScheduleActionOperationTypeDef",
+    "ScheduleActionStartConfigurationOutputTypeDef",
+    "ScheduleActionStartConfigurationTypeDef",
+    "ScheduleActionStartConfigurationUnionTypeDef",
+    "ScheduleActionTypeDef",
     "SearchFilterTypeDef",
     "SearchFixturesRequestPaginateTypeDef",
     "SearchFixturesRequestTypeDef",
@@ -102,11 +120,14 @@ __all__ = (
     "TemplateGroupOutputTypeDef",
     "TemplateGroupTypeDef",
     "TemplateGroupUnionTypeDef",
+    "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateClippingDataSourceConfigurationTypeDef",
     "UpdateDictionaryRequestTypeDef",
     "UpdateDictionaryResponseTypeDef",
     "UpdateFeedRequestTypeDef",
     "UpdateFeedResponseTypeDef",
+    "UpdateOutputStatusTypeDef",
     "UpdateOutputTypeDef",
     "WaiterConfigTypeDef",
 )
@@ -150,6 +171,11 @@ class FeedAssociationTypeDef(TypedDict):
     associatedResourceName: str
 
 
+class ScheduleActionErrorTypeDef(TypedDict):
+    errorCode: ScheduleActionErrorCodeType
+    errorMessage: str
+
+
 class TemplateGroupOutputTypeDef(TypedDict):
     name: str
     templateUris: list[str]
@@ -171,6 +197,13 @@ DeleteFeedRequestTypeDef = TypedDict(
     "DeleteFeedRequestTypeDef",
     {
         "id": str,
+    },
+)
+DeleteScheduleActionRequestTypeDef = TypedDict(
+    "DeleteScheduleActionRequestTypeDef",
+    {
+        "id": str,
+        "actionName": str,
     },
 )
 DictionarySummaryTypeDef = TypedDict(
@@ -197,6 +230,13 @@ ExportDictionaryEntriesRequestTypeDef = TypedDict(
         "id": str,
     },
 )
+
+
+class FixedModeScheduleActionStartSettingsOutputTypeDef(TypedDict):
+    scheduledAt: datetime
+
+
+TimestampTypeDef = Union[datetime, str]
 GetDictionaryRequestTypeDef = TypedDict(
     "GetDictionaryRequestTypeDef",
     {
@@ -242,6 +282,16 @@ class ListFeedsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+ListScheduleActionsRequestTypeDef = TypedDict(
+    "ListScheduleActionsRequestTypeDef",
+    {
+        "id": str,
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
@@ -253,6 +303,15 @@ PutFeedPolicyRequestTypeDef = TypedDict(
         "policy": str,
     },
 )
+
+
+class RemoveClippingDataSourceConfigurationTypeDef(TypedDict):
+    outputName: str
+
+
+class UpdateOutputStatusTypeDef(TypedDict):
+    outputName: str
+    status: OutputStatusType
 
 
 class SearchFilterTypeDef(TypedDict):
@@ -332,6 +391,13 @@ DeleteFeedResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class DeleteScheduleActionResponseTypeDef(TypedDict):
+    actionName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 DisassociateFeedResponseTypeDef = TypedDict(
     "DisassociateFeedResponseTypeDef",
     {
@@ -396,6 +462,11 @@ class ClippingConfigTypeDef(TypedDict):
     dataSourceConfiguration: NotRequired[DataSourceConfigurationTypeDef]
 
 
+class UpdateClippingDataSourceConfigurationTypeDef(TypedDict):
+    outputName: str
+    dataSourceConfiguration: DataSourceConfigurationTypeDef
+
+
 class FixtureSummaryTypeDef(TypedDict):
     fixtureId: str
     name: str
@@ -437,6 +508,16 @@ class ListDictionariesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ScheduleActionStartConfigurationOutputTypeDef(TypedDict):
+    fixedModeScheduleActionStartSettings: NotRequired[
+        FixedModeScheduleActionStartSettingsOutputTypeDef
+    ]
+
+
+class FixedModeScheduleActionStartSettingsTypeDef(TypedDict):
+    scheduledAt: TimestampTypeDef
+
+
 GetFeedRequestWaitTypeDef = TypedDict(
     "GetFeedRequestWaitTypeDef",
     {
@@ -452,6 +533,15 @@ class ListDictionariesRequestPaginateTypeDef(TypedDict):
 
 class ListFeedsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+ListScheduleActionsRequestPaginateTypeDef = TypedDict(
+    "ListScheduleActionsRequestPaginateTypeDef",
+    {
+        "id": str,
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 
 
 class SearchFixturesRequestPaginateTypeDef(TypedDict):
@@ -474,6 +564,12 @@ class SearchFixturesRequestTypeDef(TypedDict):
 TemplateGroupUnionTypeDef = Union[TemplateGroupTypeDef, TemplateGroupOutputTypeDef]
 
 
+class ScheduleActionOperationTypeDef(TypedDict):
+    updateOutputStatus: NotRequired[UpdateOutputStatusTypeDef]
+    updateClippingDataSourceConfiguration: NotRequired[UpdateClippingDataSourceConfigurationTypeDef]
+    removeClippingDataSourceConfiguration: NotRequired[RemoveClippingDataSourceConfigurationTypeDef]
+
+
 class SearchFixturesResponseTypeDef(TypedDict):
     fixtures: list[FixtureSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -493,8 +589,29 @@ class OutputConfigOutputTypeDef(TypedDict):
     contextualMetadata: NotRequired[ContextualMetadataConfigTypeDef]
 
 
+class ScheduleActionStartConfigurationTypeDef(TypedDict):
+    fixedModeScheduleActionStartSettings: NotRequired[FixedModeScheduleActionStartSettingsTypeDef]
+
+
 class CroppingConfigTypeDef(TypedDict):
     templateGroups: NotRequired[Sequence[TemplateGroupUnionTypeDef]]
+
+
+class CreateScheduleActionResponseTypeDef(TypedDict):
+    actionName: str
+    startConfiguration: ScheduleActionStartConfigurationOutputTypeDef
+    operations: list[ScheduleActionOperationTypeDef]
+    status: ScheduleActionStatusType
+    error: ScheduleActionErrorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ScheduleActionTypeDef(TypedDict):
+    actionName: str
+    startConfiguration: ScheduleActionStartConfigurationOutputTypeDef
+    operations: list[ScheduleActionOperationTypeDef]
+    status: ScheduleActionStatusType
+    error: NotRequired[ScheduleActionErrorTypeDef]
 
 
 class GetOutputTypeDef(TypedDict):
@@ -505,7 +622,18 @@ class GetOutputTypeDef(TypedDict):
     fromAssociation: NotRequired[bool]
 
 
+ScheduleActionStartConfigurationUnionTypeDef = Union[
+    ScheduleActionStartConfigurationTypeDef, ScheduleActionStartConfigurationOutputTypeDef
+]
 CroppingConfigUnionTypeDef = Union[CroppingConfigTypeDef, CroppingConfigOutputTypeDef]
+
+
+class ListScheduleActionsResponseTypeDef(TypedDict):
+    scheduleActions: list[ScheduleActionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 CreateFeedResponseTypeDef = TypedDict(
     "CreateFeedResponseTypeDef",
     {
@@ -549,6 +677,15 @@ UpdateFeedResponseTypeDef = TypedDict(
         "association": FeedAssociationTypeDef,
         "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+CreateScheduleActionRequestTypeDef = TypedDict(
+    "CreateScheduleActionRequestTypeDef",
+    {
+        "id": str,
+        "actionName": str,
+        "startConfiguration": ScheduleActionStartConfigurationUnionTypeDef,
+        "operations": Sequence[ScheduleActionOperationTypeDef],
     },
 )
 

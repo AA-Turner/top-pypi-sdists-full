@@ -81,3 +81,16 @@ def test_the_tap_copy_runs_without_probe():
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == "running"
+
+
+@pytest.mark.parametrize("plugin", ["probe-research", "probe-research-daemon"])
+def test_the_hooks_copy_of_the_service_paths_is_the_canonical_one(plugin):
+    """The dispatcher and the hook host name the service's folders through
+    `hooks/_service_paths.py` (they cannot import `probe`): the same machine
+    key, the same sockets (R2 review: it had drifted)."""
+    copy = _ROOT / "plugins" / plugin / "hooks" / "_service_paths.py"
+    assert copy.is_file()
+    assert filecmp.cmp(_CANONICAL / "paths.py", copy, shallow=False), (
+        f"plugins/{plugin}/hooks/_service_paths.py drifted from src/probe/service/paths.py: "
+        "run `make sync-session-marker` then `make sync-daemon-plugin`"
+    )

@@ -45,6 +45,7 @@ from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
 from snowflake.snowpark_connect.utils.io_utils import get_table_type
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -106,7 +107,8 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         if sf_database:
             sf_database_q = sf_quote(sf_database)
         else:
-            sf_database_q = session.catalog.get_current_database()
+            with scos_internal_query_tag():
+                sf_database_q = session.catalog.get_current_database()
             if sf_database_q is None:
                 raise MissingDatabase()
 
@@ -379,10 +381,11 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         pattern: typing.Optional[str] = None,
     ):
         session = get_or_create_snowpark_session()
-        if not database:
-            database = session.catalog.get_current_database()
-        if not schema:
-            schema = session.catalog.get_current_schema()
+        with scos_internal_query_tag():
+            if not database:
+                database = session.catalog.get_current_database()
+            if not schema:
+                schema = session.catalog.get_current_schema()
         df = get_or_create_snowpark_session().sql(
             f"SHOW {object_name} IN {database}.{schema}"
         )
@@ -648,8 +651,8 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         spark_dbName: str,
     ) -> pandas.DataFrame:
         """Set the currently used database's name."""
-        sp_catalog = get_or_create_snowpark_session().catalog
-        sp_catalog.setCurrentSchema(sf_quote(spark_dbName))
+        session = get_or_create_snowpark_session()
+        session.catalog.setCurrentSchema(sf_quote(spark_dbName))
         return pandas.DataFrame({"current_database": [spark_dbName]})
 
     def dropGlobalTempView(
@@ -821,14 +824,16 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         if sf_database:
             sf_database_q = spark_to_sf_single_id(sf_database)
         else:
-            sf_database_q = session.catalog.get_current_database()
+            with scos_internal_query_tag():
+                sf_database_q = session.catalog.get_current_database()
             if sf_database_q is None:
                 raise MissingDatabase()
 
         if sf_schema:
             sf_schema_q = spark_to_sf_single_id(sf_schema)
         else:
-            sf_schema_q = session.catalog.get_current_schema()
+            with scos_internal_query_tag():
+                sf_schema_q = session.catalog.get_current_schema()
             if sf_schema_q is None:
                 raise MissingSchema()
 
@@ -895,7 +900,8 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         if sf_database:
             sf_database_q = sf_quote(sf_database)
         else:
-            sf_database_q = session.catalog.get_current_database()
+            with scos_internal_query_tag():
+                sf_database_q = session.catalog.get_current_database()
             if sf_database_q is None:
                 raise MissingDatabase()
 

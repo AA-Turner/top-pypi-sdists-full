@@ -12,7 +12,27 @@ import sklearn.utils.validation
 from rpy2.robjects import r as R
 
 import prince
-from tests import load_df_from_R
+from tests import DATAFRAME_IMPLEMENTATIONS, assert_dataframe_implementation_matches, load_df_from_R
+
+
+@pytest.mark.parametrize("implementation", DATAFRAME_IMPLEMENTATIONS)
+def test_dataframe_input(implementation):
+    rng = np.random.default_rng(42)
+    X_pandas = pd.DataFrame(
+        {
+            "length": rng.normal(size=12),
+            "width": rng.normal(size=12),
+            "color": np.resize(["red", "blue", "green"], 12),
+            "shape": np.resize(["round", "square"], 12),
+        }
+    )
+    groups = {"measurements": ["length", "width"], "traits": ["color", "shape"]}
+    assert_dataframe_implementation_matches(
+        prince.MFA(n_components=2, engine="scipy"),
+        X_pandas,
+        implementation,
+        fit_params={"groups": groups},
+    )
 
 
 @pytest.mark.parametrize(
@@ -424,11 +444,6 @@ class TestMFACategorical:
             assert isinstance(derived.index, pd.MultiIndex)
         assert isinstance(self.mfa.column_contributions_.index, pd.MultiIndex)
 
-    def test_column_coordinates_method_not_implemented(self):
-        """The X-taking column_coordinates method is not implemented yet (see #242)."""
-        with pytest.raises(NotImplementedError):
-            self.mfa.column_coordinates(self.dataset)
-
     def test_partial_axis_correlations(self):
         """Partial-axis correlations should match FactoMineR for the active groups.
 
@@ -442,3 +457,20 @@ class TestMFACategorical:
         P = self.mfa.partial_correlations_
         assert F.shape == P.shape
         np.testing.assert_allclose(F.abs().values, P.abs().values, atol=1e-4)
+
+
+def test_row_standard_coordinates_have_unit_variance():
+    dataset = prince.datasets.load_premier_league()
+    mfa = prince.MFA(n_components=3, engine="scipy").fit(dataset)
+    coordinates = mfa.row_standard_coordinates(dataset)
+    np.testing.assert_allclose(coordinates.T @ coordinates / len(dataset), np.eye(3), atol=1e-14)
+    pd.testing.assert_index_equal(coordinates.index, dataset.index)
+
+
+def test_fit_transform_with_groups():
+    """fit_transform passes groups on to fit instead of raising."""
+    X = pd.DataFrame(np.random.default_rng(0).normal(size=(20, 4)), columns=list("abcd"))
+    groups = {"first": ["a", "b"], "second": ["c", "d"]}
+    expected = prince.MFA(n_components=2).fit(X, groups=groups).transform(X)
+    actual = prince.MFA(n_components=2).fit_transform(X, groups=groups)
+    np.testing.assert_allclose(actual.abs(), expected.abs())

@@ -169,7 +169,8 @@ class ActivatePageCommand(_Cmd):
 
 class ClosePageCommand(_Cmd):
     command: Literal["close_page"] = "close_page"
-    target_page_id: str
+    #: None closes the sending agent's own tab (``CommandRequest.agent_ref``).
+    target_page_id: str | None = None
 
 
 class HandleDialogCommand(_Cmd):

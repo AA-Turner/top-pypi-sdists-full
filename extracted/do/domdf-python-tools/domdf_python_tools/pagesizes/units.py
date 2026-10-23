@@ -39,7 +39,7 @@ Provides a variety of units for use with pagesizes.
 # stdlib
 import math
 from decimal import ROUND_HALF_UP, Decimal
-from typing import SupportsFloat, Union
+from typing import NoReturn, SupportsFloat, Union
 
 # this package
 from domdf_python_tools.doctools import prettify_docstrings
@@ -80,7 +80,7 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> (3*mm) + (7*mm)
+		>>> (3 * mm) + (7 * mm)
 		<Unit '10.000 mm': 28.346pt>
 
 	When adding different :class:`~domdf_python_tools.pagesizes.units.Unit` objects,
@@ -88,18 +88,18 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> (2.54*cm) + inch
+		>>> (2.54 * cm) + inch
 		<Unit '5.080 cm': 144.000pt>
-		>>> inch + (2.54*cm)
+		>>> inch + (2.54 * cm)
 		<Unit '2.000 inch': 144.000pt>
 
 	:class:`~domdf_python_tools.pagesizes.units.Unit` objects can also be added to :class:`float` and :class:`int` objects:
 
 	.. code-block:: python
 
-		>>> (3*cm) + 7
+		>>> (3 * cm) + 7
 		<Unit '10.000 cm': 283.465pt>
-		>>> 7 + (3*cm)
+		>>> 7 + (3 * cm)
 		<Unit '10.000 cm': 283.465pt>
 
 
@@ -109,15 +109,15 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> (17*mm) - (7*mm)
+		>>> (17 * mm) - (7 * mm)
 		<Unit '10.000 mm': 28.346pt>
-		>>> (2.54*cm) - inch
+		>>> (2.54 * cm) - inch
 		<Unit '0.000 cm': 0.000pt>
-		>>> inch - (2.54*cm)
+		>>> inch - (2.54 * cm)
 		<Unit '0.000 inch': 0.000pt>
-		>>> (17*cm) - 7
+		>>> (17 * cm) - 7
 		<Unit '10.000 cm': 283.465pt>
-		>>> 17 - (7*cm)
+		>>> 17 - (7 * cm)
 		<Unit '10.000 cm': 283.465pt>
 
 
@@ -128,11 +128,11 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> (3*mm) * 3
+		>>> (3 * mm) * 3
 		<Unit '9.000 mm': 25.512pt>
-		>>> 3 * (3*mm)
+		>>> 3 * (3 * mm)
 		<Unit '9.000 mm': 25.512pt>
-		>>> 3.5 * (3*mm)
+		>>> 3.5 * (3 * mm)
 		<Unit '10.500 mm': 29.764pt>
 
 	Multiplication works either way round.
@@ -142,7 +142,7 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> inch * (7*cm)
+		>>> inch * (7 * cm)
 		Traceback (most recent call last):
 		NotImplementedError: Multiplying a unit by another unit is not allowed.
 
@@ -153,16 +153,16 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> (3*mm) / 3
+		>>> (3 * mm) / 3
 		<Unit '1.000 mm': 2.835pt>
-		>>> (10*mm) / 2.5
+		>>> (10 * mm) / 2.5
 		<Unit '4.000 mm': 11.339pt>
 
 	Dividing by another unit results in a :exc:`NotImplementedError`:
 
 	.. code-block:: python
 
-		>>> inch / (7*cm)
+		>>> inch / (7 * cm)
 		Traceback (most recent call last):
 		NotImplementedError: Dividing a unit by another unit is not allowed.
 
@@ -171,7 +171,7 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> 3 / (3*mm)
+		>>> 3 / (3 * mm)
 		Traceback (most recent call last):
 		NotImplementedError: Dividing by a unit is not allowed.
 
@@ -188,7 +188,7 @@ class Unit(float):
 
 	.. code-block:: python
 
-		>>> (3*mm) % 2.5
+		>>> (3 * mm) % 2.5
 		<Unit '0.500 mm': 1.417pt>
 
 	Dividing by a unit, or modulo division of two units, is not officially supported.
@@ -199,12 +199,12 @@ class Unit(float):
 	name: str = "pt"
 	_in_pt: float = 1
 
-	def __repr__(self):
+	def __repr__(self) -> str:
 		value = _rounders(float(self), "0.000")
 		as_pt = _rounders(self.as_pt(), "0.000")
 		return f"<Unit '{value} {self.name}': {as_pt}pt>"
 
-	def __str__(self):
+	def __str__(self) -> str:
 		value = _rounders(float(self), "0.000")
 		as_pt = _rounders(self.as_pt(), "0.000")
 		return f"<Unit '{value}\u205F{self.name}': {as_pt}pt>"
@@ -251,10 +251,10 @@ class Unit(float):
 
 		return self.__class__(super().__mod__(other))
 
-	def __pow__(self, power, modulo=None):
+	def __pow__(self, power, modulo=None) -> NoReturn:  # noqa: MAN001
 		raise NotImplementedError("Powers are not supported for units.")
 
-	def __rtruediv__(self, other):
+	def __rtruediv__(self, other) -> NoReturn:  # noqa: MAN001
 		raise NotImplementedError("Dividing by a unit is not allowed.")
 
 	__rdiv__ = __rtruediv__

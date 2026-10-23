@@ -17,6 +17,7 @@ from snowflake.snowpark_connect.error.exceptions import MissingDatabase, Missing
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -257,7 +258,8 @@ class AbstractSparkCatalog(ABC):
 def _get_current_snowflake_database() -> str:
     """Return the current Snowflake database and throw a central exception if it cannot be determined."""
     session = get_or_create_snowpark_session()
-    current_database = session.catalog.get_current_database()
+    with scos_internal_query_tag():
+        current_database = session.catalog.get_current_database()
     if current_database is None:
         raise MissingDatabase()
     return unquote_if_quoted(current_database)
@@ -266,7 +268,8 @@ def _get_current_snowflake_database() -> str:
 def _get_current_snowflake_schema() -> str:
     """Return the current Snowflake schema and throw a central exception if it cannot be determined."""
     session = get_or_create_snowpark_session()
-    current_schema = session.catalog.get_current_schema()
+    with scos_internal_query_tag():
+        current_schema = session.catalog.get_current_schema()
     if current_schema is None:
         raise MissingSchema()
     return unquote_if_quoted(current_schema)

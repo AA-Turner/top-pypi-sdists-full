@@ -4,7 +4,6 @@ from snowflake.core._internal.root_configuration import RootConfiguration
 from snowflake.core._root import Root
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_extracting_tokens(root):
     # Be careful with failures here not to print tokens.
@@ -15,7 +14,6 @@ def test_extracting_tokens(root):
         pytest.fail("master token should not be None")
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_init_root_with_user_agents(connection):
     root_config = RootConfiguration()

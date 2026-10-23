@@ -44,7 +44,6 @@ from pyspark.sql.types import (
     _parse_datatype_json_string,
 )
 
-from snowflake.snowpark import DataFrame
 from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     quote_name_without_upper_casing,
     unquote_if_quoted,
@@ -145,6 +144,9 @@ _SPARK_JSON_READ_OPTIONS = {
     "ignorecorruptfiles",
     "encoding",
     "charset",
+    # Per-read override of ``spark.sql.session.timeZone`` -- see
+    # :data:`_TIMEZONE_OPTION_KEY`.
+    "timezone",
 }
 
 # Spark CSV *read* options (lowercased) the real CSVFileFormat accepts on read.
@@ -187,7 +189,17 @@ _SPARK_CSV_READ_OPTIONS = {
     # the conf. Both spellings must therefore be forwarded, hence this entry as well as the
     # ``_RELEVANT_SPARK_CONF_KEYS`` one; a customer setting either gets the same semantics.
     "ignorecorruptfiles",
+    "timezone",
 }
+
+# ``JSONOptions``/``CSVOptions`` resolve ``zoneId`` as
+# ``parameters.getOrElse(DateTimeUtils.TIMEZONE_OPTION, defaultTimeZoneId)``
+# (Spark 3.5.3 ``JSONOptions.zoneId`` / ``CSVOptions.zoneId``), where the default is ``spark.sql.session.timeZone``. A
+# per-read ``.option("timeZone", ...)`` therefore wins over the session conf for that
+# read only, so it must travel in READER_OPTIONS -- the SPARK_CONF copy of the session
+# conf is just the fallback. Both classes wrap the map in a ``CaseInsensitiveMap``; the
+# key is still forwarded in Spark's own spelling so the payload reads as Spark documents.
+_TIMEZONE_OPTION_KEY = "timeZone"
 
 # Spark XML *read* options (lowercased) the sandbox's spark-xml ``XmlOptions`` accepts.
 # Excludes compression (a FILE FORMAT concern, see ``nss_file_format.py``), pathGlobFilter
@@ -210,6 +222,8 @@ _SPARK_XML_READ_OPTIONS = {
     "dateformat",
     "timestampformat",
     "timestampntzformat",
+    "treatemptyvaluesasnulls",
+    "wildcardcolname",
 }
 
 # Maps each lower-cased XML read option back to the exact-case key spark-xml looks up.
@@ -235,6 +249,8 @@ _XML_OPTION_KEY_CASING = {
     "dateformat": "dateFormat",
     "timestampformat": "timestampFormat",
     "timestampntzformat": "timestampNTZFormat",
+    "treatemptyvaluesasnulls": "treatEmptyValuesAsNulls",
+    "wildcardcolname": "wildcardColName",
 }
 
 _ALLOWED_READ_OPTIONS = {
@@ -1257,6 +1273,11 @@ def filter_reader_options(
             ro.pop("encoding", None)
         ro = {_XML_OPTION_KEY_CASING.get(k.lower(), k): v for k, v in ro.items()}
         _reconcile_leaked_xml_defaults(ro, user_option_keys)
+    if fmt.lower() in ("csv", "json"):
+        ro = {
+            _TIMEZONE_OPTION_KEY if k.lower() == "timezone" else k: v
+            for k, v in ro.items()
+        }
     return ro
 
 
@@ -1310,37 +1331,6 @@ def _nss_column_name(name: str, index: int) -> str:
     if unquoted == '""':
         unquoted = ""
     return unquoted or f"_c{index}"
-
-
-def cache_if_corrupt_record_present(
-    df: DataFrame,
-    corrupt_record_column_name: str | None,
-    columns: list["NssColumn"],
-) -> DataFrame:
-    """Materialize the NSS read when its schema carries the corrupt-record column
-    *alongside* at least one data column.
-
-    A later projection down to only that column (``.filter(c.isNotNull).select(c)``)
-    otherwise trips the sandbox's raw-file corrupt-record restriction
-    (``queryFromRawFilesIncludeCorruptRecordColumnError``); reading the cached result
-    instead of the raw file is Spark's own prescribed workaround. Falls back to the
-    ``_corrupt_record`` default so the guard also covers reads that never resolved an
-    explicit name (SNOW-3899671).
-
-    When the inferred schema is the corrupt-record column *only* — the file is
-    unparseable under the requested options, so inference found no data field — caching
-    is skipped (SNOW-3913953). There is no later projection to defend against, and
-    ``cache_result()`` would have to execute the very ``STAGE_FILE_READER`` query the
-    sandbox's guard rejects, turning the mitigation into the trigger. Skipping it also
-    matches upstream Spark, which serves ``df.schema`` from inference without scanning
-    and only raises ``AnalysisException`` when an action actually references the column
-    (verified against Spark 3.5.3: ``.schema`` succeeds, ``collect()`` raises).
-    """
-    effective = corrupt_record_column_name or "_corrupt_record"
-    names = [unquote_if_quoted(c.name) for c in columns]
-    if effective in names and len(names) > 1:
-        return df.cache_result()
-    return df
 
 
 def _sf_struct_field_name(name: str) -> str:
@@ -1624,6 +1614,18 @@ def columns_from_spark_schema(schema: PyStructType) -> list[NssColumn]:
 
 # Spark ``DataType.json()`` for ``StringType`` — the JSON form ``NssColumn.spark_type`` holds.
 _STRING_SPARK_TYPE_JSON = PyStringType().json()
+
+
+def sort_columns_by_name(columns: list[NssColumn]) -> list[NssColumn]:
+    """Order inferred columns the way Spark's XML inference orders a merged schema.
+
+    spark-xml merges every record's schema and ends with ``sortBy(_.name)``, a Java
+    ``String`` comparison (UTF-16 code units, hence the ``utf-16-be`` key). Within one file
+    the sandbox already emits that order. Across files ``INFER_STAGE_FILE_SCHEMA`` takes
+    ``MAX(ORDER_ID)`` of each file's own alphabetical positions, which is not a merged order
+    when files carry different column sets: two columns can tie, or land out of order.
+    """
+    return sorted(columns, key=lambda c: c.name.encode("utf-16-be"))
 
 
 def as_all_string_columns(columns: list[NssColumn]) -> list[NssColumn]:

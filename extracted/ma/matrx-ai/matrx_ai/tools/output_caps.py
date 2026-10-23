@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 
+from matrx_utils.raw_capture import record_cut
 from pydantic import BaseModel
 
 # ── The three tiers ──────────────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ def cap_text(text: str | None, *, limit: int) -> tuple[str, CapInfo]:
     if total <= limit:
         return s, CapInfo(total_chars=total, shown_chars=total, truncated=False, limit=limit)
     capped = s[:limit]
+    record_cut(where="tool self-cap", before=total, after=len(capped), limit_name="cap_text", limit=limit, original=s)
     return capped, CapInfo(
         total_chars=total, shown_chars=len(capped), truncated=True, limit=limit
     )
@@ -122,6 +124,8 @@ def cap_list(rows: list, *, limit: int = TOOL_LIST_DEFAULT_LIMIT) -> tuple[list,
         limit = 0
     total = len(rows)
     shown = rows[:limit]
+    record_cut(where="tool self-cap", before=total, after=len(shown), limit_name="cap_list", limit=limit,
+               unit="rows", original=rows if total > len(shown) else None)
     return shown, ListCapInfo(
         total=total, shown=len(shown), truncated=total > len(shown), limit=limit
     )
@@ -146,6 +150,8 @@ def cap_json_list(rows: list, *, max_chars: int) -> tuple[list, ListCapInfo]:
             break
         shown.append(row)
         used += separator_chars + encoded_chars
+    record_cut(where="tool self-cap", before=len(rows), after=len(shown), limit_name="cap_json_list", limit=max_chars,
+               unit="rows", original=rows if len(shown) < len(rows) else None)
     return shown, ListCapInfo(
         total=len(rows), shown=len(shown), truncated=len(shown) < len(rows), limit=max_chars
     )

@@ -6,6 +6,8 @@ from collections import OrderedDict
 import click.exceptions
 from click_didyoumean import DYMGroup
 
+from ..core.certificate_errors import describe_certificate_error
+
 
 def _is_json_output_requested(exception):
     """Determine if JSON output was requested, checking context and argv."""
@@ -35,6 +37,19 @@ def _is_json_output_requested(exception):
     return False
 
 
+def _is_debug_requested(args=None):
+    """Determine if --debug was passed (the click context is gone by now).
+
+    ``args`` are the arguments given to ``main``; click falls back to
+    ``sys.argv`` when they are ``None``, so we do the same.
+    """
+    import sys
+
+    if args is None:
+        args = sys.argv[1:]
+    return any(arg in ("-d", "--debug") for arg in args)
+
+
 def _format_click_exception_as_json(exception):
     """Format a ClickException as a JSON error dict."""
     return {
@@ -45,9 +60,17 @@ def _format_click_exception_as_json(exception):
         },
         "help": {
             "context": "Invalid usage",
-            "hint": "Check your command arguments/flags.",
+            "hint": describe_certificate_error(exception)
+            or "Check your command arguments/flags.",
         },
     }
+
+
+def _echo_certificate_hint(exception):
+    """Explain a TLS certificate failure behind ``exception`` on stderr."""
+    hint = describe_certificate_error(exception)
+    if hint:
+        click.echo(f"Hint: {click.style(hint, fg='yellow')}", err=True)
 
 
 class AliasGroup(DYMGroup):
@@ -177,4 +200,23 @@ class AliasGroup(DYMGroup):
             if not original_standalone_mode:
                 raise
             e.show()
+            _echo_certificate_hint(e)
             sys.exit(e.exit_code)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            # Anything reaching here is unexpected: click's own errors and
+            # handled API errors (which exit via ctx.exit) are dealt with
+            # above or never get this far.
+            if not original_standalone_mode:
+                raise
+            main_args = kwargs.get("args", args[0] if args else None)
+            if _is_debug_requested(main_args):
+                import traceback
+
+                click.echo(traceback.format_exc(), err=True, nl=False)
+            from ..core import telemetry
+
+            # Reporting is silent: the user sees the same line either way.
+            telemetry.report_exception(e)
+            click.echo(f"Error: {telemetry.format_exception_summary(e)}", err=True)
+            _echo_certificate_hint(e)
+            sys.exit(1)

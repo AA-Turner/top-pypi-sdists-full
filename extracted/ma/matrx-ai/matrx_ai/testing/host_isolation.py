@@ -63,7 +63,8 @@ from typing import Any
 _SEAMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("matrx_ai._ext", ("_registry", "_configured")),
     ("matrx_ai.db._registry", ("_models", "_bases", "_instances", "_extras", "_configured")),
-    ("matrx_ai.mandates", ("_MANDATE_RESOLVER",)),
+    # The resolver seam and, beside it, the host's ONE mandate runner (runner plan 25, step 2).
+    ("matrx_ai.mandates", ("_MANDATE_RESOLVER", "_MANDATE_RUNNER")),
     ("matrx_ai.prompt_blocks.source", ("_SOURCE",)),
     ("matrx_ai.tools.candidate_containment", ("_BORROW_LOOKUP",)),
     ("matrx_ai.mandate_taps", ("_DOOR_TAP", "_OBSERVER", "_REPLAY")),
@@ -184,6 +185,10 @@ _NO_PROCESS_GLOBAL_STATE: dict[str, str] = {
     "matrx_ai.client_host.mandate_source": (
         "defines the ServerMandateSource class; the INSTANCE is stored by "
         "matrx_ai.mandates._MANDATE_RESOLVER, which is a declared seam"
+    ),
+    "matrx_ai.client_host.mandate_runner": (
+        "defines the ServerMandateRunner class (and a frozen CLIENT_SYSTEM constant); the INSTANCE "
+        "is stored by matrx_ai.mandates._MANDATE_RUNNER, which is a declared seam"
     ),
     "matrx_ai.db.turn_failure": (
         "defines the failed-turn persister and registers it into "

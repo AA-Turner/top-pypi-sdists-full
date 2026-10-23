@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 
+import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
+from google.protobuf.message import Message
 from pyspark.errors.exceptions.base import AnalysisException
 
 from snowflake.snowpark import DataFrame
@@ -23,6 +26,7 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.utils.context import (
     get_current_operation_scope,
+    get_is_order_by_child_resolution_skipped,
     get_is_processing_order_by,
 )
 from snowflake.snowpark_connect.utils.identifiers import (
@@ -124,6 +128,82 @@ def make_unique_snowpark_name(spark_name: str) -> str:
     return quote_name(f"{spark_name}-{next_unique_num():x}")
 
 
+def order_by_expression_fingerprint(
+    exp: expressions_proto.Expression, case_sensitive: bool
+) -> bytes:
+    """A key that is equal for two Spark expressions that compute the same value.
+
+    Used to pick, among outputs that share one name, the one that computes an
+    ORDER BY expression (SNOW-4222753). The top-level alias is dropped.
+    Function names fold to lower case, as Spark resolves them; column names
+    fold too unless ``spark.sql.caseSensitive`` is set. Anything else that
+    differs, such as a plan id, keeps the expressions apart.
+    """
+    while exp.WhichOneof("expr_type") == "alias":
+        exp = exp.alias.expr
+    folded = expressions_proto.Expression()
+    folded.CopyFrom(exp)
+
+    def _fold(message: Message) -> None:
+        if isinstance(message, expressions_proto.Expression.UnresolvedFunction):
+            message.function_name = message.function_name.lower()
+        elif not case_sensitive and isinstance(
+            message, expressions_proto.Expression.UnresolvedAttribute
+        ):
+            message.unparsed_identifier = message.unparsed_identifier.lower()
+        for field, value in message.ListFields():
+            if field.type != field.TYPE_MESSAGE:
+                continue
+            values = value if field.label == field.LABEL_REPEATED else [value]
+            for item in values:
+                _fold(item)
+
+    _fold(folded)
+    return folded.SerializeToString(deterministic=True)
+
+
+def order_by_reuse_fingerprints(
+    outputs: list[tuple[str, str, expressions_proto.Expression | None]],
+) -> dict[str, bytes]:
+    """Fingerprints of computed outputs that ORDER BY expression reuse can match.
+
+    ``outputs`` holds ``(snowpark_name, spark_name, expression)``; the
+    expression is ``None`` for a plain column reference. Only names shaped like
+    an expression (with parentheses) are reused (``map_expression``), so only
+    those are kept. The fingerprint is detached bytes: holding the request's
+    proto sub-message would keep the whole request alive in the plan caches.
+    Empty when ``snowpark.connect.sparkDuplicateColumnResolution`` is off.
+    """
+    from snowflake.snowpark_connect.config import (
+        is_spark_duplicate_column_resolution_enabled,
+    )
+
+    if not is_spark_duplicate_column_resolution_enabled():
+        return {}
+    case_sensitive = global_config.spark_sql_caseSensitive
+    return {
+        snowpark_name: order_by_expression_fingerprint(exp, case_sensitive)
+        for snowpark_name, spark_name, exp in outputs
+        if exp is not None and "(" in spark_name and ")" in spark_name
+    }
+
+
+def _referenced_attribute_names(exp: expressions_proto.Expression) -> set[str]:
+    """Unqualified names of the columns ``exp`` reads (last name part)."""
+    from snowflake.snowpark_connect.relation.resolution_rules.filter_resolve_missing_references import (
+        iter_unresolved_attributes,
+    )
+
+    names: set[str] = set()
+    for attribute in iter_unresolved_attributes(exp):
+        parts = split_fully_qualified_spark_name(
+            attribute.unresolved_attribute.unparsed_identifier
+        )
+        if parts:
+            names.add(parts[-1])
+    return names
+
+
 @dataclass(frozen=True)
 class ColumnNames:
     spark_name: str
@@ -159,6 +239,28 @@ class ColumnNames:
 
 
 class ColumnNameMap:
+    # ORDER BY resolution through the child plan (SNOW-4222753). Spark's
+    # ResolveReferencesInSort leaves an ambiguous name unresolved and
+    # ColumnResolutionHelper.resolveExprsAndAddMissingAttrs retries it on each
+    # unary child, including an Aggregate for grouping columns. These are set
+    # only through set_sort_resolution_child, and only while
+    # snowpark.connect.sparkDuplicateColumnResolution is true.
+    # - sort_resolution_child: the child plan's column map. None ends the walk
+    #   (set operations, joins, aliases, reads).
+    # - sort_resolution_sources: this output's Snowpark name -> the child
+    #   Snowpark name it passes through unchanged, when the names differ.
+    # - sort_resolution_replaced: Snowpark names kept from the child but given a
+    #   new value here (withColumn on an existing name, fillna, replace).
+    # - sort_resolution_grouping_only: an Aggregate; only grouping columns
+    #   resolve through it.
+    # - sort_resolution_expressions: this output's Snowpark name -> the
+    #   order_by_expression_fingerprint of the expression it computes, for
+    #   computed outputs with an expression-shaped name. ORDER BY of an
+    #   expression reuses one of several same-named outputs only when it
+    #   computes that expression.
+    # Instance state, not class defaults: a shared dict would leak across
+    # ColumnNameMap objects in this multi-session server.
+
     def __init__(
         self,
         spark_column_names: list[str],
@@ -185,12 +287,17 @@ class ColumnNameMap:
         column_is_internal: Optional list of booleans indicating whether each column is internal scaffolding (never user-accessible)
         column_is_qualified_access_only: Optional list of booleans indicating whether each column is only accessible via a qualified reference
         """
+        self._init_sort_resolution_fields()
         self.columns: list[ColumnNames] = []
         self.spark_to_col: defaultdict[str, list[ColumnNames]] = defaultdict(list)
         self.uppercase_spark_to_col = defaultdict(list)
         self.snowpark_to_col = defaultdict(list)
         self.is_case_sensitive = is_case_sensitive
         self.column_metadata = column_metadata
+        # Snowpark names of this map's columns whose values are unmodified NSS scan
+        # data. Set by the NSS read and recomputed per output column by projections
+        # and withColumn; never inherited from parent maps by name.
+        self.nss_data_snowpark_columns: frozenset[str] = frozenset()
 
         # Rename chain dictionary to track column renaming history
         self.rename_chains: dict[str, str] = {}  # old_name -> new_name mapping
@@ -259,8 +366,177 @@ class ColumnNameMap:
             # Store the current column names in lowercase for case-insensitive lookups
             self.current_columns = {col.lower() for col in self.current_columns}
 
+    def _init_sort_resolution_fields(self) -> None:
+        self.sort_resolution_child: ColumnNameMap | None = None
+        self.sort_resolution_sources: dict[str, str] = {}
+        self.sort_resolution_replaced: frozenset[str] = frozenset()
+        self.sort_resolution_grouping_only: bool = False
+        self.sort_resolution_identity: dict[str, str | None] = {}
+        self.sort_resolution_expressions: dict[str, bytes] = {}
+
     def get_parent_column_name_map(self) -> ColumnNameMap | None:
         return self._parent_column_name_map
+
+    def set_sort_resolution_child(
+        self,
+        child: ColumnNameMap,
+        *,
+        sources: dict[str, str] | None = None,
+        replaced: set[str] | frozenset[str] = frozenset(),
+        grouping_only: bool = False,
+        expressions: dict[str, bytes] | None = None,
+    ) -> None:
+        """Record the child plan for ORDER BY resolution. No-op when the flag is off."""
+        from snowflake.snowpark_connect.config import (
+            is_spark_duplicate_column_resolution_enabled,
+        )
+
+        if not is_spark_duplicate_column_resolution_enabled():
+            return
+        self.sort_resolution_child = child
+        self.sort_resolution_sources = dict(sources or {})
+        self.sort_resolution_replaced = frozenset(replaced)
+        self.sort_resolution_grouping_only = grouping_only
+        self.sort_resolution_expressions = dict(expressions or {})
+
+    def sort_attribute_identity(self, snowpark_name: str) -> str | None:
+        if snowpark_name in self.sort_resolution_identity:
+            return self.sort_resolution_identity[snowpark_name]
+        source = self._sort_resolution_source(snowpark_name)
+        child = self.sort_resolution_child
+        if source is not None and child is not None and source in child.snowpark_to_col:
+            return child.sort_attribute_identity(source)
+        return source
+
+    def set_sort_resolution_expressions(self, expressions: dict[str, bytes]) -> None:
+        """Record computed-output fingerprints without a child link.
+
+        For rollup and cube, which ORDER BY must not walk through by name but
+        whose repeated aggregates can still be reused for an equal expression.
+        No-op when the flag is off.
+        """
+        from snowflake.snowpark_connect.config import (
+            is_spark_duplicate_column_resolution_enabled,
+        )
+
+        if is_spark_duplicate_column_resolution_enabled():
+            self.sort_resolution_expressions = dict(expressions)
+
+    def _has_visible_output_named(self, names: set[str]) -> bool:
+        return any(
+            column.is_visible
+            for name in names
+            for column in self._attributes_named(name)
+        )
+
+    def sort_expression_fingerprint(
+        self, snowpark_name: str, referenced: set[str] = frozenset()
+    ) -> bytes | None:
+        """The fingerprint of the expression an output computes, if known.
+
+        A pass-through output has the fingerprint of the child column it reads.
+        A name rewritten here (withColumn, fillna, replace) has none. ``None``
+        too when this map, or any map down to the one that computed the
+        output, has a visible output named like one of ``referenced``: Spark
+        binds the ORDER BY column to that output, which may not be the column
+        the projection read.
+        """
+        if referenced and self._has_visible_output_named(referenced):
+            return None
+        if snowpark_name in self.sort_resolution_replaced:
+            return None
+        if snowpark_name in self.sort_resolution_expressions:
+            return self.sort_resolution_expressions[snowpark_name]
+        source = self._sort_resolution_source(snowpark_name)
+        child = self.sort_resolution_child
+        if source is not None and child is not None and source in child.snowpark_to_col:
+            return child.sort_expression_fingerprint(source, referenced)
+        return None
+
+    def several_columns_named(self, spark_column_name: str) -> bool:
+        return (
+            sum(
+                1
+                for column in self._attributes_named(spark_column_name)
+                if column.is_visible
+            )
+            > 1
+        )
+
+    def column_computing_expression(
+        self, spark_column_name: str, exp: expressions_proto.Expression
+    ) -> str | None:
+        """An output named ``spark_column_name`` that computes ``exp``, or ``None``.
+
+        ``SELECT a/2, a/2 ORDER BY a/2``: Spark evaluates the ORDER BY
+        expression, so any output that computes the same expression gives the
+        same order. Two different expressions under one name are not
+        interchangeable, so only an output whose expression matches counts.
+        When a column the expression reads is an output here or in any map
+        between here and the one that computed the column, Spark binds it to
+        that output, which may not be the column the projection read, so the
+        expression is computed instead.
+        """
+        referenced = _referenced_attribute_names(exp)
+        target = order_by_expression_fingerprint(
+            exp, global_config.spark_sql_caseSensitive
+        )
+        for column in self._attributes_named(spark_column_name):
+            if (
+                column.is_visible
+                and self.sort_expression_fingerprint(column.snowpark_name, referenced)
+                == target
+            ):
+                return column.snowpark_name
+        return None
+
+    def carry_sort_identity(self, names: dict[str, tuple[ColumnNameMap, str]]) -> None:
+        from snowflake.snowpark_connect.config import (
+            is_spark_duplicate_column_resolution_enabled,
+        )
+
+        if not is_spark_duplicate_column_resolution_enabled():
+            return
+        # Identities are local to this map: one input attribute seen twice is
+        # one identity here, but two reads of one view are two relations.
+        first: dict[tuple[int, str], str] = {}
+        identity: dict[str, str | None] = {}
+        for new, (source, old) in names.items():
+            root = source.sort_attribute_identity(old)
+            identity[new] = (
+                None if root is None else first.setdefault((id(source), root), new)
+            )
+        self.sort_resolution_identity = identity
+
+    def without_sort_resolution_child(self) -> ColumnNameMap:
+        """This map for a set operation's output, which ORDER BY must not walk through."""
+        if self.sort_resolution_child is None:
+            return self
+        result = copy.copy(self)
+        result.sort_resolution_child = None
+        return result
+
+    def with_sort_resolution_replaced(self, names: set[str]) -> ColumnNameMap:
+        """This map for an operator that rewrites values but keeps Snowpark names."""
+        if self.sort_resolution_child is None or not names:
+            return self
+        result = copy.copy(self)
+        result.sort_resolution_replaced = self.sort_resolution_replaced | frozenset(
+            names
+        )
+        return result
+
+    def without_nss_data(self) -> ColumnNameMap:
+        """This map, or a copy without NSS data marks when it has any.
+
+        For containers that reuse an input's map but whose values no longer come
+        only from that input's NSS scan (union, materialization).
+        """
+        if not self.nss_data_snowpark_columns:
+            return self
+        stripped = copy.deepcopy(self)
+        stripped.nss_data_snowpark_columns = frozenset()
+        return stripped
 
     def get_current_column_name(self, historical_name: str) -> str:
         """
@@ -428,22 +704,40 @@ class ColumnNameMap:
 
         snowpark_names_len = len(snowpark_names)
         if snowpark_names_len > 1:
-            # Check if this is a case where we have identical expressions that can be safely resolved to the first one
-            # This commonly happens with GROUP BY expressions that also appear in SELECT clauses
-            if (
-                get_is_processing_order_by()
-                and self._can_resolve_ambiguous_identical_expressions(
-                    resolved_name, snowpark_names
+            if get_is_processing_order_by():
+                from snowflake.snowpark_connect.config import (
+                    is_spark_duplicate_column_resolution_enabled,
                 )
-            ):
-                # All the ambiguous columns represent the same expression, so we can safely use the first one
-                return snowpark_names[0]
-            else:
-                exception = AnalysisException(
-                    f"Ambiguous spark column name {spark_column_name}, potential snowpark column names {snowpark_names}"
-                )
-                attach_custom_error_code(exception, ErrorCodes.AMBIGUOUS_COLUMN_NAME)
-                raise exception
+
+                if not is_spark_duplicate_column_resolution_enabled():
+                    # Previous resolution: first column when qualifiers match.
+                    if self._can_resolve_ambiguous_identical_expressions(
+                        resolved_name, snowpark_names
+                    ):
+                        return snowpark_names[0]
+                elif not original_snowpark_name:
+                    # Spark ResolveReferencesInSort: the same attribute twice is
+                    # one candidate (AttributeSeq.resolve distinct); otherwise
+                    # retry on the child plan. A plan-id reference resolves in
+                    # its own DataFrame only. Select and filter still raise.
+                    shared = self._order_by_same_attribute(snowpark_names)
+                    if shared is not None:
+                        return shared
+                    if not get_is_order_by_child_resolution_skipped():
+                        from_child = self._resolve_order_by_through_child(
+                            spark_column_name
+                        )
+                        if from_child is not None:
+                            return from_child
+                    # A name, even one shaped like an expression such as
+                    # "(a / 2)" or "sum(a)", stays ambiguous, as in Spark.
+                    # ORDER BY of the expression itself picks its column in
+                    # map_expression (column_computing_expression).
+            exception = AnalysisException(
+                f"Ambiguous spark column name {spark_column_name}, potential snowpark column names {snowpark_names}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.AMBIGUOUS_COLUMN_NAME)
+            raise exception
         elif snowpark_names_len == 0:
             if allow_non_exists:
                 return None
@@ -454,6 +748,150 @@ class ColumnNameMap:
                 attach_custom_error_code(exception, ErrorCodes.COLUMN_NOT_FOUND)
                 raise exception
         return snowpark_names[0]
+
+    def _projects_several_join_key_attributes(
+        self, spark_column_name: str, child_attributes: list[ColumnNames]
+    ) -> bool:
+        """True when this output projects more than one of the child's same-named attributes.
+
+        The child's unqualified lookup sees only the visible join key. That
+        answer is the right sort column when every output of this name is that
+        key, and the wrong one when the output also projects a shadow.
+        """
+        child = self.sort_resolution_child
+        if child is None or len(child_attributes) <= 1:
+            return False
+        if not any(column.is_qualified_access_only for column in child_attributes):
+            return False
+        child_names = {column.snowpark_name for column in child_attributes}
+        identities: set[str | None] = set()
+        for column in self.columns:
+            if not column.is_visible or not self._same_spark_name(
+                column, spark_column_name
+            ):
+                continue
+            referenced = self._referenced_child_snowpark_name(column)
+            if referenced not in child_names:
+                continue
+            identities.add(child.sort_attribute_identity(referenced))
+        return len(identities) > 1
+
+    def _referenced_child_snowpark_name(self, column: ColumnNames) -> str | None:
+        child = self.sort_resolution_child
+        if child is None:
+            return None
+        source = self._sort_resolution_source(column.snowpark_name)
+        if source is not None and source in child.snowpark_to_col:
+            return source
+        for name in column.equivalent_snowpark_names or ():
+            if name in child.snowpark_to_col:
+                return name
+        if column.snowpark_name in child.snowpark_to_col:
+            return column.snowpark_name
+        return None
+
+    def _same_spark_name(self, column: ColumnNames, spark_column_name: str) -> bool:
+        if not global_config.spark_sql_caseSensitive:
+            return column.spark_name.upper() == spark_column_name.upper()
+        return column.spark_name == spark_column_name
+
+    def _attributes_named(self, spark_column_name: str) -> list[ColumnNames]:
+        if not global_config.spark_sql_caseSensitive:
+            return list(self.uppercase_spark_to_col.get(spark_column_name.upper(), []))
+        return list(self.spark_to_col.get(spark_column_name, []))
+
+    def _sort_resolution_source(self, snowpark_name: str) -> str | None:
+        """The child Snowpark name this output passes through unchanged, if any."""
+        if snowpark_name in self.sort_resolution_sources:
+            return self.sort_resolution_sources[snowpark_name]
+        if snowpark_name in self.sort_resolution_replaced:
+            return None
+        return snowpark_name
+
+    def _resolve_order_by_through_child(self, spark_column_name: str) -> str | None:
+        """Resolve an ORDER BY name that is ambiguous here against the child plan.
+
+        Spark 3.5 ``ResolveReferencesInSort`` swallows the ambiguity
+        (``resolveExpressionByPlanOutput`` with ``throws = false``) and
+        ``resolveExprsAndAddMissingAttrs`` retries the name on each unary
+        child. After ``withColumnRenamed("a", "b")`` the child has one ``b``,
+        so Spark sorts by that attribute (``Sort [b#1]``). Through an
+        Aggregate only a grouping column resolves. A non-unary node such as
+        ``Union`` ends the walk and the name stays unresolved.
+        """
+        child = self.sort_resolution_child
+        if child is None:
+            return None
+        named = [
+            column
+            for column in child._attributes_named(spark_column_name)
+            if not column.is_internal
+        ]
+        # A USING join keeps the input keys as qualified-access-only shadows
+        # beside the one visible key. select(a.id, b.id, "*") projects more
+        # than one of those attributes, all named id. Spark leaves orderBy
+        # unresolved. select("id", "a.id") projects the visible key twice and
+        # still sorts.
+        if self._projects_several_join_key_attributes(spark_column_name, named):
+            return None
+        try:
+            child_name = child.get_snowpark_column_name_from_spark_column_name(
+                spark_column_name, allow_non_exists=True
+            )
+        except AnalysisException:
+            return None
+        if child_name is None:
+            return None
+        for column in self.columns:
+            if column.is_visible and (
+                self._sort_resolution_source(column.snowpark_name) == child_name
+            ):
+                return column.snowpark_name
+        if self.sort_resolution_grouping_only:
+            return None
+        if child_name in self.sort_resolution_replaced:
+            # withColumn, fillna and replace keep the Snowpark name for the
+            # new value, so this name no longer holds the child column Spark
+            # sorts by. Leave it unresolved rather than sort by the new value.
+            return None
+        # Not in this output: Spark adds the child attribute as a missing sort
+        # key and projects it away after the sort.
+        return child_name
+
+    def _order_by_same_attribute(self, snowpark_names: list[str]) -> str | None:
+        """Return a Snowpark name when every candidate is one child attribute.
+
+        Spark dedups ORDER BY candidates by attribute identity. ``select("a",
+        "a")`` projects one attribute twice. Two aliases, even of one source,
+        are different attributes.
+        """
+        sources = {self.sort_attribute_identity(name) for name in snowpark_names}
+        if len(sources) != 1 or None in sources:
+            return None
+        return snowpark_names[0]
+
+    def ambiguous_duplicate_name(self) -> str | None:
+        """A Spark name that refers to more than one attribute, or ``None``.
+
+        ``select("a", "a")`` projects one attribute twice and is not ambiguous.
+        Two different attributes that share a name are. ``dropna()`` with no
+        subset raises ``AMBIGUOUS_REFERENCE`` for the latter, as Spark does.
+        """
+        grouped: dict[str, list[str]] = {}
+        display: dict[str, str] = {}
+        for column in self.columns:
+            if not column.is_visible:
+                continue
+            key = self._normalized_spark_name(column.spark_name)
+            grouped.setdefault(key, []).append(column.snowpark_name)
+            display.setdefault(key, column.spark_name)
+        for key, snowpark_names in grouped.items():
+            if (
+                len(snowpark_names) > 1
+                and self._order_by_same_attribute(snowpark_names) is None
+            ):
+                return display[key]
+        return None
 
     def _can_resolve_ambiguous_identical_expressions(
         self, spark_column_name: str, snowpark_names: list[str]
@@ -859,6 +1297,7 @@ class JoinColumnNameMap(ColumnNameMap):
         left_colmap: ColumnNameMap,
         right_colmap: ColumnNameMap,
     ) -> None:
+        self._init_sort_resolution_fields()
         self.left_column_mapping: ColumnNameMap = left_colmap
         self.right_column_mapping: ColumnNameMap = right_colmap
 

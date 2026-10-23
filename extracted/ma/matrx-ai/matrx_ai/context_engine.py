@@ -252,7 +252,7 @@ async def _normalize_cell_values(raw_cells: dict[str, Any]) -> dict[str, list[di
 # trigger api calls or other fetching").
 #
 # THE NAMING REACHES THE DATABASE (lane CONTEXT-VALUES-NAMED-2, chair ruling c). Both resolvers
-# (``public.resolve_full_context`` and the record store's ``custom.resolve_context``) take
+# (``context.resolve_full_context`` and the record store's ``custom.resolve_context``) take
 # ``p_system_item_refs`` — :meth:`SystemContextNames.refs`, the same list on both sides — and
 # read ONLY those System rows (``context.named_system_context_items``); nothing is read for an
 # item nobody named. The answer still passes through ``agent_context_from_resolved``, which
@@ -802,7 +802,7 @@ async def build_agent_context(
         from matrx_orm import ArrayArg, call_function
 
         database = _resolve_context_database()
-        # THE ONE PATH (SCOPES-DB-CLEANUP, 2026-10-09): public.resolve_full_context is the server's
+        # THE ONE PATH (SCOPES-DB-CLEANUP, 2026-10-09): context.resolve_full_context is the server's
         # door to the record store's custom.resolve_context, asked as the person running the agent.
         # The old two-path chooser (knob custom/agent_context_reads_the_copy) is retired.
         # p_scope_ids uuid[] DEFAULT NULL::uuid[] — an empty/None scope_ids
@@ -811,7 +811,7 @@ async def build_agent_context(
         resolved = (
             await call_function(
                 database,
-                "public",
+                "context",
                 "resolve_full_context",
                 user_id,
                 entity_type,
@@ -882,7 +882,7 @@ async def agent_context_from_resolved(
     Not passed: the naming in force (:func:`naming_system_items`); none in force: the platform's
     declared default list. An unnamed System item is dropped here, before anything evaluates it.
 
-    ``resolved`` is ``public.resolve_full_context``'s answer, or the record store's twin of
+    ``resolved`` is ``context.resolve_full_context``'s answer, or the record store's twin of
     it (``custom.resolve_context``, the same shape — lane SC-3'). The ambient refresh, the
     injected merge-field producer and the tier split all run HERE and only here, so the two
     resolvers can be compared with exactly one difference between them: which resolver

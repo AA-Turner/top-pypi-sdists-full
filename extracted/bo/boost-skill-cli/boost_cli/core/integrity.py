@@ -50,6 +50,15 @@ def _store_dir(name: str) -> Path:
     return paths.store_dir() / name
 
 
+def copy_dir(name: str, entry: dict | None) -> Path:
+    """Where skill ``name``'s copy is: held aside while quarantined or
+    sidelined (``store.hold_store_copy``), else the store. The held copy is
+    still the installed bytes, so it is what integrity checks read."""
+    if (entry or {}).get("held_at"):
+        return paths.held_skills_dir() / name
+    return _store_dir(name)
+
+
 def self_sourced(name: str, entry: dict | None) -> bool:
     """Whether ``entry`` records skill ``name`` as its own source.
 
@@ -89,7 +98,7 @@ def status(name: str, entry: dict | None = None) -> str:
     if not entry:
         # Not an installed skill at all — nothing this module can assert about.
         return STATUS_UNLOCKED
-    sdir = _store_dir(name)
+    sdir = copy_dir(name, entry)
     if not sdir.is_dir():
         return STATUS_MISSING
     recorded = entry.get("sha256")
@@ -97,7 +106,24 @@ def status(name: str, entry: dict | None = None) -> str:
         return STATUS_UNLOCKED
     if self_sourced(name, entry):
         return STATUS_OK
-    return STATUS_OK if util.sha256_dir(sdir) == recorded else STATUS_MODIFIED
+    if util.sha256_dir(sdir) != recorded or exec_drifted(sdir, entry):
+        return STATUS_MODIFIED
+    return STATUS_OK
+
+
+def exec_drifted(copy: Path, entry: dict) -> bool:
+    """Whether ``copy``'s exec bits differ from those its lock row recorded.
+
+    False for a row without ``exec`` (one written before rows carried it,
+    or written on Windows) and on Windows itself (:func:`util.exec_bits`),
+    so an existing install keeps the content-only check it always had
+    rather than reading as modified.
+    """
+    want = entry.get("exec")
+    if want is None:
+        return False
+    have = util.exec_bits(copy)
+    return have is not None and have != want
 
 
 def skill_modified(name: str, entry: dict | None) -> bool:
@@ -115,7 +141,9 @@ def skill_modified(name: str, entry: dict | None) -> bool:
     return status(name, entry) == STATUS_MODIFIED
 
 
-def modified_remedy(name: str, kind: str = "skill") -> tuple[str, str]:
+def modified_remedy(name: str, kind: str = "skill",
+                    scope: str | None = None,
+                    entry: dict | None = None) -> tuple[str, str]:
     """``(command, purpose)`` that resolves item ``name`` reading MODIFIED.
 
     Two faults share that status and have different fixes. A store dir with
@@ -127,9 +155,33 @@ def modified_remedy(name: str, kind: str = "skill") -> tuple[str, str]:
     doctor) asks this one function, so none can name a different next step.
     A rule or workflow has no store copy to lose: its edit is always the
     materialized file, which a reinstall rewrites.
+
+    A project skill (``scope`` project) has no store copy either, and its
+    remedy carries ``--local``: bare ``reinstall`` reads the user lock, so
+    with a same-named user install it reinstalls *that* copy, exits 0, and
+    leaves the project edit in place.
+
+    A held copy (quarantined or sidelined, :func:`copy_dir`) is never heal's:
+    `heal` leaves a held row alone by design, so naming it answered an edited
+    sidelined skill with "nothing to heal". ``boost reinstall`` refreshes the
+    held copy and keeps it aside. ``entry`` defaults to the lock row.
+
+    Except a quarantined one: a reinstall clears ``quarantined`` and relinks
+    the skill, so naming it as the fix for an edited quarantined copy would
+    walk the user out of the quarantine. Its remedy is to review it there.
     """
-    if kind == "skill" and not (_store_dir(name) / "SKILL.md").is_file():
-        return "boost heal", "to restore its missing SKILL.md"
+    if scope == scopes.SCOPE_PROJECT:
+        return "boost reinstall %s --local" % name, "to discard local edits"
+    if kind == "skill":
+        if entry is None:
+            entry = lockfile.get_skill(name)
+        if (entry or {}).get("quarantined"):
+            return ("boost quarantine --list",
+                    "to review it — it is quarantined, and a reinstall "
+                    "would release it")
+        if (not (entry or {}).get("held_at")
+                and not (_store_dir(name) / "SKILL.md").is_file()):
+            return "boost heal", "to restore its missing SKILL.md"
     return "boost reinstall %s" % name, "to discard local edits"
 
 
@@ -351,7 +403,8 @@ def project_status(entry: dict, base) -> str:
     present = project_skill_dirs(entry, base)
     if not present:
         return STATUS_MISSING
-    if recorded and any(util.sha256_dir(p) != recorded for p in present):
+    if recorded and any(util.sha256_dir(p) != recorded
+                        or exec_drifted(p, entry) for p in present):
         return STATUS_MODIFIED
     if rows:
         return STATUS_MISSING
@@ -514,7 +567,7 @@ def _skill_row(name: str, entry: dict, scope: str,
     if scope == scopes.SCOPE_PROJECT:
         d = project_skill_dir(entry, base)
     else:
-        sd = paths.store_dir() / name
+        sd = copy_dir(name, entry)
         d = sd if util.is_safe_component(name) and sd.is_dir() else None
     return InstalledSkill(name, entry, scope, base, d)
 

@@ -66,6 +66,7 @@ def stringify_keys(document: object) -> None:
     """Spell every non-string mapping key in place as the wire does, e.g. a YAML 1.1 `on:` read as `True`."""
     try:
         # Serializing rejects non-string keys and is several times faster than the walk below.
+        # Any object is accepted; one that is not JSON raises, which is the check here.
         jsonschema_rs.canonical.json.to_string(document)
         return
     except ValueError:

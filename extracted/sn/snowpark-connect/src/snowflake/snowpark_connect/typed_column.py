@@ -88,6 +88,13 @@ class TypedColumn:
         return [ft.datatype for ft in self._field_types]
 
     @property
+    def resolved_types(self) -> list[snowpark.types.DataType] | None:
+        """``types`` if already resolved, else None. Never runs the type resolver."""
+        if "_field_types" not in self.__dict__:
+            return None
+        return self.types
+
+    @property
     def nullable(self) -> bool:
         return self.field_type.nullable
 

@@ -49,11 +49,11 @@ import json
 import os
 import re
 import shutil
-import stat
 import time
 from pathlib import Path
 
 from ..sdk import session_marker
+from ..sdk.durable import write_text_atomic
 
 #: How our segment is recognised on a later run. A comment, so it is inert to
 #: the shell and visible to a human reading their own settings file.
@@ -295,6 +295,7 @@ def chain(previous: str, ours: str) -> str:
 
 
 def _load(path: Path) -> dict:
+    """For READING only: a missing, unreadable or broken file reads as empty."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -302,17 +303,38 @@ def _load(path: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _load_for_edit(path: Path) -> dict:
+    """The settings to edit and write back; only a MISSING file reads as empty.
+
+    A file that cannot be read or does not hold a JSON object is refused, never
+    edited: reading it as `{}` and saving that back replaced the researcher's
+    whole settings.json (env tokens, permission rules, hooks) with our one key.
+    The `.probe-backup` did not save them -- it is taken once, so a second
+    broken file had no copy at all. Raises OSError or ValueError, which every
+    caller already reports.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return {}
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"left {path} alone: it is not UTF-8 text ({exc})") from exc
+    if not text.strip():
+        return {}  # Claude Code reads an empty settings.json as no settings, and so do we
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        raise ValueError(f"left {path} alone: it is not valid JSON ({exc}); fix it and run this again") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"left {path} alone: it holds a JSON {type(data).__name__}, not an object")
+    return data
+
+
 def _save(path: Path, settings: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     # The replace must not loosen the file: a `settings.json` kept 0600 because
     # its `env` holds tokens would otherwise come back as the umask's 0664.
-    try:
-        os.chmod(tmp, stat.S_IMODE(path.stat().st_mode))
-    except FileNotFoundError:
-        pass
-    os.replace(tmp, path)
+    write_text_atomic(path, json.dumps(settings, indent=2) + "\n", keep_mode=True)
 
 
 def _backup(path: Path) -> Path | None:
@@ -333,9 +355,9 @@ def _backup(path: Path) -> Path | None:
 
 def install(plugin_root: Path | str, *, python: str | None = None) -> dict:
     """Add (or refresh) our segment in the status-line slot."""
-    copied = sync(plugin_root)
     path = settings_path()
-    settings = _load(path)
+    settings = _load_for_edit(path)  # before anything is copied: a refusal changes nothing
+    copied = sync(plugin_root)
     slot = settings.get("statusLine")
     current = slot.get("command") if isinstance(slot, dict) else None
     previous = split_existing(current) if isinstance(current, str) else ""
@@ -568,18 +590,11 @@ def _save_text(path: Path, text: str) -> None:
     stays a link to the researcher's file), keeping the file's mode."""
     target = path.resolve() if path.is_symlink() else path
     target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_name(target.name + f".{os.getpid()}.tmp")
-    tmp.write_text(text, encoding="utf-8")
-    try:
-        os.chmod(tmp, stat.S_IMODE(target.stat().st_mode))
-    except FileNotFoundError:
-        pass
-    os.replace(tmp, target)
+    write_text_atomic(target, text, keep_mode=True)
 
 
 def install_kimi(plugin_root: Path | str, *, python: str | None = None) -> dict:
     """Add (or refresh) our segment in Kimi Code's footer, chaining what was there."""
-    copied = sync(plugin_root, target=kimi_install_dir())
     path = kimi_tui_path()
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
     current = _kimi_command(text)
@@ -589,6 +604,9 @@ def install_kimi(plugin_root: Path | str, *, python: str | None = None) -> dict:
     if _kimi_command(updated) != command:  # never write a file Kimi would read differently
         raise ValueError(f"Probe could not place its status line in {path} (an unusual layout there); "
                          "the file was left as it is")
+    # Only once the edit is known to land: a refusal leaves no renderer folder
+    # behind (its presence turns the statusline_refresh hook on).
+    copied = sync(plugin_root, target=kimi_install_dir())
     backup = _backup(path)
     _save_text(path, updated)
     mark_caught_up(_kimi_slot())

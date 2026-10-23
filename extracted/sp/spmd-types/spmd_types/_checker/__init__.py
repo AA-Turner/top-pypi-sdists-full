@@ -1885,6 +1885,12 @@ def dtensor_placement_to_spmd_type(
     if isinstance(placement, dtensor_type.Replicate):
         return R
     if isinstance(placement, dtensor_type.Partial):
+        if type(placement) is not dtensor_type.Partial:
+            raise DTensorPropagationError(
+                f"Only sum-Partial is supported, got {placement!r}; for a p-norm "
+                f"over a sharded dim, all_reduce torch.sum(x.abs() ** p) and take "
+                f"the p-th root"
+            )
         if placement.reduce_op != "sum":
             raise ValueError(
                 f"Only sum-Partial is supported, got reduce_op={placement.reduce_op!r}"
@@ -2474,22 +2480,33 @@ def _check_backward_loss_type(args: tuple, kwargs: dict) -> None:
 # collectives) are caught rather than silently bypassing the checker.
 #
 # Note: property accesses like .shape/.ndim are handled by the __get__
-# check in __torch_function__, and .stride() is in PyTorch's
-# get_ignored_functions() so it never reaches __torch_function__ at all.
+# check in __torch_function__. Methods must be listed here even when PyTorch's
+# get_ignored_functions() names them: .stride() is listed there but still
+# reaches torch function modes.
 _PASSTHROUGH = {
     # Autograd bookkeeping
     torch.Tensor.requires_grad_,
     torch.Tensor.retain_grad,
     # Metadata queries (return non-tensor values)
+    torch.Tensor.__len__,
+    torch.Tensor._is_view,
     torch.Tensor.dim,
+    torch.Tensor.dim_order,
     torch.Tensor.element_size,
     torch.Tensor.get_device,
     torch.Tensor.is_complex,
     torch.Tensor.is_contiguous,
     torch.Tensor.is_floating_point,
+    torch.Tensor.is_inference,
+    torch.Tensor.is_pinned,
+    torch.Tensor.is_shared,
+    torch.Tensor.is_signed,
+    torch.Tensor.ndimension,
     torch.Tensor.nelement,
     torch.Tensor.numel,
     torch.Tensor.size,
+    torch.Tensor.storage_offset,
+    torch.Tensor.stride,
     torch.Tensor.untyped_storage,
     torch.numel,
 }
@@ -2698,8 +2715,9 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
 
     def __torch_function__(self, func, types, args=(), kwargs=None):  # noqa: C901
         kwargs = kwargs or {}
-        # Paused via no_typecheck(): run without type checking.
-        if self._disabled:
+        # Paused via no_typecheck() or register_no_typecheck(): run without
+        # type checking.
+        if self._disabled or _state._in_no_typecheck_frame():
             return func(*args, **kwargs)
 
         # Property access (e.g. .grad, .data, .shape): pass through unless registered
@@ -2854,11 +2872,19 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
         # V when src=P, implicitly reinterpreting V as P.  The runtime
         # in _collectives.py already handles this conversion.
         local_type = get_local_type(x)
+        input_spec = get_partition_spec(x)
 
         # Resolve axis to a list of matching axes on the tensor.
         # Direct match: [axis]. Flattened decomposition: [sub1, sub2, ...].
         resolved_axes = _resolve_collective_axes(axis, local_type)
-        collective_axes = resolved_axes or [axis]
+        if resolved_axes is None:
+            # An axis already on x names x's own mesh presentation; only
+            # otherwise retag x onto the current mesh.
+            (local_type,), (input_spec,) = _auto_reinterpret_cross_mesh(
+                [local_type], [input_spec]
+            )
+            resolved_axes = _resolve_collective_axes(axis, local_type)
+        collective_axes = resolved_axes or []
         global_collective_axes = [
             ax for ax in collective_axes if self._is_global_axis(ax)
         ]
@@ -2880,11 +2906,16 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
 
         if resolved_axes is not None:
             # Validate input types on all resolved axes
+            no_grad = not (torch.is_grad_enabled() and x.requires_grad)
             for ax in resolved_axes:
                 input_type = local_type[ax]
                 if local_src is not None and input_type != local_src:
-                    # Allow V -> P implicit cast for reductions
-                    if not (local_src is P and input_type is V):
+                    # Allow V -> P implicit cast for reductions, and R <-> I
+                    # when x cannot receive a gradient (they differ only in
+                    # backward).
+                    if not (local_src is P and input_type is V) and not (
+                        no_grad and {input_type, local_src} == {R, I}
+                    ):
                         raise SpmdTypeError(
                             f"{func.__name__}: expected input type {local_src} on axis "
                             f"{format_axis(ax)}, got {input_type}"
@@ -2908,7 +2939,6 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
         _set_local_type(result, output_type)
 
         if global_collective_axes:
-            input_spec = get_partition_spec(x)
             # Find S(dim) for this axis in the input spec, validating
             # it is innermost in its multi-axis group.
             input_shard = None
@@ -2961,6 +2991,24 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
                 result.ndim,
             )
             _set_partition_spec(result, new_output_spec)
+        elif resolved_axes is None and not self._local:
+            # all_to_all(V, V) unbinds split_dim and stacks on concat_dim.
+            moves_dims = result.ndim != x.ndim or (
+                src is V
+                and dst is V
+                and (kwargs.get("split_dim") or 0) != (kwargs.get("concat_dim") or 0)
+            )
+            if not moves_dims:
+                _set_partition_spec(result, input_spec)
+            elif input_spec is not None and self._global_axes_for(
+                input_spec.axes_with_partition_spec()
+            ):
+                raise SpmdTypeError(
+                    f"{func.__name__}: stack semantics on axis "
+                    f"{format_axis(axis)} move tensor dims, so the "
+                    f"input PartitionSpec no longer lines up with the "
+                    f"result. Use S(i) instead of V."
+                )
 
         if _TRACE:
             _trace_op(

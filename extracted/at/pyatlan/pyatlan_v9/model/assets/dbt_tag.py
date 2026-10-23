@@ -19,6 +19,15 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.dbt_utils import dbt_project_qualified_name
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +44,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .dbt_related import RelatedDbtTag
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,14 +57,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .dbt_related import RelatedDbtTag
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -346,13 +348,6 @@ class DbtTag(Asset):
                 f"qualified_name '{self.qualified_name}' does not match expected "
                 f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
             )
-        if for_creation:
-            if self.tag_id is UNSET:
-                errors.append("tag_id is required for creation")
-            if self.tag_allowed_values is UNSET:
-                errors.append("tag_allowed_values is required for creation")
-            if self.mapped_classification_name is UNSET:
-                errors.append("mapped_classification_name is required for creation")
         if errors:
             raise ValueError(f"DbtTag validation failed: {errors}")
 
@@ -384,6 +379,35 @@ class DbtTag(Asset):
         if self.guid is not UNSET:
             return RelatedDbtTag(guid=self.guid)
         return RelatedDbtTag(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        account_id: str,
+        project_id: str,
+    ) -> "DbtTag":
+        validate_required_fields(["name"], [name])
+        base, connector_name = dbt_project_qualified_name(
+            connection_qualified_name, account_id, project_id
+        )
+        return cls(
+            name=name,
+            qualified_name=f"{base}/tag/{name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DbtTag":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DbtTag":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -773,6 +797,7 @@ def _dbt_tag_to_nested(dbt_tag: DbtTag) -> DbtTagNested:
         is_incomplete=dbt_tag.is_incomplete,
         provenance_type=dbt_tag.provenance_type,
         home_id=dbt_tag.home_id,
+        delete_handler=dbt_tag.delete_handler,
         depth=dbt_tag.depth,
         immediate_upstream=dbt_tag.immediate_upstream,
         immediate_downstream=dbt_tag.immediate_downstream,
@@ -817,6 +842,7 @@ def _dbt_tag_from_nested(nested: DbtTagNested) -> DbtTag:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

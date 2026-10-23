@@ -128,13 +128,13 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_IDictionary_2_get_Keys(self, __unit: Unit = UNIT) -> ICollection[KEY]:
         this: Dictionary[Any, Any] = self
 
-        def _arrow9(__unit: Unit = UNIT) -> IEnumerable_1[KEY]:
-            def _arrow8(pair: Any) -> KEY:
+        def _arrow10(__unit: Unit = UNIT) -> IEnumerable_1[KEY]:
+            def _arrow9(pair: Any) -> KEY:
                 return pair[0]
 
-            return map(_arrow8, this)
+            return map(_arrow9, this)
 
-        return Array[Any](delay(_arrow9))
+        return Array[Any](delay(_arrow10))
 
     def System_Collections_Generic_IDictionary_2_Remove2B595(self, key: KEY = UNIT) -> bool:
         this: Dictionary[Any, Any] = self
@@ -154,13 +154,13 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_IDictionary_2_get_Values(self, __unit: Unit = UNIT) -> ICollection[VALUE]:
         this: Dictionary[Any, Any] = self
 
-        def _arrow11(__unit: Unit = UNIT) -> IEnumerable_1[VALUE]:
-            def _arrow10(pair: Any) -> VALUE:
+        def _arrow12(__unit: Unit = UNIT) -> IEnumerable_1[VALUE]:
+            def _arrow11(pair: Any) -> VALUE:
                 return pair[1]
 
-            return map(_arrow10, this)
+            return map(_arrow11, this)
 
-        return Array[Any](delay(_arrow11))
+        return Array[Any](delay(_arrow12))
 
     def get_item(self, key: KEY = UNIT) -> VALUE:
         this: Dictionary[Any, Any] = self
@@ -221,20 +221,20 @@ def Dictionary__TryFindIndex_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: 
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow14(__unit: Unit = UNIT) -> list[Any]:
+    def _arrow18(__unit: Unit = UNIT) -> list[Any]:
         return out_arg
 
-    def _arrow15(v: list[Any]) -> None:
+    def _arrow19(v: list[Any]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow14, _arrow15)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow18, _arrow19)), out_arg)
     if match_value[0]:
 
-        def _arrow16(pair: Any, this: Any = this, k: Any = k) -> bool:
+        def _arrow20(pair: Any, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, pair[0])
 
-        return (True, h, find_index(_arrow16, match_value[1]))
+        return (True, h, find_index(_arrow20, match_value[1]))
 
     else:
         return (False, h, -1)

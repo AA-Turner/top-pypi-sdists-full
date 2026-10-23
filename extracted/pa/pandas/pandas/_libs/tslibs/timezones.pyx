@@ -1,7 +1,9 @@
+cimport cython
 from datetime import (
     timedelta,
     timezone,
 )
+import pickle
 import zoneinfo
 from zoneinfo._zoneinfo import ZoneInfo as _ZoneInfo
 
@@ -198,7 +200,11 @@ cdef object tz_cache_key(tzinfo tz):
     the same tz file). Also, pytz objects are not always hashable so we use
     str(tz) instead.
     """
-    if pytz is not None and isinstance(tz, pytz.tzinfo.BaseTzInfo):
+    if type(tz) is timezone:
+        # datetime.timezone fixed offset; the offset fully determines
+        #  the transition info, so ignore any custom name
+        return "pytimezone", tz.utcoffset(None)
+    elif pytz is not None and isinstance(tz, pytz.tzinfo.BaseTzInfo):
         return tz.zone
     elif isinstance(tz, _dateutil_tzfile):
         if ".tar.gz" in tz._filename:
@@ -241,7 +247,12 @@ cpdef inline bint is_fixed_offset(tzinfo tz):
         else:
             return 0
     elif is_zoneinfo(tz):
-        tz_py = _ZoneInfo(tz.key)
+        tz_py = get_zoneinfo_twin(tz)
+        if tz_py is None:
+            # i.e. ZoneInfo.from_file; without a twin we cannot see the
+            #  transitions, so report not-fixed and let callers take the
+            #  tzinfo-API path.  GH#64379
+            return 0
         if tz_py._fixed_offset:
             return 1
         else:
@@ -266,6 +277,8 @@ cdef object _get_utc_trans_times_from_dateutil_tz(tzinfo tz):
     return new_trans
 
 
+@cython.wraparound(False)
+@cython.boundscheck(False)
 cdef int64_t[::1] unbox_utcoffsets(object transinfo):
     cdef:
         Py_ssize_t i
@@ -287,6 +300,39 @@ cdef int64_t[::1] unbox_utcoffsets(object transinfo):
 cdef datetime _UTC_EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
 # Smallest whole second representable as int64 nanoseconds.
 cdef int64_t _MIN_TRANS_SECONDS = -(-(NPY_NAT + 1) // 1_000_000_000)
+
+
+cdef tzinfo get_zoneinfo_twin(tzinfo tz):
+    """
+    Get the pure-python ``zoneinfo`` implementation of `tz`.
+
+    The cached-transition fast path needs transition data that only the
+    pure-python implementation exposes, and the only handle we have for
+    rebuilding it is ``tz.key``.  That handle is good when `tz` was loaded
+    from the installed tzdata under that key, but ``ZoneInfo.from_file``
+    objects have no reliable key (absent or not necessarily matching with
+    tzdata).  In those cases we have no way to see the transitions and callers
+    must fall back to the tzinfo API.  GH#64379
+
+    Whether the key describes the object is decided by asking it to pickle.
+    The stdlib documents that a ``from_file`` object cannot be pickled,
+    because its data is not recoverable from its key.
+
+    Parameters
+    ----------
+    tz : ZoneInfo
+
+    Returns
+    -------
+    zoneinfo._zoneinfo.ZoneInfo or None
+    """
+    try:
+        tz.__reduce__()
+    except pickle.PicklingError:
+        # i.e. ZoneInfo.from_file; both implementations refuse to pickle it
+        return None
+
+    return _ZoneInfo(tz.key)
 
 
 cdef tuple _get_zoneinfo_trans_and_deltas(tzinfo tz):
@@ -316,8 +362,11 @@ cdef tuple _get_zoneinfo_trans_and_deltas(tzinfo tz):
         int64_t fixed_offset_seconds, last_hist_ts, start_utc, end_utc
         list trans_utc, deltas_seconds, future_trans
         int year, last_year, std_offset, dst_offset
+        bint valid
 
-    tz_py = _ZoneInfo(tz.key)
+    # Note: result is always non-None; callers (Localizer and tz_localize_to_utc_single,
+    #  via is_fixed_offset) keep no-twin zones away from get_dst_info (GH#64379)
+    tz_py = get_zoneinfo_twin(tz)
 
     if tz_py._fixed_offset:
         fixed_offset_seconds = int(tz_py._tz_after.utcoff.total_seconds())
@@ -373,9 +422,25 @@ cdef tuple _get_zoneinfo_trans_and_deltas(tzinfo tz):
 
         future_trans.sort()
 
-        for t, d in future_trans:
-            trans_utc.append(t)
-            deltas_seconds.append(d)
+        # Verify the flattened future transitions against zoneinfo; if any
+        # disagree, drop them all and leave the per-value zoneinfo fallback to
+        # handle these dates. See test_zoneinfo_negative_dst_distant_dates for
+        # why. GH#65712, GH#65733
+        valid = True
+        try:
+            for future_ts, future_delta in future_trans:
+                probe = _UTC_EPOCH + timedelta(seconds=future_ts + 1)
+                probe_offset = probe.astimezone(tz).utcoffset().total_seconds()
+                if int(probe_offset) != future_delta:
+                    valid = False
+                    break
+        except (OSError, OverflowError, ValueError):
+            valid = False
+
+        if valid:
+            for future_ts, future_delta in future_trans:
+                trans_utc.append(future_ts)
+                deltas_seconds.append(future_delta)
 
     first_offset_seconds = int(tz_py._tti_before.utcoff.total_seconds())
 
@@ -534,7 +599,7 @@ cpdef bint tz_compare(tzinfo start, tzinfo end):
 
 def tz_standardize(tz: tzinfo) -> tzinfo:
     """
-    If the passed tz is a pytz timezone object, "normalize" it to the a
+    If the passed tz is a pytz timezone object, "normalize" it to a
     consistent version
 
     Parameters

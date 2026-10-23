@@ -212,6 +212,14 @@ HOST_TURN_PARTS: dict[str, PlatformPart] = {
             "matrx-frontend features/applets-host/builder/build-session.ts fixHostTurn",
             "the applet builder asks the agent to fix the one check its last answer failed",
         ),
+        PlatformPart(
+            "platform_repair",
+            "Repair run: work the chosen problem",
+            "host_turn",
+            "aidream/services/platform_repair/service.py (HOST_TURN_TEXT)",
+            "an admin pressed Start on a known problem without typing; the problem rides the "
+            "repair_subject context entry",
+        ),
     )
 }
 

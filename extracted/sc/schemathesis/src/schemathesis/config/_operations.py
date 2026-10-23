@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
 
 
-def _parse_request_retries(value: int | dict | None) -> int | None:
+def parse_request_retries(value: int | dict | None) -> int | None:
     if value is None:
         return None
     if isinstance(value, int):
@@ -316,10 +316,12 @@ class OperationConfig(DiffBase):
         self.proxy = proxy
         self.continue_on_failure = continue_on_failure
         self.tls_verify = tls_verify
-        if rate_limit is not None and rate_limit != "auto":
-            self.rate_limit = build_limiter(rate_limit)
+        if rate_limit is None:
+            self.rate_limit = None
+        elif rate_limit == "auto":
+            self.rate_limit = "auto"
         else:
-            self.rate_limit = rate_limit
+            self.rate_limit = build_limiter(rate_limit)
         self._rate_limit = rate_limit
         self.max_redirects = max_redirects
         self.max_stream_events = max_stream_events
@@ -389,7 +391,7 @@ class OperationConfig(DiffBase):
             max_redirects=data.get("max-redirects"),
             max_stream_events=data.get("max-stream-events"),
             request_timeout=data.get("request-timeout"),
-            request_retries=_parse_request_retries(data.get("request-retries")),
+            request_retries=parse_request_retries(data.get("request-retries")),
             request_cert=resolve(data.get("request-cert")),
             request_cert_key=resolve(data.get("request-cert-key")),
             parameters=load_parameters(data, dictionaries=dictionaries or {}),

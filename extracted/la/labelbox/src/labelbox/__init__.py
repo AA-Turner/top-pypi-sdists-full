@@ -1,6 +1,6 @@
 name = "labelbox"
 
-__version__ = "7.16.0"
+__version__ = "7.17.0"
 
 from labelbox.client import Client
 from labelbox.schema.annotation_import import (
@@ -116,6 +116,12 @@ from labelbox.schema.label_version import (
     LabelVersion,
     LabelVersionAction,
     LabelVersionStage,
+)
+from labelbox.schema.user_group_audit import (
+    UserGroupAuditActorKind,
+    UserGroupAuditChannel,
+    UserGroupAuditEvent,
+    UserGroupAuditEventType,
 )
 from labelbox.schema.performance import (
     PerformanceCursorRows,

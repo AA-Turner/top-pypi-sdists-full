@@ -84,7 +84,7 @@ DELETE_CENSUS: dict[str, DeletePath] = {
     ),
     "cloud_file:delete": DeletePath(
         "files.files", "soft",
-        "always archives (public.soft_delete_file sets deleted_at); an agent's hard=true is refused "
+        "always archives (files.soft_delete_file sets deleted_at); an agent's hard=true is refused "
         "with a notice — permanent purge stays a person's act in the Files trash",
         impl=(
             "matrx_ai.tools.implementations.cloud_files:cloud_file",
@@ -213,7 +213,7 @@ DELETE_CENSUS: dict[str, DeletePath] = {
     ),
     "dictionary:delete_entries": DeletePath(
         "dictionary.dict_entries", "soft",
-        "public.dict_delete_entries_for ARCHIVES (sets deleted_at; migration 1355, applied 2026-09-28). "
+        "dictionary.dict_delete_entries_for ARCHIVES (sets deleted_at; migration 1355, applied 2026-09-28). "
         "Re-adding an archived term through upsert_entries revives it; restore_entries brings entries back.",
         impl=("matrx_ai.tools.implementations.dictionary:dictionary",),
         model="db.models.dictionary:DictEntries",

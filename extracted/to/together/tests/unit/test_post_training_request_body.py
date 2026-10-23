@@ -29,17 +29,17 @@ from together.post_training import (
     SamplingParams,
     ModelInputChunk,
     EncodedTextChunk,
+    _losses as rl_losses,
     download_checkpoint,
     download_checkpoint_async,
 )
-from together.lib.post_training import _losses as rl_losses
 from together.types.post_training import (
     loss_config_param,
     tensor_data_param,
     operation_forward_backward_params,
     operation_custom_forward_backward_params,
 )
-from together.lib.post_training._payloads import _VALIDATION_OMITTED_KEYS
+from together.post_training._payloads import _VALIDATION_OMITTED_KEYS
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -91,10 +91,10 @@ class TestRLRequestBody:
     @parametrize
     @pytest.mark.respx(base_url=base_url)
     async def test_sample_request_body(self, async_client: AsyncTogether, respx_mock: MockRouter) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/sample").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/sample").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/sample/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/sample/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -149,10 +149,10 @@ class TestRLRequestBody:
     async def test_forward_backward_request_body(
         self, async_client: AsyncTogether, respx_mock: MockRouter, loss: LossConfig
     ) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/forward-backward").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/forward-backward").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/forward-backward/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/forward-backward/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -219,10 +219,10 @@ class TestRLRequestBody:
         call: ForwardBackwardCall,
         expected_flags: dict[str, bool],
     ) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/forward-backward").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/forward-backward").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/forward-backward/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/forward-backward/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -264,10 +264,10 @@ class TestRLRequestBody:
     @parametrize
     @pytest.mark.respx(base_url=base_url)
     async def test_optim_step_request_body(self, async_client: AsyncTogether, respx_mock: MockRouter) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/optim-step").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/optim-step").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/optim-step/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/optim-step/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -300,10 +300,10 @@ class TestRLRequestBody:
     @parametrize
     @pytest.mark.respx(base_url=base_url)
     async def test_optim_step_muon_in_wire_body(self, async_client: AsyncTogether, respx_mock: MockRouter) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/optim-step").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/optim-step").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/optim-step/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/optim-step/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -337,10 +337,10 @@ class TestRLRequestBody:
     @parametrize
     @pytest.mark.respx(base_url=base_url)
     async def test_weights_sync_request_body(self, async_client: AsyncTogether, respx_mock: MockRouter) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/weights-sync").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/weights-sync").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/weights-sync/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/weights-sync/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -365,10 +365,10 @@ class TestRLRequestBody:
     @parametrize
     @pytest.mark.respx(base_url=base_url)
     async def test_create_training_checkpoint_post(self, async_client: AsyncTogether, respx_mock: MockRouter) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/training-checkpoint").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/training-checkpoint").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/training-checkpoint/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/training-checkpoint/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -384,15 +384,15 @@ class TestRLRequestBody:
 
         call = cast(Any, respx_mock.calls[0])
         request = cast(httpx.Request, call.request)
-        assert "/rl/training-sessions/sess/operations/training-checkpoint" in str(request.url)
+        assert "/v1/rl/training-sessions/sess/operations/training-checkpoint" in str(request.url)
 
     @parametrize
     @pytest.mark.respx(base_url=base_url)
     async def test_create_inference_checkpoint_post(self, async_client: AsyncTogether, respx_mock: MockRouter) -> None:
-        respx_mock.post("/rl/training-sessions/sess/operations/inference-checkpoint").mock(
+        respx_mock.post("/v1/rl/training-sessions/sess/operations/inference-checkpoint").mock(
             return_value=httpx.Response(200, json={"id": "op-1"})
         )
-        respx_mock.get("/rl/training-sessions/sess/operations/inference-checkpoint/op-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess/operations/inference-checkpoint/op-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -408,7 +408,7 @@ class TestRLRequestBody:
 
         call = cast(Any, respx_mock.calls[0])
         request = cast(httpx.Request, call.request)
-        assert "/rl/training-sessions/sess/operations/inference-checkpoint" in str(request.url)
+        assert "/v1/rl/training-sessions/sess/operations/inference-checkpoint" in str(request.url)
 
     @parametrize
     @pytest.mark.respx(base_url=base_url)
@@ -418,7 +418,7 @@ class TestRLRequestBody:
         respx_mock: MockRouter,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        respx_mock.get("/rl/model-resources/res-1").mock(
+        respx_mock.get("/v1/rl/model-resources/res-1").mock(
             return_value=httpx.Response(
                 200,
                 json={
@@ -434,13 +434,13 @@ class TestRLRequestBody:
                 },
             )
         )
-        respx_mock.post("/rl/training-sessions").mock(
+        respx_mock.post("/v1/rl/training-sessions").mock(
             return_value=httpx.Response(
                 200,
                 json={"id": "sess-1", "status": "TRAINING_SESSION_STATUS_RUNNING"},
             )
         )
-        respx_mock.get("/rl/training-sessions/sess-1").mock(
+        respx_mock.get("/v1/rl/training-sessions/sess-1").mock(
             return_value=httpx.Response(
                 200,
                 json={"id": "sess-1", "status": "TRAINING_SESSION_STATUS_RUNNING"},
@@ -450,7 +450,7 @@ class TestRLRequestBody:
         def fake_together(**_kw: Any) -> AsyncTogether:
             return async_client
 
-        from together.lib.post_training.clients import session as session_client_module
+        from together.post_training.clients import session as session_client_module
 
         monkeypatch.setattr(session_client_module, "AsyncTogether", fake_together)
 
@@ -549,16 +549,6 @@ def test_public_rl_names_have_no_param_suffix() -> None:
 def test_public_rl_names_are_importable() -> None:
     module = importlib.import_module("together.post_training")
     assert [name for name in module.__all__ if not hasattr(module, name)] == []
-
-
-def test_legacy_rl_import_path_aliases_together_rl() -> None:
-    import together.lib.beta.rl as legacy
-    import together.post_training as rl
-    from together.lib.beta import rl as from_beta
-
-    assert from_beta is legacy
-    assert legacy.SessionClient is rl.SessionClient
-    assert list(legacy.__all__) == list(rl.__all__)
 
 
 def test_public_rl_legacy_loss_inputs_are_not_exported() -> None:

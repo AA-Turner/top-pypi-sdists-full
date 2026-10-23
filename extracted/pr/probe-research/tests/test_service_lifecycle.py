@@ -132,6 +132,23 @@ def test_ensure_backs_off_after_three_starts_a_minute(service_home):
     assert service_home.status() is None
 
 
+def test_a_restart_on_purpose_is_no_start_to_back_off_from(service_home):
+    """An update's restart and the tap restart right after it (a session asks
+    for a newer tap) are no crash loop: the next start is never refused, or
+    every hook meanwhile finds no service (5 h live run, R2)."""
+    for _ in range(2):
+        status = service_home.start()
+        os.kill(status["pid"], signal.SIGKILL)
+        assert service_home.wait_exit(status["pid"], 3.0)
+    third = service_home.start()
+    client.forget_start(third["pid"])  # what a service stopping for an update or a newer tap does
+    assert len(json.loads(paths.starts_path().read_text())["starts"]) == 2
+    service_home.call(Method.STOP)
+    assert service_home.wait_exit(third["pid"], 3.0)
+    assert client.ensure() == client.Ensured.SPAWNED
+    os.kill(wait_for(service_home.status, 5.0)["pid"], signal.SIGKILL)
+
+
 def test_a_second_instance_exits_zero_at_once(service_home):
     first = service_home.start()
     started = time.monotonic()

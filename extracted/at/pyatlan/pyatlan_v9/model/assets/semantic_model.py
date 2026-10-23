@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,21 +51,14 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .semantic_related import (
     RelatedSemanticDimension,
     RelatedSemanticEntity,
     RelatedSemanticMeasure,
     RelatedSemanticModel,
 )
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -582,6 +582,7 @@ def _semantic_model_to_nested(semantic_model: SemanticModel) -> SemanticModelNes
         is_incomplete=semantic_model.is_incomplete,
         provenance_type=semantic_model.provenance_type,
         home_id=semantic_model.home_id,
+        delete_handler=semantic_model.delete_handler,
         depth=semantic_model.depth,
         immediate_upstream=semantic_model.immediate_upstream,
         immediate_downstream=semantic_model.immediate_downstream,
@@ -630,6 +631,7 @@ def _semantic_model_from_nested(nested: SemanticModelNested) -> SemanticModel:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -655,10 +657,7 @@ def _semantic_model_from_nested_bytes(data: bytes, serde: Serde) -> SemanticMode
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 SemanticModel.CATALOG_DATASET_GUID = KeywordField(
     "catalogDatasetGuid", "catalogDatasetGuid"

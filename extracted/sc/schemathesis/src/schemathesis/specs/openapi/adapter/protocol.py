@@ -67,8 +67,11 @@ class SchemaVocabulary(Protocol):
 
     # Keyword used to mark nullable fields (e.g., "x-nullable" in OpenAPI 2.0, "nullable" in 3.x)
     nullable_keyword: str
-    # JSON Schema validator class appropriate for this specification version
-    jsonschema_validator_cls: type[jsonschema_rs.Validator]
+
+    # JSON Schema validator class appropriate for this specification version. Read-only, so an adapter may
+    # pin one draft's class.
+    @property
+    def jsonschema_validator_cls(self) -> type[jsonschema_rs.Validator]: ...
 
 
 class ParameterAdapter(SchemaVocabulary, Protocol):
@@ -121,16 +124,13 @@ class SecurityAdapter(Protocol):
     extract_security_definitions: ExtractSecurityDefinitions
 
 
-class SchemaAdapter(SchemaVocabulary, Protocol):
-    """Whole-schema concerns: base path, media types, multipart bodies, and validation."""
+class SpecificationAdapter(ParameterAdapter, ResponseAdapter, SecurityAdapter, SchemaVocabulary, Protocol):
+    """Full contract for one API specification format; composed of role protocols so callers can depend on a slice."""
 
+    # Whole-schema concerns: base path, media types, multipart bodies, and validation.
     prepare_multipart: PrepareMultipart
     get_request_payload_content_types: GetRequestPayloadContentTypes
     get_default_media_types: GetDefaultMediaTypes
     get_base_path: GetBasePath
     get_base_url: GetBaseUrl
     validate_schema: ValidateSchema
-
-
-class SpecificationAdapter(ParameterAdapter, ResponseAdapter, SecurityAdapter, SchemaAdapter, Protocol):
-    """Full contract for one API specification format; composed of role protocols so callers can depend on a slice."""

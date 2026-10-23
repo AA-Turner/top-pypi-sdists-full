@@ -2,7 +2,9 @@
 
 The desktop app asks for this on every focus, so the default read must start
 no process and open no socket, and a hung coding-agent binary must not slow it
-down. `--refresh` asks the agents' own CLIs and the server, each bounded: a
+down. One exception, pinned in (b2): where Probe's Codex plugins are installed,
+Codex is asked which of Probe's hooks it will run, at most once per 10 minutes
+and never for more than 2s. `--refresh` asks the agents' own CLIs and the server, each bounded: a
 check that times out is an error on that check, never a hang. Whatever the
 JSON says, the terminal wizard's menu must say too, for the same device.
 
@@ -444,6 +446,75 @@ def test_a_hung_agent_binary_does_not_slow_the_cli_either(machine):
     assert json.loads(done.stdout)["agents"][0]["installed"] is True
     assert elapsed < 30  # interpreter start on a loaded box; the hung binary would take 60
     assert agent_calls(machine) == []
+
+
+# -- (b2) the one exception: Codex's hook approvals ------------------------------
+#
+# Codex skips a hook it has not approved without a word, and nothing of
+# Probe's runs to report it, so the default read asks Codex itself -- only
+# where Probe's Codex plugins are installed, at most once per 10 minutes.
+
+CODEX_TAP_END = "probe-research-tap@research-os-agent:hooks/hooks.json:sessionEnd:0:0"
+
+
+def codex_answering_hooks(machine, trust: str) -> None:
+    """`configured`'s Codex, which also answers `hooks/list` (its app-server)
+    with the tap's SessionEnd hook `trust`ed or not, and has Probe's plugins in
+    its cache."""
+    answer = machine.tmp / "hooks-list.json"
+    answer.write_text(json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"data": [{"hooks": [
+        {"key": CODEX_TAP_END, "trustStatus": trust, "enabled": True}], "warnings": []}]}}))
+    agent_binary(
+        machine,
+        "codex",
+        'if [ "$1" = app-server ]; then\n'
+        f"  while read -r line; do case \"$line\" in *hooks/list*) /bin/cat '{answer}'; echo;; esac; done\n"
+        "  exit 0\nfi\n"
+        'case "$1 $2" in\n'
+        f"  'plugin list') /bin/cat <<'EOF'\n{CODEX_PLUGIN_LIST}\nEOF\n;;\n"
+        "  'mcp list') echo '[]' ;;\n"
+        '  *) echo "codex-cli 0.163.0" ;;\nesac',
+    )
+    for plugin, version in (("probe-research-daemon", "0.161.1"), ("probe-research-tap", "0.9.25")):
+        (machine.home / ".codex" / "plugins" / "cache" / "research-os-agent" / plugin / version).mkdir(parents=True)
+
+
+def test_hooks_codex_will_not_run_reach_the_json_and_the_person(machine):
+    configured(machine)
+    codex_answering_hooks(machine, "untrusted")
+    state, _, _ = status()
+    assert state["codex_hooks"]["state"] == "needs_approval"
+    assert state["codex_hooks"]["untrusted"] == [CODEX_TAP_END]
+    assert agent_calls(machine) == ["codex app-server"]
+    result = CliRunner().invoke(main.app, ["status"])
+    line = next(line for line in result.stdout.splitlines() if line.startswith("Codex hooks"))
+    assert "type /hooks and approve the Probe Research hooks" in line
+    assert agent_calls(machine) == ["codex app-server"], "the second read used the kept answer"
+
+
+def test_approved_hooks_read_as_approved(machine):
+    configured(machine)
+    codex_answering_hooks(machine, "trusted")
+    state, _, _ = status("--refresh")
+    assert state["codex_hooks"]["state"] == "approved" and state["codex_hooks"]["checked_at"]
+    assert "codex app-server" in agent_calls(machine)
+
+
+def test_with_no_codex_binary_the_hooks_are_read_from_files_alone(machine, no_io):
+    """Probe's plugins in Codex's cache but no `codex` on PATH (the Codex app's
+    own binary, say): the heartbeat files speak, and nothing starts."""
+    configured(machine)
+    codex_answering_hooks(machine, "untrusted")
+    (machine.bin / "codex").unlink()
+    expect = machine.home / ".local" / "state" / "probe" / "hooks" / "expect"
+    expect.mkdir(parents=True)
+    (expect / "codex-session").write_text("1\n")
+    os.utime(expect / "codex-session", (time.time() - 300,) * 2)
+    state, _, _ = status()
+    assert no_io == []
+    assert state["codex_hooks"] == {
+        "state": "needs_approval", "untrusted": [], "checked_at": None, "unheard_session": "codex-session",
+    }
 
 
 # -- (c) --refresh bounds every check ------------------------------------------

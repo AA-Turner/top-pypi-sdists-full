@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -32,6 +40,7 @@ from .asset import (
     _extract_asset_attrs,
     _populate_asset_attrs,
 )
+from .bigquery_related import RelatedBigqueryRoutine
 from .context_related import RelatedContextRepository
 from .cosmos_mongo_db_related import RelatedCosmosMongoDBCollection
 from .data_contract_related import RelatedDataContract
@@ -61,14 +70,6 @@ from .sql_insight_related import (
     RelatedSqlInsightJoin,
 )
 from .sql_related import RelatedSchema
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .bigquery_related import RelatedBigqueryRoutine
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -509,9 +510,7 @@ class BigqueryRoutine(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/_routines_/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -547,14 +546,6 @@ class BigqueryRoutine(Asset):
                 errors.append("connection_qualified_name is required for creation")
             if self.atlan_schema is UNSET:
                 errors.append("atlan_schema is required for creation")
-            if self.schema_name is UNSET:
-                errors.append("schema_name is required for creation")
-            if self.schema_qualified_name is UNSET:
-                errors.append("schema_qualified_name is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
             if self.definition is UNSET:
                 errors.append("definition is required for creation")
         if errors:
@@ -588,6 +579,80 @@ class BigqueryRoutine(Asset):
         if self.guid is not UNSET:
             return RelatedBigqueryRoutine(guid=self.guid)
         return RelatedBigqueryRoutine(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        definition: str,
+        schema_qualified_name: str,
+        schema_name: str | None = None,
+        database_name: str | None = None,
+        database_qualified_name: str | None = None,
+        connection_qualified_name: str | None = None,
+    ) -> "BigqueryRoutine":
+        """
+        Builds the minimal object necessary to create a BigqueryRoutine.
+
+        The qualifiedName is ``{schema_qualified_name}/_routines_/{name}``, the shape
+        BigqueryRoutine assets carry on tenants and that atlan-dataplex-app aspect-sync
+        parses. Current atlan-bigquery-app crawls emit ``Function`` / ``Procedure``
+        instead of BigqueryRoutine.
+        """
+        validate_required_fields(
+            ["name", "definition", "schema_qualified_name"],
+            [name, definition, schema_qualified_name],
+        )
+
+        fields = schema_qualified_name.split("/")
+        if len(fields) != 5:
+            raise ValueError(
+                f"Invalid schema_qualified_name: {schema_qualified_name}. "
+                "Expected format: default/bigquery/connection_id/project/dataset"
+            )
+
+        connector_name = fields[1]
+        connection_qn = (
+            connection_qualified_name or f"{fields[0]}/{fields[1]}/{fields[2]}"
+        )
+        db_name = database_name or fields[3]
+        sch_name = schema_name or fields[4]
+        db_qualified_name = database_qualified_name or f"{connection_qn}/{db_name}"
+
+        return cls(
+            name=name,
+            definition=definition,
+            qualified_name=f"{schema_qualified_name}/_routines_/{name}",
+            database_name=db_name,
+            database_qualified_name=db_qualified_name,
+            schema_name=sch_name,
+            schema_qualified_name=schema_qualified_name,
+            connector_name=connector_name,
+            connection_qualified_name=connection_qn,
+            atlan_schema=RelatedSchema(qualified_name=schema_qualified_name),
+        )
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "BigqueryRoutine":
+        """Create a BigqueryRoutine instance for update operations."""
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    def trim_to_required(self) -> "BigqueryRoutine":
+        """Return only fields required for update operations."""
+        return BigqueryRoutine.updater(
+            qualified_name=self.qualified_name, name=self.name
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "BigqueryRoutine":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "BigqueryRoutine":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1210,6 +1275,7 @@ def _bigquery_routine_to_nested(
         is_incomplete=bigquery_routine.is_incomplete,
         provenance_type=bigquery_routine.provenance_type,
         home_id=bigquery_routine.home_id,
+        delete_handler=bigquery_routine.delete_handler,
         depth=bigquery_routine.depth,
         immediate_upstream=bigquery_routine.immediate_upstream,
         immediate_downstream=bigquery_routine.immediate_downstream,
@@ -1258,6 +1324,7 @@ def _bigquery_routine_from_nested(nested: BigqueryRoutineNested) -> BigqueryRout
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

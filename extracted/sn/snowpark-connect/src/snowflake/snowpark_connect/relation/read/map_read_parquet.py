@@ -1860,7 +1860,7 @@ def map_read_parquet(
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
             snowpark_column_types=[emulate_integral_types(dt) for dt in schema_types],
-        ).without_materialization()
+        ).already_materialized()
 
     # ── No-schema path ──
     # Use the existing sample-based schema discovery, then load via typed COPY INTO.
@@ -2100,7 +2100,7 @@ def map_read_parquet(
         spark_column_names=spark_column_names,
         snowpark_column_names=snowpark_column_names,
         main_uses_vs=main_uses_vs,
-    ).without_materialization()
+    ).already_materialized()
 
 
 def _transform_complex_type(

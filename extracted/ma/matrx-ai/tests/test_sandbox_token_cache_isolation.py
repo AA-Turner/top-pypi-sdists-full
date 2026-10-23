@@ -27,8 +27,8 @@ class _Minter:
     def __init__(self) -> None:
         self.calls: list[dict[str, str]] = []
 
-    async def __call__(self, *, sandbox_id: str, base_url: str) -> str:
-        self.calls.append({"sandbox_id": sandbox_id, "base_url": base_url})
+    async def __call__(self, *, sandbox_id: str, base_url: str, **kwargs: str) -> str:
+        self.calls.append({"sandbox_id": sandbox_id, "base_url": base_url, **kwargs})
         ctx = try_get_app_context()
         return f"fresh:{sandbox_id}:{ctx.user_id}:{ctx.request_id or ctx.execution_id}"
 
@@ -142,3 +142,32 @@ async def test_local_machine_never_requests_orchestrator_token(minter: _Minter) 
     )
     assert await proxy._remint_token(binding) is None
     assert minter.calls == []
+
+
+async def test_local_machine_remint_asks_for_a_credential_bound_to_its_one_device(
+    minter: _Minter,
+) -> None:
+    # CASA 2.2.3: a run that outlived the person's login token re-mints a credential
+    # for the computer's ONE device id — never the orchestrator form (no device id).
+    set_app_context(AppContext(emitter=AsyncMock(), user_id="owner", request_id="local-request"))
+    binding = proxy.SandboxBinding(
+        sandbox_id="laptop",
+        base_url="https://aidream.invalid/api/local-proxy/0f0f0f0f-0000-4000-8000-000000000001",
+        access_token="expired-desktop-jwt",
+        root_path="/Users/owner",
+        target_kind="local_machine",
+        device_id="0f0f0f0f-0000-4000-8000-000000000001",
+    )
+
+    fresh = await proxy._remint_token(binding)
+
+    assert fresh == "fresh:laptop:owner:local-request"
+    assert minter.calls == [
+        {
+            "sandbox_id": "laptop",
+            "base_url": binding.base_url,
+            "target_kind": "local_machine",
+            "device_id": "0f0f0f0f-0000-4000-8000-000000000001",
+        }
+    ]
+    assert _token(binding) == fresh

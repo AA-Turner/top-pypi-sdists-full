@@ -419,7 +419,7 @@ def test_a_scanned_pdf_on_an_ocr_less_host_blames_the_host_not_the_document(
     )
     monkeypatch.setattr(extractors, "ocr_status", ocr_health.ocr_status)
     monkeypatch.setattr(
-        "matrx_files.specific_handlers.pdf_handler.extract_text_from_pdf_bytes_sync",
+        "matrx_files.specific_handlers.pdf.extract_text_from_pdf_bytes_sync",
         lambda _bytes, force_ocr=False, use_ocr_threshold=0: "",
     )
 

@@ -2,11 +2,21 @@
 The :mod:`tslearn.metrics.performance` module delivers time-series specific performance metrics .
 
 """
-
 from sklearn import metrics as skmetrics
 
 from tslearn.backend import instantiate_backend
 from tslearn.utils import to_time_series_dataset
+
+
+def _check_inputs(y_true, y_pred):
+    y_true = to_time_series_dataset(y_true)
+    y_pred = to_time_series_dataset(y_pred)
+    if y_true.shape != y_pred.shape:
+        raise ValueError(
+            "y_true and y_pred must have the same shape, "
+            f"got {tuple(y_true.shape)} and {tuple(y_pred.shape)}."
+        )
+    return y_true, y_pred
 
 
 def mae(
@@ -27,7 +37,9 @@ def mae(
     y_true: array like, shape (n_ts, sz, d)
         Target dataset of ground_truth values
     y_pred: array like, shape (n_ts, sz, d)
-        Estimated dataset of predicted values
+        Estimated dataset of predicted values.
+        Must have the same shape as ``y_true`` after conversion to a
+        time series dataset.
     ts_weights: array like, shape (n_ts,) or None (default: None)
         Weights to apply to the time-series in the datasets if non-uniform.
         Use none for uniform weights.
@@ -52,8 +64,7 @@ def mae(
 
     """
 
-    y_true = to_time_series_dataset(y_true)
-    y_pred = to_time_series_dataset(y_pred)
+    y_true, y_pred = _check_inputs(y_true, y_pred)
 
     n_ts, sz, d = y_true.shape
 
@@ -98,7 +109,9 @@ def mse(
     y_true: array like, shape (n_ts, sz, d)
         Target dataset of ground_truth values
     y_pred: array like, shape (n_ts, sz, d)
-        Estimated dataset of predicted values
+        Estimated dataset of predicted values.
+        Must have the same shape as ``y_true`` after conversion to a
+        time series dataset.
     ts_weights: array like, shape (n_ts,) or None (default: None)
         Weights to apply to the time-series in the datasets if non-uniform.
         Use none for uniform weights.
@@ -122,8 +135,7 @@ def mse(
         Otherwise, the average of each feature is returned.
 
     """
-    y_true = to_time_series_dataset(y_true)
-    y_pred = to_time_series_dataset(y_pred)
+    y_true, y_pred = _check_inputs(y_true, y_pred)
 
     n_ts, sz, d = y_true.shape
 
@@ -172,7 +184,9 @@ def mase(
     y_true: array like, shape (n_ts, sz, d)
         Target dataset of ground_truth values
     y_pred: array like, shape (n_ts, sz, d)
-        Estimated dataset of predicted values
+        Estimated dataset of predicted values.
+        Must have the same shape as ``y_true`` after conversion to a
+        time series dataset.
     train_data: array like
         the in-sample dataset, used to compute the scaling factor
     seasonal_period: int (default: 1)
@@ -203,12 +217,21 @@ def mase(
 
     train_data = to_time_series_dataset(train_data)
 
-    mae_ = mae(y_true, y_pred, ts_weights, timestamps_weights, multioutput)
+    mae_ = mae(y_true, y_pred, ts_weights, timestamps_weights, "raw_values")
+    be = instantiate_backend(mae_)
 
-    if multioutput == "raw_values":
-        scale_axis = (0, 1)
+    # Each feature is scaled by its own naive forecast error, ignoring the
+    # NaN padding of variable length time series
+    naive_errors = abs(
+        train_data[:, :-seasonal_period] - train_data[:, seasonal_period:]
+    )
+    scale = be.nanmean(naive_errors, axis=(0, 1))
+    res = mae_ / scale
+
+    if isinstance(multioutput, str):
+        if multioutput == "uniform_average":
+            res = res.mean()
     else:
-        scale_axis = None
-    scale = abs(train_data[:, :-seasonal_period] - train_data[:, seasonal_period:]).mean(axis=scale_axis)
-
-    return mae_ / scale
+        multioutput = be.asarray(multioutput, dtype=res.dtype)
+        res = multioutput @ res / multioutput.sum()
+    return res

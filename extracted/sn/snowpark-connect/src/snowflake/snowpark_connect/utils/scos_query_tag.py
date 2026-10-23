@@ -13,12 +13,18 @@ Injection is wired at two Snowpark entry points:
 
 On the sync plan path Snowpark may call both; ``inject_query_tag_kwargs`` skips
 re-injection when ``QUERY_TAG`` is already present in ``_statement_params``.
+
+The caller file/line enrichment is gated by
+``snowpark.connect.addDebugInfoToQueryTag``. The ``scos_internal_query`` marker
+is not: it records statement origin rather than debug detail, so filtering SCOS
+plumbing out of query history works regardless of that config.
 """
 from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 from snowflake import snowpark
 from snowflake.snowpark._internal.server_connection import ServerConnection
@@ -28,13 +34,55 @@ from snowflake.snowpark.session import _get_active_session
 from snowflake.snowpark_connect.server_common import _client_telemetry_context
 
 DEFAULT_SCOS_QUERY_TAG = "SNOWPARK_CONNECT_QUERY"
+SCOS_INTERNAL_QUERY_KEY = "scos_internal_query"
 SNOWFLAKE_QUERY_TAG_MAX_LENGTH = 2000
+
+
+@contextmanager
+def scos_internal_query_tag() -> Iterator[None]:
+    """Tag statements issued inside this block as SCOS-internal.
+
+    SCOS plumbing queries run while a user request is in flight, so query
+    history cannot tell them apart from the user's own SQL — the notebook repro
+    had 3420 internal ``SELECT CURRENT_DATABASE()`` queries indistinguishable
+    from user statements.
+
+    Statements in this block get an additional ``scos_internal_query: true`` key
+    in their query tag. This is purely additive: the base tag, any uw_*
+    attribution and the caller frame are all preserved, so nothing a user or a
+    workload run put there is lost. The marker exists so the Snowflake-side UI
+    can recognise SCOS's own queries and hide them.
+
+    Nested use is safe: the previous value is restored on exit.
+    """
+    previous = getattr(_client_telemetry_context, "internal_query", False)
+    _client_telemetry_context.internal_query = True
+    try:
+        yield
+    finally:
+        _client_telemetry_context.internal_query = previous
 
 
 def _is_add_debug_info_to_query_tag_enabled() -> bool:
     from snowflake.snowpark_connect.config import is_add_debug_info_to_query_tag_enabled
 
     return is_add_debug_info_to_query_tag_enabled()
+
+
+def is_internal_query() -> bool:
+    """True while inside :func:`scos_internal_query_tag`."""
+    return getattr(_client_telemetry_context, "internal_query", False)
+
+
+def _should_inject_query_tag() -> bool:
+    """Whether to attach a statement-level QUERY_TAG.
+
+    The internal marker is not debug info — it records where the statement came
+    from, so filtering SCOS plumbing out of query history has to work even when
+    ``addDebugInfoToQueryTag`` is off. Only the caller file/line enrichment is
+    gated by that config.
+    """
+    return _is_add_debug_info_to_query_tag_enabled() or is_internal_query()
 
 
 def store_client_stack_trace(client_stack_info: list[dict[str, Any]] | None) -> None:
@@ -147,6 +195,16 @@ def build_scos_query_tag_json(
     else:
         payload = {"tag": base or DEFAULT_SCOS_QUERY_TAG}
 
+    if is_internal_query():
+        # SCOS plumbing. Purely additive: everything already built stays —
+        # the base ``tag`` (including a user's own structured JSON tag), the
+        # uw_* attribution, and the caller frame added below. All this adds is
+        # a flag the Snowflake-side UI can filter on to hide SCOS's own
+        # queries. Nothing is clobbered, so a workload's setup queries still
+        # belong to that workload run and a user's tag survives
+        # (SNOW-4183579).
+        payload[SCOS_INTERNAL_QUERY_KEY] = True
+
     if frame is None:
         frame = get_top_client_stack_frame()
     if frame:
@@ -206,10 +264,16 @@ def _fit_query_tag_json(payload: dict[str, Any]) -> str:
     # cap, drop them one at a time; ``{"tag": DEFAULT}`` is short and always fits.
     protected = {k: v for k, v in trimmed.items() if k.startswith("uw_")}
     protected["tag"] = DEFAULT_SCOS_QUERY_TAG
+    # The internal marker rides along: it is what the UI filters SCOS plumbing
+    # on, and at ~27 bytes it never meaningfully competes for the budget.
+    # Dropping it here would silently un-hide exactly the queries this flag
+    # exists to hide.
+    if trimmed.get(SCOS_INTERNAL_QUERY_KEY):
+        protected[SCOS_INTERNAL_QUERY_KEY] = True
     encoded = json.dumps(protected, separators=(",", ":"))
     if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
         return encoded
-    for key in [k for k in protected if k != "tag"]:
+    for key in [k for k in protected if k not in ("tag", SCOS_INTERNAL_QUERY_KEY)]:
         protected.pop(key)
         encoded = json.dumps(protected, separators=(",", ":"))
         if len(encoded) <= SNOWFLAKE_QUERY_TAG_MAX_LENGTH:
@@ -221,7 +285,7 @@ def enrich_statement_params(
     statement_params: dict[str, str] | None,
     session: snowpark.Session | None,
 ) -> dict[str, str] | None:
-    if not _is_add_debug_info_to_query_tag_enabled():
+    if not _should_inject_query_tag():
         return statement_params
 
     result = dict(statement_params or {})
@@ -233,7 +297,7 @@ def inject_query_tag_kwargs(
     kwargs: dict[str, Any],
     session: snowpark.Session | None = None,
 ) -> dict[str, Any]:
-    if not _is_add_debug_info_to_query_tag_enabled():
+    if not _should_inject_query_tag():
         return kwargs
     params = kwargs.get("_statement_params")
     if params and QUERY_TAG_STRING in params:

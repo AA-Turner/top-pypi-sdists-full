@@ -232,13 +232,309 @@
     return describe(el);
   }
 
+  // --- what counts as a photo. A blank ad slot carries a skeleton gradient, a spinner or a tiny
+  // inline image as its "background"; none of those is content. The lists come from the host
+  // (press.clip knobs) through clip(o).photo; these defaults are the knob seeds. ---
+  const PHOTO_DEFAULTS = {
+    inlineImageMaxChars: 4096,
+    spinnerPatterns: ['spinner', 'loader', 'loading.gif', 'loading.svg', 'loading.png', 'placeholder',
+      'skeleton', 'shimmer', 'spacer.gif', 'blank.gif', 'blank.png', 'transparent.gif', 'transparent.png',
+      'pixel.gif', '1x1'],
+    adSlotSizes: [[300, 250], [300, 600], [728, 90], [970, 250], [970, 90], [320, 50], [320, 100],
+      [336, 280], [160, 600], [120, 600], [300, 50], [468, 60], [250, 250], [200, 200], [300, 1050]],
+    adSlotTolerancePx: 4,
+    // an <img> whose real picture waits in one of these attributes (lazy loading) is a real image
+    lazyImageAttributes: ['data-src', 'data-lazy-src', 'data-srcset', 'data-lazy-srcset', 'data-original',
+      'data-lazy', 'data-hi-res-src', 'data-full-src', 'srcset'],
+    // an <iframe> from one of these hosts is an embedded video: content, never junk or an ad slot
+    videoEmbedHosts: ['youtube.com', 'youtube-nocookie.com', 'youtu.be', 'vimeo.com', 'dailymotion.com',
+      'dai.ly', 'players.brightcove.net', 'jwplayer.com', 'jwplatform.com', 'wistia.com', 'wistia.net',
+      'vidyard.com', 'loom.com', 'facebook.com/plugins/video', 'tiktok.com/embed', 'twitch.tv', 'rumble.com',
+      'streamable.com', 'cdn.jwplayer.com', 'video.ibm.com', 'ted.com'],
+    // an exact ad token (a whole word of a class, id or data-* name, split on - _ and camelCase; "gpt-ad"
+    // is two words in a row) marks an ad; ad-hoc, ad-free, no-ads and other negations or compounds never do
+    adMarkerWords: ['ad', 'ads', 'advert', 'advertisement', 'sponsored', 'dfp', 'gpt-ad', 'adslot', 'ad-slot',
+      'ad-container', 'taboola', 'outbrain'],
+    // an <iframe> from one of these hosts is an editorial embed — a chart, audio, a social post: content
+    editorialEmbedHosts: ['datawrapper.dwcdn.net', 'dwcdn.net', 'datawrapper.de', 'flo.uri.sh', 'flourish.studio',
+      'infogram.com', 'e.infogram.com', 'public.tableau.com', 'open.spotify.com', 'w.soundcloud.com',
+      'soundcloud.com', 'embed.podcasts.apple.com', 'platform.twitter.com', 'twitter.com', 'x.com',
+      'instagram.com', 'bsky.app', 'embed.bsky.app', 'threads.net', 'tiktok.com/embed', 'google.com/maps/embed',
+      'scribd.com', 'documentcloud.org', 'embed.documentcloud.org', 'genially.com', 'knightlab.com'],
+    // a link, picture, frame or video from one of these hosts is an ad, whatever media it carries; so is a
+    // link whose utm_source names one of them
+    adNetworkHosts: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'googletagservices.com',
+      'adservice.google.com', 'taboola.com', 'taboolasyndication.com', 'outbrain.com', 'outbrainimg.com',
+      'adnxs.com', 'adsrvr.org', 'criteo.com', 'criteo.net', 'amazon-adsystem.com', 'pubmatic.com',
+      'rubiconproject.com', 'openx.net', 'adform.net', 'smartadserver.com', 'teads.tv', 'yieldmo.com',
+      'sharethrough.com', 'triplelift.com', '3lift.com', 'moatads.com', 'revcontent.com', 'mgid.com',
+      'zergnet.com', 'nativo.com', 'ntv.io', 'spotxchange.com', 'springserve.com', 'primis.tech'],
+    // an inline <svg> or <canvas> this many pixels on its shorter side is a drawing (a chart), never a spinner
+    drawingMinSidePx: 64,
+  };
+  let photoRules = PHOTO_DEFAULTS;
+  const setPhotoRules = (p) => { photoRules = Object.assign({}, PHOTO_DEFAULTS, p || {}); };
+
+  // A url() worth keeping: not a data-URI under the size threshold, not a spinner FILE. The spinner
+  // patterns are matched against the file name only: "/photos/1x1/owner.jpg" (a ratio crop),
+  // Cloudinary's "ar_1x1" and a "/placeholders-replaced/" folder are real pictures; "1x1.gif" is not.
+  const isRealImageUrl = (url) => {
+    const u = (url || '').trim();
+    if (!u) return false;
+    if (/^data:/i.test(u) && u.length < photoRules.inlineImageMaxChars) return false;
+    let probe;
+    if (/^data:/i.test(u)) probe = u.slice(0, 64);
+    else {
+      const path = u.split(/[?#]/)[0];
+      probe = path.slice(path.lastIndexOf('/') + 1) || path;
+    }
+    probe = probe.toLowerCase();
+    return !photoRules.spinnerPatterns.some((p) => p && probe.includes(String(p).toLowerCase()));
+  };
+
+  // The first URL of a src or srcset value.
+  const firstUrl = (v) => (v || '').trim().split(/[\s,]+/)[0] || '';
+
+  // An <iframe> embedding a video from a known player host (see isListedEmbed).
+  const isVideoEmbed = (n) => isListedEmbed(n, photoRules.videoEmbedHosts);
+
+  // The url() images of a computed background-image; gradients are never a url().
+  const backgroundUrls = (bg) => {
+    const out = [];
+    const re = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi;
+    let m;
+    while ((m = re.exec(bg || ''))) out.push(m[1] ?? m[2] ?? m[3] ?? '');
+    return out;
+  };
+
+  const hasBackgroundImage = (el) => {
+    const bg = getComputedStyle(el).backgroundImage;
+    if (!bg || bg === 'none') return false;
+    return backgroundUrls(bg).some(isRealImageUrl);
+  };
+
+  // A host (or host + path) on one of these lists, matched on the URL's HOST first: "cdn.jwplayer.com" is
+  // on "jwplayer.com"; "tiktok.com/embed" needs the host tiktok.com and a path starting /embed, so
+  // "adserver-example.com/serve/tiktok.com/embed" is on nothing.
+  const hostOnList = (src, list) => {
+    if (!src) return false;
+    let u;
+    try { u = new URL(src, location.href); } catch (e) { return false; }
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.toLowerCase();
+    return (list || []).some((h) => {
+      const want = String(h || '').toLowerCase().replace(/^https?:\/\//, '');
+      if (!want) return false;
+      const cut = want.indexOf('/');
+      const wantHost = cut === -1 ? want : want.slice(0, cut);
+      const wantPath = cut === -1 ? '' : want.slice(cut);
+      if (!(host === wantHost || host.endsWith('.' + wantHost))) return false;
+      return !wantPath || path === wantPath || path.startsWith(wantPath.replace(/\/$/, '') + '/');
+    });
+  };
+
+  // The words of a name ("dfp-AdSlot_top" -> dfp, ad, slot, top): split on - _ . / space and camelCase.
+  // Each word knows whether camelCase glued it to the word before ("headAd": ad is glued to head).
+  const nameWords = (v) => {
+    const out = [];
+    String(v || '').split(/[^A-Za-z0-9]+/).filter(Boolean).forEach((chunk) => {
+      chunk.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(' ').filter(Boolean)
+        .forEach((w, k) => out.push({ w, glued: k > 0 }));
+    });
+    return out;
+  };
+  const nameParts = (v) => nameWords(v).map((x) => x.w);
+  // Words after an ad word that make it a negation or a compound: ad-hoc, ad-free, ad-blocker, ad-less,
+  // ads-disabled, data-ad-exclude, data-ad-position (where an ad goes beside this box, never the box).
+  const NOT_AD_AFTER = ['hoc', 'free', 'block', 'blocker', 'blocking', 'blocked', 'less', 'lib', 'libs',
+    'disabled', 'disable', 'off', 'exclude', 'excluded', 'position'];
+  const NOT_AD_BEFORE = ['no', 'non', 'anti', 'without'];
+  // A layout word that "ad" follows in one compound ("headAd", the class pair "lead ad") names a part of the
+  // page, never an ad.
+  const LAYOUT_BEFORE_AD = ['head', 'header', 'lead', 'masthead', 'hero', 'top', 'side', 'sidebar', 'foot',
+    'footer', 'rail', 'inline', 'mid', 'main', 'body'];
+  const AD_WORDS = ['ad', 'ads'];
+  // An exact ad token (adMarkerWords; "gpt-ad" is the two words gpt, ad in a row) in a name's words.
+  const hasAdToken = (v, tokens) => {
+    const words = nameWords(v);
+    const parts = words.map((x) => x.w);
+    return (tokens || photoRules.adMarkerWords || []).some((t) => {
+      const want = nameParts(t);
+      if (!want.length) return false;
+      for (let i = 0; i + want.length <= parts.length; i++) {
+        if (!want.every((w, k) => parts[i + k] === w)) continue;
+        if (NOT_AD_AFTER.includes(parts[i + want.length]) || NOT_AD_BEFORE.includes(parts[i - 1])) continue;
+        if (want.length === 1 && AD_WORDS.includes(want[0]) && words[i].glued
+          && LAYOUT_BEFORE_AD.includes(parts[i - 1])) continue;
+        return true;
+      }
+      return false;
+    });
+  };
+  // Ad attributes. Only a KNOWN ad-server attribute is strong alone (the AdSense / GPT slot attributes), plus
+  // data-sponsor / data-sponsored with a truthy value. A data-ad-* or data-sponsor-* attribute whose name or
+  // value says avoid, skip, ignore, none, break, insertion point, credit or exclude is the site telling its ad
+  // code where NOT to go (or crediting a photo): editorial, never an ad mark. Any other data-ad-* is weak.
+  const STRONG_AD_ATTRS = ['data-ad-slot', 'data-ad-unit', 'data-ad-client', 'data-google-query-id',
+    'data-ad-format', 'data-ad-size', 'data-adunit', 'data-ad-placement-id'];
+  const EDITORIAL_AD_ATTR_WORDS = ['avoid', 'skip', 'ignore', 'ignored', 'none', 'break', 'insertion',
+    'insert', 'credit', 'credits', 'exclude', 'excluded'];
+  const FALSY_ATTR_VALUES = ['', 'false', '0', 'no', 'none', 'off', 'null', 'undefined'];
+  const isAdAttrName = (name) => /^data-(ads?|adunit|sponsor|sponsored|sponsorship)(-|$)/.test(name);
+  const editorialAdAttr = (a) => {
+    const name = a.name.toLowerCase();
+    if (!isAdAttrName(name)) return false;
+    return [...nameParts(name.slice(5)), ...nameParts(a.value)].some((w) => EDITORIAL_AD_ATTR_WORDS.includes(w));
+  };
+  const strongAdAttr = (a) => {
+    const name = a.name.toLowerCase();
+    if (editorialAdAttr(a)) return false;
+    if (STRONG_AD_ATTRS.includes(name)) return true;
+    if (name === 'data-sponsor' || name === 'data-sponsored') {
+      return !FALSY_ATTR_VALUES.includes(String(a.value || '').trim().toLowerCase());
+    }
+    return false;
+  };
+  // A STRONG ad mark on one element, enough alone: a class that is exactly "ad" or "ads" (never after a
+  // layout class: "lead ad"), an "advertorial" class or id word, or a known ad attribute (strongAdAttr).
+  const STRONG_AD_WORDS = ['advertorial', 'advertorials'];
+  const strongAdMark = (n) => {
+    if (!n || n.nodeType !== 1) return false;
+    const cls = (typeof n.className === 'string' ? n.className : (n.className && n.className.baseVal) || '')
+      .split(/\s+/).filter(Boolean);
+    if (cls.some((c, i) => AD_WORDS.includes(c.toLowerCase())
+      && !LAYOUT_BEFORE_AD.includes(String(cls[i - 1] || '').toLowerCase()))) return true;
+    if (cls.some((c) => hasAdToken(c, STRONG_AD_WORDS)) || (n.id && hasAdToken(n.id, STRONG_AD_WORDS))) return true;
+    return [...n.attributes].some(strongAdAttr);
+  };
+  // An embed URL that is itself an ad: an ad token in its path ("/widgets/promoted.html",
+  // "/players/AdUnit1.html"), or "promoted" / "sponsored" in its query ("?pb=sponsored-pin").
+  const EMBED_AD_PATH = ['ad', 'ads', 'advert', 'advertisement', 'sponsored', 'promoted', 'adslot', 'adunit'];
+  const embedUrlIsAd = (src) => {
+    let u;
+    try { u = new URL(src, location.href); } catch (e) { return false; }
+    return hasAdToken(u.pathname.replace(/\.[a-z0-9]+$/i, ''), EMBED_AD_PATH)
+      || hasAdToken(decodeURIComponent(u.search || ''), ['promoted', 'sponsored', 'advertisement']);
+  };
+  // An <iframe> from a host on ``list`` whose URL carries no ad mark.
+  const isListedEmbed = (n, list) => {
+    if (!n || n.tagName !== 'IFRAME') return false;
+    const src = n.getAttribute('src') || n.getAttribute('data-src') || '';
+    return hostOnList(src, list) && !embedUrlIsAd(src);
+  };
+
+  // An <iframe> embedding editorial content — a chart, a podcast, a social post — from a known host.
+  // A promoted post from platform.twitter.com is an ad, not editorial.
+  const isEditorialEmbed = (n) => isListedEmbed(n, photoRules.editorialEmbedHosts);
+
+  // An inline <svg> or <canvas> drawn big enough to be a chart, not a spinner or an icon.
+  const isDrawing = (m) => {
+    const r = m.getBoundingClientRect();
+    if (Math.min(r.width, r.height) < (photoRules.drawingMinSidePx || 0)) return false;
+    const cls = ((typeof m.className === 'string' ? m.className : (m.className && m.className.baseVal) || '') + ' '
+      + (m.id || '')).toLowerCase();
+    return !photoRules.spinnerPatterns.some((p) => p && cls.includes(String(p).toLowerCase()));
+  };
+
+  // One element showing real media: a real src, a real picture waiting in a lazy-loading attribute
+  // (data-src, data-lazy-src, srcset…), a <video> with any source (a lazy <source> included), an embedded
+  // video player or editorial embed, or an inline chart (<svg>, <canvas>).
+  const isRealMediaEl = (m) => {
+    const tag = (m.localName || '').toLowerCase();
+    if (tag === 'video') {
+      return !!(m.currentSrc || m.getAttribute('src') || m.getAttribute('poster') || m.querySelector('source'));
+    }
+    if (tag === 'iframe') return isVideoEmbed(m) || isEditorialEmbed(m);
+    if (tag === 'svg' || tag === 'canvas') return isDrawing(m);
+    if (isRealImageUrl(m.currentSrc || m.getAttribute('src') || firstUrl(m.getAttribute('srcset')))) return true;
+    return (photoRules.lazyImageAttributes || []).some((a) => isRealImageUrl(firstUrl(m.getAttribute(a))));
+  };
+  const MEDIA_ELEMENTS = 'img, picture source, video, iframe, svg, canvas';
+  const realMedia = (el) => [...el.querySelectorAll(MEDIA_ELEMENTS)].filter(isRealMediaEl);
+  const hasRealMedia = (el) => realMedia(el).length > 0;
+
+  // An ad URL: a host on adNetworkHosts, an ad-network sub-domain whose label IS an ad token
+  // ("ads.example.net", never "ads-media.example.com"), a utm_source naming a network, or a paid utm_medium.
+  const AD_UTM_MEDIUMS = ['cpc', 'ppc', 'paid', 'display', 'native', 'sponsored', 'paidsocial', 'paid_social'];
+  const isAdUrl = (src) => {
+    if (!src || /^(data|blob|javascript):/i.test(src)) return false;
+    if (hostOnList(src, photoRules.adNetworkHosts)) return true;
+    let u;
+    try { u = new URL(src, location.href); } catch (e) { return false; }
+    const marks = (photoRules.adMarkerWords || []).map((w) => String(w).toLowerCase());
+    if (u.hostname.toLowerCase().split('.').slice(0, -2).some((l) => marks.includes(l))) return true;
+    const networks = (photoRules.adNetworkHosts || []).map((h) => String(h).toLowerCase().split('.')[0]);
+    const source = (u.searchParams.get('utm_source') || '').toLowerCase();
+    const medium = (u.searchParams.get('utm_medium') || '').toLowerCase();
+    return (source && networks.includes(source)) || AD_UTM_MEDIUMS.includes(medium);
+  };
+  const AD_LABEL_WORDS = ['ad', 'ads', 'advert', 'advertisement', 'advertising', 'advertorial', 'sponsored',
+    'promoted', 'paid'];
+  const isAdLabel = (text) => {
+    const words = norm(text).toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter(Boolean);
+    return words.length > 0 && words.length <= 4 && AD_LABEL_WORDS.includes(words[0]);
+  };
+  // An ad TOKEN on one element: an exact ad token (adMarkerWords) in a class, its id or a data-* attribute
+  // name ("data-ad-slot", never "data-ad-free"). Negations and compounds never count (hasAdToken), nor an
+  // editorial ad attribute ("data-ad-avoid", "data-sponsor-credit": editorialAdAttr).
+  const adToken = (n) => {
+    if (!n || n.nodeType !== 1) return false;
+    const cls = typeof n.className === 'string' ? n.className : (n.className && n.className.baseVal) || '';
+    if (cls.split(/\s+/).some((c) => c && hasAdToken(c)) || (n.id && hasAdToken(n.id))) return true;
+    return [...n.attributes].some((a) => /^data-/i.test(a.name) && !editorialAdAttr(a) && hasAdToken(a.name.slice(5)));
+  };
+  // An ad URL on one element: its link, picture, frame or video is served by or goes to an ad network.
+  const adLink = (n) => !!n && n.nodeType === 1 && n.tagName === 'A' && isAdUrl(n.getAttribute('href'));
+  const adCreative = (n) => !!n && n.nodeType === 1 && n.tagName !== 'A'
+    && (['src', 'data-src', 'poster'].some((a) => isAdUrl(n.getAttribute(a))) || isAdUrl(firstUrl(n.getAttribute('srcset'))));
+  const adOwn = (n) => strongAdMark(n) || adToken(n) || adLink(n) || adCreative(n) || isAdLabel((n && n.getAttribute && n.getAttribute('aria-label')) || '');
+
+  // The box is an ad whatever media it carries only on TWO independent ad signals, never one: an ad
+  // token (class, id, data-* name), a link to an ad network, a creative served by one, and a standard ad
+  // size with no caption. An ad label ("Sponsored", "Advertisement") as the box's only text, or as the
+  // aria-label around its media, is enough alone. Every piece of real media in the box must sit inside
+  // an ad-marked element, so a photo beside an ad is never swept with it.
+  const isStrongAd = (el) => {
+    if (isAdLabel(el.innerText || '')) return true;
+    const all = [el, ...el.querySelectorAll('*')];
+    const media = realMedia(el);
+    const chain = (m) => { const out = []; for (let p = m; p; p = p.parentElement) { out.push(p); if (p === el) break; } return out; };
+    // With no real media (a spinner, a loading gif, an empty frame) one ad mark is enough.
+    if (!media.length && !all.some(hasBackgroundImage)) return all.some(adOwn);
+    // A strong mark (an exact "ad" class, advertorial, a known ad attribute) on the box, or around every
+    // piece of its media, is enough alone.
+    if (strongAdMark(el) || (media.length && media.every((m) => chain(m).some(strongAdMark)))) return true;
+    if (!media.every((m) => chain(m).some(adOwn))) return false;
+    if (media.some((m) => chain(m).some((p) => isAdLabel(p.getAttribute('aria-label') || '')))) return true;
+    const signals = new Set();
+    if (media.length ? media.every((m) => chain(m).some(adToken)) : all.some(adToken)) signals.add('token');
+    if (all.some(adLink)) signals.add('link');
+    if (all.some(adCreative)) signals.add('creative');
+    const captioned = !!el.querySelector('figcaption, [class*="caption" i]');
+    if (!captioned && isAdSlotSize(el.getBoundingClientRect())) signals.add('size');
+    // A photo set as a CSS background stays content unless an ad-network URL is one of the signals.
+    if (all.some(hasBackgroundImage) && !signals.has('link') && !signals.has('creative')) return false;
+    return signals.size >= 2;
+  };
+
+  const isAdSlotSize = (r) => photoRules.adSlotSizes.some(([w, h]) =>
+    Math.abs(r.width - w) <= photoRules.adSlotTolerancePx && Math.abs(r.height - h) <= photoRules.adSlotTolerancePx);
+
+  // --- is the client's name in the text as whole words? ("Coach" is not in "Coaching") ---
+  function textHasWholeName(text, name) {
+    const want = norm(name).toLowerCase();
+    if (!want) return false;
+    const escaped = want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '\\s+');
+    return new RegExp('(^|[^\\p{L}\\p{N}])' + escaped + '(?=$|[^\\p{L}\\p{N}])', 'u').test(norm(text).toLowerCase());
+  }
+
   // --- the surgery: isolate, de-junk, scope, sweep, stamp. Returns the record. ---
   function clip(o) {
+    setPhotoRules(o.photo);
     const outlet = outletName();
     const rootOverrideMatched = !!(o.root && document.querySelector(o.root));
     const articleRoot = pickContainer(o.root);
-    const clientName = norm(o.clientName).toLowerCase();
-    const clientFound = clientName ? norm(articleRoot.innerText).toLowerCase().includes(clientName) : false;
+    const clientFound = textHasWholeName(articleRoot.innerText, o.clientName);
 
     const protectedEls = new Set();
     (o.keep || []).forEach((sel) => {
@@ -265,7 +561,13 @@
     [...HARD_JUNK, ...(o.drop || [])].forEach((sel) => {
       let found;
       try { found = document.querySelectorAll(sel); } catch (e) { invalidDrop.push(sel); return; }
-      found.forEach((n) => { if (!n.contains(articleRoot) && !isProtected(n)) n.remove(); });
+      found.forEach((n) => {
+        if (n.contains(articleRoot) || isProtected(n)) return;
+        // an embedded video or editorial embed (a chart, audio, a social post) is the story's media; only
+        // the caller's own drop may remove it (one inside an ad box goes with the box, in the sweep)
+        if (sel === 'iframe' && (isVideoEmbed(n) || isEditorialEmbed(n))) return;
+        n.remove();
+      });
     });
 
     // widen the main column in case a removed sidebar left the article in a narrow grid track
@@ -300,9 +602,23 @@
       if (!el.isConnected || isProtected(el)) return;
       const r = el.getBoundingClientRect();
       if (r.height < 8 || r.width < 8) return;
-      if ((el.innerText || '').trim().length || el.querySelector(MEDIA)) return;
-      // a short box holding nothing but line breaks is a blank line of body text — typography, not a slot
-      if (r.height <= 48 && ![...el.querySelectorAll('*')].some((c) => c.tagName !== 'BR')) return;
+      const text = (el.innerText || '').trim();
+      if (text.length && !isAdLabel(text)) return;
+      // A strong ad signal (an ad-network link or creative, an ad or sponsor class, id or label around
+      // every piece of media in the box) makes it an ad whatever it carries — a picture, a video, a player.
+      if (!isStrongAd(el)) {
+        // A box holding real media — a real picture, a lazy-loaded one, a video, an embedded player, a
+        // chart, an editorial embed — is never swept.
+        if (hasRealMedia(el)) return;
+        // With no real media, a standard IAB size makes it an ad slot whatever spinner, skeleton or inline
+        // pixel it carries.
+        const adSlot = isAdSlotSize(r);
+        if (!adSlot && el.querySelector(MEDIA)) return;
+        // a photo set as a CSS background (on the box or anything inside it) is content, never a slot
+        if ([el, ...el.querySelectorAll('*')].some(hasBackgroundImage)) return;
+        // a short box holding nothing but line breaks is a blank line of body text — typography, not a slot
+        if (r.height <= 48 && ![...el.querySelectorAll('*')].some((c) => c.tagName !== 'BR')) return;
+      }
       const cls = (typeof el.className === 'string' && el.className.trim()) ? '.' + el.className.trim().split(/\s+/).join('.') : '';
       removed.push(el.tagName.toLowerCase() + cls + ' [' + Math.round(r.width) + '×' + Math.round(r.height) + ']');
       el.remove();
@@ -377,5 +693,5 @@
     return removed;
   }
 
-  window.__pressClip = { describe, readMeta, headlineElement, detectMastheadLogo, detectLogoFallback, candidates, pickContainer, markContainer, clip, finalSweep };
+  window.__pressClip = { PHOTO_DEFAULTS, describe, readMeta, headlineElement, detectMastheadLogo, detectLogoFallback, candidates, pickContainer, markContainer, clip, finalSweep };
 })();

@@ -18,8 +18,17 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
+from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
     _ASSET_REL_FIELDS,
     Asset,
@@ -46,15 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .app_related import RelatedApplication, RelatedApplicationField
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -613,6 +613,7 @@ def _application_to_nested(application: Application) -> ApplicationNested:
         is_incomplete=application.is_incomplete,
         provenance_type=application.provenance_type,
         home_id=application.home_id,
+        delete_handler=application.delete_handler,
         depth=application.depth,
         immediate_upstream=application.immediate_upstream,
         immediate_downstream=application.immediate_downstream,
@@ -659,6 +660,7 @@ def _application_from_nested(nested: ApplicationNested) -> Application:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -682,10 +684,7 @@ def _application_from_nested_bytes(data: bytes, serde: Serde) -> Application:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 Application.APP_ID = KeywordField("appId", "appId")
 Application.CATALOG_DATASET_GUID = KeywordField(

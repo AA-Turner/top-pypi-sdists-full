@@ -13,7 +13,11 @@ void print_buf(size_t offset, uint8_t *buf, size_t size);
 
 class FtdiDriver {
 public:
-  typedef unsigned int DWORD;
+#ifdef _WIN32
+  using DWORD = ::DWORD;
+#else
+  using DWORD = unsigned int;
+#endif
   static const unsigned GPIO2 = 2;
   static const unsigned GPIO3 = 3;
 
@@ -28,7 +32,7 @@ public:
 
   // Open a connection to an automatically located FTDI device
   // Returns status, 0 for success
-  int Open();
+  int Open(DWORD target_id = 0);
 
   // Open with given SPI clock parameters
   int OpenClk(unsigned sys_clk, unsigned clk_div, DWORD target_id = 0);

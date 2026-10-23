@@ -167,6 +167,12 @@ class _ResolveMissingReferencesInFilter:
             input_container.table_name,
             input_container.alias,
             cached_schema_getter=lambda: input_df.schema,
+        ).with_known_schema(
+            # The result keeps only the visible columns, so hidden ones would
+            # leave the schema out of line with it.
+            None
+            if input_container.has_hidden_columns()
+            else input_container.known_schema()
         )
 
 

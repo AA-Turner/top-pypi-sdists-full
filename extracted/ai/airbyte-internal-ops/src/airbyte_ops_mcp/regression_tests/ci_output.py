@@ -210,17 +210,52 @@ def github_artifacts_url() -> str | None:
     return f"{run_url}#artifacts"
 
 
-def _pk_integrity_cell(uniqueness_info: dict[str, Any]) -> str:
+def _pk_integrity_cell(uniqueness_info: dict[str, Any], side: str) -> str:
     """Render one version's PK integrity as a table cell.
 
-    Shows the duplicate PK count, plus the number of records missing their
-    declared PK values when there are any (the check fails on either).
+    Shows the duplicate PK count split into what the target did not introduce
+    (pre-existing in both versions, or fixed in the target: a warning) and
+    what it did (new: a failure), plus the number of records missing their
+    declared PK values when there are any (a failure on either side). The
+    control's own duplicates the target dropped or changed records of are
+    named apart ("with dropped or changed records"): the field values or PK
+    presence fail on them, so this cell only warns. The status closes the cell, after every finding,
+    so it reads as the verdict on all of them: `1 (pre-existing), 1 missing
+    PK ❌`.
     """
     duplicate_count = uniqueness_info.get("duplicate_pk_count", 0)
-    cell = f"{duplicate_count} {'✅' if uniqueness_info.get('passed', True) else '❌'}"
+    pre_existing = uniqueness_info.get("pre_existing_duplicate_pk_count", 0)
+    if side == "target":
+        own = [(uniqueness_info.get("new_duplicate_pk_count", 0), "new")]
+    else:
+        own = [
+            (uniqueness_info.get("fixed_duplicate_pk_count", 0), "fixed in target"),
+            (
+                uniqueness_info.get("lost_duplicate_pk_count", 0),
+                "with dropped or changed records",
+            ),
+        ]
+    own = [(count, label) for count, label in own if count]
+
+    if pre_existing and not own:
+        cell = f"{pre_existing} (pre-existing)"
+    elif own and not pre_existing and len(own) == 1:
+        cell = f"{own[0][0]} {own[0][1]}"
+    elif own:
+        parts = [f"{pre_existing} pre-existing"] if pre_existing else []
+        parts += [f"{count} {label}" for count, label in own]
+        cell = f"{duplicate_count} ({', '.join(parts)})"
+    else:
+        cell = str(duplicate_count)
     records_missing_pk = uniqueness_info.get("records_missing_pk", 0)
     if records_missing_pk:
-        cell += f" ({records_missing_pk} missing PK)"
+        cell += f", {records_missing_pk} missing PK"
+    if not uniqueness_info.get("passed", True):
+        cell += " ❌"
+    elif duplicate_count:
+        cell += " ⚠️"
+    else:
+        cell += " ✅"
     return cell
 
 
@@ -252,10 +287,11 @@ def _render_record_comparison_section(
         (
             "Checks: directional record counts (target ≥ control), primary key "
             + "presence (all control PKs must appear in target), PK integrity "
-            + "(per version: no duplicate PK values, no records missing their "
-            + "declared PK values), and field-value equality on PK-matched "
-            + "records. Streams without a primary key fall back to count "
-            + "comparison only."
+            + "(per version: no records missing their declared PK values, and "
+            + "no duplicate PK values the target introduced — duplicates present "
+            + "in both versions are pre-existing and only warn), and field-value "
+            + "equality on PK-matched records. Streams without a primary key "
+            + "fall back to count comparison only."
         ),
         "",
         "| Stream | Count (C → T) | Missing PKs | Dup PKs (control) | Dup PKs (target) | Value Diffs | Result |",
@@ -273,15 +309,24 @@ def _render_record_comparison_section(
     for stream in all_streams:
         count_info = counts.get(stream, {})
         count_pass = count_info.get("passed", True)
-        count_cell = (
-            f"{count_info.get('control_count', 0)} → "
-            f"{count_info.get('target_count', 0)} "
-            f"{'✅' if count_pass else '❌'}"
-        )
+        control_count = count_info.get("control_count", 0)
+        target_count = count_info.get("target_count", 0)
+        # A count that passes with fewer target records passed on the
+        # duplicate-row allowance: the shortfall is within the duplicate rows
+        # the target dropped.
+        count_warned = count_pass and target_count < control_count
+        if not count_pass:
+            count_status = "❌"
+        elif count_warned:
+            count_status = "⚠️"
+        else:
+            count_status = "✅"
+        count_cell = f"{control_count} → {target_count} {count_status}"
 
         if stream in streams_without_pk:
             missing_cell = dup_control_cell = dup_target_cell = diff_cell = "—"
             stream_passed = count_pass
+            stream_warned = count_warned
         else:
             presence_info = pk_presence.get(stream, {})
             missing = presence_info.get("missing_pk_count", 0)
@@ -290,16 +335,26 @@ def _render_record_comparison_section(
             )
 
             dup_control = uniqueness_control.get(stream, {})
-            dup_control_cell = _pk_integrity_cell(dup_control)
+            dup_control_cell = _pk_integrity_cell(dup_control, "control")
 
             dup_target = uniqueness_target.get(stream, {})
-            dup_target_cell = _pk_integrity_cell(dup_target)
+            dup_target_cell = _pk_integrity_cell(dup_target, "target")
 
             field_info = field_values.get(stream, {})
             diff_count = field_info.get("records_with_value_diff", 0)
-            diff_cell = (
-                f"{diff_count} {'✅' if field_info.get('passed', True) else '❌'}"
-            )
+            # Identical copies the target added under an already-duplicated
+            # PK warn; they are not value diffs.
+            added_copies = field_info.get("added_copy_count", 0)
+            diff_cell = str(diff_count)
+            if added_copies:
+                copies = "copy" if added_copies == 1 else "copies"
+                diff_cell += f", {added_copies} added {copies}"
+            if not field_info.get("passed", True):
+                diff_cell += " ❌"
+            elif added_copies:
+                diff_cell += " ⚠️"
+            else:
+                diff_cell += " ✅"
 
             stream_passed = all(
                 info.get("passed", True)
@@ -311,8 +366,21 @@ def _render_record_comparison_section(
                     field_info,
                 )
             )
+            stream_warned = (
+                count_warned
+                or bool(added_copies)
+                or any(
+                    info.get("duplicate_pk_count", 0)
+                    for info in (dup_control, dup_target)
+                )
+            )
 
-        result_cell = "✅" if stream_passed else "❌"
+        if not stream_passed:
+            result_cell = "❌"
+        elif stream_warned:
+            result_cell = "⚠️"
+        else:
+            result_cell = "✅"
         # Stream names are connector-controlled: a `|` would split the row
         # into extra columns and a newline would end the table entirely.
         stream_cell = " ".join(stream.split()).replace("|", "\\|")

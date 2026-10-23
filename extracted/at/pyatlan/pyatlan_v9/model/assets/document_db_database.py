@@ -19,6 +19,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -41,6 +49,7 @@ from .dbt_related import (
     RelatedDbtSource,
     RelatedDbtTest,
 )
+from .document_db_related import RelatedDocumentDBCollection, RelatedDocumentDBDatabase
 from .fabric_related import RelatedFabricWorkspace
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
@@ -60,15 +69,6 @@ from .sql_insight_related import (
     RelatedSqlInsightJoin,
 )
 from .sql_related import RelatedSchema
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .document_db_related import RelatedDocumentDBCollection, RelatedDocumentDBDatabase
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -1116,6 +1116,7 @@ def _document_db_database_to_nested(
         is_incomplete=document_db_database.is_incomplete,
         provenance_type=document_db_database.provenance_type,
         home_id=document_db_database.home_id,
+        delete_handler=document_db_database.delete_handler,
         depth=document_db_database.depth,
         immediate_upstream=document_db_database.immediate_upstream,
         immediate_downstream=document_db_database.immediate_downstream,
@@ -1166,6 +1167,7 @@ def _document_db_database_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

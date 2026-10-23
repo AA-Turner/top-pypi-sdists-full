@@ -30,7 +30,7 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
-from bitfab import baml_auto_trace, jev, openrouter, subtree
+from bitfab import baml_auto_trace, jev, provider_calls, subtree
 from bitfab.baml import run_function_with_baml
 from bitfab.categories import CategoriesClient
 from bitfab.client_patching import node_owns_next_call
@@ -280,20 +280,20 @@ def _build_jev_auto_run(
     return _renamed_run(run, jev.SYSTEM_ONE, span_name)
 
 
-def _build_openrouter_auto_run(
-    span_name: str, original: Callable[..., Any]
+def _build_provider_auto_run(
+    call: provider_calls.ProviderCall, span_name: str, original: Callable[..., Any]
 ) -> Callable[..., Any]:
     original_code = getattr(original, "__code__", None)
 
-    if openrouter.is_async_create(original):
+    if provider_calls.is_async_create(original):
 
         async def run(self: Any, *args: Any, **kwargs: Any) -> Any:
             span = get_current_span()
             started_at = time.monotonic()
             with _hidden_original(original_code):
                 response = await original(self, *args, **kwargs)
-            openrouter.record_auto_traced_completion(
-                span, kwargs, response, _elapsed_ms(started_at)
+            provider_calls.record_auto_traced_completion(
+                call, span, kwargs, response, _elapsed_ms(started_at)
             )
             return response
 
@@ -304,12 +304,12 @@ def _build_openrouter_auto_run(
             started_at = time.monotonic()
             with _hidden_original(original_code):
                 response = original(self, *args, **kwargs)
-            openrouter.record_auto_traced_completion(
-                span, kwargs, response, _elapsed_ms(started_at)
+            provider_calls.record_auto_traced_completion(
+                call, span, kwargs, response, _elapsed_ms(started_at)
             )
             return response
 
-    return _renamed_run(run, openrouter.CREATE, span_name)
+    return _renamed_run(run, provider_calls.CREATE, span_name)
 
 
 def _record_baml_collector(collector: Any) -> None:
@@ -3644,7 +3644,7 @@ class Bitfab:
             llm_call = (
                 baml_auto_trace.resolve_call_target(fn)
                 or jev.resolve_call_target(fn)
-                or openrouter.resolve_call_target(fn)
+                or provider_calls.resolve_call_target(fn)
             )
             node_fn = fn if llm_call is None else llm_call
             calls_llm = (
@@ -3750,20 +3750,28 @@ class Bitfab:
             lambda: _build_jev_auto_run(span_name, original),
         )
 
-    def _openrouter_auto_traced_call(
-        self, span_name: str, original: Callable[..., Any]
+    def _provider_auto_traced_call(
+        self,
+        call: provider_calls.ProviderCall,
+        span_name: str,
+        original: Callable[..., Any],
     ) -> Callable[..., Any]:
         return self._llm_auto_traced_call(
-            span_name, original, self._openrouter_auto_run
+            span_name,
+            original,
+            lambda name, fn: self._provider_auto_run(call, name, fn),
         )
 
-    def _openrouter_auto_run(
-        self, span_name: str, original: Callable[..., Any]
+    def _provider_auto_run(
+        self,
+        call: provider_calls.ProviderCall,
+        span_name: str,
+        original: Callable[..., Any],
     ) -> Callable[..., Any]:
         return self._cached_llm_call(
             self._llm_auto_runs,
             original,
-            lambda: _build_openrouter_auto_run(span_name, original),
+            lambda: _build_provider_auto_run(call, span_name, original),
         )
 
     def _build_baml_auto_run(
@@ -4221,7 +4229,7 @@ class Bitfab:
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
             baml_auto_trace.install_import_hook()
             jev.install_import_hook()
-            openrouter.install_import_hook()
+            provider_calls.install_import_hook()
             body = _without_node_settings(fn)
             roots = subtree.roots_for(body)
             code = getattr(body, "__code__", None)
@@ -4237,7 +4245,7 @@ class Bitfab:
             def build() -> subtree.Session | None:
                 baml_auto_trace.instrument_loaded_clients()
                 jev.instrument_loaded_clients()
-                openrouter.instrument_loaded_clients()
+                provider_calls.instrument_loaded_clients()
                 current = get_current_span()
                 trace_id = getattr(current, "trace_id", None)
                 span_id = getattr(current, "id", None)
@@ -4629,16 +4637,144 @@ class Bitfab:
         Raises:
             ValueError: If ``fn`` has no ``__name__``.
         """
-        method_name = getattr(fn, "__name__", None)
-        if not method_name:
-            raise ValueError(
-                "wrap_openrouter requires a named function "
-                "(e.g., llm.chat.completions.create)."
+        return self._wrap_provider_call(
+            provider_calls.OPENROUTER,
+            fn,
+            on_response=on_response,
+            example="llm.chat.completions.create",
+            method="wrap_openrouter",
+        )
+
+    def wrap_anthropic(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a message to the Anthropic API to record
+        the call's prompt, model, token usage, and duration. Bitfab works out
+        the cost from the model and token counts.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the message unchanged. The request's ``system`` and
+        ``messages`` become the span's prompt, and one context entry holds
+        ``provider`` (``"anthropic"``), ``model``, ``inputTokens`` (every
+        prompt token, cache reads and cache writes included),
+        ``cachedInputTokens`` (cache reads), ``outputTokens``, and
+        ``durationMs``. Fields the response omits are left out.
+
+        Beneath a ``trace`` root, ``messages.create`` calls on an
+        ``anthropic`` client are already recorded without this wrapper as
+        their own ``llm`` span named ``Messages.create`` (or
+        ``AsyncMessages.create``). Wrapping such a call records nothing more,
+        and ``node`` on the wrapper configures that one span. A call the
+        OpenAI Agents SDK or LangChain integration is already recording is
+        not recorded a second time. Streaming calls (``stream=True`` or
+        ``messages.stream``) are not recorded.
+
+        Example::
+
+            anthropic = Anthropic()
+            send = client.wrap_anthropic(anthropic.messages.create)
+            message = send(
+                model="claude-sonnet-4-5",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": text}],
             )
-        fn = openrouter.resolve_call_target(fn) or fn
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the message.
+            on_response: Called with each message after it is recorded.
+                Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            provider_calls.ANTHROPIC,
+            fn,
+            on_response=on_response,
+            example="anthropic.messages.create",
+            method="wrap_anthropic",
+        )
+
+    def wrap_openai_responses(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a request to the OpenAI Responses API to
+        record the call's prompt, model, token usage, and duration. Bitfab
+        works out the cost from the model and token counts.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the response unchanged. The request's ``instructions`` and
+        ``input`` become the span's prompt, and one context entry holds
+        ``provider`` (``"openai"``), ``model``, ``inputTokens``,
+        ``outputTokens``, ``cachedInputTokens``, ``reasoningTokens``,
+        ``costUsd`` (only when the response reports one), and ``durationMs``.
+        Fields the response omits are left out.
+
+        Beneath a ``trace`` root, ``responses.create`` calls on an ``openai``
+        client are already recorded without this wrapper as their own ``llm``
+        span named ``Responses.create`` (or ``AsyncResponses.create``).
+        Wrapping such a call records nothing more, and ``node`` on the wrapper
+        configures that one span. A call the OpenAI Agents SDK or LangChain
+        integration is already recording is not recorded a second time.
+        Streaming calls (``stream=True``) are not recorded.
+
+        Example::
+
+            llm = OpenAI()
+            respond = client.wrap_openai_responses(llm.responses.create)
+            response = respond(model="gpt-5", input=text)
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the response.
+            on_response: Called with each response after it is recorded.
+                Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        return self._wrap_provider_call(
+            provider_calls.OPENAI_RESPONSES,
+            fn,
+            on_response=on_response,
+            example="llm.responses.create",
+            method="wrap_openai_responses",
+        )
+
+    def _wrap_provider_call(
+        self,
+        call_type: provider_calls.ProviderCall,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None,
+        example: str,
+        method: str,
+    ) -> Callable[..., Any]:
+        if not getattr(fn, "__name__", None):
+            raise ValueError(f"{method} requires a named function (e.g., {example}).")
+        fn = provider_calls.resolve_call_target(fn) or fn
 
         def finish(
-            call: openrouter.WrapperCall,
+            call: provider_calls.WrapperCall,
             span: Any,
             request: Any,
             response: Any,
@@ -4646,8 +4782,8 @@ class Bitfab:
             framework_owned: bool,
         ) -> Any:
             if not framework_owned and not call.recorded():
-                openrouter.record_completion(
-                    span, request, response, _elapsed_ms(started_at)
+                provider_calls.record_completion(
+                    call_type, span, request, response, _elapsed_ms(started_at)
                 )
             if on_response is not None:
                 with contextlib.suppress(Exception):
@@ -4661,7 +4797,7 @@ class Bitfab:
             started_at: float,
             framework_owned: bool,
         ) -> Any:
-            with openrouter.wrapper_call() as call:
+            with provider_calls.wrapper_call() as call:
                 response = await awaitable
             return finish(call, span, request, response, started_at, framework_owned)
 
@@ -4669,11 +4805,11 @@ class Bitfab:
 
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 span = get_current_span()
-                framework_owned = openrouter.framework_records_call()
+                framework_owned = provider_calls.framework_records_call()
                 started_at = time.monotonic()
-                with openrouter.wrapper_call() as call:
+                with provider_calls.wrapper_call() as call:
                     response = await fn(*args, **kwargs)
-                request = openrouter.request_of(args, kwargs)
+                request = provider_calls.request_of(args, kwargs)
                 return finish(
                     call, span, request, response, started_at, framework_owned
                 )
@@ -4683,10 +4819,10 @@ class Bitfab:
 
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 span = get_current_span()
-                framework_owned = openrouter.framework_records_call()
+                framework_owned = provider_calls.framework_records_call()
                 started_at = time.monotonic()
-                request = openrouter.request_of(args, kwargs)
-                with openrouter.wrapper_call() as call:
+                request = provider_calls.request_of(args, kwargs)
+                with provider_calls.wrapper_call() as call:
                     response = fn(*args, **kwargs)
                 if inspect.isawaitable(response):
                     return finish_awaited(
@@ -4699,7 +4835,7 @@ class Bitfab:
             wrapper = sync_wrapper
 
         functools.update_wrapper(wrapper, fn)
-        setattr(wrapper, openrouter.OPENROUTER_CALL_MARKER, True)
+        setattr(wrapper, provider_calls.CALL_MARKER, call_type)
         return wrapper
 
     def get_trace(self, trace_id: str) -> DetachedTrace:
@@ -5599,3 +5735,54 @@ class BitfabFunction:
             A wrapper with the same signature and name as ``fn``
         """
         return self._client.wrap_openrouter(fn, on_response=on_response)
+
+    def wrap_anthropic(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a message to the Anthropic API to record
+        the call's prompt, model, token usage, and duration.
+
+        Delegates to ``Bitfab.wrap_anthropic``. See that method for details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the message
+            on_response: Called with each message after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_anthropic(fn, on_response=on_response)
+
+    def wrap_openai_responses(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a request to the OpenAI Responses API to
+        record the call's prompt, model, token usage, and duration.
+
+        Delegates to ``Bitfab.wrap_openai_responses``. See that method for
+        details.
+
+        Like ``wrap_openrouter``, it does not use the bound key and opens no
+        span of its own: it writes onto the span that is current when the call
+        starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the response
+            on_response: Called with each response after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_openai_responses(fn, on_response=on_response)

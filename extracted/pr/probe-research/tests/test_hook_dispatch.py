@@ -126,7 +126,12 @@ def test_every_entry_names_one_lane_of_its_own_event():
             lane = _lane(hook["command"])
             assert dispatch.LANE_EVENT[lane] == event
             lanes.append(lane)
-        assert sorted(lanes) == sorted(dispatch.LANE_EVENT), "every lane has exactly one entry"
+        hooked = set(dispatch.LANE_EVENT) - dispatch.ADAPTER_LANES
+        assert sorted(lanes) == sorted(hooked), "every lane but the adapter's has exactly one entry"
+    # An adapter lane's event is one Claude Code and Codex never fire: only
+    # `harness_io.py --event` (the Kimi manifest) runs it.
+    events = {event for event, _matcher, _hook in _entries(PLUGINS[0])}
+    assert not {dispatch.LANE_EVENT[lane] for lane in dispatch.ADAPTER_LANES} & events
 
 
 def test_entry_timeouts_leave_every_route_its_own():
@@ -142,6 +147,59 @@ def test_entry_timeouts_leave_every_route_its_own():
                 continue
             longest = max(h.get("timeout", 0) for g in wiring[event] if g["lane"] == lane for h in g["hooks"])
             assert dispatch.budget(lane) >= longest, f"{lane}: a route would lose time"
+
+
+#: Plan D36: every route, by lane and script, says whether it is record-keeping
+#: (True: nothing waits on its outcome, so on a host miss it is queued for the
+#: Probe service, which runs it once) or not (False: a decision, context or a
+#: message the agent waits on, which a miss runs where the agent is). routes.json
+#: spells only `"record_keeping": true`; a route without it waits, the safe side.
+#: A NEW ROUTE MUST BE ADDED HERE, with what it gives the agent.
+ROUTE_CLASSES = {
+    ("prompt", "tracking_guard.py"): False,  # refuses a switch move; the tracking context
+    ("prompt", "statusline_refresh.py"): True,  # silent always: a detached fetch warms the status line's marker
+    ("prompt", "note_audit.py"): False,  # the team note's audit line as context (once per session: queued, it is lost)
+    ("prompt", "approvals_hook.py"): False,  # the daemon's waiting question as context
+    ("prompt", "reads_hook.py"): False,  # claims daemon messages into the prompt's context
+    ("session-start", "session-start.sh"): False,  # the session's opening context
+    ("session-start", "statusline_refresh.py"): True,
+    ("session-start", "approvals_hook.py"): False,
+    ("pre-compact", "session-start.sh"): False,  # the context a compaction keeps
+    ("pre-tool", "tracking_guard.py"): False,  # allow / deny
+    ("pre-tool", "approvals_hook.py"): False,  # refuses a question not asked word for word
+    ("pre-tool", "papers_hook.py"): False,  # refuses a paper web search before `probe paper find`
+    ("pre-tool", "root_skills_sync.py skill-call"): False,  # the agent waits: it can refuse a Skill call (not record-keeping)
+    ("post-tool", "telemetry.py post-tool"): True,  # observability only, a detached sender
+    ("post-tool", "tracking_guard.py"): False,  # warns after a write that got through
+    ("post-tool", "statusline_refresh.py"): True,
+    ("post-tool", "approvals_hook.py"): False,  # the researcher's answer to the daemon's question
+    ("post-tool", "reads_hook.py"): False,  # claims daemon messages into the tool result's context
+    ("session-end", "telemetry.py session-end"): True,
+    ("session-end", "team-note-sync.sh"): True,  # a detached `probe notes sync`, silent
+    ("stop", "statusline_notify.py"): False,  # a status change as a message, once (queued, it is lost)
+    ("stop", "team-note-sync.sh"): True,  # a detached `probe notes sync --push-only`, silent
+    ("turn-started", "tracking_guard.py"): False,
+}
+
+
+@pytest.mark.parametrize("plugin", PLUGINS)
+def test_every_route_says_whether_it_is_record_keeping(plugin):
+    seen = set()
+    for event, groups in _wiring(plugin)["hooks"].items():
+        for group in groups:
+            for hook in group["hooks"]:
+                script = re.findall(r"hooks/([A-Za-z0-9_.-]+\.(?:py|sh))\"?((?: [a-z][a-z-]*)*)'", hook["command"])
+                key = (group["lane"], "".join(script[-1]) if script else hook["command"])
+                assert key in ROUTE_CLASSES, (
+                    f"{plugin} {event}: {key} is a new route: add it to ROUTE_CLASSES, record-keeping (queued "
+                    "for the service on a host miss) or not (run where the agent is)"
+                )
+                assert "record_keeping" not in hook or hook["record_keeping"] is True, f"{plugin} {key}: true, or absent"
+                assert dispatch.record_keeping(hook) is ROUTE_CLASSES[key], f"{plugin} {key}"
+                seen.add(key)
+    assert seen == set(ROUTE_CLASSES), f"{plugin}: classified routes it does not have: {set(ROUTE_CLASSES) - seen}"
+    # A decision is never queued: nothing on the lanes that allow or deny is record-keeping.
+    assert not [k for k, kept in ROUTE_CLASSES.items() if kept and k[0] in ("pre-tool", "turn-started")]
 
 
 def test_the_route_surface_is_pinned():
@@ -164,19 +222,25 @@ def test_the_route_surface_is_pinned():
 def test_the_dispatcher_runs_on_the_hook_runtime():
     """System python3 >= 3.9, stdlib only, no site-packages (`-S`).
     test_py310_compat covers agent/src, not these files."""
-    source = (FULL / "dispatch.py").read_text(encoding="utf-8")
-    tree = ast.parse(source, feature_version=(3, 9))
     stdlib = set(sys.stdlib_module_names)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            names = [alias.name for alias in node.names]
-        elif isinstance(node, ast.ImportFrom):
-            names = [node.module or ""]
-        else:
-            continue
-        for name in names:
-            assert name.split(".")[0] in stdlib | {"__future__"}, name
-    assert "StrEnum" not in source and "tomllib" not in source
+    # The host (plan A0) and the service's paths it asks with are the
+    # dispatcher's own, held to the same rule; a miss with no service reads the
+    # session's switch through the vendored session marker, a stdlib-only copy
+    # every hook imports (tests/test_session_marker_parity.py).
+    own = {"dispatch", "_service_paths", "_session_marker"}
+    for name in ("dispatch.py", "zygote.py", "_service_paths.py"):
+        source = (FULL / name).read_text(encoding="utf-8")
+        tree = ast.parse(source, feature_version=(3, 9))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""]
+            else:
+                continue
+            for module in names:
+                assert module.split(".")[0] in stdlib | {"__future__"} | own, (name, module)
+        assert "StrEnum" not in source and "tomllib" not in source, name
 
 
 # --- routing parity --------------------------------------------------------------
@@ -217,11 +281,15 @@ def test_routing_parity(plugin, tool):
     entries = _json(hooks / "hooks.json")["hooks"]
     for event, groups in wiring["hooks"].items():
         expected = _registered(groups, tool)
+        lanes = [_lane(hook["command"]) for entry in entries.get(event, []) for hook in entry["hooks"]]
+        if not lanes:
+            # An event no entry has (Kimi's TurnStarted): its adapter lane runs it.
+            lanes = [lane for lane in dispatch.ADAPTER_LANES if dispatch.LANE_EVENT[lane] == event]
+            assert lanes, f"{plugin} {event}: no entry and no adapter lane would ever run these routes"
         got = collections.Counter()
-        for entry in entries.get(event, []):
-            for hook in entry["hooks"]:
-                payload = {"tool_name": tool} if tool else {}
-                got.update(h["command"] for h in dispatch.routes(_lane(hook["command"]), payload, wiring))
+        for lane in lanes:
+            payload = {"tool_name": tool} if tool else {}
+            got.update(h["command"] for h in dispatch.routes(lane, payload, wiring))
         assert got == expected, f"{plugin} {event} {tool!r}"
 
 
@@ -320,11 +388,48 @@ print(json.dumps({
 """
 
 
+#: D20: every event these tests send runs twice over, here (the dispatcher
+#: itself) and in the warm hook host (`zygote.py`, plan A0), and must come out
+#: the same. `hosting` picks; `_dispatch` starts the host a plugin needs.
+_MODE = {"hosted": False}
+_HOSTS: dict = {}
+
+
+@pytest.fixture(autouse=True, params=["here", "hosted"])
+def hosting(request):
+    _MODE["hosted"] = request.param == "hosted"
+    yield request.param
+    _MODE["hosted"] = False
+    for proc, path in _HOSTS.values():
+        proc.kill()
+        proc.wait()
+        if os.path.exists(path):
+            os.unlink(path)
+    _HOSTS.clear()
+
+
+def _host_for(root: Path) -> None:
+    key = str(root.resolve())
+    if key in _HOSTS or not (root / "hooks" / "zygote.py").exists():
+        return
+    path = dispatch.host_socket(str(root))
+    proc = subprocess.Popen([sys.executable, "-S", str(root / "hooks" / "zygote.py"), path, str(os.getpid())])
+    _HOSTS[key] = (proc, path)
+    deadline = time.monotonic() + 10
+    while not os.path.exists(path):
+        # A plugin a test broke on purpose has no host to start: its events
+        # run here, as they would for anyone.
+        if proc.poll() is not None:
+            return
+        assert time.monotonic() < deadline, "the hook host never listened"
+        time.sleep(0.02)
+
+
 def _plugin(tmp_path: Path, routes: dict, scripts: dict[str, str] | None = None) -> Path:
     root = tmp_path / "plugin"
     hooks = root / "hooks"
     hooks.mkdir(parents=True)
-    for name in ("dispatch.py", "dispatch.sh"):
+    for name in ("dispatch.py", "dispatch.sh", "zygote.py", "_service_paths.py"):
         shutil.copy2(FULL / name, hooks / name)
     (hooks / "routes.json").write_text(json.dumps(routes), encoding="utf-8")
     for name, body in (scripts or {}).items():
@@ -336,11 +441,15 @@ def _plugin(tmp_path: Path, routes: dict, scripts: dict[str, str] | None = None)
 def _env(tmp_path: Path, root: Path, codex: bool, **extra: str) -> dict:
     env = {"PATH": os.environ["PATH"], "HOME": str(tmp_path / "home"), "XDG_STATE_HOME": str(tmp_path / "xdg")}
     env["PLUGIN_ROOT" if codex else "CLAUDE_PLUGIN_ROOT"] = str(root)
+    if not _MODE["hosted"]:
+        env["PROBE_HOOK_HOST"] = "off"
     env.update(extra)
     return env
 
 
 def _dispatch(root: Path, lane: str, payload, env: dict, timeout: float = 30) -> subprocess.CompletedProcess:
+    if _MODE["hosted"]:
+        _host_for(root)
     data = payload if isinstance(payload, (str, bytes)) else json.dumps(payload)
     return subprocess.run(
         ["/bin/bash", str(root / "hooks" / "dispatch.sh"), lane],
@@ -371,8 +480,9 @@ def test_a_lone_route_in_process_sees_what_its_bash_line_gives(tmp_path, codex, 
         group["matcher"] = matcher
     root = _plugin(tmp_path, {"hooks": {event: [group]}}, {script: _STUB})
     # The first tool the route's matcher accepts (every existing route keeps the
-    # tool it had; `^WebSearch$` is the papers hook's).
-    tool = next(t for t in ("Bash", "AskUserQuestion", "Write", "WebSearch") if not matcher or dispatch.matches(matcher, t))
+    # tool it had; `^WebSearch$` is the papers hook's, `^Skill$` the skills refresh's).
+    tool = next(t for t in ("Bash", "AskUserQuestion", "Write", "WebSearch", "Skill")
+                if not matcher or dispatch.matches(matcher, t))
     payload = '{"session_id": "%s", "hook_event_name": "%s",\r\n "tool_name": "%s"}\n' % (SID, event, tool)
     env = _env(tmp_path, root, codex)
     direct = subprocess.run(["/bin/bash", "-c", command], input=payload, capture_output=True, text=True, env=env, timeout=30)
@@ -439,6 +549,24 @@ def test_a_route_gets_back_the_signals_python_ignores(tmp_path):
 
 
 # --- several routes ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("shape", ["in-process", "exec"])
+def test_a_route_s_probe_commands_know_the_event_s_deadline(tmp_path, shape):
+    """A `probe` a route runs waits for an update in progress only until the
+    hook must be done (plan D12): the dispatcher says when, in PROBE_HOOK_DEADLINE."""
+    if shape == "in-process":
+        hook = {"type": "command", "command": dispatch._plain_command([], "when.py", False, []), "timeout": 4}
+        scripts = {"when.py": "import os, sys\nsys.stdin.read()\nprint(os.environ['PROBE_HOOK_DEADLINE'])\n"}
+    else:
+        hook = _shell('cat >/dev/null; echo "$PROBE_HOOK_DEADLINE"', timeout=4)
+        scripts = None
+    root = _plugin(tmp_path, {"hooks": {"PreToolUse": [{"lane": "pre-tool", "matcher": "^Bash$", "hooks": [hook]}]}}, scripts)
+    started = time.time()
+    result = _dispatch(root, "pre-tool", {"tool_name": "Bash"}, _env(tmp_path, root, False))
+    deadline = float(result.stdout.strip())
+    limit = 4 if shape == "in-process" else dispatch.budget("pre-tool")
+    assert started < deadline <= time.time() + limit + 0.5
 
 
 def _shell(body: str, timeout: int | None = 5) -> dict:
@@ -765,6 +893,66 @@ def test_the_reads_fast_path_passes_whenever_the_route_would(tmp_path, state, si
     assert via.stdout == direct.stdout, state
 
 
+def _serve(root: Path, argv: list, payload, env: dict) -> subprocess.CompletedProcess:
+    """The dispatcher as `harness_io.py --event` calls it (`serve`, options after
+    the lane, which dispatch.sh never passes), through the host when hosted."""
+    if _MODE["hosted"]:
+        _host_for(root)
+    code = "import sys\nsys.path[0] = sys.argv[1]\nimport dispatch\nsys.exit(dispatch.serve(sys.argv[2:]))\n"
+    return subprocess.run([sys.executable, "-S", "-c", code, str(root / "hooks"), *argv],
+                          input=json.dumps(payload), capture_output=True, text=True, env=env, timeout=30)
+
+
+def test_unshown_runs_no_catch_all_after_a_tool_call_even_with_a_message_waiting(tmp_path):
+    """Kimi drops PostToolUse output: there `--unshown` keeps the reads
+    catch-all from claiming a daemon message nobody would see. The routes the
+    tool's matcher takes run either way, and nothing else changes."""
+    reads = next(
+        h["command"]
+        for g in _json(FULL / "routes.json")["hooks"]["PostToolUse"]
+        if not g.get("matcher")
+        for h in g["hooks"]
+    )
+    say = "import json, sys\nsys.stdin.read()\nprint(json.dumps({'hookSpecificOutput': {'additionalContext': %r}}))\n"
+    routes = {"hooks": {"PostToolUse": [
+        {"lane": "post-tool", "matcher": "^Bash$",
+         "hooks": [_shell('ROOT="${CLAUDE_PLUGIN_ROOT:-}"; exec python3 "$ROOT/hooks/tool.py"')]},
+        {"lane": "post-tool", "hooks": [{"type": "command", "command": reads}]},
+    ]}}
+    root = _plugin(tmp_path, routes, {"tool.py": say % "tool ran", "reads_hook.py": say % "reads ran"})
+    waiting = tmp_path / "xdg" / "probe" / "reads" / "messages" / SID / "0001.json"
+    waiting.parent.mkdir(parents=True)
+    waiting.write_text("{}", encoding="utf-8")
+    env = _env(tmp_path, root, False, CLAUDE_CODE_SESSION_ID=SID)
+    payload = {"session_id": SID, "hook_event_name": "PostToolUse", "tool_name": "Bash"}
+
+    def context(done):
+        assert done.returncode == 0, done.stderr
+        return json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
+
+    assert context(_serve(root, ["post-tool"], payload, env)) == "tool ran\n\nreads ran"
+    assert context(_serve(root, ["post-tool", dispatch.UNSHOWN], payload, env)) == "tool ran"
+    assert context(_dispatch(root, "post-tool", payload, env)) == "tool ran\n\nreads ran", "dispatch.sh: unchanged"
+    # A tool no route's matcher takes leaves before anything runs, unshown or not.
+    read = {**payload, "tool_name": "Read"}
+    assert _serve(root, ["post-tool", dispatch.UNSHOWN], read, env).stdout == ""
+
+
+def test_serve_hands_back_the_status_run_exits_with(tmp_path):
+    """`serve` is `run` without the hand-over and the exit: a veto is returned
+    (2), not raised, so an adapter can still translate what the routes said."""
+    routes = {"hooks": {"PreToolUse": [{"lane": "pre-tool", "matcher": "^Bash$", "hooks": [
+        _shell("cat >/dev/null; echo blocked >&2; exit 2"), _shell("cat >/dev/null; echo {}"),
+    ]}]}}
+    root = _plugin(tmp_path, routes)
+    env = _env(tmp_path, root, False)
+    payload = {"session_id": SID, "hook_event_name": "PreToolUse", "tool_name": "Bash"}
+    served = _serve(root, ["pre-tool"], payload, env)
+    run = _dispatch(root, "pre-tool", payload, env)
+    assert (served.returncode, served.stdout, served.stderr) == (run.returncode, run.stdout, run.stderr)
+    assert served.returncode == 2 and served.stderr.strip() == "blocked"
+
+
 # --- the heartbeat ---------------------------------------------------------------------------
 
 
@@ -988,6 +1176,53 @@ def test_the_ledger_under_claude_config_dir_wins(tmp_path):
     assert result.stdout == f"{NEW} {new}\n", result.stderr
 
 
+def test_a_ledger_claude_code_moved_is_the_one_followed(tmp_path):
+    """CLAUDE_CODE_PLUGIN_CACHE_DIR moves Claude Code's whole plugins folder,
+    the ledger with it: one left under the config dir is not the one it reads."""
+    old, new = _cache(tmp_path, OLD, NEW)
+    moved = tmp_path / "moved"
+    moved.mkdir()
+    _ledger(tmp_path, new).rename(moved / "installed_plugins.json")
+    _ledger(tmp_path, old)
+    result = _dispatch(old, "stop", {}, _env(tmp_path, old, False, CLAUDE_CODE_PLUGIN_CACHE_DIR=str(moved)))
+    assert result.stdout == f"{NEW} {new}\n", result.stderr
+
+
+@pytest.mark.parametrize(("case", "expected"), [
+    ("lists-this-copy", True),
+    ("this-copy-twice", True),
+    ("this-copy-at-project-scope", True),
+    ("lists-another", False),
+    ("two-copies", False),
+    ("not-listed", False),
+    ("no-ledger", False),
+    ("unparseable", False),
+    ("another-plugins-key", False),
+])
+def test_is_installed_copy(tmp_path, case, expected):
+    """Before writing what every session reads: only from the copy the ledger
+    names, and from no copy when the ledger names several or none."""
+    old, new = _cache(tmp_path, OLD, NEW)
+    if case == "lists-this-copy":
+        _ledger(tmp_path, new)
+    elif case == "this-copy-twice":
+        _ledger(tmp_path, new, new)
+    elif case == "this-copy-at-project-scope":
+        _ledger(tmp_path, new, scope="project")
+    elif case == "lists-another":
+        _ledger(tmp_path, old)
+    elif case == "two-copies":
+        _ledger(tmp_path, old, new)
+    elif case == "not-listed":
+        _ledger(tmp_path, tmp_path / "elsewhere" / NEW)
+    elif case == "unparseable":
+        _ledger(tmp_path, raw='{"plugins": {"probe-research@%s": [{"installPath": "%s"' % (MARKET, new))
+    elif case == "another-plugins-key":
+        _ledger(tmp_path, new, key=f"probe-research-daemon@{MARKET}")
+    env = {"CLAUDE_CONFIG_DIR": str(tmp_path / "home" / ".claude")}
+    assert dispatch.is_installed_copy(str(new), env) is expected
+
+
 def test_the_usual_event_reads_the_ledger_without_importing_json(tmp_path):
     """Every event reads the ledger; when it lists this copy (the usual answer)
     that costs no `json` import (~10 ms of the ~12 ms an unguarded call costs)."""
@@ -999,6 +1234,136 @@ def test_the_usual_event_reads_the_ledger_without_importing_json(tmp_path):
     )
     result = subprocess.run([sys.executable, "-S", "-c", probe, str(FULL), str(old)],
                             capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, False))
+    assert result.stdout.split() == ["None", "False"], result.stderr
+
+
+# Codex fixes `PLUGIN_ROOT` at session start too, and keeps no ledger: the
+# newest complete version folder in its plugin cache is the installed copy.
+
+
+def _codex_folder(tmp_path: Path, plugin: str = "probe-research", codex_home: Path | None = None) -> Path:
+    return (codex_home or tmp_path / "home" / ".codex") / "plugins" / "cache" / MARKET / plugin
+
+
+def _codex_copy(root: Path, version: str) -> Path:
+    """A version folder as Codex caches it, with a Stop route that prints its
+    version and both plugin-root variables."""
+    _copy(root, version)
+    (root / ".codex-plugin").mkdir()
+    (root / ".codex-plugin" / "plugin.json").write_text(json.dumps({"version": version}), encoding="utf-8")
+    routes = _routes("Stop", "stop", _shell(
+        f'cat >/dev/null; echo "{version} $PLUGIN_ROOT ${{CLAUDE_PLUGIN_ROOT:-none}}"'))
+    (root / "hooks" / "routes.json").write_text(json.dumps(routes), encoding="utf-8")
+    return root
+
+
+def _codex_cache(tmp_path: Path, *versions: str, **kw) -> list[Path]:
+    return [_codex_copy(_codex_folder(tmp_path, **kw) / v, v) for v in versions]
+
+
+def _ran(result: subprocess.CompletedProcess) -> str:
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+def test_an_open_codex_session_runs_the_newest_copy_in_codexs_cache(tmp_path):
+    old, new = _codex_cache(tmp_path, OLD, NEW)
+    assert _ran(_dispatch(old, "stop", {}, _env(tmp_path, old, True))) == f"{NEW} {new} none\n", (
+        "PLUGIN_ROOT, never CLAUDE_PLUGIN_ROOT: a Codex route reads it first"
+    )
+
+
+def test_codex_picks_the_newest_by_version_number_not_by_name_or_mtime(tmp_path):
+    old, newest, newer_mtime = _codex_cache(tmp_path, "0.9.9", "0.10.0", "0.9.10")
+    later = time.time() + 60
+    os.utime(newer_mtime, (later, later))
+    assert _ran(_dispatch(old, "stop", {}, _env(tmp_path, old, True))).startswith(f"0.10.0 {newest} ")
+
+
+def test_an_unfinished_newest_copy_does_not_hide_a_whole_newer_one(tmp_path):
+    """Running 0.9.9, a complete 0.10.0, an interrupted 0.11.0: the event goes to 0.10.0."""
+    old, whole, broken = _codex_cache(tmp_path, "0.9.9", "0.10.0", "0.11.0")
+    (broken / "hooks" / "routes.json").write_text("{half", encoding="utf-8")
+    assert _ran(_dispatch(old, "stop", {}, _env(tmp_path, old, True))).startswith(f"0.10.0 {whole} ")
+
+
+def test_codex_reads_its_cache_under_codex_home(tmp_path):
+    elsewhere = tmp_path / "codex-home"
+    old, new = _codex_cache(tmp_path, OLD, NEW, codex_home=elsewhere)
+    env = _env(tmp_path, old, True)
+    assert _ran(_dispatch(old, "stop", {}, env)).startswith(f"{OLD} "), "not under ~/.codex: stays"
+    env["CODEX_HOME"] = str(elsewhere)
+    assert _ran(_dispatch(old, "stop", {}, env)) == f"{NEW} {new} none\n"
+
+
+def _codex_stays(tmp_path: Path, case: str):
+    """(root, env) for a Codex event that must run in the session's own copy."""
+    old, new = _codex_cache(tmp_path, OLD, NEW)
+    env = _env(tmp_path, old, True)
+    hooks = new / "hooks"
+    if case == "already-the-newest":
+        shutil.rmtree(new)
+    elif case == "rolled-back-beside-it":
+        # The session is on the newest; an older copy beside it is not newer.
+        old, new = new, old
+        env = _env(tmp_path, old, True)
+    elif case == "no-codex-manifest":
+        shutil.rmtree(new / ".codex-plugin")
+    elif case == "not-a-version-name":
+        new.rename(new.with_name("latest"))
+    elif case == "a-pre-release-name":
+        new.rename(new.with_name(NEW + "-rc1"))
+    elif case == "this-copy-not-a-version":
+        renamed = old.with_name("local")
+        old.rename(renamed)
+        old, env = renamed, _env(tmp_path, renamed, True)
+    elif case == "symlinked-out-of-the-cache":
+        outside = _codex_copy(tmp_path / "elsewhere" / "0.146.0", "0.146.0")
+        (_codex_folder(tmp_path) / "0.146.0").symlink_to(outside)
+        shutil.rmtree(new)
+    elif case == "outside-codexs-cache":
+        # Claude Code's cache (or a checkout), with whole versions beside it.
+        old = _codex_copy(_folder(tmp_path) / OLD, OLD)
+        _codex_copy(_folder(tmp_path) / NEW, NEW)
+        env = _env(tmp_path, old, True)
+    elif case == "no-dispatcher-there":
+        (hooks / "dispatch.sh").unlink()
+    elif case == "routes-broken":
+        (hooks / "routes.json").write_text("{broken", encoding="utf-8")
+    elif case == "dispatch-py-without-run":
+        (hooks / "dispatch.py").write_text("X = 1\n", encoding="utf-8")
+    return old, env
+
+
+@pytest.mark.parametrize("case", [
+    "already-the-newest", "rolled-back-beside-it", "no-codex-manifest", "not-a-version-name",
+    "a-pre-release-name", "this-copy-not-a-version", "symlinked-out-of-the-cache", "outside-codexs-cache",
+    "no-dispatcher-there", "routes-broken", "dispatch-py-without-run",
+])
+def test_otherwise_a_codex_event_runs_in_the_sessions_own_copy(tmp_path, case):
+    root, env = _codex_stays(tmp_path, case)
+    version = root.name if case != "this-copy-not-a-version" else OLD
+    assert _ran(_dispatch(root, "stop", {}, env, timeout=10)) == f"{version} {root} none\n"
+
+
+def test_a_codex_event_moves_once_and_still_leaves_the_heartbeat(tmp_path):
+    old, new = _codex_cache(tmp_path, OLD, NEW)
+    (new / "hooks" / "routes.json").write_text(json.dumps(_routes(
+        "UserPromptSubmit", "prompt", _shell('cat >/dev/null; echo "ran:${PROBE_HOOKS_HANDED_OVER:-}:$PLUGIN_ROOT"'))),
+        encoding="utf-8")
+    assert _ran(_dispatch(old, "prompt", {"session_id": SID}, _env(tmp_path, old, True))) == f"ran::{new}\n"
+    assert (tmp_path / "xdg" / "probe" / "hooks" / "alive" / SID).is_file()
+
+
+def test_the_usual_codex_event_imports_no_json(tmp_path):
+    """Under Codex the usual answer (this is the newest) is one folder listing."""
+    (old,) = _codex_cache(tmp_path, OLD)
+    probe = (
+        "import sys; sys.path[0] = sys.argv[1]; import dispatch, os\n"
+        "print(dispatch.installed_root(sys.argv[2], os.environ), 'json' in sys.modules)"
+    )
+    result = subprocess.run([sys.executable, "-S", "-c", probe, str(FULL), str(old)],
+                            capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, True))
     assert result.stdout.split() == ["None", "False"], result.stderr
 
 
@@ -1026,6 +1391,21 @@ def test_the_stop_wake_runs_the_installed_reads_hook(tmp_path, event):
                             capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, False))
     expected = f"{new} {payload}\n" if event == "Stop" else ""
     assert (result.returncode, result.stdout) == (0, expected), result.stderr
+
+
+def test_a_handed_over_reads_hook_gets_the_root_variable_its_harness_reads(tmp_path):
+    """reads_hook.py's own hand-over names the copy where a Codex route reads it."""
+    old, new = _codex_cache(tmp_path, OLD, NEW)
+    for name in os.listdir(FULL):
+        if (FULL / name).is_file() and not (old / "hooks" / name).exists():
+            shutil.copy2(FULL / name, old / "hooks" / name)
+    (new / "hooks" / "reads_hook.py").write_text(
+        "import os, sys\nprint(os.environ['PLUGIN_ROOT'], os.environ.get('CLAUDE_PLUGIN_ROOT'), sys.stdin.read())\n",
+        encoding="utf-8")
+    payload = json.dumps({"session_id": SID, "hook_event_name": "Stop"})
+    result = subprocess.run([sys.executable, str(old / "hooks" / "reads_hook.py")], input=payload,
+                            capture_output=True, text=True, timeout=30, env=_env(tmp_path, old, True))
+    assert (result.returncode, result.stdout) == (0, f"{new} None {payload}\n"), result.stderr
 
 
 @pytest.mark.parametrize("damage", ["none-installed", "will-not-compile"])

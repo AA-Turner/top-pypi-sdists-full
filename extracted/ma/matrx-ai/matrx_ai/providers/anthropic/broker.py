@@ -8,7 +8,7 @@ features from creating independent Anthropic transport boundaries.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -25,9 +25,15 @@ ADMIN_API_BASE_URL = "https://api.anthropic.com"
 ANTHROPIC_API_VERSION = "2023-06-01"
 
 
+#: The relay names the OPERATION; the endpoint stays inside the provider layer
+#: (the funnel). A caller never reads a URL constant (no-exemptions, 2026-10-22).
+BrokerEndpoint = Literal["messages", "count_tokens"]
+_BROKER_ENDPOINTS: dict[str, str] = {"messages": MESSAGES_URL, "count_tokens": COUNT_TOKENS_URL}
+
+
 async def open_broker_stream(
     *,
-    upstream_url: str,
+    endpoint: BrokerEndpoint,
     body: dict[str, Any],
     headers: Mapping[str, str],
     request_timeout: httpx.Timeout,
@@ -41,7 +47,7 @@ async def open_broker_stream(
     client = httpx.AsyncClient(timeout=request_timeout)
     try:
         upstream_request = client.build_request(
-            "POST", upstream_url, json=body, headers=headers
+            "POST", _BROKER_ENDPOINTS[endpoint], json=body, headers=headers
         )
         return client, await client.send(upstream_request, stream=True)
     except httpx.HTTPError:

@@ -140,6 +140,25 @@ def test_a_symlinked_footer_file_stays_a_link(kimi):
     assert tui.is_symlink() and real.read_text().strip() == 'theme = "dark"'
 
 
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root writes anywhere")
+def test_a_link_into_a_folder_probe_cannot_write_is_left_a_link(kimi):
+    """A home-manager link into the read-only Nix store: replacing it with a
+    plain file would make the next `home-manager switch` refuse. The write
+    fails and the link stays, as it always did."""
+    store = kimi / "store"
+    store.mkdir()
+    (store / "tui.toml").write_text('theme = "dark"\n')
+    store.chmod(0o555)
+    tui = kimi / "kimi" / "tui.toml"
+    tui.symlink_to(store / "tui.toml")
+    try:
+        with pytest.raises(OSError):
+            statusline.install_kimi(PLUGIN, python=sys.executable)
+        assert tui.is_symlink()
+    finally:
+        store.chmod(0o755)
+
+
 def test_uninstall_refuses_a_layout_it_cannot_edit(kimi, monkeypatch):
     tui = kimi / "kimi" / "tui.toml"
     statusline.install_kimi(PLUGIN, python=sys.executable)

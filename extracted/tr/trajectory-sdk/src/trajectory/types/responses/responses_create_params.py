@@ -10,3 +10,4 @@ class ResponsesCreateParams(TypedDict, total=False):
   model: Required[str]
   input: Required[str | Iterable[Mapping[str, Any]]]
   stream: bool | None
+  disable_thinking: bool | None

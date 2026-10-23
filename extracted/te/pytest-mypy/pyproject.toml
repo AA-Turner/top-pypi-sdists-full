@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 61.0", "setuptools-scm >= 7.1"]
+requires = ["setuptools >= 80", "setuptools-scm >= 8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,20 +19,20 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Testing",
 ]
-requires-python = ">=3.8"
+requires-python = ">= 3.10"
 dependencies = [
-    "filelock>=3.0",
-    "mypy>=1.0",
-    "pytest>=7.0",
+    "filelock >= 3.0",
+    "mypy >= 1.0",
+    "pytest >= 7.0",
 ]
 
 [project.entry-points.pytest11]
@@ -40,5 +40,8 @@ mypy = "pytest_mypy"
 
 [project.urls]
 homepage = "https://github.com/realpython/pytest-mypy"
+
+[tool.isort]
+profile = "black"
 
 [tool.setuptools_scm]

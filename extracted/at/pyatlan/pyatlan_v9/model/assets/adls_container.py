@@ -19,6 +19,15 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
+from .adls_related import RelatedADLSAccount, RelatedADLSContainer, RelatedADLSObject
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,15 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .adls_related import RelatedADLSAccount, RelatedADLSContainer, RelatedADLSObject
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -758,6 +758,7 @@ def _adls_container_to_nested(adls_container: ADLSContainer) -> ADLSContainerNes
         is_incomplete=adls_container.is_incomplete,
         provenance_type=adls_container.provenance_type,
         home_id=adls_container.home_id,
+        delete_handler=adls_container.delete_handler,
         depth=adls_container.depth,
         immediate_upstream=adls_container.immediate_upstream,
         immediate_downstream=adls_container.immediate_downstream,
@@ -806,6 +807,7 @@ def _adls_container_from_nested(nested: ADLSContainerNested) -> ADLSContainer:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

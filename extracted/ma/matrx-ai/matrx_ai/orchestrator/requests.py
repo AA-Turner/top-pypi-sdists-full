@@ -517,6 +517,15 @@ class CompletedRequest:
                 k: asdict(v) for k, v in self.total_usage.by_model.items()
             }
         user_request["metadata"] = request_metadata
+        # CONFIDENTIAL runs: this summary is BOTH the chat.user_request row and the runtime
+        # spine's request_summary NOTE (runtime.global_execution_event) — the note never passes
+        # the write funnel, so the seal is applied to the shape itself (matrx_ai.persistence.sealed).
+        from matrx_ai.context.app_context import try_get_app_context as _summary_ctx
+        from matrx_ai.persistence.sealed import blanks_content, seal_payload
+
+        _ctx = _summary_ctx()
+        if blanks_content(_ctx):
+            return seal_payload("chat.user_request", user_request, op_type="insert", ctx=_ctx) or {}
         return user_request
 
     def to_storage_dict(self) -> dict[str, Any]:
@@ -651,6 +660,15 @@ class CompletedRequest:
                         "offering_id": u.offering_id,
                         "offering_route": u.offering_route or "preferred",
                     }
+                # WHO PAID: a call on the person's own provider key is zero-rated
+                # (cost 0, catalog_cost_usd keeps the list price) — say so on the row.
+                own_key_attempts = [
+                    item for item in iteration_usages if item.metadata.get("billed_to_own_key")
+                ]
+                if own_key_attempts:
+                    row.setdefault("metadata", {})["billed_to_own_key"] = (
+                        len(own_key_attempts) == len(iteration_usages) or "partial"
+                    )
                 attempt_costs = [item.calculate_cost() for item in iteration_usages]
                 if all(cost is not None for cost in attempt_costs):
                     row["cost"] = round(

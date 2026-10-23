@@ -2,7 +2,9 @@
 # Original code (2015) by Filip Ginter and Sampo Pyysalo.
 # DZ 2018-11-04: Porting the validator to Python 3.
 # DZ: Many subsequent changes. See the git history.
+import regex as re
 import unicodedata
+###!!!import logging
 # Allow using this module from the root folder of tools even if it is not
 # installed as a package: use the relative path validator/src/validator for
 # submodules. If the path is not available, try the standard qualification,
@@ -11,9 +13,14 @@ import unicodedata
 try:
     import udtools.src.udtools.utils as utils
     from udtools.src.udtools.incident import Incident, Error, TestClass
+    ###!!!from udtools.src.udtools.logging_utils import setup_logging
 except ModuleNotFoundError:
     import udtools.utils as utils
     from udtools.incident import Incident, Error, TestClass
+    ###!!!from udtools.logging_utils import setup_logging
+
+###!!!logger = logging.getLogger(__name__)
+###!!!setup_logging(logger)
 
 
 
@@ -74,6 +81,7 @@ class Level1:
         empty-sentence
         invalid-line
         missing-empty-line
+        + those issued by check_utf8_encoding()
         + those issued by check_unicode_normalization()
 
         Returns
@@ -97,6 +105,7 @@ class Level1:
         for i in range(n_lines):
             lineno = state.comment_start_line + i
             line = lines[i]
+            self.check_utf8_encoding(state, line, lineno)
             self.check_unicode_normalization(state, line, lineno)
             # Comment lines.
             if line and line[0] == '#':
@@ -258,6 +267,57 @@ class Level1:
 
 
 
+    def check_utf8_encoding(self, state, text, lineno):
+        """
+        Tests that the input was well-encoded UTF-8. Reports an error if the
+        string contains U+FFFD (REPLACEMENT CHARACTER), which signals encoding
+        errors. Will not recognize errors where the text contains other than
+        intended characters but those are encoded as valid UTF-8 byte sequences.
+
+        Parameters
+        ----------
+        state : udtools.state.State
+            The state of the validation run.
+        text : str
+            The input line to be tested. If the line consists of TAB-separated
+            fields (token line), errors reports will specify the field where the
+            error occurred. Otherwise (comment line), the error report will not be
+            localized.
+        lineno : int
+            Number of the line in the file.
+
+        Incidents
+        ---------
+        invalid-utf
+        """
+        if re.search('\ufffd', text):
+            # Find the first unmatched character and include it in the report.
+            firsti = -1
+            firstj = -1
+            tcols = text.split("\t")
+            for i in range(len(tcols)):
+                for j in range(len(tcols[i])):
+                    if tcols[i][j] == '\ufffd':
+                        firsti = i
+                        firstj = j
+                        break
+                if firsti >= 0:
+                    break
+            if len(tcols) > 1:
+                testmessage = f"Invalid byte in the UTF-8 encoding: {COLNAMES[firsti]}.character[{firstj}] ('{tcols[i]}')."
+            else:
+                testmessage = f"Invalid byte in the UTF-8 encoding: character[{firstj}]."
+            Error(
+                state=state, config=self.incfg, lineno=lineno,
+                level=1,
+                testclass=TestClass.UNICODE,
+                testid='invalid-utf',
+                message=testmessage
+            ).confirm()
+            ###!!!logger.debug("'invalid-utf' error triggered by line '%s'", lineno)
+
+
+
     def check_unicode_normalization(self, state, text, lineno):
         """
         Tests that letters composed of multiple Unicode characters (such as a base
@@ -266,11 +326,15 @@ class Level1:
 
         Parameters
         ----------
+        state : udtools.state.State
+            The state of the validation run.
         text : str
             The input line to be tested. If the line consists of TAB-separated
             fields (token line), errors reports will specify the field where the
             error occurred. Otherwise (comment line), the error report will not be
             localized.
+        lineno : int
+            Number of the line in the file.
 
         Incidents
         ---------
@@ -311,6 +375,7 @@ class Level1:
                 message=testmessage,
                 explanation=f"This error usually does not mean that {inpfirst} is an invalid character. Usually it means that this is a base character followed by combining diacritics, and you should replace them by a single combined character.{explanation_second} You can fix normalization errors using the normalize_unicode.pl script from the tools repository."
             ).confirm()
+            ###!!!logger.debug("'unicode-normalization' error triggered by line '%s'", lineno)
 
 
 
@@ -322,6 +387,8 @@ class Level1:
 
         Parameters
         ----------
+        state : udtools.state.State
+            The state of the validation run.
         cols : list
             The values of the columns on the current node / token line.
 
@@ -607,6 +674,13 @@ class Level1:
         Checks that the input file consistently uses linux-style newlines (LF
         only, not CR LF like in Windows). To be run on the input file handle
         after the whole input has been read.
+
+        Parameters
+        ----------
+        state : udtools.state.State
+            The state of the validation run.
+        inp : TextIO
+            File handler that is being read.
 
         Incidents
         ---------

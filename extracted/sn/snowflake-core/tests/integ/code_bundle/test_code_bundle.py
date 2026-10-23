@@ -13,7 +13,6 @@ from snowflake.core.exceptions import ConflictError
 from tests.integ.utils import assert_code_bundle_execution_succeeded, random_string
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_create_and_fetch_code_bundle(code_bundles: CodeBundleCollection, code_bundle_stage_location):
     new_bundle_def = CodeBundle(
@@ -51,7 +50,6 @@ def test_create_and_fetch_code_bundle(code_bundles: CodeBundleCollection, code_b
             bundle.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_iter_code_bundle(code_bundles: CodeBundleCollection, code_bundle_stage_location):
     bundle_name = random_string(10, "test_code_bundle_iter_")
@@ -63,7 +61,6 @@ def test_iter_code_bundle(code_bundles: CodeBundleCollection, code_bundle_stage_
         bundle.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_drop_code_bundle(code_bundles: CodeBundleCollection, code_bundle_stage_location):
     bundle_name = random_string(10, "test_code_bundle_drop_")
@@ -73,7 +70,6 @@ def test_drop_code_bundle(code_bundles: CodeBundleCollection, code_bundle_stage_
     bundle.drop(if_exists=True)
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_add_version_code_bundle(code_bundles: CodeBundleCollection, code_bundle_stage_location):
     from snowflake.core.code_bundle import AddVersionCodeBundleRequest
@@ -86,7 +82,6 @@ def test_add_version_code_bundle(code_bundles: CodeBundleCollection, code_bundle
         bundle.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_execute_code_bundle(
     code_bundles: CodeBundleCollection,
@@ -110,7 +105,6 @@ def test_execute_code_bundle(
         bundle.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_execute_code_bundle_with_arguments(
     code_bundles: CodeBundleCollection,
@@ -133,7 +127,6 @@ def test_execute_code_bundle_with_arguments(
         bundle.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip
 def test_execute_scala_code_bundle_with_arguments(

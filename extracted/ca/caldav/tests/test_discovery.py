@@ -26,7 +26,7 @@ def _make_ok_response():
 
 
 class TestRequireTLSDowngradeBlocked:
-    """§3.1: require_tls=True must be enforced on the well-known redirect target.
+    """require_tls=True must be enforced on the well-known redirect target.
 
     _well_known_lookup always probes https:// but never received require_tls,
     so a same-domain redirect to http:// passed the domain-validation check and
@@ -69,7 +69,7 @@ class TestRequireTLSDowngradeBlocked:
 
         assert result is not None
         assert result.tls is True
-        assert "caldav.example.com" in result.url
+        assert result.url == "https://caldav.example.com/dav/"
 
     @mock.patch("caldav.discovery.requests.get")
     @mock.patch("caldav.discovery._srv_lookup", return_value=[])

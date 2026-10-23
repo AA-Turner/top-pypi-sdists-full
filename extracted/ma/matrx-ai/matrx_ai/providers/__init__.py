@@ -14,6 +14,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "CohereLegacyClient": (".cohere", "CohereLegacyClient"),
     "CohereReranker": (".cohere", "CohereReranker"),
     "ElevenLabsChat": (".eleven_labs.elevenlabs_api", "ElevenLabsChat"),
+    "ElevenLabsMusic": (".eleven_labs.music_api", "ElevenLabsMusic"),
     "ExtractedSpan": (".fastino", "ExtractedSpan"),
     "FastinoExtraction": (".fastino", "FastinoExtraction"),
     "GenericOpenAIChat": (".generic_openai", "GenericOpenAIChat"),
@@ -68,6 +69,8 @@ def _load_provider_module(module_name: str):
             return importlib.import_module(".cohere", __name__)
         case ".eleven_labs.elevenlabs_api":
             return importlib.import_module(".eleven_labs.elevenlabs_api", __name__)
+        case ".eleven_labs.music_api":
+            return importlib.import_module(".eleven_labs.music_api", __name__)
         case ".errors":
             return importlib.import_module(".errors", __name__)
         case ".fastino":

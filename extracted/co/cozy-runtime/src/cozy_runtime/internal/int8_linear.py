@@ -3,10 +3,9 @@
 The op rotates each activation row by the regular Hadamard per 256 channels and quantizes it per
 token in one kernel, then runs an int8 GEMM whose epilogue applies both scales and the bias:
 wgmma on Hopper, tcgen05 on datacenter Blackwell, mma.sync on every other card, and a single GEMV
-launch for up to 4 rows. A weight stand-in reaches it through torch dispatch, which binds its
-bytes for the op. It serves once it passes its probe on the card (`verify`); where it does not,
-a leaf serves through comfy-kitchen's reviewed binary, else eagerly on torch's int8 GEMM, and
-every run says so once.
+launch for up to 4 rows. Its leaf hands it bound weights (`kernels.readable`). It serves once
+it passes its probe on the card (`verify`); where it does not, a leaf serves through
+comfy-kitchen's reviewed binary, else eagerly on torch's int8 GEMM, and every run says so once.
 
 `torch` is the torch module: this module imports no torch.
 """
@@ -23,9 +22,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import cast
 
-from cozy_runtime.author._errors import is_device_oom
+from cozy_runtime.author._errors import is_capacity, is_device_oom
 from cozy_runtime.author._model import LANDED, WARNINGS, Building
-from cozy_runtime.author.kernels import INT8_CONVROT, PreQuantized, readable
+from cozy_runtime.author.kernels import INT8_CONVROT, PreQuantized
 from cozy_runtime.internal import (
     arch,
     kernel_cache,
@@ -93,6 +92,8 @@ def _built(
             LANDED[0] += 1
             print(f"[int8] {name} serves sm{sm}", file=sys.stderr)
     except Exception as exc:  # the next path serves this process; said once
+        if is_capacity(exc):  # the device ran out opening it: the memory manager answers
+            raise
         state.final = f"{type(exc).__name__}: {exc}"[:300]
         print(f"[int8] no {name} for this executor: {state.final}", file=sys.stderr)
     return state.served
@@ -228,10 +229,9 @@ def linear(
                 raise Building(OP)
             module = kitchen(torch, index)
             if module is not None:
-                with readable(data, scale, bias) as (d, s, b):
-                    return module.int8_linear(
-                        x, d, s, b, out_dtype, convrot=True, convrot_groupsize=CONVROT_GROUP
-                    )
+                return module.int8_linear(
+                    x, data, scale, bias, out_dtype, convrot=True, convrot_groupsize=CONVROT_GROUP
+                )
     except Building:
         raise
     except Exception as exc:  # eager serves this call

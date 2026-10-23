@@ -117,7 +117,6 @@ def scala_execution_stage_location(session, stages) -> str:
         bundle_stage.drop()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_execute_code_bundle(code_bundle_execution: CodeBundleExecutionCollection, execution_stage_location):
     # Execute a code bundle directly from a stage location. async_exec defaults to True, so the server
@@ -141,7 +140,6 @@ def test_execute_code_bundle(code_bundle_execution: CodeBundleExecutionCollectio
     assert_code_bundle_execution_succeeded(code_bundle_execution, response.job_id)
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_execute_code_bundle_with_typed_specification(
     code_bundle_execution: CodeBundleExecutionCollection, execution_stage_location
@@ -168,7 +166,6 @@ def test_execute_code_bundle_with_typed_specification(
     assert_code_bundle_execution_succeeded(code_bundle_execution, response.job_id)
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_execute_code_bundle_with_arguments(
     code_bundle_execution: CodeBundleExecutionCollection, execution_stage_location
@@ -188,7 +185,6 @@ def test_execute_code_bundle_with_arguments(
     assert_code_bundle_execution_succeeded(code_bundle_execution, response.job_id)
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip
 def test_execute_scala_code_bundle_with_arguments(
@@ -247,7 +243,6 @@ def test_execute_scala_code_bundle_with_arguments(
     assert_code_bundle_execution_succeeded(code_bundle_execution, response.job_id)
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 @pytest.mark.skip
 def test_execute_and_fetch_status(code_bundle_execution: CodeBundleExecutionCollection, execution_stage_location):
@@ -277,7 +272,6 @@ def test_execute_and_fetch_status(code_bundle_execution: CodeBundleExecutionColl
     assert status.schema_name, "schema_name should be populated"
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_execute_and_cancel(code_bundle_execution: CodeBundleExecutionCollection, execution_stage_location):
     # An async execution returns a SuccessAcceptedResponse carrying the job id; cancel it.
@@ -303,7 +297,6 @@ def test_execute_and_cancel(code_bundle_execution: CodeBundleExecutionCollection
     assert execution_id in cancel_response.status or "not currently executing" in cancel_response.status.lower()
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_fetch_status_unknown_execution(code_bundle_execution: CodeBundleExecutionCollection):
     # An unknown execution id yields an empty list from the server, which fetch_status surfaces as NotFoundError.

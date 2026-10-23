@@ -294,8 +294,12 @@ def observe_cache_usage(
     tool_names: tuple[str, ...] | list[str] | None,
     raw_usage: dict[str, Any] | None,
     prefix_frozen: bool = False,
+    marks_withheld: bool = False,
 ) -> None:
     """Record one provider call and SCREAM if caching drifted or failed.
+
+    ``marks_withheld``: the send boundary's cache plan sent NO mark on this call
+    (``config/cache_plan.py``), so a zero read on an explicit-mark wire is the plan, not a bug.
 
     Safe to call unconditionally after every provider response — it self-gates
     on provider, prompt size, and loop position, and never raises into the
@@ -325,6 +329,7 @@ def observe_cache_usage(
             system_text=system_text or "",
             tool_names=tuple(tool_names or ()),
             raw_usage=raw_usage or {},
+            marks_withheld=marks_withheld,
         )
     except Exception as exc:  # noqa: BLE001 — the guard must never break the loop
         vcprint(
@@ -804,6 +809,7 @@ def _observe(
     system_text: str,
     tool_names: tuple[str, ...],
     raw_usage: dict[str, Any],
+    marks_withheld: bool = False,
 ) -> None:
     key = _loop_key(provider, conversation_id, request_id, loop_id)
     state = _get_or_create(key, provider, model)
@@ -863,6 +869,8 @@ def _observe(
     cacheable_threshold = cacheable_input_threshold(provider, model)
     if (
         provider in _expected_cache_providers()
+        # Anthropic caches only behind explicit marks; with none sent a read is not expected.
+        and not (marks_withheld and provider not in _AUTO_CACHE_PROVIDERS)
         and call_index > 0
         and prefix_stable
         and metrics.total_input >= cacheable_threshold

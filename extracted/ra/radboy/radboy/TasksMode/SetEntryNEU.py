@@ -6,6 +6,7 @@ import radboy.DB.db as db
 from radboy.DB.Prompt import *
 from radboy.DB.Prompt import prefix_text
 from radboy.TasksMode.ReFormula import *
+import radboy.TasksMode as TM
 from radboy.FB.FormBuilder import *
 from radboy.FB.FBMTXT import *
 from radboy.RNE.RNE import *
@@ -55,6 +56,102 @@ class NEUSetter:
 
     def __init__(self,code=None):
         self.code=code
+
+    def scannable(self):
+        print("Scannable()")
+        try:
+            while True:
+                if self.code in [None,]:
+                    barcode=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"[{Fore.light_steel_blue}Scannable({Fore.light_magenta}Entry[{Fore.light_red}Name,Description,{Fore.light_yellow}Barcode,{Fore.light_green}Code]{Fore.light_steel_blue}){Fore.light_yellow}: ",helpText="what are you looking for?",data="string")
+                    if barcode in ['d',None]:
+                        return
+                else:
+                    barcode=self.code
+                with Session(ENGINE) as session:
+                    query=session.query(Entry).filter(or_(
+                        Entry.Barcode==barcode,
+                        Entry.Code==barcode,
+                        Entry.Barcode.icontains(barcode),
+                        Entry.Code.icontains(barcode),
+                        Entry.Name.icontains(barcode)
+                        ))
+                    results=query.all()
+                    ct=len(results)
+                    if ct == 0:
+                        print("Nothing Found")
+                        if self.code in [None,]:
+                            continue
+                        else:
+                            return
+
+                    for num,entry in enumerate(results):
+                        msg=f'{Fore.light_green}{num}/{Fore.light_yellow}{num+1} of {Fore.light_red}{ct} -> {entry.seeShort()}'
+                        print(msg)
+                    which=Prompt.__init2__(None,func=FormBuilderMkText,ptext=f"[{Fore.light_steel_blue}Scannable[{Fore.light_magenta}Entry{Fore.light_steel_blue}]]{Fore.light_yellow} which {Fore.light_green}index{Fore.light_yellow}?: ",helpText=f"{Fore.light_steel_blue}which index {Fore.light_yellow}number in light yellow{Style.reset}",data="integer")
+                    if which in [None,]:
+                        if not self.code:
+                            continue
+                        else:
+                            break
+                    elif which in ['d',]:
+                        which=0
+                    e=results[which]
+                    toCodes=["code128",
+                            "code39",
+                            "upca",
+                            "ean13",
+                            "ean8",
+                            "ean14",
+                            "qr",
+                            ]
+                    fields=[
+                    str(i.name) for i in Entry.__table__.columns
+                    ]
+                    htext_tocode=[]
+                    ct_toCode=len(toCodes)
+                    for num,i in enumerate(toCodes):
+                        htext_tocode.append(std_colorize(i,num,ct_toCode))
+                    htext_tocode='\n'.join(htext_tocode) 
+
+                    htext_fields=[]
+                    ct_fields=len(fields)
+                    for num,i in enumerate(fields):
+                        htext_fields.append(std_colorize(i,num,ct_fields))
+                    htext_fields='\n'.join(htext_fields) 
+
+                    which_toCode=Control(ptext=f"{htext_tocode}\nWhich Barcode Type Do you wish to generate?",helpText="integer selection",data="integer")
+                    if which_toCode in BooleanAnswers.NONE:
+                        return
+                    elif which_toCode in ['d','']:
+                        return
+                    elif which_toCode not in range(0,ct_toCode):
+                        return
+
+                    which_fields=Control(ptext=f"{htext_fields}\nWhich field do you wish to generate a barcode for?",helpText="integer selection",data="integer")
+                    if which_fields in BooleanAnswers.NONE:
+                        return
+                    elif which_fields in ['d','']:
+                        return
+                    elif which_fields not in range(0,ct_fields):
+                        return
+
+                    if toCodes[which_toCode] in ['code128',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="code128",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['code39',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="code39",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['upca',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="upca",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['ean13',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean13",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['ean8',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean8",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['ean14',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).bcd_img(cp2="ean14",data=str(getattr(e,fields[which_fields])))
+                    elif toCodes[which_toCode] in ['qr',]:
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).qr_img(data=str(getattr(e,fields[which_fields])))
+        except Exception as ee:
+            print(ee)
+
 
 
     def newCodesFromExpireds(self):

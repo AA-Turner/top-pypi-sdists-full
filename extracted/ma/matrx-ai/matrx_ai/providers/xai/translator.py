@@ -100,6 +100,53 @@ def billed_output_tokens_from_xai_usage(usage: Any) -> int:
 # Response back to the unchanged UnifiedResponse contract.
 
 
+
+#: xAI ``ToolCall.type`` values the CALLER executes. Everything else (x_search, web_search, code execution,
+#: collections, MCP…) ran on xAI's side. ``INVALID`` (0) is what a response without the field carries.
+_CLIENT_TOOL_CALL_TYPES = frozenset({0, chat_pb2.ToolCallType.TOOL_CALL_TYPE_CLIENT_SIDE_TOOL})
+
+#: Keyword arguments each xai_sdk hosted-tool constructor accepts, by the setting that turns it on.
+_HOSTED_TOOL_KWARGS: dict[str, frozenset[str]] = {
+    "internal_x_search": frozenset({
+        "from_date", "to_date", "allowed_x_handles", "excluded_x_handles",
+        "enable_image_understanding", "enable_video_understanding",
+    }),
+    "internal_web_search": frozenset({
+        "allowed_domains", "excluded_domains", "enable_image_understanding", "enable_image_search",
+        "user_location_country", "user_location_city", "user_location_region", "user_location_timezone",
+    }),
+}
+
+
+def is_client_tool_call(tool_call: Any) -> bool:
+    """True when the caller must run this tool call; False for a call xAI ran server-side."""
+    return int(getattr(tool_call, "type", 0) or 0) in _CLIENT_TOOL_CALL_TYPES
+
+
+def hosted_tool_kwargs(config: UnifiedConfig, setting: str) -> dict[str, Any]:
+    """The SDK keyword arguments for one hosted tool from ``config.hosted_tool_options[setting]``.
+
+    An option the SDK tool does not take is REFUSED in words (never dropped): a narrowing that silently
+    vanished would widen the search the caller asked for. Dates arrive as ISO-8601 strings.
+    """
+    from datetime import datetime
+
+    options = (config.hosted_tool_options or {}).get(setting) or {}
+    if not isinstance(options, dict):
+        raise ValueError(f"hosted_tool_options[{setting!r}] must be an object, got {type(options).__name__}")
+    allowed = _HOSTED_TOOL_KWARGS.get(setting, frozenset())
+    unknown = sorted(set(options) - allowed)
+    if unknown:
+        raise ValueError(f"xAI {setting} takes no option(s) {unknown}; it takes {sorted(allowed)}")
+    out: dict[str, Any] = {}
+    for key, value in options.items():
+        if value in (None, [], ""):
+            continue
+        if key in ("from_date", "to_date") and isinstance(value, str):
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        out[key] = value
+    return out
+
 class XAITranslator(BaseTranslator):
     """Translates between the unified format and the native xAI Grok SDK."""
 
@@ -144,6 +191,10 @@ class XAITranslator(BaseTranslator):
         tools = self._build_tools(config)
         if tools:
             kwargs["tools"] = tools
+            max_turns = (config.hosted_tool_options or {}).get("max_turns")
+            if isinstance(max_turns, int) and not isinstance(max_turns, bool) and max_turns > 0:
+                # The ceiling on xAI's server-side tool loop (each turn may fetch and bill posts).
+                kwargs["max_turns"] = max_turns
             tool_choice = resolve_structural_setting(
                 config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
             )
@@ -309,11 +360,12 @@ class XAITranslator(BaseTranslator):
                 )
             )
 
-        # Server-side native tools — mixed into the same list (xAI allows it).
+        # Server-side native tools — mixed into the same list (xAI allows it). A call's own options for a
+        # hosted tool (``hosted_tool_options[<setting>]``) are the SDK tool's own keyword arguments.
         if config.internal_web_search:
-            tools.append(web_search())
+            tools.append(web_search(**hosted_tool_kwargs(config, "internal_web_search")))
         if config.internal_x_search:
-            tools.append(x_search())
+            tools.append(x_search(**hosted_tool_kwargs(config, "internal_x_search")))
 
         return tools
 
@@ -398,6 +450,10 @@ class XAITranslator(BaseTranslator):
             content.append(TextContent(text=response.content))
 
         for tc in response.tool_calls:
+            if not is_client_tool_call(tc):
+                # A SERVER-side tool call (x_search, web_search, code execution) already ran inside xAI;
+                # its result is in the answer. It is never a tool the executor owes a result for.
+                continue
             raw_args = tc.function.arguments
             try:
                 arguments = json.loads(raw_args) if raw_args else {}

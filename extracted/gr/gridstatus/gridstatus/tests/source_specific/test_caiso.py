@@ -7,7 +7,10 @@ import pytest
 from gridstatus import CAISO, Markets
 from gridstatus.base import NoDataFoundException, NotSupported
 from gridstatus.caiso.caiso import _collapse_group_to_array
-from gridstatus.caiso.caiso_constants import REAL_TIME_DISPATCH_MARKET_RUN_ID
+from gridstatus.caiso.caiso_constants import (
+    REAL_TIME_DISPATCH_MARKET_RUN_ID,
+    get_dataframe_config_for_renewables_report,
+)
 from gridstatus.tests.base_test_iso import BaseTestISO
 from gridstatus.tests.decorators import with_markets
 from gridstatus.tests.vcr_utils import RECORD_MODE, setup_vcr
@@ -22,6 +25,96 @@ class TestCAISO(BaseTestISO):
     iso = CAISO()
 
     trading_hub_locations = CAISO().trading_hub_locations
+
+    """get_aggregated_generation_outages"""
+
+    AGGREGATED_GENERATION_OUTAGES_COLUMNS = [
+        "Interval Start",
+        "Interval End",
+        "Publish Time",
+        "Trading Hub",
+        "Aggregated",
+        "Hydro",
+        "Not Available",
+        "Renewable",
+        "Thermal",
+    ]
+
+    def _check_aggregated_generation_outages(self, df: pd.DataFrame) -> None:
+        assert df.columns.tolist() == self.AGGREGATED_GENERATION_OUTAGES_COLUMNS
+        assert df.shape[0] > 0
+        assert set(df["Trading Hub"].unique()) == {
+            "NP15",
+            "PACE",
+            "PACW",
+            "SP15",
+            "ZP26",
+        }
+        interval_minutes = (
+            df["Interval End"] - df["Interval Start"]
+        ).dt.total_seconds() / 60
+        assert (interval_minutes == 60).all()
+        assert not df.duplicated(
+            subset=[
+                "Interval Start",
+                "Publish Time",
+                "Trading Hub",
+            ],
+        ).any()
+        assert df["Aggregated"].notna().all()
+        breakdown_hubs = {"NP15", "PACE", "PACW", "SP15"}
+        breakdown = df[df["Trading Hub"].isin(breakdown_hubs)]
+        component_sum = breakdown[
+            ["Hydro", "Not Available", "Renewable", "Thermal"]
+        ].sum(axis=1, min_count=1)
+        assert (breakdown["Aggregated"] == component_sum).all()
+        assert df.loc[df["Trading Hub"] == "ZP26", "Aggregated"].notna().all()
+        assert df.loc[df["Trading Hub"] == "ZP26", "Thermal"].isna().all()
+        for column in [
+            "Aggregated",
+            "Hydro",
+            "Not Available",
+            "Renewable",
+            "Thermal",
+        ]:
+            assert pd.api.types.is_numeric_dtype(df[column])
+
+    @pytest.mark.caiso_oasis
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize("date", ["2026-06-10"])
+    def test_get_aggregated_generation_outages(self, date):
+        with caiso_vcr.use_cassette(
+            f"test_get_aggregated_generation_outages_{date}.yaml",
+        ):
+            df = self.iso.get_aggregated_generation_outages(
+                date=date,
+                sleep=15,
+            )
+            self._check_aggregated_generation_outages(df)
+            assert df["Publish Time"].nunique() == 1
+            assert df["Publish Time"].iloc[0] == self.local_start_of_day(date)
+            assert df["Interval Start"].min() == self.local_start_of_day(date)
+            assert df["Interval End"].max() == self.local_start_of_day(
+                date,
+            ) + pd.Timedelta(days=30)
+
+    @pytest.mark.caiso_oasis
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize(
+        "start, end",
+        [("2026-06-08", "2026-06-10")],
+    )
+    def test_get_aggregated_generation_outages_date_range(self, start, end):
+        with caiso_vcr.use_cassette(
+            f"test_get_aggregated_generation_outages_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_aggregated_generation_outages(
+                date=start,
+                end=end,
+                sleep=15,
+            )
+            self._check_aggregated_generation_outages(df)
+            assert df["Publish Time"].nunique() == 2
 
     """get_as"""
 
@@ -46,12 +139,251 @@ class TestCAISO(BaseTestISO):
                 "Spinning Reserves",
             ]
 
+    AS_PRICES_REAL_TIME_15_MIN_COLUMNS = [
+        "Interval Start",
+        "Interval End",
+        "Region",
+        "Non-Spinning Reserves",
+        "Regulation Down",
+        "Regulation Mileage Down",
+        "Regulation Mileage Up",
+        "Regulation Up",
+        "Spinning Reserves",
+    ]
+
+    def _check_as_prices_real_time_15_min(self, df: pd.DataFrame) -> None:
+        assert df.shape[0] > 0
+        assert df.columns.tolist() == self.AS_PRICES_REAL_TIME_15_MIN_COLUMNS
+
+        interval_minutes = (
+            df["Interval End"] - df["Interval Start"]
+        ).dt.total_seconds() / 60
+        assert (interval_minutes == 15).all()
+
+        assert not df.duplicated(
+            subset=["Interval Start", "Region"],
+        ).any()
+
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize("date", ["2026-08-24 00:00"])
+    def test_get_as_prices_real_time_15_min(self, date):
+        with caiso_vcr.use_cassette(f"test_get_as_prices_real_time_15_min_{date}.yaml"):
+            df = self.iso.get_as_prices_real_time_15_min(
+                date,
+                end="2026-08-24 02:00",
+            )
+            self._check_as_prices_real_time_15_min(df)
+
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize(
+        "start, end",
+        [("2026-08-24 00:00", "2026-08-24 03:00")],
+    )
+    def test_get_as_prices_real_time_15_min_date_range(self, start, end):
+        with caiso_vcr.use_cassette(
+            f"test_get_as_prices_real_time_15_min_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_as_prices_real_time_15_min(date=start, end=end)
+            self._check_as_prices_real_time_15_min(df)
+
     @pytest.mark.parametrize("date", ["2022-10-15", "2022-10-16"])
     def test_get_as_procurement(self, date):
         with caiso_vcr.use_cassette(f"test_get_as_procurement_{date}.yaml"):
             for market in ["DAM", "RTM"]:
                 df = self.iso.get_as_procurement(date, market=market)
                 self._check_as_data(df, market)
+
+    """get_price_corrections"""
+
+    PRICE_CORRECTIONS_COLUMNS = [
+        "Trade Date",
+        "Hour Ending",
+        "Interval",
+        "Market",
+        "Affected Area",
+        "Correction Method",
+        "Correction Count",
+        "Energy Type",
+        "Correction Reason",
+        "Report Generated",
+    ]
+
+    # PRC_CORR_GRP serves one trade date per request, so the range exercises the
+    # per-day fetch and concatenation.
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize("start, end", [("2026-06-01", "2026-06-13")])
+    def test_get_price_corrections(self, start, end):
+        with caiso_vcr.use_cassette(
+            f"test_get_price_corrections_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_price_corrections(date=start, end=end)
+
+            assert df.columns.tolist() == self.PRICE_CORRECTIONS_COLUMNS
+            assert df.shape[0] > 0
+
+            # Market comes from the PRC_CORR_GRP MARKET column.
+            assert set(df["Market"].unique()) <= {"DAM", "RTD", "RTPD", "HASP", "RUC"}
+
+            # Trade Date and Report Generated are Pacific-localized timestamps.
+            assert str(df["Trade Date"].dt.tz) == "US/Pacific"
+            assert str(df["Report Generated"].dt.tz) == "US/Pacific"
+
+            # The report is keyed by trade date, so every correction falls in the
+            # requested range (end exclusive).
+            assert df["Trade Date"].min() >= pd.Timestamp(start, tz="US/Pacific")
+            assert df["Trade Date"].max() < pd.Timestamp(end, tz="US/Pacific")
+
+            # Placeholder "no corrections" rows are dropped, and a correction is
+            # never generated before its trade date.
+            assert "No records found for report." not in set(df["Correction Reason"])
+            assert (df["Report Generated"] >= df["Trade Date"]).all()
+
+    def test_get_price_corrections_raises_when_empty(self):
+        # Future trade dates have no issued corrections, so the method raises
+        # rather than returning an empty frame, letting callers distinguish
+        # "no corrections" explicitly.
+        with caiso_vcr.use_cassette(
+            "test_get_price_corrections_empty.yaml",
+        ):
+            with pytest.raises(NoDataFoundException):
+                self.iso.get_price_corrections(date="2026-07-01", end="2026-07-04")
+
+    """get_ir_rc_prices"""
+
+    IR_RC_PRICES_COLUMNS = [
+        "Interval Start",
+        "Interval End",
+        "Location",
+        "Product",
+        "MCP",
+        "Capacity",
+        "Congestion",
+        "Loss",
+    ]
+
+    def _check_ir_rc_prices(self, df: pd.DataFrame) -> None:
+        assert df.columns.tolist() == self.IR_RC_PRICES_COLUMNS
+        assert df.shape[0] > 0
+        assert set(df["Product"].unique()) == {"IRU", "IRD", "RCU", "RCD"}
+        interval_minutes = (
+            df["Interval End"] - df["Interval Start"]
+        ).dt.total_seconds() / 60
+        assert (interval_minutes == 60).all()
+        assert not df.duplicated(
+            subset=["Interval Start", "Location", "Product"],
+        ).any()
+        ir_loss_null = df.loc[df["Product"].isin(["IRU", "IRD"]), "Loss"].isna().all()
+        assert ir_loss_null
+
+    @pytest.mark.parametrize("date", ["2026-05-01"])
+    def test_get_ir_rc_prices(self, date):
+        with caiso_vcr.use_cassette(f"test_get_ir_rc_prices_{date}.yaml"):
+            df = self.iso.get_ir_rc_prices(date=date)
+            self._check_ir_rc_prices(df)
+            assert df["Interval Start"].min() == self.local_start_of_day(date)
+            assert df["Interval Start"].max() == self.local_start_of_day(
+                date,
+            ) + pd.Timedelta(hours=23)
+
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize(
+        "start, end",
+        [("2026-05-01", "2026-05-03")],
+    )
+    def test_get_ir_rc_prices_date_range(self, start, end):
+        with caiso_vcr.use_cassette(
+            f"test_get_ir_rc_prices_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_ir_rc_prices(date=start, end=end, sleep=15)
+            self._check_ir_rc_prices(df)
+            assert df["Interval Start"].min() == self.local_start_of_day(start)
+            assert df["Interval Start"].max() == self.local_start_of_day(
+                end,
+            ) - pd.Timedelta(hours=1)
+
+    """get_ir_rc_requirements_awards"""
+
+    IR_RC_REQUIREMENTS_AWARDS_COLUMNS = [
+        "Interval Start",
+        "Interval End",
+        "BAA",
+        "Product",
+        "Type",
+        "MW",
+    ]
+
+    def _check_ir_rc_requirements_awards(self, df: pd.DataFrame) -> None:
+        assert df.columns.tolist() == self.IR_RC_REQUIREMENTS_AWARDS_COLUMNS
+        assert df.shape[0] > 0
+        assert set(df["Product"].unique()).issubset({"IRU", "IRD", "RCU", "RCD"})
+        assert set(df["Type"].unique()) == {"Requirement", "Award"}
+        interval_minutes = (
+            df["Interval End"] - df["Interval Start"]
+        ).dt.total_seconds() / 60
+        assert (interval_minutes == 60).all()
+        assert not df.duplicated(
+            subset=["Interval Start", "BAA", "Product", "Type"],
+        ).any()
+        assert pd.api.types.is_numeric_dtype(df["MW"])
+
+    @pytest.mark.parametrize("date", ["2026-05-01"])
+    def test_get_ir_rc_requirements_awards_dam(self, date):
+        with caiso_vcr.use_cassette(
+            f"test_get_ir_rc_requirements_awards_dam_{date}.yaml",
+        ):
+            df = self.iso.get_ir_rc_requirements_awards_dam(date=date)
+            self._check_ir_rc_requirements_awards(df)
+            assert set(df["Product"].unique()) == {"IRU", "IRD", "RCU", "RCD"}
+            assert df["Interval Start"].min() == self.local_start_of_day(date)
+            assert df["Interval Start"].max() == self.local_start_of_day(
+                date,
+            ) + pd.Timedelta(hours=23)
+
+    @pytest.mark.parametrize("date", ["2026-05-01"])
+    def test_get_ir_rc_requirements_awards_2da(self, date):
+        with caiso_vcr.use_cassette(
+            f"test_get_ir_rc_requirements_awards_2da_{date}.yaml",
+        ):
+            df = self.iso.get_ir_rc_requirements_awards_2da(date=date)
+            self._check_ir_rc_requirements_awards(df)
+            assert set(df["Product"].unique()) == {"IRU", "IRD"}
+            assert df["Interval Start"].min() == self.local_start_of_day(date)
+            assert df["Interval Start"].max() == self.local_start_of_day(
+                date,
+            ) + pd.Timedelta(hours=23)
+
+    @pytest.mark.parametrize("date", ["2026-05-01"])
+    def test_get_ir_rc_requirements_awards_3da(self, date):
+        with caiso_vcr.use_cassette(
+            f"test_get_ir_rc_requirements_awards_3da_{date}.yaml",
+        ):
+            df = self.iso.get_ir_rc_requirements_awards_3da(date=date)
+            self._check_ir_rc_requirements_awards(df)
+            assert set(df["Product"].unique()) == {"IRU", "IRD"}
+            assert df["Interval Start"].min() == self.local_start_of_day(date)
+            assert df["Interval Start"].max() == self.local_start_of_day(
+                date,
+            ) + pd.Timedelta(hours=23)
+
+    @pytest.mark.real_sleep
+    @pytest.mark.parametrize(
+        "start, end",
+        [("2026-05-01", "2026-05-03")],
+    )
+    def test_get_ir_rc_requirements_awards_dam_date_range(self, start, end):
+        with caiso_vcr.use_cassette(
+            f"test_get_ir_rc_requirements_awards_dam_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_ir_rc_requirements_awards_dam(
+                date=start,
+                end=end,
+                sleep=15,
+            )
+            self._check_ir_rc_requirements_awards(df)
+            assert df["Interval Start"].min() == self.local_start_of_day(start)
+            assert df["Interval Start"].max() == self.local_start_of_day(
+                end,
+            ) - pd.Timedelta(hours=1)
 
     """get_fuel_mix"""
 
@@ -315,6 +647,37 @@ class TestCAISO(BaseTestISO):
         assert df["Publish Time"].max() < self.local_now()
         assert df["Publish Time"].nunique() == expected_count_unique_publish_times
 
+    def _check_edam_wind_solar_forecast(self, df: pd.DataFrame) -> None:
+        assert df.shape[0] > 0
+
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Publish Time",
+            "BAA",
+            "Solar",
+            "Wind",
+        ]
+
+        self._check_time_columns(
+            df,
+            instant_or_interval="interval",
+            skip_column_named_time=True,
+        )
+
+        assert isinstance(df.loc[0]["Publish Time"], pd.Timestamp)
+        assert df.loc[0]["Publish Time"].tz is not None
+
+        assert pd.api.types.is_numeric_dtype(df["Solar"])
+        assert pd.api.types.is_numeric_dtype(df["Wind"])
+
+        assert df["BAA"].notna().all()
+        assert not df.duplicated(subset=["Interval Start", "BAA"]).any()
+
+        assert (
+            df["Interval End"] - df["Interval Start"] == pd.Timedelta(hours=1)
+        ).all()
+
     def test_get_renewables_forecast_dam_today(self):
         with caiso_vcr.use_cassette(
             "test_get_renewables_forecast_dam_today.yaml",
@@ -378,6 +741,33 @@ class TestCAISO(BaseTestISO):
             df = self.iso.get_renewables_forecast_dam(start, end=end)
 
             self._check_solar_and_wind_forecast(df, 1)
+
+    """get_edam_wind_solar_forecast"""
+
+    def test_get_edam_wind_solar_forecast_today(self):
+        with caiso_vcr.use_cassette(
+            "test_get_edam_wind_solar_forecast_today.yaml",
+        ):
+            df = self.iso.get_edam_wind_solar_forecast("today")
+        self._check_edam_wind_solar_forecast(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_today()
+        assert df["Interval Start"].max() == self.local_start_of_today() + pd.Timedelta(
+            hours=23,
+        )
+
+    @pytest.mark.parametrize("date", ["2026-05-01"])
+    def test_get_edam_wind_solar_forecast_historical_date(self, date):
+        with caiso_vcr.use_cassette(
+            f"test_get_edam_wind_solar_forecast_{date}.yaml",
+        ):
+            df = self.iso.get_edam_wind_solar_forecast(date)
+        self._check_edam_wind_solar_forecast(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_day(date)
+        assert df["Interval Start"].max() == self.local_start_of_day(
+            date,
+        ) + pd.Timedelta(hours=23)
 
     def test_get_renewables_forecast_hasp_latest(self):
         with caiso_vcr.use_cassette(
@@ -671,6 +1061,56 @@ class TestCAISO(BaseTestISO):
         assert df["Interval Start"].min() == start_date
         assert df["Interval Start"].max() == end_date - pd.Timedelta(hours=1)
 
+    # The report's year-to-date chart ends on October, whose month ends at the
+    # ambiguous hour when daylight saving time ends unless it starts at midnight
+    def test_get_curtailment_october_2026(self):
+        date = pd.Timestamp("2026-10-01", tz=self.iso.default_timezone)
+
+        with caiso_vcr.use_cassette("test_get_curtailment_2026-10-01.yaml"):
+            df = self.iso.get_curtailment(date)
+
+        self._check_curtailment(df)
+
+        assert df["Interval Start"].min() == date
+        assert df["Interval Start"].max() == date + pd.Timedelta(hours=23)
+
+    # On the last day of a month the report's rolling 13-month chart shows only
+    # the 12 months ending with the current one
+    def test_get_curtailment_last_day_of_month(self):
+        date = pd.Timestamp("2025-06-30", tz=self.iso.default_timezone)
+
+        with caiso_vcr.use_cassette("test_get_curtailment_2025-06-30.yaml"):
+            df = self.iso.get_curtailment(date)
+            monthly = self.iso.get_caiso_renewables_report(date)[
+                "curtailment_percentage_monthly"
+            ]
+
+        self._check_curtailment(df)
+        assert df["Interval Start"].min() == date
+        assert df["Interval Start"].max() == date + pd.Timedelta(hours=23)
+
+        assert monthly["Interval Start"].iloc[0] == pd.Timestamp(
+            "2024-06-01",
+            tz=self.iso.default_timezone,
+        )
+        assert pd.isna(monthly["Percent"].iloc[0])
+        assert monthly["Interval Start"].iloc[-1] == pd.Timestamp(
+            "2025-06-01",
+            tz=self.iso.default_timezone,
+        )
+        assert monthly["Percent"].iloc[-1] == 3.07
+
+    @pytest.mark.parametrize("date", ["2026-03-20", "2026-10-01", "2026-11-10"])
+    def test_renewables_report_days_and_months_start_at_local_midnight(self, date):
+        base_date = pd.Timestamp(date, tz=self.iso.default_timezone)
+
+        for _, timestamps, _, unit, _ in get_dataframe_config_for_renewables_report(
+            base_date,
+            self.iso.default_timezone,
+        ):
+            if unit in ("day", "month"):
+                assert (timestamps == timestamps.normalize()).all()
+
     """get_gas_prices"""
 
     @pytest.mark.parametrize("date", ["2022-10-15"])
@@ -707,9 +1147,7 @@ class TestCAISO(BaseTestISO):
                     test_region_2,
                 ],
             )
-            assert set(df["Fuel Region Id"].unique()) == set(
-                [test_region_1, test_region_2],
-            )
+            assert set(df["Fuel Region Id"].unique()) == {test_region_1, test_region_2}
             assert len(df) == 24 * 2
 
     """get_fuel_regions"""
@@ -756,6 +1194,7 @@ class TestCAISO(BaseTestISO):
         "Energy",
         "Congestion",
         "Loss",
+        "GHG",
     ]
 
     @with_markets(
@@ -940,9 +1379,11 @@ class TestCAISO(BaseTestISO):
         with caiso_vcr.use_cassette(
             f"test_warning_no_end_date_{start.strftime('%Y-%m-%d')}.yaml",
         ):
-            with pytest.warns(
+            # The block wraps a VCR-backed call plus its expected failure, so it
+            # cannot reduce to a single statement.
+            with pytest.warns(  # noqa: PT031
                 UserWarning,
-                match="Only 1 hour of data will be returned for real time markets if end is not specified and all nodes are requested",  # noqa
+                match="Only 1 hour of data will be returned for real time markets if end is not specified and all nodes are requested",
             ):
                 try:
                     self.iso.get_lmp(
@@ -1980,15 +2421,10 @@ class TestCAISO(BaseTestISO):
                 "Type",
                 "MW",
             }
-        elif method_name == "get_storage_awards_rtd":
-            assert df.shape == (576, 4)
-            assert set(df.columns) == {
-                "Interval Start",
-                "Interval End",
-                "Type",
-                "MW",
-            }
-        elif method_name == "get_storage_energy_awards_ruc":
+        elif (
+            method_name == "get_storage_awards_rtd"
+            or method_name == "get_storage_energy_awards_ruc"
+        ):
             assert df.shape == (576, 4)
             assert set(df.columns) == {
                 "Interval Start",

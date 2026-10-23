@@ -4,6 +4,7 @@
 import pytest
 
 from airbyte_ops_mcp.regression_tests.ci_output import (
+    _pk_integrity_cell,
     command_result_succeeded,
     evaluate_comparison_outcome,
     generate_action_test_comparison_report,
@@ -469,3 +470,85 @@ def test_report_per_version_rows_agree_with_the_verdict(
 
     assert control_row.endswith(expected_control_row)
     assert target_row.endswith(expected_target_row)
+
+
+@pytest.mark.parametrize(
+    "info,side,expected",
+    [
+        pytest.param({"passed": True}, "control", "0 ✅", id="clean"),
+        pytest.param(
+            {"passed": False, "records_missing_pk": 1},
+            "control",
+            "0, 1 missing PK ❌",
+            id="missing-pk-only",
+        ),
+        pytest.param(
+            {
+                "passed": True,
+                "duplicate_pk_count": 2,
+                "pre_existing_duplicate_pk_count": 2,
+            },
+            "target",
+            "2 (pre-existing) ⚠️",
+            id="pre-existing",
+        ),
+        pytest.param(
+            {
+                "passed": False,
+                "duplicate_pk_count": 1,
+                "pre_existing_duplicate_pk_count": 1,
+                "records_missing_pk": 1,
+            },
+            "control",
+            "1 (pre-existing), 1 missing PK ❌",
+            id="pre-existing-and-missing-pk",
+        ),
+        pytest.param(
+            {
+                "passed": True,
+                "duplicate_pk_count": 1,
+                "fixed_duplicate_pk_count": 1,
+            },
+            "control",
+            "1 fixed in target ⚠️",
+            id="fixed",
+        ),
+        pytest.param(
+            {
+                "passed": True,
+                "duplicate_pk_count": 3,
+                "pre_existing_duplicate_pk_count": 1,
+                "fixed_duplicate_pk_count": 2,
+            },
+            "control",
+            "3 (1 pre-existing, 2 fixed in target) ⚠️",
+            id="pre-existing-and-fixed",
+        ),
+        pytest.param(
+            {
+                "passed": False,
+                "duplicate_pk_count": 2,
+                "new_duplicate_pk_count": 2,
+            },
+            "target",
+            "2 new ❌",
+            id="new",
+        ),
+        pytest.param(
+            {
+                "passed": False,
+                "duplicate_pk_count": 3,
+                "pre_existing_duplicate_pk_count": 1,
+                "new_duplicate_pk_count": 2,
+                "records_missing_pk": 4,
+            },
+            "target",
+            "3 (1 pre-existing, 2 new), 4 missing PK ❌",
+            id="new-pre-existing-and-missing-pk",
+        ),
+    ],
+)
+def test_pk_integrity_cell_ends_with_the_status(
+    info: dict, side: str, expected: str
+) -> None:
+    assert _pk_integrity_cell(info, side) == expected

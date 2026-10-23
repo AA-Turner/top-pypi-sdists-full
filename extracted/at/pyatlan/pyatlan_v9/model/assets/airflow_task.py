@@ -19,6 +19,15 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
+from .airflow_related import RelatedAirflowDag, RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -47,15 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSpark, RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .airflow_related import RelatedAirflowDag, RelatedAirflowTask
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -834,6 +834,7 @@ def _airflow_task_to_nested(airflow_task: AirflowTask) -> AirflowTaskNested:
         is_incomplete=airflow_task.is_incomplete,
         provenance_type=airflow_task.provenance_type,
         home_id=airflow_task.home_id,
+        delete_handler=airflow_task.delete_handler,
         depth=airflow_task.depth,
         immediate_upstream=airflow_task.immediate_upstream,
         immediate_downstream=airflow_task.immediate_downstream,
@@ -880,6 +881,7 @@ def _airflow_task_from_nested(nested: AirflowTaskNested) -> AirflowTask:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

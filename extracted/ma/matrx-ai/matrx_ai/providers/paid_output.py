@@ -19,12 +19,22 @@ phase 2 was classified as a provider error, the executor retried the whole
   it forces a non-retryable classification and attaches the billed usage.
 
 Both are provider-agnostic; every audio, image, and video adapter uses them.
+
+**Retained for retry.** A caller that can name the request (``retain_paid_output_as(key)``
+around the paid call) gets the paid output KEPT when storage fails twice: the storage closure
+(which holds the provider's bytes) is parked in a bounded, process-local registry, and
+:func:`take_retained_paid_output` hands it back so the retry stores what was already bought
+instead of paying the provider again. How long and how many are kept is the caller's setting.
 """
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+import time
+from collections import OrderedDict
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 from matrx_utils import vcprint
@@ -43,8 +53,58 @@ __all__ = [
     "PaidOutputStorageError",
     "mark_failed_after_paid_call",
     "non_retryable_after_paid_call",
+    "put_back_retained_paid_output",
+    "retain_paid_output_as",
     "store_paid_output",
+    "take_retained_paid_output",
 ]
+
+# key -> (expires_at monotonic, max entries the caller allows, the storage step holding the bytes)
+_RETAIN: ContextVar[tuple[str, float, int] | None] = ContextVar("matrx_paid_output_retain", default=None)
+_RETAINED: OrderedDict[str, tuple[float, int, Callable[[], Awaitable[Any]]]] = OrderedDict()
+
+
+@contextmanager
+def retain_paid_output_as(key: str | None, *, keep_seconds: float, keep_max: int) -> Iterator[None]:
+    """Name the request whose paid output should be kept if its storage fails, and for how long. The bounds come
+    from the caller's own settings (the package holds no limit of its own)."""
+    token = _RETAIN.set((key, float(keep_seconds), int(keep_max)) if key and keep_seconds > 0 and keep_max > 0 else None)
+    try:
+        yield
+    finally:
+        _RETAIN.reset(token)
+
+
+def _prune(now: float) -> None:
+    for k in [k for k, (until, _, _) in _RETAINED.items() if now > until]:
+        _RETAINED.pop(k, None)
+    if _RETAINED:
+        cap = next(reversed(_RETAINED.values()))[1]
+        while len(_RETAINED) > cap:
+            _RETAINED.popitem(last=False)
+
+
+def _retain(key: str, store: Callable[[], Awaitable[Any]], keep_seconds: float, keep_max: int) -> None:
+    now = time.monotonic()
+    _RETAINED[key] = (now + keep_seconds, keep_max, store)
+    _RETAINED.move_to_end(key)
+    _prune(now)
+
+
+def take_retained_paid_output(key: str | None) -> Callable[[], Awaitable[Any]] | None:
+    """The kept storage step for ``key`` (removed from the registry), or None. Calling it
+    stores the already-paid output; it never reaches the provider."""
+    if not key:
+        return None
+    _prune(time.monotonic())
+    entry = _RETAINED.pop(key, None)
+    return None if entry is None else entry[2]
+
+
+def put_back_retained_paid_output(key: str, store: Callable[[], Awaitable[Any]], *, keep_seconds: float,
+                                  keep_max: int) -> None:
+    """Keep a taken output again (its storage failed once more)."""
+    _retain(key, store, keep_seconds, keep_max)
 
 
 class PaidOutputStorageError(RuntimeError):
@@ -122,13 +182,22 @@ async def store_paid_output[T](
                 f"({type(second).__name__}: {second}); failing the run non-retryably.",
                 color="red",
             )
-            raise PaidOutputStorageError(
+            err = PaidOutputStorageError(
                 provider=provider,
                 modality=modality,
                 cause=second,
                 usage=usage,
                 first_error=first,
-            ) from second
+            )
+            retain = _RETAIN.get()
+            if retain is not None:
+                _retain(retain[0], store, retain[1], retain[2])
+                err.error_info.details["retained_for_retry"] = True
+                err.error_info.user_message = (
+                    f"The {modality} was generated, but saving the file failed. It is kept: "
+                    "run it again to save it without being charged again."
+                )
+            raise err from second
 
 
 def non_retryable_after_paid_call(

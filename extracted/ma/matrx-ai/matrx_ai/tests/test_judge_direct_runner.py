@@ -75,7 +75,7 @@ def wired(monkeypatch):
         raise AssertionError("the direct judge went through the agent plumbing")
 
     monkeypatch.setattr(mandates, "run_held_pydantic", never)
-    monkeypatch.setattr("matrx_ai.evaluators.judge.run_held_pydantic", never)
+    monkeypatch.setattr("matrx_ai.mandates._send_pydantic", never)
 
     async def hold(key, **kwargs):
         seen["key"] = key

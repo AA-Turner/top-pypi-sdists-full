@@ -2996,6 +2996,10 @@ def session_lock(session_id: str, *, should_stop: Callable[[], bool] = lambda: F
         while True:
             try:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                # Any ask to hand over was the previous holder's (one dated ahead
+                # by a restarting service included): left, it would make this
+                # worker hand over when its own session ends, not finish its queue.
+                handover.unlink(missing_ok=True)
                 return handle
             except OSError:
                 pass
@@ -3091,9 +3095,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     from probe.service import barrier
 
-    if not barrier.wait():
-        # The Probe service is replacing the CLI's env (plan X1): `probe`'s own
-        # entry waited already; this covers a worker started another way.
+    if barrier.workers_held() or not barrier.wait():
+        # The Probe service is replacing the CLI's env (plan X1), or stopping
+        # the running workers first (D7): `probe`'s own entry looked already;
+        # this covers a worker started another way.
         print(f"probe daemon worker: {barrier.MESSAGE}", file=sys.stderr)
         return EXIT_RESPAWN_LATER
     if lease.inline(args.session_id):

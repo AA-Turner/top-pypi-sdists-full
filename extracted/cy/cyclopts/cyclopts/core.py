@@ -2,7 +2,6 @@ import importlib
 import inspect
 import os
 import sys
-import traceback
 from collections.abc import Callable, Coroutine, Iterable, Iterator, Sequence
 from contextlib import nullcontext, suppress
 from copy import copy
@@ -39,7 +38,6 @@ from cyclopts.bind import (
     normalize_tokens,
 )
 from cyclopts.command_spec import CommandSpec
-from cyclopts.config._env import Env
 from cyclopts.exceptions import (
     CommandCollisionError,
     CycloptsError,
@@ -1857,6 +1855,18 @@ class App:
                     tokens[:] = [t for t in tokens if t not in flags_to_remove]
                     unused_tokens[:] = [t for t in unused_tokens if t not in flags_to_remove]
 
+                    # Help flags are parsed as commands; re-parse without them to catch a mistyped command.
+                    stripped_chain, stripped_apps, stripped_unused, _, _ = self._parse_commands(tokens)
+                    if (
+                        stripped_apps[-1].default_command is None
+                        and stripped_unused
+                        and not is_option_like(stripped_unused[0])
+                    ):
+                        # Resolved first: the typo's app may not be on the app stack.
+                        error_console = command_app.error_console
+                        command_chain, command_app = stripped_chain, stripped_apps[-1]
+                        raise UnknownCommandError(unused_tokens=stripped_unused, console=error_console)
+
                     command = self.help_print
                     while meta_parent := meta_parent._meta_parent:
                         command = meta_parent.help_print
@@ -2499,6 +2509,8 @@ class App:
         # We have to combine all the help-pages of the command-app and it's meta apps.
         for subapp, argument_collection in _iter_resolution_argument_collections(execution_path, parse_docstring=True):
             # Special-case: add config.Env values to Parameter(env_var=)
+            from cyclopts.config._env import Env
+
             configs: tuple[Callable, ...] = subapp.app_stack.resolve("_config") or ()
             env_configs = tuple(x for x in configs if isinstance(x, Env) and x.show)
             for argument in argument_collection:
@@ -3191,6 +3203,8 @@ class App:
                                 raise
                             print()
                         except Exception:
+                            import traceback
+
                             self.error_console.print(
                                 traceback.format_exc(), markup=False, highlight=False, soft_wrap=True
                             )

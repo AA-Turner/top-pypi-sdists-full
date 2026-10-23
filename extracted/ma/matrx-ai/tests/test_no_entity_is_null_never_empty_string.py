@@ -1,6 +1,6 @@
 """A context resolution with no entity binds NULL, never "" (live regression 2026-10-19).
 
-``public.resolve_full_context(p_entity_id uuid, ...)``: the mandate Holder-input route resolves
+``context.resolve_full_context(p_entity_id uuid, ...)``: the mandate Holder-input route resolves
 scope-bound variables before any conversation exists and passed ``entity_id=""``, which the
 database refused with ``invalid input syntax for type uuid: ""`` on every mandate door whose
 Holder binds a scope value. NULL is the honest "no entity" and still resolves the selection.

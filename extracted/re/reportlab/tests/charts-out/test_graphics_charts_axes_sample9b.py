@@ -15,19 +15,19 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		self.add(Line(390,30,390,25,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,107.1717,25)
-		v0.add(String(-7.5,-10,'200',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-8.34,-10,'200',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,177.8788,25)
-		v0.add(String(-7.5,-10,'400',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-8.34,-10,'400',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,248.5859,25)
-		v0.add(String(-7.5,-10,'600',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-8.34,-10,'600',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,319.2929,25)
-		v0.add(String(-7.5,-10,'800',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-8.34,-10,'800',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,390,25)
-		v0.add(String(-10,-10,'1000',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-11.12,-10,'1000',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		self.add(Line(40,30,40,280,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		self.add(Line(40,43.51351,35,43.51351,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
 		self.add(Line(40,111.0811,35,111.0811,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
@@ -36,70 +36,70 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,35,43.51351)
 		v1=v0._nn(Group())
-		v1.transform = (1,0,0,1,-14,-6)
+		v1.transform = (1,0,0,1,-15.568,-6)
 		v1.add(DirectDrawFlowable(XPreformatted(
 'caseSensitive': 1
 'text': '10<sup>2</sup>'
-'frags': [ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='2', textColor=Color(0,0,0,1), us_lines=[])]
+'frags': [ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='2', textColor=Color(0,0,0,1), us_lines=[])]
 'style': <ParagraphStyle 'xlabel-generated'>
 'bulletText': None
 'debug': 0
 'width': 2147483647
 '_wrapWidths': [2147483647, 2147483647]
-'_width_max': 14.0
+'_width_max': 15.568000000000001
 'height': 12.0
-'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=6.83, currentWidth=14.0, descent=-2.17, extraSpace=2147483633.0, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='2', textColor=Color(0,0,0,1), us_lines=[])])])
+'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=7.18, currentWidth=15.568000000000001, descent=-2.07, extraSpace=2147483631.432, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='2', textColor=Color(0,0,0,1), us_lines=[])])])
 ) #XPreformatted))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,35,111.0811)
 		v1=v0._nn(Group())
-		v1.transform = (1,0,0,1,-14,-6)
+		v1.transform = (1,0,0,1,-15.568,-6)
 		v1.add(DirectDrawFlowable(XPreformatted(
 'caseSensitive': 1
 'text': '10<sup>4</sup>'
-'frags': [ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='4', textColor=Color(0,0,0,1), us_lines=[])]
+'frags': [ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='4', textColor=Color(0,0,0,1), us_lines=[])]
 'style': <ParagraphStyle 'xlabel-generated'>
 'bulletText': None
 'debug': 0
 'width': 2147483647
 '_wrapWidths': [2147483647, 2147483647]
-'_width_max': 14.0
+'_width_max': 15.568000000000001
 'height': 12.0
-'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=6.83, currentWidth=14.0, descent=-2.17, extraSpace=2147483633.0, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='4', textColor=Color(0,0,0,1), us_lines=[])])])
+'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=7.18, currentWidth=15.568000000000001, descent=-2.07, extraSpace=2147483631.432, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='4', textColor=Color(0,0,0,1), us_lines=[])])])
 ) #XPreformatted))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,35,178.6486)
 		v1=v0._nn(Group())
-		v1.transform = (1,0,0,1,-14,-6)
+		v1.transform = (1,0,0,1,-15.568,-6)
 		v1.add(DirectDrawFlowable(XPreformatted(
 'caseSensitive': 1
 'text': '10<sup>6</sup>'
-'frags': [ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='6', textColor=Color(0,0,0,1), us_lines=[])]
+'frags': [ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='6', textColor=Color(0,0,0,1), us_lines=[])]
 'style': <ParagraphStyle 'xlabel-generated'>
 'bulletText': None
 'debug': 0
 'width': 2147483647
 '_wrapWidths': [2147483647, 2147483647]
-'_width_max': 14.0
+'_width_max': 15.568000000000001
 'height': 12.0
-'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=6.83, currentWidth=14.0, descent=-2.17, extraSpace=2147483633.0, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='6', textColor=Color(0,0,0,1), us_lines=[])])])
+'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=7.18, currentWidth=15.568000000000001, descent=-2.07, extraSpace=2147483631.432, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='6', textColor=Color(0,0,0,1), us_lines=[])])])
 ) #XPreformatted))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,35,246.2162)
 		v1=v0._nn(Group())
-		v1.transform = (1,0,0,1,-14,-6)
+		v1.transform = (1,0,0,1,-15.568,-6)
 		v1.add(DirectDrawFlowable(XPreformatted(
 'caseSensitive': 1
 'text': '10<sup>8</sup>'
-'frags': [ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='8', textColor=Color(0,0,0,1), us_lines=[])]
+'frags': [ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='8', textColor=Color(0,0,0,1), us_lines=[])]
 'style': <ParagraphStyle 'xlabel-generated'>
 'bulletText': None
 'debug': 0
 'width': 2147483647
 '_wrapWidths': [2147483647, 2147483647]
-'_width_max': 14.0
+'_width_max': 15.568000000000001
 'height': 12.0
-'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=6.83, currentWidth=14.0, descent=-2.17, extraSpace=2147483633.0, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Times-Roman', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Times-Roman', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='8', textColor=Color(0,0,0,1), us_lines=[])])])
+'blPara': ParaLines(kind=1, lines=[ParaLines(ascent=7.18, currentWidth=15.568000000000001, descent=-2.07, extraSpace=2147483631.432, fontSize=10, preformatted=True, wordCount=0, words=[ParaFrag(__tag__='para', bold=0, fontName='Helvetica', fontSize=10, greek=0, italic=0, link=[], rise=0, text='10', textColor=Color(0,0,0,1), us_lines=[]), ParaFrag(__tag__='super', bold=0, fontName='Helvetica', fontSize=8, greek=0, italic=0, link=[], rise=5.0, text='8', textColor=Color(0,0,0,1), us_lines=[])])])
 ) #XPreformatted))
 		self.add(Line(107.1717,30,107.1717,280,strokeColor=Color(0,0,0,1),strokeWidth=.25,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=[1,1],strokeOpacity=None))
 		self.add(Line(177.8788,30,177.8788,280,strokeColor=Color(0,0,0,1),strokeWidth=.25,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=[1,1],strokeOpacity=None))

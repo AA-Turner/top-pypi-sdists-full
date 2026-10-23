@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: mkdocs-autorefs
-Version: 1.4.4
+Version: 1.4.5
 Summary: Automatically link across pages in MkDocs.
 Keywords: mkdocs,mkdocs-plugin,docstrings,autodoc
-Author-Email: Oleh Prypin <oleh@pryp.in>, =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
+Author-Email: Oleh Prypin <oleh@pryp.in>, Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -11,12 +11,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Documentation
@@ -29,7 +28,7 @@ Project-URL: Repository, https://github.com/mkdocstrings/autorefs
 Project-URL: Issues, https://github.com/mkdocstrings/autorefs/issues
 Project-URL: Discussions, https://github.com/mkdocstrings/autorefs/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/autorefs
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Requires-Dist: Markdown>=3.3
 Requires-Dist: markupsafe>=2.0.1
 Requires-Dist: mkdocs>=1.1
@@ -38,9 +37,8 @@ Description-Content-Type: text/markdown
 # mkdocs-autorefs
 
 [![ci](https://github.com/mkdocstrings/autorefs/workflows/ci/badge.svg)](https://github.com/mkdocstrings/autorefs/actions?query=workflow%3Aci)
-[![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://mkdocstrings.github.io/autorefs/)
+[![documentation](https://img.shields.io/badge/docs-zensical-FF9100.svg?style=flat)](https://mkdocstrings.github.io/autorefs/)
 [![pypi version](https://img.shields.io/pypi/v/mkdocs-autorefs.svg)](https://pypi.org/project/mkdocs-autorefs/)
-[![conda version](https://img.shields.io/conda/vn/conda-forge/mkdocs-autorefs.svg)](https://anaconda.org/conda-forge/mkdocs-autorefs)
 [![gitter](https://img.shields.io/badge/matrix-chat-4DB798.svg?style=flat)](https://app.gitter.im/#/room/#autorefs:gitter.im)
 
 Automatically link across pages in MkDocs.

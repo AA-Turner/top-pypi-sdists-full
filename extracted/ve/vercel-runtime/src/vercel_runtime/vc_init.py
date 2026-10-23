@@ -20,7 +20,7 @@ from collections.abc import Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, Any, Literal, Never, TextIO
 
-from vercel_runtime import deadline
+from vercel_runtime import deadline, init_log_buffer
 from vercel_runtime.cache import (
     SC_HEADERS_ALWAYS_STRIP,
     SC_HEADERS_STRIP_ON_NO_LEAK,
@@ -86,6 +86,8 @@ _original_stderr = sys.stderr
 _MODULE_IMPORTED_AT = time.monotonic()
 
 # --- IPC socket & send_message (must be available before _fatal) ----------
+# Hive serves the IPC socket here, which tells it apart from Lambda.
+_HIVE_IPC_PATH = "/opt/vercel/ipc.sock"
 _ipc_sock: socket.socket | None = None
 if "VERCEL_IPC_PATH" in os.environ:
     _ipc_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -122,8 +124,8 @@ def _fatal_exc(label: str) -> Never:
 def _send_unrecoverable_error(message: str) -> None:
     """Send an ``unrecoverable-error`` IPC message to the functions runtime.
 
-    This is the only message type (besides ``server-started``) that the
-    functions runtime accepts before the handshake completes, so it is the
+    Besides ``server-started`` itself, this is the only message type the
+    functions runtime accepts before ``server-started`` is sent, so it is the
     correct way to report fatal errors during module import.
     """
     send_message(
@@ -205,7 +207,7 @@ def setup_logging(
                 )
             else:
                 # If IPC is not ready, enqueue the message to be sent later.
-                enqueue_or_send_message(
+                _init_logs.enqueue_or_send(
                     {
                         "type": "log",
                         "payload": {
@@ -247,7 +249,7 @@ def setup_logging(
                     }
                 )
             else:
-                enqueue_or_send_message(
+                _init_logs.enqueue_or_send(
                     {
                         "type": "log",
                         "payload": {
@@ -311,70 +313,10 @@ storage: contextvars.ContextVar[dict[str, str | int] | None] = (
 )
 
 
-# Buffer for pre-handshake logs (to avoid blocking IPC on startup)
-_ipc_ready = False
-_init_log_buf: list[_IpcMessage] = []
-_INIT_LOG_BUF_MAX_BYTES = 1_000_000
-_init_log_buf_bytes = 0
-
-
-def enqueue_or_send_message(msg: _IpcMessage) -> None:
-    global _init_log_buf_bytes  # noqa: PLW0603
-    if _ipc_ready:
-        send_message(msg)
-        return
-
-    enc_len = len(json.dumps(msg))
-
-    if _init_log_buf_bytes + enc_len <= _INIT_LOG_BUF_MAX_BYTES:
-        _init_log_buf.append(msg)
-        _init_log_buf_bytes += enc_len
-    else:
-        # Fallback so message is not lost if buffer is full
-        with contextlib.suppress(Exception):
-            payload = msg.get("payload", {})
-            decoded = base64.b64decode(
-                payload.get("message", ""),
-            ).decode(errors="ignore")
-            _original_stderr.write(decoded + "\n")
-
-
-def _flush_init_log_buf() -> None:
-    """Flush buffered init logs through IPC and mark the channel as ready.
-
-    Called once the ``server-started`` handshake is complete so the functions
-    runtime will accept ``log`` messages.
-    """
-    global _ipc_ready, _init_log_buf_bytes  # noqa: PLW0603
-    _ipc_ready = True
-    for m in _init_log_buf:
-        send_message(m)
-    _init_log_buf.clear()
-    _init_log_buf_bytes = 0
-
-
-def flush_init_log_buf_to_stderr() -> None:
-    global _init_log_buf_bytes  # noqa: PLW0603
-    try:
-        combined: list[str] = []
-        for m in _init_log_buf:
-            payload = m.get("payload", {})
-            msg = payload.get("message")
-            if not msg:
-                continue
-            with contextlib.suppress(Exception):
-                decoded = base64.b64decode(msg).decode(errors="ignore")
-                combined.append(decoded)
-        if combined:
-            _stderr("".join(combined))
-    except Exception:
-        pass
-    finally:
-        _init_log_buf.clear()
-        _init_log_buf_bytes = 0
-
-
-atexit.register(flush_init_log_buf_to_stderr)
+# Logs written before `server-started` (to avoid blocking IPC)
+_init_logs = init_log_buffer.InitLogBuffer(send_message, _stderr)
+os.register_at_fork(after_in_child=_init_logs.reinit_lock_after_fork)
+atexit.register(_init_logs.flush_to_stderr)
 
 
 # --- Cold start phase timings ---------------------------------------------
@@ -473,12 +415,12 @@ def _add_cold_start_timing_asgi(message: dict[str, Any]) -> None:
 
 
 def _send_server_started(http_port: int) -> None:
-    """Complete the runtime handshake and release buffered init logs."""
+    """Send ``server-started`` and release buffered init logs."""
     global _pending_server_timing  # noqa: PLW0603
     ready_at = time.monotonic()
     phases = _cold_start_phases(ready_at)
     # The platform reads the breakdown off the first response, so it is only
-    # the user-attributable share that the handshake has to carry.
+    # the user-attributable share that `server-started` has to carry.
     _pending_server_timing = _format_server_timing(phases)
     send_message(
         {
@@ -490,7 +432,7 @@ def _send_server_started(http_port: int) -> None:
             },
         }
     )
-    _flush_init_log_buf()
+    _init_logs.flush_to_ipc()
 
 
 if _ipc_sock is not None:
@@ -1106,6 +1048,8 @@ with contextlib.nullcontext():
     http_port: int | None = None
     run_server: Callable[[], None] | None = None
     shutdown_server: Callable[[], None] | None = None
+    # True when the function is running on hive (foh).
+    is_foh = False
 
     if (
         app_name.lower() == "handler"
@@ -1251,7 +1195,9 @@ with contextlib.nullcontext():
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("127.0.0.1", 0))
             sock.listen(2048)
-            http_port = sock.getsockname()[1]
+            # `server-started` needs an `int`, and `http_port` is `int | None`.
+            listen_port: int = sock.getsockname()[1]
+            http_port = listen_port
 
             config = uvicorn.Config(
                 app=asgi_app,
@@ -1260,7 +1206,28 @@ with contextlib.nullcontext():
                 log_config=None,
                 log_level="warning",
             )
-            uvicorn_server = uvicorn.Server(config)
+
+            # Only Hive waits for lifespan startup. Lambda counts the time
+            # until `server-started` against its Init phase budget, so
+            # elsewhere send it before lifespan startup as before.
+            is_foh = os.environ.get("VERCEL_IPC_PATH") == _HIVE_IPC_PATH
+            uvicorn_server: uvicorn.Server
+            if is_foh:
+                from vercel_runtime import asgi_server
+
+                uvicorn_server = asgi_server.ReadyAnnouncingServer(
+                    config,
+                    on_ready=functools.partial(
+                        _send_server_started, listen_port
+                    ),
+                    on_startup_failed=functools.partial(
+                        _fatal,
+                        "could not start ASGI application: "
+                        "lifespan startup failed",
+                    ),
+                )
+            else:
+                uvicorn_server = uvicorn.Server(config)
             run_server = functools.partial(uvicorn_server.run, sockets=[sock])
 
             def shutdown_uvicorn_server() -> None:
@@ -1280,7 +1247,8 @@ with contextlib.nullcontext():
 
 
 if "VERCEL_IPC_PATH" in os.environ:
-    _send_server_started(http_port)
+    if not is_foh:
+        _send_server_started(http_port)
     run_server()
 else:
     # For the vc_handler version, run the server in a thread and have

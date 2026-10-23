@@ -168,3 +168,40 @@ async def test_held_call_inside_a_workflow_step_names_no_phantom_parent(monkeypa
 
     assert seen["conversation_id"] != PERSON_CONVERSATION
     assert seen["parent"] is None
+
+
+@pytest.mark.asyncio
+async def test_held_call_that_names_its_own_conversation_reports_it(monkeypatch):
+    # Live 2026-10-22: the direct judge names its own conversation (it reads its measured cost by
+    # that id), so the funnel skipped the held branch, ``finish`` got no ids, and the run was
+    # recorded as a detached row with no request — its real request never carried the run columns.
+    from matrx_connect.context.app_context import get_app_context, set_app_context
+
+    from matrx_ai.orchestrator import executor
+
+    own = "44444444-4444-4444-4444-444444444444"
+    set_app_context(_ctx(store=True))
+    loops: list[str] = []
+
+    async def _loop(request: Any, client: Any, *a: Any, **k: Any) -> Any:
+        loops.append(get_app_context().conversation_id)
+        return SimpleNamespace(request=request)
+
+    monkeypatch.setattr(executor, "execute_until_complete", _loop)
+    finished: dict[str, Any] = {}
+
+    async def _complete(result: Any, variables: Any, user_input: Any) -> None:
+        finished["metadata"] = dict(result.metadata)
+
+    held = _held(_complete)
+    await executor.execute_ai_request(
+        UnifiedConfig.from_dict({"model": "test-model", "messages": []}),
+        max_iterations=1,
+        metadata=dict(held.metadata),
+        conversation_id=own,
+        store=True,
+    )
+    await held.finish("verdict")
+
+    assert loops == [own], "runs once, as the conversation it named"
+    assert finished["metadata"] == {"conversation_id": own, "request_id": REQUEST_ID}

@@ -1,7 +1,5 @@
-from .errors import StructuredFieldError
 from .state import ParserState
 
-QUESTION = ord(b"?")
 ONE = ord(b"1")
 ZERO = ord(b"0")
 
@@ -12,9 +10,8 @@ def parse_boolean(state: ParserState) -> bool:
     try:
         val = _boolean_map[state.data[state.cursor + 1]]
     except (KeyError, IndexError) as exc:
-        raise StructuredFieldError(
-            "No Boolean value found", position=state.cursor, offending_char=None
-        ) from exc
+        # Report the byte after '?', where the value should be.
+        state.fail("No Boolean value found", state.cursor + 1, cause=exc)
     state.cursor += 2
     return val[1]
 

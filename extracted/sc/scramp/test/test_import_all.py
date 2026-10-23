@@ -1,4 +1,4 @@
-from scramp import *  # noqa: F403,F401
+from scramp import *
 
 
 def test_import_all():

@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.283.0"
+version = "0.290.1"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -71,6 +71,12 @@ dependencies = [
     # `.probeignore` (sdk/ignore.py): gitignore-syntax matching. Pure python, no
     # dependencies of its own; IMPORTED LAZILY, only when a pattern exists.
     "pathspec>=1.0",
+    # Codex's config.toml edited in place, comments and order kept, by the
+    # integration repair (cli/integration_reinstall.py). Pure python, no
+    # dependencies of its own. It was imported from 2026-10-19 while declared
+    # nowhere, so `--reinstall` crashed on every real install; the guard is
+    # tests/test_cli_imports_are_declared.py. CLI-side: in `cli` below too.
+    "tomlkit>=0.12",
 ]
 
 [project.optional-dependencies]
@@ -116,7 +122,7 @@ mcp-http = ["uvicorn>=0.30"]
 # a training environment can `pip install probe-research` without typer or mcp
 # (mcp 2.x-pinned stacks such as vllm 0.30 refuse our `mcp<2` today).
 # tests/test_py310_compat.py keeps these specs identical to core's.
-cli = ["typer>=0.12,<1.0", "questionary>=2.0,<3"]
+cli = ["typer>=0.12,<1.0", "questionary>=2.0,<3", "tomlkit>=0.12"]
 mcp = ["mcp>=1.24,<2", "anyio>=4.5", "tiktoken>=0.8,<0.14"]
 all = ["probe-research[cli,mcp]"]
 # `probe.integrations.lightning.ProbeLogger` (plan (a)). Brings torch: never a

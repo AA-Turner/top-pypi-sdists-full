@@ -1108,4 +1108,4 @@ def pd_direct_container(
         # trap the non-PD path documents) — multiplying CREATE_ICEBERG/LIST cost by the #reads and
         # making read-heavy workloads 3-5x slower than non-PD (SNOW-3748550 perf).
         can_be_cached=True,
-    ).without_materialization()
+    ).already_materialized()

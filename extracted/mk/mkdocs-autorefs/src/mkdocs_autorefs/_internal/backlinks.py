@@ -1,9 +1,27 @@
+# SPDX-License-Identifier: ISC
+#
+# ISC License
+#
+# Copyright (c) 2019, Timothée Mazzucotelli, Oleh Prypin and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # Backlinks module.
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
 from markdown.core import Markdown
@@ -22,25 +40,23 @@ try:
     _log = get_plugin_logger(__name__)
 except ImportError:
     # TODO: remove once support for MkDocs <1.5 is dropped
-    _log = logging.getLogger(f"mkdocs.plugins.{__name__}")  # type: ignore[assignment]
+    _log = logging.getLogger(f"mkdocs.plugins.{__name__}")
 
 
 @dataclass(frozen=True, order=True)
-class BacklinkCrumb:  # noqa: PLW1641
-    """A navigation breadcrumb for a backlink."""
+class BacklinkCrumb:
+    """A navigation breadcrumb for a backlink.
+
+    Equality, hashing, and ordering use the title and URL. The backlink's crumbs
+    tuple already represents the hierarchy, so the parent is excluded.
+    """
 
     title: str
     """The title of the breadcrumb."""
     url: str
     """The URL of the breadcrumb."""
-    parent: BacklinkCrumb | None = None
+    parent: BacklinkCrumb | None = field(default=None, compare=False)
     """The parent breadcrumb."""
-
-    def __eq__(self, value: object) -> bool:
-        """Compare URLs for equality."""
-        if isinstance(value, BacklinkCrumb):
-            return self.url == value.url
-        return False
 
 
 @dataclass(eq=True, frozen=True, order=True)

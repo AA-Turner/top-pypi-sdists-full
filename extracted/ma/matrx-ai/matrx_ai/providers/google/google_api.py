@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import time
-import uuid
 from typing import TYPE_CHECKING, Any
 
 import rich
@@ -32,11 +31,11 @@ from matrx_ai.providers.reasoning_stream_state import (
     reasoning_state_for,
     reset_reasoning_state,
 )
+from matrx_ai.providers.request_capture import install_genai_capture
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
 from .translator import GoogleProviderConfig, GoogleTranslator
-from matrx_ai.providers.request_capture import install_genai_capture
 
 # Capture mode (request_capture.py) stops genai at its last pre-transport step.
 install_genai_capture()
@@ -698,13 +697,10 @@ class GoogleChat:
 
     @staticmethod
     def _tts_stream_id() -> str:
-        from matrx_ai.context.app_context import get_app_context
+        """The live stream id for this render, with a new take opened (``audio_stream``)."""
+        from matrx_ai.providers.audio_stream import open_audio_stream
 
-        try:
-            rid = getattr(get_app_context(), "request_id", None)
-        except Exception:
-            rid = None
-        return str(rid) if rid else uuid.uuid4().hex
+        return open_audio_stream()
 
     async def _run_segmented_tts(
         self,
@@ -966,13 +962,15 @@ class GoogleChat:
         from matrx_connect.context.data_types import AudioStreamChunkData
 
         from matrx_ai.media.media_persistence import AIMediaHandler
-        from matrx_ai.providers.audio_stream import split_audio_frames
+        from matrx_ai.providers.audio_stream import current_audio_take, split_audio_frames
 
         bits, rate = AIMediaHandler._parse_pcm_mime_params(raw_mime)
+        take = current_audio_take(stream_id)
         for piece in split_audio_frames(data, align=max(1, bits // 8)):
             await emitter.send_data(
                 AudioStreamChunkData(
                     stream_id=stream_id,
+                    take=take,
                     seq=seq,
                     audio_base64=base64.b64encode(piece).decode("ascii"),
                     mime_type=raw_mime or "audio/L16",
@@ -1044,9 +1042,12 @@ class GoogleChat:
                 if audio:
                     break
 
+        from matrx_ai.providers.audio_stream import current_audio_take
+
         await emitter.send_data(
             AudioStreamEndData(
                 stream_id=stream_id,
+                take=current_audio_take(stream_id),
                 total_chunks=total_chunks,
                 url=audio.url if audio else "",
                 mime_type=(audio.mime_type if audio and audio.mime_type else "audio/wav"),

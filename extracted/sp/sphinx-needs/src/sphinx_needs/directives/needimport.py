@@ -13,7 +13,7 @@ from docutils.parsers.rst import directives
 from requests_file import FileAdapter
 from sphinx.util.docutils import SphinxDirective
 
-from sphinx_needs import exchange
+import ub_needs_exchange as exchange
 from sphinx_needs.api import InvalidNeedException, ingest_need_record
 from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import SphinxNeedsData
@@ -215,14 +215,11 @@ class NeedimportDirective(SphinxDirective):
             if path and isinstance(line, int) and line >= 1:
                 content_source = (str(path), line)
         # a template the project gives through ``needs_fields`` is applied when the need
-        # is created, after the markup is chosen here: a default, or a predicate (which
-        # may not match the need -- an over-approximation; which predicate matches is
-        # only known there), counts as the need's template
-        template_field = needs_schema.get_core_field("template")
-        project_template = template_field is not None and (
-            template_field.default is not None
-            or bool(template_field.predicate_defaults)
-        )
+        # is created, after the markup is chosen here: a default, or a predicate, of any
+        # declaration of the field, global or a need type's (which may not apply to the
+        # need -- an over-approximation; which one applies is only known there), counts
+        # as the need's template
+        project_template = needs_schema.declares_default("template")
         # each distinct doctype is resolved once: to ``None`` if the project parses it,
         # else to the reason it does not
         refusals: dict[str, str | None] = {}

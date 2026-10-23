@@ -48,6 +48,7 @@ from snowflake.snowpark_connect.relation.read.utils import (
 from snowflake.snowpark_connect.relation.stage_locator import StageLocator
 from snowflake.snowpark_connect.relation.utils import random_string
 from snowflake.snowpark_connect.type_support import emulate_integral_types
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -151,6 +152,7 @@ def _nss_read_xml(
     options: XmlReaderConfig,
     *,
     row_tag: str,
+    glob_patterns: dict[str, str] | None = None,
 ) -> DataFrameContainer | None:
     """Read XML through the NSS ``STAGE_FILE_READER`` path when enabled.
 
@@ -189,15 +191,15 @@ def _nss_read_xml(
     # no per-schema decoder UDTF.
     from snowflake.snowpark_connect.nss.nss_scan_options import (
         _nss_column_name,
-        as_all_string_columns,
-        cache_if_corrupt_record_present,
         filter_reader_options,
+        needs_locations,
         normalize_stage_paths,
         nss_empty_schema_dummy_columns,
         py_schema_as_nullable,
         raise_if_locations_unsupported,
         resolve_corrupt_record_column,
         snowpark_types_from_columns,
+        sort_columns_by_name,
     )
     from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
         nss_read_via_stage_file_reader,
@@ -226,6 +228,8 @@ def _nss_read_xml(
         )
 
         nss_infer_reader_options = dict(nss_reader_options)
+        # Unlike CSV, the result is not flattened to strings afterwards: spark-xml applies
+        # inferSchema=false itself, keeping nested structs and arrays with string leaves.
         nss_infer_reader_options["inferSchema"] = (
             "true" if options._get_config_setting("inferschema") else "false"
         )
@@ -238,15 +242,19 @@ def _nss_read_xml(
             corrupt_record_column=corrupt_record_column_name,
             reader_options=nss_infer_reader_options,
             stage_paths=stage_paths,
+            glob_patterns=glob_patterns,
         )
+        nss_columns = sort_columns_by_name(nss_columns)
         if not nss_columns:
             ensure_nss_empty_schema_has_visible_files(
-                session, stage_path, "XML", stage_paths=stage_paths
+                session,
+                stage_path,
+                "XML",
+                stage_paths=stage_paths,
+                glob_patterns=glob_patterns,
             )
             nss_columns = nss_empty_schema_dummy_columns()
             nss_empty_schema = True
-        elif not options._get_config_setting("inferschema"):
-            nss_columns = as_all_string_columns(nss_columns)
     else:
         from snowflake.snowpark_connect.nss.nss_infer_schema import (
             columns_for_explicit_schema,
@@ -291,6 +299,7 @@ def _nss_read_xml(
         session=session,
         stage_path=stage_path,
         stage_paths=stage_paths,
+        glob_patterns=glob_patterns,
         file_format=format_name,
         columns=nss_columns,
         reader_options=nss_reader_options,
@@ -303,14 +312,11 @@ def _nss_read_xml(
         _nss_column_name(c.name, i) for i, c in enumerate(nss_columns)
     ]
     try:
-        df = cache_if_corrupt_record_present(
-            df, corrupt_record_column_name, nss_columns
-        )
         renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
             df, rel.common.plan_id
         )
     except SnowparkSQLException as exc:
-        if len(stage_paths) > 1:
+        if needs_locations(stage_paths, glob_patterns):
             raise_if_locations_unsupported(exc, len(stage_paths))
         raise
     # Memoizable in df_cache_map, but not materialized (SNOW-3717231): there is no
@@ -324,7 +330,7 @@ def _nss_read_xml(
         # Snowflake columns (SNOW-3891973).
         snowpark_column_types=snowpark_types_from_columns(nss_columns),
         column_is_internal=([True] if nss_empty_schema else None),
-    ).without_materialization()
+    ).materialize_on_request_only()
 
 
 def map_read_xml(
@@ -335,6 +341,7 @@ def map_read_xml(
     options: XmlReaderConfig,
     *,
     is_recursive: bool = True,
+    glob_patterns: dict[str, str] | None = None,
 ) -> DataFrameContainer:
     """
     Read XML files into a Snowpark DataFrame.
@@ -383,7 +390,15 @@ def map_read_xml(
     # When enabled, read via STAGE_FILE_READER (the real Spark XmlFileFormat running in
     # the sandbox) instead of the per-row decoder UDTF, inferring the schema via
     # INFER_STAGE_FILE_SCHEMA when the caller supplied none.
-    nss_container = _nss_read_xml(rel, schema, session, paths, options, row_tag=row_tag)
+    nss_container = _nss_read_xml(
+        rel,
+        schema,
+        session,
+        paths,
+        options,
+        row_tag=row_tag,
+        glob_patterns=glob_patterns,
+    )
     if nss_container is not None:
         return nss_container
     # ── End NSS branch ────────────────────────────────────────────────────────
@@ -806,8 +821,9 @@ def _clone_xml_external_stage(
         logger.error("Unexpected error cloning stage %s", stage_name, exc_info=True)
         return None
 
-    db = unquote_if_quoted(session.get_current_database())
-    schema = unquote_if_quoted(session.get_current_schema())
+    with scos_internal_query_tag():
+        db = unquote_if_quoted(session.get_current_database())
+        schema = unquote_if_quoted(session.get_current_schema())
     return f"@{db}.{schema}.{clone_stage_name}"
 
 

@@ -159,7 +159,6 @@ def test_pattern(tasks):
     assert task_name3.upper() in result
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_like(tasks):
     result = tasks.iter(like="")

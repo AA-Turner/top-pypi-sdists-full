@@ -23,7 +23,7 @@ import json
 import logging
 import re
 from collections import Counter
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable, Iterator
 from dataclasses import dataclass, field
 from functools import reduce
 from pathlib import Path
@@ -76,6 +76,12 @@ DEGRADED_EXAMPLE_CAP = 100
 # equal and silently merge their records. The digest keeps equality exact
 # while PK examples and report lines stay bounded.
 MAX_PK_COMPONENT_CHARS = 500
+# A duplicated PK's value-diff example shows at most this many records per
+# side, and its DeepDiff compares only those: a PK whose thousands of records
+# all differ (a mis-declared PK on a target that adds a field) would otherwise
+# diff, store and render every one of them. The example's note keeps the
+# full counts.
+MAX_GROUP_EXAMPLE_RECORDS = 20
 
 
 @dataclass
@@ -99,6 +105,13 @@ class RecordDiff:
     # The PK paths the by-PK matching used, so the report can name the
     # identifying fields of each example instead of only their values.
     pk_paths: PrimaryKeys | None = None
+    # More identical copies the target emits under PK values the control
+    # already duplicates (`_record_group_diff`): a warning, never a value
+    # diff. Exact totals; `added_copy_pks` maps a capped, sorted set of those
+    # PK values (`MAX_EXAMPLE_PKS`) to their extra copies.
+    added_copy_count: int = 0
+    added_copy_pk_count: int = 0
+    added_copy_pks: dict[Any, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.records_with_value_diff_count = max(
@@ -150,6 +163,24 @@ class StreamComparisonResult:
     # Occurrence count per duplicated PK value (always >= 2): how many
     # records shared it, keyed by the same tuples `duplicate_pks` lists.
     duplicate_pk_counts: dict[Any, int] = field(default_factory=dict)
+    # The stream's duplicated PK values classified against the other
+    # version's output: duplicated in both versions, in the target only, in
+    # the control only with every record still in the target (fixed), in
+    # the control only with records the target dropped or changed (the
+    # `lost_*` fields, named for the records rather than the PK). Set by the
+    # comparison and identical on both versions' results; zero on a
+    # single-version check. The counts are exact; `lost_duplicate_pks` is
+    # capped like the other PK lists.
+    pre_existing_duplicate_pk_count: int = 0
+    new_duplicate_pk_count: int = 0
+    fixed_duplicate_pk_count: int = 0
+    lost_duplicate_pk_count: int = 0
+    lost_duplicate_pks: list[Any] = field(default_factory=list)
+    # Records beyond the first of each duplicated PK value, sum(count - 1):
+    # how many fewer records the version would emit without its duplicates.
+    # Exact, like the split; the record-count check allows for the ones the
+    # target no longer emits.
+    duplicate_row_count: int = 0
     records_missing_pk: int = 0
     records_missing_pk_examples: list[dict[str, Any]] = field(default_factory=list)
     # The declared PK paths, so the report can say which fields are missing
@@ -252,13 +283,78 @@ def compare_record_counts(
             message=message,
         )
 
-    all_passed = all(r.passed for r in stream_results.values())
     return ComparisonResult(
-        passed=all_passed,
+        passed=all(r.passed for r in stream_results.values()),
         stream_results=stream_results,
-        message="Record counts match" if all_passed else "Record count mismatch",
+        message=_record_count_message(stream_results),
         errors=errors,
     )
+
+
+def _record_count_message(stream_results: dict[str, StreamComparisonResult]) -> str:
+    """The count check's message, shared with the merge of per-stream results.
+
+    A passing stream with fewer target records is one the duplicate-row
+    allowance passed (`_allow_dropped_duplicate_rows`). The message claims
+    only the arithmetic: whether the dropped rows were copies is the field
+    values' call.
+    """
+    if not all(r.passed for r in stream_results.values()):
+        return "Record count mismatch"
+    if any(r.target_count < r.control_count for r in stream_results.values()):
+        return "Record counts match once duplicate rows are left out"
+    return "Record counts match"
+
+
+def _allow_dropped_duplicate_rows(
+    count_comparison: ComparisonResult,
+    control_pk_uniqueness: ComparisonResult,
+    target_pk_uniqueness: ComparisonResult,
+) -> None:
+    """Pass, with a warning, a count shortfall within the drop in duplicate rows.
+
+    A target that stops emitting a duplicated PK's extra copies has fewer
+    records, and the directional count would fail it on the very fix the
+    PK-integrity check reports as "fixed in target". So a failing stream
+    passes when its shortfall is no larger than the control's duplicate rows
+    minus the target's: the target has at least as many records once each
+    side's duplicate rows are left out. Updated in place, warning instead of
+    error; a passing stream with fewer target records is always this case.
+
+    Safe only together with the field-value rule for duplicated PKs
+    (`_record_group_diff`): a dropped row that was not a copy of a record the
+    target still emits is a lost record and fails the field values, and a
+    dropped PK fails PK presence. The count itself cannot tell copies from
+    lost records, so its message states the arithmetic and leaves that to the
+    field values.
+    """
+    for stream, result in count_comparison.stream_results.items():
+        if result.passed:
+            continue
+        control_rows = _duplicate_row_count(control_pk_uniqueness, stream)
+        target_rows = _duplicate_row_count(target_pk_uniqueness, stream)
+        shortfall = result.control_count - result.target_count
+        if shortfall > control_rows - target_rows:
+            continue
+        count_comparison.errors.remove(result.message)
+        result.passed = True
+        records = "record" if shortfall == 1 else "records"
+        result.message = (
+            f"Stream {stream} has {shortfall} fewer {records} in target, within "
+            "the duplicate rows the target dropped "
+            f"({control_rows} in control, {target_rows} in target); field values "
+            "check that the dropped rows were copies"
+        )
+        count_comparison.warnings.append(result.message)
+    count_comparison.passed = all(
+        r.passed for r in count_comparison.stream_results.values()
+    )
+    count_comparison.message = _record_count_message(count_comparison.stream_results)
+
+
+def _duplicate_row_count(pk_uniqueness: ComparisonResult, stream: str) -> int:
+    result = pk_uniqueness.stream_results.get(stream)
+    return result.duplicate_row_count if result is not None else 0
 
 
 def compare_primary_keys(
@@ -348,6 +444,140 @@ def compare_primary_keys(
     )
 
 
+@dataclass
+class _PkIntegrityScan:
+    """One version's PK integrity findings on one stream, before any verdict.
+
+    `duplicates` is the full occurrence count per duplicated PK value. The
+    result keeps a capped copy; the full map is what the comparison needs to
+    classify the duplicates against the other version's, and it lives only
+    as long as that stream is being compared.
+    """
+
+    pk_paths: PrimaryKeys
+    duplicates: dict[tuple, int]
+    records_missing_pk: int
+    records_missing_pk_examples: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class _DuplicatePkSplit:
+    """One stream's duplicated PK values, classified against the other version.
+
+    `pre_existing` are duplicated in both versions, `new` in the target only.
+    A value duplicated in the control only is `fixed` when every one of its
+    control records still has an equal record in the target -- the target
+    collapsed copies -- and `lost` otherwise: the target dropped or changed a
+    record of it, which the field values (or PK presence, for a value the
+    target no longer emits at all) fail on. The control's duplicates are
+    `pre_existing + fixed + lost`, the target's `pre_existing + new`.
+    `lost_pks` is the sorted, capped list of those values.
+    """
+
+    pre_existing: int = 0
+    new: int = 0
+    fixed: int = 0
+    lost: int = 0
+    lost_pks: tuple[Any, ...] = ()
+
+
+def _scan_pk_integrity(
+    messages: list[AirbyteMessage], pk_paths: PrimaryKeys
+) -> _PkIntegrityScan:
+    records_missing_pk = 0
+    # Full copies of the first few offending records, so the report can
+    # show what a record without its declared PK actually looks like.
+    # Capped like the other example lists; the count stays exact.
+    records_missing_pk_examples: list[dict[str, Any]] = []
+    pk_counts: Counter[tuple] = Counter()
+    for msg in messages:
+        if not (msg.record and msg.record.data):
+            continue
+        pk = _extract_pk_tuple(msg.record.data, pk_paths)
+        if _pk_has_missing_values(pk):
+            records_missing_pk += 1
+            if len(records_missing_pk_examples) < MAX_EXAMPLE_DIFFS:
+                records_missing_pk_examples.append(
+                    json.loads(msg.record.model_dump_json())
+                )
+        else:
+            pk_counts[pk] += 1
+    return _PkIntegrityScan(
+        pk_paths=pk_paths,
+        duplicates={pk: count for pk, count in pk_counts.items() if count > 1},
+        records_missing_pk=records_missing_pk,
+        records_missing_pk_examples=records_missing_pk_examples,
+    )
+
+
+def _scan_pk_integrity_per_stream(
+    records_per_stream: dict[str, list[AirbyteMessage]],
+    primary_keys_per_stream: dict[str, PrimaryKeys | None],
+) -> dict[str, _PkIntegrityScan | None]:
+    """Scan every stream; `None` stands for a stream without a primary key."""
+    scans: dict[str, _PkIntegrityScan | None] = {}
+    for stream_name, messages in records_per_stream.items():
+        pk_paths = primary_keys_per_stream.get(stream_name)
+        scans[stream_name] = (
+            _scan_pk_integrity(messages, pk_paths) if pk_paths else None
+        )
+    return scans
+
+
+def _split_duplicate_pks(
+    control: _PkIntegrityScan | None,
+    target: _PkIntegrityScan | None,
+    control_messages: list[AirbyteMessage],
+    target_messages: list[AirbyteMessage],
+) -> _DuplicatePkSplit:
+    control_pks = (control.duplicates if control else {}).keys()
+    target_pks = (target.duplicates if target else {}).keys()
+    control_only = control_pks - target_pks
+    lost = (
+        _lost_duplicate_pks(
+            control_only, control.pk_paths, control_messages, target_messages
+        )
+        if control is not None and control_only
+        else []
+    )
+    return _DuplicatePkSplit(
+        pre_existing=len(control_pks & target_pks),
+        new=len(target_pks - control_pks),
+        fixed=len(control_only) - len(lost),
+        lost=len(lost),
+        lost_pks=tuple(lost[:MAX_EXAMPLE_PKS]),
+    )
+
+
+def _lost_duplicate_pks(
+    control_only: set[tuple],
+    pk_paths: PrimaryKeys,
+    control_messages: list[AirbyteMessage],
+    target_messages: list[AirbyteMessage],
+) -> list[tuple]:
+    """The control-only duplicated PK values the target did not just collapse.
+
+    The target emits such a value at most once. It was fixed only when every
+    control record of it equals that one target record (`_canonical_record`
+    with `EXCLUDE_PATHS`, the field values' matching); otherwise the target
+    dropped or changed a record of it, or dropped the value entirely. Sorted
+    (`key=repr`), exact.
+    """
+
+    def keyed(messages: list[AirbyteMessage]) -> Iterator[tuple[tuple, str]]:
+        for message in messages:
+            if not (message.record and message.record.data):
+                continue
+            pk = _extract_pk_tuple(message.record.data, pk_paths)
+            if pk in control_only:
+                record = json.loads(message.record.model_dump_json())
+                yield pk, _canonical_record(record, EXCLUDE_PATHS)
+
+    target_keys = dict(keyed(target_messages))
+    lost = {pk for pk, key in keyed(control_messages) if target_keys.get(pk) != key}
+    return sorted(lost, key=repr)
+
+
 def check_pk_uniqueness(
     records_per_stream: dict[str, list[AirbyteMessage]],
     primary_keys_per_stream: dict[str, PrimaryKeys | None],
@@ -355,9 +585,9 @@ def check_pk_uniqueness(
 ) -> ComparisonResult:
     """Check PK integrity of a single version's output, per stream.
 
-    Two failure modes, both hard failures even when present in both
-    versions (they indicate a broken primary key declaration or broken
-    records, which breaks deduplication on the destination side):
+    Two failure modes, both hard failures on a version checked alone (they
+    indicate a broken primary key declaration or broken records, which
+    breaks deduplication on the destination side):
 
     - Duplicate primary keys: the same PK value appears on more than one
       record, indicating the connector emitted the same entity more than
@@ -368,8 +598,10 @@ def check_pk_uniqueness(
       records. Such records are excluded from the duplicate count — they
       are reported through their own error instead.
 
-    This runs on a single version's output; call it separately for control
-    and target.
+    This runs on a single version's output. The comparison goes through
+    `_compare_pk_integrity` instead, which classifies each stream's
+    duplicates against the other version's and fails only on the ones the
+    target introduced.
 
     Args:
         records_per_stream: Records grouped by stream name.
@@ -377,14 +609,70 @@ def check_pk_uniqueness(
             without a primary key are skipped.
         version_label: Optional label ("control"/"target") used in messages.
     """
+    scans = _scan_pk_integrity_per_stream(records_per_stream, primary_keys_per_stream)
+    return _pk_uniqueness_result(scans, version_label)
+
+
+def _compare_pk_integrity(
+    control_records: dict[str, list[AirbyteMessage]],
+    target_records: dict[str, list[AirbyteMessage]],
+    primary_keys_per_stream: dict[str, PrimaryKeys | None],
+) -> tuple[ComparisonResult, ComparisonResult]:
+    """Both versions' PK integrity results, control first.
+
+    Each stream's duplicated PK values are classified against the other
+    version's (`_DuplicatePkSplit`) and the split is recorded on both
+    versions' stream results. Only the target's new duplicates fail: a PK
+    value duplicated in both versions is pre-existing and warns, and one
+    duplicated in the control alone warns as fixed by the target -- or, when
+    the target dropped or changed records of it, warns that the field values
+    or PK presence fail on it, without failing a second time here. A record
+    missing its PK value fails on either version, as when checked alone.
+    """
+    control_scans = _scan_pk_integrity_per_stream(
+        control_records, primary_keys_per_stream
+    )
+    target_scans = _scan_pk_integrity_per_stream(
+        target_records, primary_keys_per_stream
+    )
+    splits = {
+        stream: _split_duplicate_pks(
+            control_scans.get(stream),
+            target_scans.get(stream),
+            control_records.get(stream, []),
+            target_records.get(stream, []),
+        )
+        for stream in set(control_scans) | set(target_scans)
+    }
+    return (
+        _pk_uniqueness_result(control_scans, "control", splits),
+        _pk_uniqueness_result(target_scans, "target", splits),
+    )
+
+
+def _pk_uniqueness_result(
+    scans: dict[str, _PkIntegrityScan | None],
+    version_label: str = "",
+    splits: dict[str, _DuplicatePkSplit] | None = None,
+) -> ComparisonResult:
+    """Build one version's PK integrity result from its per-stream scans.
+
+    `splits` is the comparison's classification of each stream's duplicates
+    (see `_compare_pk_integrity`), with `version_label` naming which version
+    this is: the target's new duplicates are errors, everything else warns.
+    Without it, a version checked alone fails on every duplicate.
+
+    The shared duplicates are reported once, as the control's warning; the
+    target's stream message names them too, so its own row can say why it
+    warns.
+    """
     stream_results: dict[str, StreamComparisonResult] = {}
     errors: list[str] = []
     warnings: list[str] = []
     label = f" in {version_label}" if version_label else ""
 
-    for stream_name, messages in records_per_stream.items():
-        pk_paths = primary_keys_per_stream.get(stream_name)
-        if not pk_paths:
+    for stream_name, scan in scans.items():
+        if scan is None:
             warnings.append(
                 f"No primary keys defined for stream {stream_name}, "
                 "skipping PK uniqueness check"
@@ -396,45 +684,60 @@ def check_pk_uniqueness(
             )
             continue
 
-        records_missing_pk = 0
-        # Full copies of the first few offending records, so the report can
-        # show what a record without its declared PK actually looks like.
-        # Capped like the other example lists; the count stays exact.
-        records_missing_pk_examples: list[dict[str, Any]] = []
-        pk_counts: Counter[tuple] = Counter()
-        for msg in messages:
-            if not (msg.record and msg.record.data):
-                continue
-            pk = _extract_pk_tuple(msg.record.data, pk_paths)
-            if _pk_has_missing_values(pk):
-                records_missing_pk += 1
-                if len(records_missing_pk_examples) < MAX_EXAMPLE_DIFFS:
-                    records_missing_pk_examples.append(
-                        json.loads(msg.record.model_dump_json())
-                    )
-            else:
-                pk_counts[pk] += 1
-        duplicates = {pk: count for pk, count in pk_counts.items() if count > 1}
-        duplicate_pk_count = len(duplicates)
+        duplicate_pk_count = len(scan.duplicates)
         # Capped like the other PK lists; Counter preserves first-seen order,
         # so the kept subset is deterministic.
-        duplicate_pk_counts = dict(list(duplicates.items())[:MAX_EXAMPLE_PKS])
+        duplicate_pk_counts = dict(list(scan.duplicates.items())[:MAX_EXAMPLE_PKS])
         duplicate_pks = list(duplicate_pk_counts)
+        split = (splits or {}).get(stream_name, _DuplicatePkSplit())
 
         stream_errors: list[str] = []
-        if duplicate_pks:
-            stream_errors.append(
-                f"Stream {stream_name} has {duplicate_pk_count} duplicate "
-                f"primary key value(s){label}"
+        stream_warnings: list[str] = []
+        stream_notes: list[str] = []
+        if splits is None:
+            if duplicate_pks:
+                stream_errors.append(
+                    f"Stream {stream_name} has {duplicate_pk_count} duplicate "
+                    f"primary key value(s){label}"
+                )
+        else:
+            pre_existing = (
+                f"Stream {stream_name} has {split.pre_existing} pre-existing "
+                "duplicate primary key value(s), unchanged between control and "
+                "target"
             )
-        if records_missing_pk:
+            if version_label == "target":
+                if split.new:
+                    stream_errors.append(
+                        f"Stream {stream_name} has {split.new} new duplicate "
+                        "primary key value(s) in target (not duplicated in control)"
+                    )
+                if split.pre_existing:
+                    stream_notes.append(pre_existing)
+            else:
+                if split.pre_existing:
+                    stream_warnings.append(pre_existing)
+                if split.fixed:
+                    stream_warnings.append(
+                        f"Stream {stream_name} has {split.fixed} duplicate primary "
+                        "key value(s) in control fixed in target"
+                    )
+                if split.lost:
+                    stream_warnings.append(
+                        f"Stream {stream_name} has {split.lost} duplicate primary "
+                        "key value(s) in control not duplicated in target, with "
+                        "records the target dropped or changed; field values or "
+                        "PK presence fail on them"
+                    )
+        if scan.records_missing_pk:
             stream_errors.append(
-                f"Stream {stream_name} has {records_missing_pk} record(s) "
+                f"Stream {stream_name} has {scan.records_missing_pk} record(s) "
                 f"with missing or null primary key value(s){label} — primary "
-                f"key {pk_paths} is declared in the catalog but not present "
+                f"key {scan.pk_paths} is declared in the catalog but not present "
                 "on the record data"
             )
         errors.extend(stream_errors)
+        warnings.extend(stream_warnings)
 
         stream_results[stream_name] = StreamComparisonResult(
             stream_name=stream_name,
@@ -442,24 +745,67 @@ def check_pk_uniqueness(
             duplicate_pks=duplicate_pks,
             duplicate_pk_counts=duplicate_pk_counts,
             duplicate_pk_count=duplicate_pk_count,
-            records_missing_pk=records_missing_pk,
-            records_missing_pk_examples=records_missing_pk_examples,
-            pk_paths=pk_paths,
-            message="; ".join(stream_errors),
+            pre_existing_duplicate_pk_count=split.pre_existing,
+            new_duplicate_pk_count=split.new,
+            fixed_duplicate_pk_count=split.fixed,
+            lost_duplicate_pk_count=split.lost,
+            lost_duplicate_pks=list(split.lost_pks),
+            duplicate_row_count=sum(count - 1 for count in scan.duplicates.values()),
+            records_missing_pk=scan.records_missing_pk,
+            records_missing_pk_examples=scan.records_missing_pk_examples,
+            pk_paths=scan.pk_paths,
+            message="; ".join([*stream_errors, *stream_warnings, *stream_notes]),
         )
 
-    all_passed = all(r.passed for r in stream_results.values())
     return ComparisonResult(
-        passed=all_passed,
+        passed=all(r.passed for r in stream_results.values()),
         stream_results=stream_results,
-        message=(
-            f"All primary keys unique and present{label}"
-            if all_passed
-            else f"Primary key integrity issues found{label}"
-        ),
+        message=_pk_uniqueness_message(stream_results, version_label),
         errors=errors,
         warnings=warnings,
     )
+
+
+def _pk_uniqueness_message(
+    stream_results: dict[str, StreamComparisonResult], version_label: str = ""
+) -> str:
+    """The check-level message, shared with the merge of per-stream results.
+
+    A passing check's duplicates are named from the split the stream results
+    carry: pre-existing ones are in both versions' output; fixed and lost
+    ones only in the control's -- the target emits them once at most, so its
+    row does not mention them. "Fixed" is said only of values whose records
+    all reached the target; values with records the target dropped or
+    changed are named apart, as a pointer to the checks that fail on them.
+    """
+    label = f" in {version_label}" if version_label else ""
+    if not all(r.passed for r in stream_results.values()):
+        return f"Primary key integrity issues found{label}"
+    results = stream_results.values()
+    pre_existing = any(r.pre_existing_duplicate_pk_count for r in results)
+    in_control = version_label == "control"
+    fixed = in_control and any(r.fixed_duplicate_pk_count for r in results)
+    lost = in_control and any(r.lost_duplicate_pk_count for r in results)
+    if pre_existing and fixed:
+        message = (
+            f"Pre-existing duplicate primary keys{label}, and others fixed in "
+            "target (not a regression)"
+        )
+    elif pre_existing:
+        message = f"Pre-existing duplicate primary keys{label} (not a regression)"
+    elif fixed:
+        message = "Duplicate primary keys in control fixed in target (not a regression)"
+    else:
+        message = ""
+    if lost:
+        lost_message = (
+            "with records the target dropped or changed (field values or PK "
+            "presence fail on them)"
+        )
+        if message:
+            return f"{message}; others {lost_message}"
+        return f"Duplicate primary keys in control {lost_message}"
+    return message or f"All primary keys unique and present{label}"
 
 
 def compare_all_records(
@@ -493,6 +839,7 @@ def compare_all_records(
 
     stream_results: dict[str, StreamComparisonResult] = {}
     errors: list[str] = []
+    warnings: list[str] = []
 
     all_streams = set(control_records.keys()) | set(target_records.keys())
 
@@ -535,10 +882,18 @@ def compare_all_records(
             )
         else:
             passed = not record_diff.has_diff
-        message = ""
+        messages: list[str] = []
         if not passed:
-            message = f"Stream {stream_name} has record differences"
-            errors.append(message)
+            messages.append(f"Stream {stream_name} has record differences")
+            errors.append(messages[-1])
+        if record_diff.added_copy_count:
+            copies = "copy" if record_diff.added_copy_count == 1 else "copies"
+            messages.append(
+                f"Stream {stream_name}: {record_diff.added_copy_pk_count:,} "
+                f"duplicated PK value(s) emit {record_diff.added_copy_count:,} "
+                f"more identical {copies} in target than in control"
+            )
+            warnings.append(messages[-1])
 
         stream_results[stream_name] = StreamComparisonResult(
             stream_name=stream_name,
@@ -546,16 +901,28 @@ def compare_all_records(
             control_count=len(control_msgs),
             target_count=len(target_msgs),
             record_diff=record_diff,
-            message=message,
+            message="; ".join(messages),
         )
 
-    all_passed = all(r.passed for r in stream_results.values())
     return ComparisonResult(
-        passed=all_passed,
+        passed=all(r.passed for r in stream_results.values()),
         stream_results=stream_results,
-        message="All records match" if all_passed else "Record differences found",
+        message=_field_values_message(stream_results),
         errors=errors,
+        warnings=warnings,
     )
+
+
+def _field_values_message(stream_results: dict[str, StreamComparisonResult]) -> str:
+    """The field check's message, shared with the merge of per-stream results."""
+    if not all(r.passed for r in stream_results.values()):
+        return "Record differences found"
+    if any(
+        r.record_diff and r.record_diff.added_copy_count
+        for r in stream_results.values()
+    ):
+        return "All records match, apart from identical copies the target added"
+    return "All records match"
 
 
 def compare_catalog_schemas(
@@ -1880,23 +2247,15 @@ def _compare_records_with_pk(
     Records with missing/null PK values are excluded from the lookup —
     they would otherwise collide on the same key and silently collapse.
     `check_pk_uniqueness` reports them as an error.
-    """
-    # Build lookup by PK. A duplicated PK keeps its FIRST record, so the
-    # example a reader sees for it is stable across runs (check_pk_uniqueness
-    # fails the run on the duplicate either way).
-    control_by_pk: dict[tuple, dict] = {}
-    for msg in control_msgs:
-        if msg.record and msg.record.data:
-            pk = _extract_pk_tuple(msg.record.data, pk_fields)
-            if not _pk_has_missing_values(pk) and pk not in control_by_pk:
-                control_by_pk[pk] = json.loads(msg.record.model_dump_json())
 
-    target_by_pk: dict[tuple, dict] = {}
-    for msg in target_msgs:
-        if msg.record and msg.record.data:
-            pk = _extract_pk_tuple(msg.record.data, pk_fields)
-            if not _pk_has_missing_values(pk) and pk not in target_by_pk:
-                target_by_pk[pk] = json.loads(msg.record.model_dump_json())
+    A PK emitted more than once keeps every one of its records, and the two
+    versions' groups for it are compared as multisets (`_record_group_diff`):
+    a pre-existing duplicate no longer fails the run, so the comparison has
+    to be right about it, and the same rows in a different emission order
+    are not a change.
+    """
+    control_by_pk = _group_records_by_pk(control_msgs, pk_fields)
+    target_by_pk = _group_records_by_pk(target_msgs, pk_fields)
 
     control_pks = set(control_by_pk.keys())
     target_pks = set(target_by_pk.keys())
@@ -1909,47 +2268,31 @@ def _compare_records_with_pk(
     # all of them.
     records_with_value_diff: list[dict[str, Any]] = []
     value_diff_count = 0
+    added_copy_count = added_copy_pk_count = 0
+    added_copy_pks: dict[Any, int] = {}
     # Sorted (`key=repr`: PK tuples mix types) so the kept examples are the
     # same ones on every run; set iteration order varies per process.
     for pk in sorted(control_pks & target_pks, key=repr):
-        control_record = control_by_pk[pk]
-        target_record = target_by_pk[pk]
-        # Fast path: equal dicts cannot produce a diff, and DeepDiff with
-        # ignore_order=True costs ~500\u00b5s per pair \u2014 which is every pair on
-        # a passing run. Plain equality is ~0.9\u00b5s; skipping identical pairs
-        # measured 13\u00d7 faster end-to-end on an all-identical stream.
-        if {
-            key: value
-            for key, value in control_record.items()
-            if key not in exclude_paths
-        } == {
-            key: value
-            for key, value in target_record.items()
-            if key not in exclude_paths
-        }:
+        control_group = control_by_pk[pk]
+        target_group = target_by_pk[pk]
+        if len(control_group) == 1 and len(target_group) == 1:
+            example = _single_record_diff(
+                control_group[0], target_group[0], exclude_paths
+            )
+        else:
+            example, added_copies = _record_group_diff(
+                control_group, target_group, exclude_paths
+            )
+            if added_copies:
+                added_copy_count += added_copies
+                added_copy_pk_count += 1
+                if len(added_copy_pks) < MAX_EXAMPLE_PKS:
+                    added_copy_pks[pk] = added_copies
+        if example is None:
             continue
-        # `ignore_private_variables=False`: see `compare_catalog_schemas`. Note
-        # the fast path above uses plain equality, so a pair differing only in a
-        # `__`-prefixed field does reach here -- and on DeepDiff's default it
-        # comes back empty, so the difference is silently not counted.
-        diff = DeepDiff(
-            control_record,
-            target_record,
-            ignore_order=True,
-            ignore_private_variables=False,
-            exclude_paths=[f"root['{p}']" for p in exclude_paths],
-        )
-        if diff:
-            value_diff_count += 1
-            if len(records_with_value_diff) < MAX_EXAMPLE_DIFFS:
-                records_with_value_diff.append(
-                    {
-                        "pk": pk,
-                        "control": control_record,
-                        "target": target_record,
-                        "diff": diff.to_dict(),
-                    }
-                )
+        value_diff_count += 1
+        if len(records_with_value_diff) < MAX_EXAMPLE_DIFFS:
+            records_with_value_diff.append({"pk": pk, **example})
 
     return RecordDiff(
         stream_name=stream_name,
@@ -1957,18 +2300,368 @@ def _compare_records_with_pk(
         # Sorted for the same reason as the value-diff examples: which few
         # records survive the example cap must not change run to run.
         records_only_in_control=[
-            control_by_pk[pk]
+            control_by_pk[pk][0]
             for pk in sorted(only_in_control, key=repr)[:MAX_EXAMPLE_DIFFS]
         ],
         records_only_in_target=[
-            target_by_pk[pk]
+            target_by_pk[pk][0]
             for pk in sorted(only_in_target, key=repr)[:MAX_EXAMPLE_DIFFS]
         ],
         records_with_value_diff_count=value_diff_count,
         records_only_in_control_count=len(only_in_control),
         records_only_in_target_count=len(only_in_target),
         pk_paths=pk_fields,
+        added_copy_count=added_copy_count,
+        added_copy_pk_count=added_copy_pk_count,
+        added_copy_pks=added_copy_pks,
     )
+
+
+def _group_records_by_pk(
+    messages: list[AirbyteMessage], pk_fields: PrimaryKeys
+) -> dict[tuple, list[dict[str, Any]]]:
+    """Every record of each PK value, in emission order; missing-PK records skipped."""
+    by_pk: dict[tuple, list[dict[str, Any]]] = {}
+    for msg in messages:
+        if msg.record and msg.record.data:
+            pk = _extract_pk_tuple(msg.record.data, pk_fields)
+            if not _pk_has_missing_values(pk):
+                by_pk.setdefault(pk, []).append(
+                    json.loads(msg.record.model_dump_json())
+                )
+    return by_pk
+
+
+def _compared_fields(
+    record: dict[str, Any], exclude_paths: list[str]
+) -> dict[str, Any]:
+    return {key: value for key, value in record.items() if key not in exclude_paths}
+
+
+def _canonical_record(record: dict[str, Any], exclude_paths: list[str]) -> str:
+    """The compared fields as sorted-key JSON: a hashable key for matching.
+
+    Two records get the same key when the single-pair comparison would find
+    no difference between them, so one keyed pass matches a group. That
+    comparison treats `1`, `1.0` and `True` as one value (`==`) and ignores
+    list order (DeepDiff `ignore_order=True`), so `_normalized_value` writes
+    each bool and whole float as its int and sorts every list, at any depth.
+    #1511's record fingerprints are built on this key, so they ignore list
+    order too. The key still tells apart lists that differ only in how often
+    an item repeats, which DeepDiff ignores: such records are left over, and
+    `_record_group_diff` judges them. NaN and infinity never reach here: the
+    protocol models write them as null.
+    """
+    return json.dumps(
+        _normalized_value(_compared_fields(record, exclude_paths)),
+        sort_keys=True,
+        default=str,
+    )
+
+
+def _normalized_value(value: Any) -> Any:
+    """`value` with each bool and whole float as its int, and lists sorted.
+
+    A list's items are normalized first, then sorted (`_list_item_order`).
+    """
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, dict):
+        return {key: _normalized_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return sorted((_normalized_value(item) for item in value), key=_list_item_order)
+    return value
+
+
+def _list_item_order(item: Any) -> tuple[int, Any]:
+    """A sort key for normalized list items of any mix of types.
+
+    Scalars sort by value within their kind, so a list of numbers or strings
+    needs no JSON per item; containers sort by their sorted-key JSON. Two
+    items with equal keys are equal, so the order is the same for any two
+    lists holding the same items.
+    """
+    if item is None:
+        return (0, 0)
+    if isinstance(item, (int, float)):
+        return (1, item)
+    if isinstance(item, str):
+        return (2, item)
+    return (3, json.dumps(item, sort_keys=True, default=str))
+
+
+def _single_record_diff(
+    control_record: dict[str, Any],
+    target_record: dict[str, Any],
+    exclude_paths: list[str],
+) -> dict[str, Any] | None:
+    """The value-diff example for one PK-matched pair, or None when equal."""
+    # Fast path: equal dicts cannot produce a diff, and DeepDiff with
+    # ignore_order=True costs ~500\u00b5s per pair \u2014 which is every pair on
+    # a passing run. Plain equality is ~0.9\u00b5s; skipping identical pairs
+    # measured 13\u00d7 faster end-to-end on an all-identical stream.
+    if _compared_fields(control_record, exclude_paths) == _compared_fields(
+        target_record, exclude_paths
+    ):
+        return None
+    # `ignore_private_variables=False`: see `compare_catalog_schemas`. Note
+    # the fast path above uses plain equality, so a pair differing only in a
+    # `__`-prefixed field does reach here -- and on DeepDiff's default it
+    # comes back empty, so the difference is silently not counted.
+    diff = DeepDiff(
+        control_record,
+        target_record,
+        ignore_order=True,
+        ignore_private_variables=False,
+        exclude_paths=[f"root['{p}']" for p in exclude_paths],
+    )
+    if not diff:
+        return None
+    return {"control": control_record, "target": target_record, "diff": diff.to_dict()}
+
+
+def _record_group_diff(
+    control_group: list[dict[str, Any]],
+    target_group: list[dict[str, Any]],
+    exclude_paths: list[str],
+) -> tuple[dict[str, Any] | None, int]:
+    """The value-diff example for a PK emitted more than once, and added copies.
+
+    Returns the example (None when the group has no difference) and how many
+    more identical copies the target emits than the control.
+
+    The two groups are matched as multisets (`_unmatched_records`): each
+    control record pairs with a target record equal to it on the compared
+    fields (`exclude_paths` left out, as for a single pair), whatever the
+    emission order -- a hold and a release row that come out swapped between
+    two reads are the same records. A *copy* is a record equal, in that same
+    sense, to another one. What is left unmatched decides:
+
+    - Both sides have records left: the PK's records changed. A difference,
+      listing the target's unmatched records against the control's lost ones
+      -- leftovers that are not copies of a matched record -- or against all
+      of the control's leftovers when each of them is a copy. The exception
+      is when every leftover on both sides is a copy: the control's of a
+      matched record, the target's of a matched or earlier leftover record.
+      That is a collapsed copy next to an added copy, not a change, so it is
+      no difference and the target's copies count as added copies.
+    - Only the control has records left: one that is a copy of a matched
+      record is a collapsed copy -- the target fixed a duplicate, and that
+      passes. Any other is a lost record, a difference: the target no longer
+      emits it.
+    - Only the target has records left, under a PK the control already emits
+      more than once: one that is a copy of a matched record, or of an
+      earlier leftover target record, is an added copy. It is not a
+      difference: it is counted and warns, because a live read with offset
+      pagination can return the same row twice. Any other leftover is an
+      added record and passes, like an extra PK. When the control emits the
+      PK once, the leftovers are left to the PK-integrity check, which
+      already fails them as a new duplicate.
+
+    The rule is directional, like the rest of the record comparison: every
+    control record must reach the target, and the target may add records.
+    It is also what lets the record count allow for collapsed copies
+    (`_allow_dropped_duplicate_rows`): a dropped row that was not a copy
+    fails here. A lost record carries a `note` saying so, next to `pk`,
+    `control`, `target` and `diff`.
+
+    Each side of the example, and the DeepDiff, holds at most
+    `MAX_GROUP_EXAMPLE_RECORDS` records, the first ones in canonical order; a
+    capped example's note gives the full counts. Because the verdict on a
+    capped group cannot rest on a diff of part of it, a capped group with
+    leftovers on both sides is a difference even when that diff is empty.
+    """
+    key = _cached_record_key(exclude_paths)
+    control_left, target_left = _unmatched_records(
+        control_group, target_group, exclude_paths, key=key
+    )
+    if not control_left and not target_left:
+        return None, 0
+
+    def shown(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return sorted(records, key=key)[:MAX_GROUP_EXAMPLE_RECORDS]
+
+    def compared(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [_compared_fields(record, exclude_paths) for record in records]
+
+    if control_left and target_left:
+        matched = _without_records(control_group, control_left)
+        _collapsed, lost = _split_copies(control_left, matched, exclude_paths, key=key)
+        added_copies, added = _split_copies(
+            target_left,
+            _without_records(target_group, target_left),
+            exclude_paths,
+            chained=True,
+            key=key,
+        )
+        if not lost and not added:
+            # Only copies on both sides: the target collapsed one copy and
+            # repeated another record ({A, A, B} against {A, B, B}), as an
+            # offset-pagination repeat that moved to another row does.
+            # Collapsed copies pass and added copies warn.
+            return None, len(added_copies)
+        # Collapsed copies among the control's leftovers are not part of the
+        # change, so the example shows the lost records against the target's
+        # leftovers. When every leftover is a copy ({a, a} against {a, x}),
+        # there is nothing else to show them against, so all of them stay.
+        control_side = lost or control_left
+        control_shown, target_shown = shown(control_side), shown(target_left)
+        diff = DeepDiff(
+            compared(control_shown),
+            compared(target_shown),
+            ignore_order=True,
+            ignore_private_variables=False,
+        )
+        capped = max(len(control_side), len(target_left)) > MAX_GROUP_EXAMPLE_RECORDS
+        # Uncapped, the diff covers every leftover, and an empty one means
+        # they differ only in list item repetition, which the single-pair path
+        # ignores too. Capped, it covers the shown ones only, so the group
+        # fails closed: the keys already say the records do not match.
+        if not diff and not capped:
+            return None, 0
+        example = {
+            "control": control_shown,
+            "target": target_shown,
+            "diff": diff.to_dict(),
+        }
+        if capped:
+            example["note"] = (
+                f"{len(control_side):,} control and {len(target_left):,} target "
+                "records of this PK do not match (first "
+                f"{MAX_GROUP_EXAMPLE_RECORDS} of each shown)"
+            )
+            if not diff:
+                example["note"] += (
+                    "; the shown ones differ only in repeated list items, which "
+                    "the diff ignores, so the difference may be past them"
+                )
+        return example, 0
+
+    if control_left:
+        matched = _without_records(control_group, control_left)
+        _collapsed, lost = _split_copies(control_left, matched, exclude_paths, key=key)
+        if not lost:
+            return None, 0
+        lost_shown = shown(lost)
+        # One side is empty, so there is no order to ignore; without
+        # `ignore_order` DeepDiff lists every record rather than one per value.
+        diff = DeepDiff(compared(lost_shown), [], ignore_private_variables=False)
+        return {
+            "control": lost_shown,
+            "target": [],
+            "diff": diff.to_dict(),
+            "note": (
+                f"the target no longer emits {_records_text(len(lost))} of this PK"
+                f"{_shown_text(len(lost))}"
+            ),
+        }, 0
+
+    if len(control_group) == 1:
+        return None, 0
+    matched = _without_records(target_group, target_left)
+    added_copies, _added = _split_copies(
+        target_left, matched, exclude_paths, chained=True, key=key
+    )
+    return None, len(added_copies)
+
+
+def _records_text(count: int) -> str:
+    """`1 record`, `1,234 records`."""
+    return f"{count:,} record" if count == 1 else f"{count:,} records"
+
+
+def _shown_text(count: int) -> str:
+    """` (first 20 shown)` when an example list was capped, else nothing."""
+    if count <= MAX_GROUP_EXAMPLE_RECORDS:
+        return ""
+    return f" (first {MAX_GROUP_EXAMPLE_RECORDS} shown)"
+
+
+def _cached_record_key(exclude_paths: list[str]) -> Callable[[dict[str, Any]], str]:
+    """`_canonical_record` that computes each record's key once.
+
+    A group needs a record's key for the matching, the copy split and the
+    example order; with lists sorted at every depth the key is the costly
+    part. Cached by identity, so the records must outlive the cache, as a
+    group's records do.
+    """
+    keys: dict[int, str] = {}
+
+    def key(record: dict[str, Any]) -> str:
+        found = keys.get(id(record))
+        if found is None:
+            found = keys[id(record)] = _canonical_record(record, exclude_paths)
+        return found
+
+    return key
+
+
+def _without_records(
+    group: list[dict[str, Any]], records: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """`group` minus the given records, by identity: what was matched."""
+    left_out = {id(record) for record in records}
+    return [record for record in group if id(record) not in left_out]
+
+
+def _split_copies(
+    records: list[dict[str, Any]],
+    originals: list[dict[str, Any]],
+    exclude_paths: list[str],
+    chained: bool = False,
+    key: Callable[[dict[str, Any]], str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split `records` into copies of an original and the rest, in that order.
+
+    A copy equals an original on the compared fields, tested by canonical key
+    (`key`, `_canonical_record` by default) the way `_unmatched_records`
+    matches. With `chained`, a record that is not a copy becomes an original
+    for the records after it, so the second of two new equal records is a
+    copy.
+    """
+    key = key or (lambda record: _canonical_record(record, exclude_paths))
+    keys = {key(record) for record in originals}
+    copies: list[dict[str, Any]] = []
+    rest: list[dict[str, Any]] = []
+    for record in records:
+        record_key = key(record)
+        if record_key in keys:
+            copies.append(record)
+            continue
+        rest.append(record)
+        if chained:
+            keys.add(record_key)
+    return copies, rest
+
+
+def _unmatched_records(
+    control_group: list[dict[str, Any]],
+    target_group: list[dict[str, Any]],
+    exclude_paths: list[str],
+    key: Callable[[dict[str, Any]], str] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Each side's records with no equal record on the other side.
+
+    One keyed pass on `_canonical_record` (or `key`), which agrees with the
+    single-pair comparison (`1` and `1.0` match, list order is ignored), so
+    a PK duplicated thousands of times stays linear even when nothing
+    matches.
+    """
+    key = key or (lambda record: _canonical_record(record, exclude_paths))
+    target_pool: dict[str, list[dict[str, Any]]] = {}
+    for record in target_group:
+        target_pool.setdefault(key(record), []).append(record)
+    control_left: list[dict[str, Any]] = []
+    for record in control_group:
+        bucket = target_pool.get(key(record))
+        if bucket:
+            bucket.pop()
+        else:
+            control_left.append(record)
+    target_left = [record for bucket in target_pool.values() for record in bucket]
+    return control_left, target_left
 
 
 def _compare_records_without_pk(
@@ -2120,19 +2813,28 @@ def run_record_comparisons(
     - Record counts (all streams): directional — the target must produce at
       least as many records as the control. For streams without a primary
       key this is the *only* check (records can't be matched without a PK,
-      and live API data may legitimately grow between the two runs).
+      and live API data may legitimately grow between the two runs). On a
+      stream with a PK, a shortfall within the drop in duplicate rows warns
+      instead (`_allow_dropped_duplicate_rows`); the field values check that
+      the dropped rows were copies.
     - Primary key presence (streams with a PK): every control PK value must
       appear in the target output. Extra PKs in the target are acceptable.
     - Primary key integrity (streams with a PK): each PK value must appear
       at most once per stream, and every record must carry a value for its
       declared PK fields; checked independently on the control and the
-      target output. Both fail even when present in both versions — a
-      duplicate or missing PK means the declared primary key cannot be
-      trusted (and would break deduplication on the destination side),
-      regardless of which version introduced it.
+      target output. A missing PK value fails on either version — the
+      declared primary key cannot be trusted regardless of which version
+      introduced it. Duplicates are classified against the other version:
+      a PK value duplicated in both is pre-existing and only warns, one
+      duplicated in the target alone is new and fails, one duplicated in
+      the control alone was fixed by the target and warns. Both versions'
+      results carry the split.
     - Field values (streams with a PK): records matched by PK must have
       identical field values (excluding `emitted_at`). Records that exist
-      only in the target do not fail the comparison (directional).
+      only in the target do not fail the comparison (directional). A
+      duplicated PK's records are matched as multisets: a record the target
+      no longer emits fails, and extra identical copies under a PK the
+      control already duplicates warn (`_record_group_diff`).
 
     Args:
         control_records: Control run records grouped by stream name.
@@ -2180,11 +2882,11 @@ def run_record_comparisons(
         pk_presence = compare_primary_keys(
             control_with_pk, target_with_pk, normalized_pks
         )
-        control_pk_uniqueness = check_pk_uniqueness(
-            control_with_pk, normalized_pks, version_label="control"
+        control_pk_uniqueness, target_pk_uniqueness = _compare_pk_integrity(
+            control_with_pk, target_with_pk, normalized_pks
         )
-        target_pk_uniqueness = check_pk_uniqueness(
-            target_with_pk, normalized_pks, version_label="target"
+        _allow_dropped_duplicate_rows(
+            count_comparison, control_pk_uniqueness, target_pk_uniqueness
         )
         field_comparison = compare_all_records(
             control_with_pk,
@@ -2315,11 +3017,28 @@ def _merge_summaries(
             [r for r in results if r is not None], passed_message, failed_message
         )
 
+    def merge_pk_uniqueness(
+        results: list[ComparisonResult | None], version_label: str
+    ) -> ComparisonResult | None:
+        merged = merge(results, "", "")
+        if merged is not None:
+            merged.message = _pk_uniqueness_message(
+                merged.stream_results, version_label
+            )
+        return merged
+
+    def merge_field_values(
+        results: list[ComparisonResult | None],
+    ) -> ComparisonResult | None:
+        merged = merge(results, "", "")
+        if merged is not None:
+            merged.message = _field_values_message(merged.stream_results)
+        return merged
+
     count_comparison = merge(
-        [c.count_comparison for c in chunk_summaries],
-        "Record counts match",
-        "Record count mismatch",
-    ) or ComparisonResult(passed=True, message="Record counts match")
+        [c.count_comparison for c in chunk_summaries], "", ""
+    ) or ComparisonResult(passed=True)
+    count_comparison.message = _record_count_message(count_comparison.stream_results)
 
     return RecordComparisonSummary(
         passed=all(c.passed for c in chunk_summaries),
@@ -2329,20 +3048,14 @@ def _merge_summaries(
             "All primary keys present",
             "Missing primary keys",
         ),
-        control_pk_uniqueness=merge(
-            [c.control_pk_uniqueness for c in chunk_summaries],
-            "All primary keys unique and present in control",
-            "Primary key integrity issues found in control",
+        control_pk_uniqueness=merge_pk_uniqueness(
+            [c.control_pk_uniqueness for c in chunk_summaries], "control"
         ),
-        target_pk_uniqueness=merge(
-            [c.target_pk_uniqueness for c in chunk_summaries],
-            "All primary keys unique and present in target",
-            "Primary key integrity issues found in target",
+        target_pk_uniqueness=merge_pk_uniqueness(
+            [c.target_pk_uniqueness for c in chunk_summaries], "target"
         ),
-        field_comparison=merge(
-            [c.field_comparison for c in chunk_summaries],
-            "All records match",
-            "Record differences found",
+        field_comparison=merge_field_values(
+            [c.field_comparison for c in chunk_summaries]
         ),
         streams_without_pk=sorted(
             stream for c in chunk_summaries for stream in c.streams_without_pk
@@ -2575,6 +3288,11 @@ def _pk_uniqueness_check_to_dict(result: ComparisonResult) -> dict[str, Any]:
             name: {
                 "passed": r.passed,
                 "duplicate_pk_count": r.duplicate_pk_count,
+                "pre_existing_duplicate_pk_count": r.pre_existing_duplicate_pk_count,
+                "new_duplicate_pk_count": r.new_duplicate_pk_count,
+                "fixed_duplicate_pk_count": r.fixed_duplicate_pk_count,
+                "lost_duplicate_pk_count": r.lost_duplicate_pk_count,
+                "duplicate_row_count": r.duplicate_row_count,
                 # Each example carries how many records shared the PK value,
                 # e.g. {"pk": [777], "count": 3} for a PK emitted three times.
                 "duplicate_pk_examples": [
@@ -2601,10 +3319,15 @@ def _field_check_to_dict(result: ComparisonResult) -> dict[str, Any]:
             if diff
             else 0,
             "records_only_in_target": diff.records_only_in_target_count if diff else 0,
+            "added_copy_count": diff.added_copy_count if diff else 0,
+            "added_copy_pk_count": diff.added_copy_pk_count if diff else 0,
             "value_diff_examples": [
                 {
                     "pk": entry.get("pk"),
                     "diff": json_safe(entry.get("diff") or {}),
+                    # Set on a lost record inside a duplicated PK, or on a
+                    # capped group example (`_record_group_diff`).
+                    **({"note": entry["note"]} if entry.get("note") else {}),
                 }
                 for entry in (
                     diff.records_with_value_diff[:MAX_EXAMPLE_DIFFS] if diff else []

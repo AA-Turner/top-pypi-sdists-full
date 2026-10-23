@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -59,13 +67,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sql_related import RelatedCalculationView, RelatedColumn, RelatedSchema
 
 # =============================================================================
@@ -445,9 +446,7 @@ class CalculationView(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -483,14 +482,6 @@ class CalculationView(Asset):
                 errors.append("connection_qualified_name is required for creation")
             if self.atlan_schema is UNSET:
                 errors.append("atlan_schema is required for creation")
-            if self.schema_name is UNSET:
-                errors.append("schema_name is required for creation")
-            if self.schema_qualified_name is UNSET:
-                errors.append("schema_qualified_name is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"CalculationView validation failed: {errors}")
 
@@ -522,6 +513,66 @@ class CalculationView(Asset):
         if self.guid is not UNSET:
             return RelatedCalculationView(guid=self.guid)
         return RelatedCalculationView(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        package_id: str,
+        schema_qualified_name: str,
+    ) -> "CalculationView":
+        """
+        Create a new CalculationView asset.
+
+        Args:
+            name: Name of the calculation view
+            package_id: Repository package that contains the calculation view (for example ``sales.reporting``)
+            schema_qualified_name: Unique name of the schema in which this calculation view exists
+
+        Returns:
+            CalculationView instance ready to be created
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        validate_required_fields(
+            ["name", "package_id", "schema_qualified_name"],
+            [name, package_id, schema_qualified_name],
+        )
+        if "/" in package_id:
+            raise ValueError(
+                f"Invalid package_id: {package_id}. "
+                "Package segments are separated by '.'"
+            )
+        fields = schema_qualified_name.split("/")
+        if len(fields) != 5:
+            raise ValueError(
+                f"Invalid schema_qualified_name: {schema_qualified_name}. "
+                "Expected format: default/connector/connection_id/database/schema"
+            )
+        connection_qualified_name = "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{schema_qualified_name}/{package_id}/{name}",
+            calculation_view_package_id=package_id,
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            database_name=fields[3],
+            database_qualified_name=f"{connection_qualified_name}/{fields[3]}",
+            schema_name=fields[4],
+            schema_qualified_name=schema_qualified_name,
+            atlan_schema=RelatedSchema(qualified_name=schema_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CalculationView":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CalculationView":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1070,6 +1121,7 @@ def _calculation_view_to_nested(
         is_incomplete=calculation_view.is_incomplete,
         provenance_type=calculation_view.provenance_type,
         home_id=calculation_view.home_id,
+        delete_handler=calculation_view.delete_handler,
         depth=calculation_view.depth,
         immediate_upstream=calculation_view.immediate_upstream,
         immediate_downstream=calculation_view.immediate_downstream,
@@ -1118,6 +1170,7 @@ def _calculation_view_from_nested(nested: CalculationViewNested) -> CalculationV
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

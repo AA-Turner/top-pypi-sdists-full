@@ -39,7 +39,6 @@ Functions for working with (English) words.
 # stdlib
 import functools
 import random
-import re
 import sys
 from gettext import ngettext
 from reprlib import recursive_repr
@@ -77,6 +76,7 @@ __all__ = [
 		"LF",
 		"Plural",
 		"PluralPhrase",
+		"removeprefix",
 		"truncate_string",
 		]
 
@@ -100,6 +100,24 @@ Lowercase Greek letters.
 
 .. versionadded:: 0.7.0
 """
+
+
+def removeprefix(string: str, prefix: str) -> str:
+	"""
+	Remove ``prefix`` from ``string``.
+
+	.. versionadded:: 3.11.0
+
+	:param string:
+	:param prefix:
+	"""
+
+	if sys.version_info >= (3, 9):
+		return string.removeprefix(prefix)
+	else:
+		if string.startswith(prefix):
+			return string[len(prefix):]
+		return string
 
 
 @functools.lru_cache()
@@ -171,14 +189,13 @@ def alpha_sort(
 
 	alphabet_ = list(alphabet)
 
-	try:
-		return sorted(iterable, key=lambda attr: [alphabet_.index(letter) for letter in attr], reverse=reverse)
-	except ValueError as e:
-		m = re.match(r"'(.*)' is not in list", str(e))
-		if m:
-			raise ValueError(f"The character {m.group(1)!r} was not found in the alphabet.") from None
-		else:  # pragma: no cover
-			raise e
+	def _alphabet_index(letter: str) -> int:
+		try:
+			return alphabet_.index(letter)
+		except ValueError:
+			raise ValueError(f"The character {letter!r} was not found in the alphabet.") from None
+
+	return sorted(iterable, key=lambda attr: [_alphabet_index(letter) for letter in attr], reverse=reverse)
 
 
 class Font(Dict[str, str]):
@@ -218,7 +235,7 @@ class Font(Dict[str, str]):
 
 		return ''.join(self[char] for char in text)
 
-	def get(self, char: str, default: Optional[str] = None) -> str:  # type: ignore
+	def get(self, char: str, default: Optional[str] = None) -> str:  # type: ignore[override]
 		"""
 		Returns the given character in this font.
 
@@ -595,12 +612,14 @@ class Plural(functools.partial):
 		def __init__(self, singular: str, plural: str):
 			pass
 
-		def __call__(self, n: int) -> str:  # type: ignore
+		def __call__(self, n: int) -> str:
 			"""
 			Returns either the singular or plural form of the word depending on the value of ``n``.
 
 			:param n:
 			"""
+
+			return ''
 
 	# if PYPY:  # pragma: no cover (!PyPy)
 	if PYPY and sys.version_info < (3, 9):  # pragma: no cover (!PyPy)
@@ -613,7 +632,7 @@ class Plural(functools.partial):
 			return functools.partial.__new__(cls, ngettext, singular, plural)
 
 	@recursive_repr()
-	def __repr__(self):
+	def __repr__(self) -> str:
 		qualname = type(self).__qualname__
 		args: List[str] = []
 		args.extend(repr(x) for x in self.args)
@@ -653,9 +672,9 @@ class PluralPhrase(NamedTuple):
 	.. code-block:: python
 
 		>>> phrase = PluralPhrase(
-		...     "The proposed {} {} to ...",
-		...     (Plural("change", "changes"), Plural("is", "are"))
-		... )
+		... 		"The proposed {} {} to ...",
+		... 		(Plural("change", "changes"), Plural("is", "are")),
+		... 		)
 		>>> phrase(1)
 		'The proposed change is to ...'
 		>>> phrase(2)
@@ -679,7 +698,7 @@ class PluralPhrase(NamedTuple):
 	template: str
 	words: Tuple[Plural, ...]
 
-	def __call__(self, n: int) -> str:  # noqa: TYP004  # TODO
+	def __call__(self, n: int) -> str:
 		"""
 		Construct the phrase based on the value of ``n``.
 
@@ -715,3 +734,27 @@ def truncate_string(string: str, max_length: int, ending: str = "...") -> str:
 		return string[_slice_end(max_length, ending)] + ending
 	else:
 		return string
+
+
+# _case_boundary_re = re.compile(r"(\\p{Ll})(\\p{Lu})")
+# _single_letters_re = re.compile(r"(\\p{Lu}|\\p{N})(\\p{Lu})(\\p{Ll})")
+
+# def to_snake_case(value: str) -> str:
+# 	"""
+# 	Convert the given string into ``snake_case``.
+
+# 	:param value:
+# 	"""
+
+# 	# Matches VSCode behaviour
+# 	case_boundary = _case_boundary_re.findall(value)
+# 	single_letters = _single_letters_re.findall(value)
+# 	if not case_boundary and not single_letters:
+# 		return value.lower()
+# 	value = _case_boundary_re.sub(r"\1_\2", value)
+# 	value = _case_boundary_re.sub(r"\1_\2\3", value)
+# 	return value.lower()
+
+# _case_boundary = re.compile('(\\p{Ll})(\\p{Lu})', 'gmu');
+# _single_letters = re.compile('(\\p{Lu}|\\p{N})(\\p{Lu}\\p{Ll})', 'gmu');
+# _underscore_boundary = re.compile('(\\S)(_)(\\S)', 'gm');

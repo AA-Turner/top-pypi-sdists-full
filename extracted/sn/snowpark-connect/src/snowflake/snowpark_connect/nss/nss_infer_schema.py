@@ -66,7 +66,13 @@ def empty_nss_file_read_result(
     )
 
     # The helper resolves the same request-bound Snowpark session from context.
-    return _create_zero_column_relation().without_materialization()
+    #
+    # NEVER, classified by what backs it rather than by living under nss/: this is a
+    # *synthetic* empty result with a known zero-row count, not a scan -- there is nothing
+    # to materialize in any request. Distinct from a genuine NSS scan whose visible schema
+    # is empty, which substitutes a hidden dummy column to preserve one row per source
+    # record (map_read_json) and stays ON_REQUEST_ONLY (SNOW-4231637).
+    return _create_zero_column_relation().never_materialize()
 
 
 def ensure_nss_empty_schema_has_visible_files(

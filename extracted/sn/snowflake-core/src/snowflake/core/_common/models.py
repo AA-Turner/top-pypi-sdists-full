@@ -1,7 +1,7 @@
 import json
 import sys
 
-from enum import Enum, EnumMeta
+from enum import Enum, EnumMeta, StrEnum
 from typing import Annotated, Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -22,7 +22,7 @@ class CaseInsensitiveEnumMeta(EnumMeta):
         return super().__getitem__(converted_name)
 
 
-class CreateMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+class CreateMode(StrEnum, metaclass=CaseInsensitiveEnumMeta):
     """Enum for Snowflake create modes."""
 
     error_if_exists = "errorIfExists"
@@ -30,7 +30,7 @@ class CreateMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     if_not_exists = "ifNotExists"
 
 
-class DeleteMode(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+class DeleteMode(StrEnum, metaclass=CaseInsensitiveEnumMeta):
     """Enum for delete modes."""
 
     cascade = "cascade"

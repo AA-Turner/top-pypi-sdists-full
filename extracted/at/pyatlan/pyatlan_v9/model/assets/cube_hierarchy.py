@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -32,6 +39,7 @@ from .asset import (
     _populate_asset_attrs,
 )
 from .context_related import RelatedContextRepository
+from .cube_related import RelatedCubeDimension, RelatedCubeField, RelatedCubeHierarchy
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
@@ -47,14 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cube_related import RelatedCubeDimension, RelatedCubeField, RelatedCubeHierarchy
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -655,6 +655,7 @@ def _cube_hierarchy_to_nested(cube_hierarchy: CubeHierarchy) -> CubeHierarchyNes
         is_incomplete=cube_hierarchy.is_incomplete,
         provenance_type=cube_hierarchy.provenance_type,
         home_id=cube_hierarchy.home_id,
+        delete_handler=cube_hierarchy.delete_handler,
         depth=cube_hierarchy.depth,
         immediate_upstream=cube_hierarchy.immediate_upstream,
         immediate_downstream=cube_hierarchy.immediate_downstream,
@@ -703,6 +704,7 @@ def _cube_hierarchy_from_nested(nested: CubeHierarchyNested) -> CubeHierarchy:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -16,7 +16,11 @@ desktop app can too. The contract is `probe wizard --json`'s:
             the run ends: the same events `probe wizard --action <a> --yes
             --json` writes for the same request. `status` is a read, not an
             action: it writes `probe status --json`'s one object instead, and
-            `version` writes `{"cli_version": "<the installed CLI's>"}`.
+            `version` writes `{"cli_version": "<the installed CLI's>", "cli_latest":
+            "<the newest release, or null>"}` (`{"latest": true}`: asked of the
+            manifest itself, else the cached manifest; `{"refresh": true}`:
+            the cached manifest refreshed first, as the CLI's own refresher
+            does, adding `"ok"` and `"fetched_at"`).
     stderr  everything else: the run's own text and its child processes'.
     exit    0 done, 1 failed, 2 usage (an unknown action or a request it
             refuses: `error{code: usage}` + `done`), 75 another setup holds
@@ -64,7 +68,9 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
         from probe import __version__
 
-        sys.stdout.write(json.dumps({"cli_version": __version__}) + "\n")
+        refreshed = _refresh_manifest() if request.refresh else {}
+        latest = _cli_latest(fetch=request.latest)
+        sys.stdout.write(json.dumps({"cli_version": __version__, "cli_latest": latest, **refreshed}) + "\n")
         return 0
 
     from probe.sdk import agent_session
@@ -89,6 +95,51 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
         telemetry_mod.report_crash(exc, surface="cli")
         raise
+
+
+def _cli_latest(*, fetch: bool) -> str | None:
+    """The newest CLI the release manifest names, or None when unknown.
+
+    Without `fetch`: the cached manifest's answer, no network (the service's
+    reads after an update must stay quick). With it: the manifest itself,
+    fetched with the shared TLS trust and the caller's environment (its proxy),
+    and NOT written to the cache: a failed fetch here must never push the
+    CLI's own refresh into its back-off (`version_policy.write_cache`)."""
+    try:
+        from probe import version_policy
+
+        if fetch:
+            from probe.sdk.tls import ssl_context
+
+            manifest = version_policy.fetch(version_policy.base_url() + version_policy.MANIFEST_PATH,
+                                            context=ssl_context())
+        else:
+            manifest, _, _ = version_policy.read_cache()
+        latest = (manifest or {}).get("cli", {}).get("latest")
+        return latest if isinstance(latest, str) and latest else None
+    except Exception:  # noqa: BLE001 -- unknown: the caller decides without it
+        return None
+
+
+def _refresh_manifest() -> dict:
+    """`version {"refresh": true}`: the CLI's cached release manifest,
+    refreshed as its own detached refresher does (`probe.cli.version_refresh`:
+    the fetch, written to the cache with its back-off, then the update reports
+    still waiting), for the Probe service's `manifest.refresh`. `{"ok",
+    "fetched_at"}` from the cache it wrote. Whatever the refresher prints goes
+    to stderr: stdout is this read's one object."""
+    from probe.core import events
+
+    with events.redirect_stdout():
+        try:
+            from probe import version_policy
+            from probe.cli import version_refresh
+
+            version_refresh.refresh_cache()
+            _, fetched_at, ok = version_policy.read_cache()
+        except Exception:  # noqa: BLE001 -- the service reports a failed refresh
+            return {"ok": False, "fetched_at": None}
+    return {"ok": bool(ok), "fetched_at": int(fetched_at) if fetched_at else None}
 
 
 def _request_text(action: ActionName, source: TextIO | None) -> str:

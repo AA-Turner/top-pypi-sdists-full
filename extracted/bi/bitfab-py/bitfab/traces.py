@@ -243,7 +243,81 @@ class ScenarioHistoryEntry(TypedDict):
     source: NotRequired[ScenarioSource | None]
 
 
+class ScenarioRecordInput(TypedDict):
+    """One record your own systems hold that relates to the run, such as a
+    message, a memory, or an order, as sent to ``save_scenario``.
+
+    ``kind`` is any name for the kind of record, such as ``"memory"``.
+    ``ref`` is your own pointer to the record, such as ``"Memory:812"``. ``at``
+    is when the record came to exist, as an ISO 8601 time, or ``None``.
+    ``asOf`` is ``"run"`` when the record is as it was at the run and ``"now"``
+    when no history is kept for it. ``quote`` is the exact text Bitfab looks
+    for in the run's spans, or ``None`` to look for ``text`` instead.
+    """
+
+    kind: str
+    ref: str
+    at: str | None
+    asOf: Literal["run", "now"]
+    title: str
+    text: str
+    quote: str | None
+
+
+class ScenarioRecord(ScenarioRecordInput):
+    """A saved record. ``source`` is the span Bitfab found it in, or ``None``
+    when it shows up in none of the run's spans.
+    """
+
+    source: ScenarioSource | None
+
+
+class ScenarioFilledColumns(TypedDict):
+    absentNullable: list[str]
+    defaultedNonNullable: list[str]
+
+
+class ScenarioSourcesCoverage(TypedDict):
+    """How fully each kind of data was read. It may carry more keys than these."""
+
+    filledColumns: ScenarioFilledColumns
+    calendarExcludedCount: NotRequired[int]
+
+
+class ScenarioDataSources(TypedDict):
+    """Where a scenario's records came from.
+
+    ``frameAt`` is when the run started, ``capturedAt`` is when its data was
+    captured or ``None``, ``windows`` is how many days each windowed kind
+    reaches, and ``coverage`` is how fully each kind of data was read.
+    """
+
+    frameAt: str
+    capturedAt: str | None
+    windows: dict[str, float]
+    coverage: ScenarioSourcesCoverage
+
+
 class ScenarioData(TypedDict):
+    """A scenario's data. ``records`` and ``sources`` are absent when none
+    have been saved.
+    """
+
+    hasHistory: bool
+    topic: str
+    history: list[ScenarioHistoryEntry]
+    missing: list[str]
+    records: NotRequired[list[ScenarioRecord]]
+    sources: NotRequired[ScenarioDataSources]
+
+
+class SaveScenarioData(TypedDict):
+    """The whole data object sent to ``save_scenario``. It has no records: the
+    saved records are kept, and ``records`` on ``save_scenario`` replaces them.
+    A data object read back from ``get_scenario`` can be sent as it is, and its
+    ``records`` and ``sources`` are left out of the request.
+    """
+
     hasHistory: bool
     topic: str
     history: list[ScenarioHistoryEntry]
@@ -463,15 +537,43 @@ def _trace_scenario_path(trace_id: str) -> str:
     return f"/api/sdk/traces/{quote(trace_id, safe='')}/scenario"
 
 
+_RECORDS_KEYS_IN_DATA = ("records", "sources")
+
+
 def _scenario_payload(
     name: str | None,
     description: str | None,
     trigger: ScenarioTrigger | None,
-    data: ScenarioData | None,
+    data: SaveScenarioData | None,
     append_data: ScenarioDataAppend | None,
     actual_outcome: ScenarioActualOutcome | None | _ActualOutcomeUnset,
     category_ids: list[str] | None = None,
+    records: list[ScenarioRecordInput] | None = None,
+    sources: ScenarioDataSources | None = None,
 ) -> dict[str, Any]:
+    if records is not None:
+        others = [
+            name,
+            description,
+            trigger,
+            data,
+            append_data,
+            category_ids,
+        ]
+        if any(value is not None for value in others) or not isinstance(
+            actual_outcome, _ActualOutcomeUnset
+        ):
+            raise ValueError(
+                "Pass records on their own, with only sources beside them, not "
+                "with name, description, trigger, data, append_data, "
+                "actual_outcome, or category_ids."
+            )
+        payload: dict[str, Any] = {"records": records}
+        if sources is not None:
+            payload["sources"] = sources
+        return payload
+    if sources is not None:
+        raise ValueError("Pass sources only together with records.")
     if data is not None and append_data is not None:
         raise ValueError(
             "Pass data to replace the scenario's data or append_data to add to it, "
@@ -481,7 +583,13 @@ def _scenario_payload(
         "name": name,
         "description": description,
         "trigger": trigger,
-        "data": data,
+        "data": None
+        if data is None
+        else {
+            key: value
+            for key, value in data.items()
+            if key not in _RECORDS_KEYS_IN_DATA
+        },
         "appendData": append_data,
     }
     payload = {key: value for key, value in fields.items() if value is not None}
@@ -682,12 +790,14 @@ class TracesClient:
         name: str | None = None,
         description: str | None = None,
         trigger: ScenarioTrigger | None = None,
-        data: ScenarioData | None = None,
+        data: SaveScenarioData | None = None,
         append_data: ScenarioDataAppend | None = None,
         actual_outcome: ScenarioActualOutcome
         | None
         | _ActualOutcomeUnset = _ACTUAL_OUTCOME_UNSET,
         category_ids: list[str] | None = None,
+        records: list[ScenarioRecordInput] | None = None,
+        sources: ScenarioDataSources | None = None,
     ) -> Scenario:
         """Update the scenario built from a trace and return the saved scenario.
 
@@ -707,6 +817,16 @@ class TracesClient:
         naming the missing ids. The returned scenario lists its ``categories``
         sorted by title.
 
+        ``records`` replaces the scenario's records whole. Bitfab looks for
+        each record's ``quote``, or failing that its ``text``, in the run's
+        spans and saves the span it shows up in. Records are sent on their
+        own, with only ``sources`` beside them, and passing any other field
+        with them raises ``ValueError``. An empty list clears the records. A
+        non-empty list is refused while the scenario's trigger is empty.
+        ``sources`` says where the records came from, and leaving it out
+        clears the saved sources. Passing ``sources`` without ``records``
+        raises ``ValueError``.
+
         Sending nothing raises ``ValueError`` before any request. A trace with
         no scenario raises ``requests.HTTPError`` with a 404.
         """
@@ -718,6 +838,8 @@ class TracesClient:
             append_data,
             actual_outcome,
             category_ids,
+            records,
+            sources,
         )
         result = self._http_client.request(_trace_scenario_path(trace_id), payload)
         return result["scenario"]

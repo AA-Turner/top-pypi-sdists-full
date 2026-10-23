@@ -244,9 +244,12 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     ATHENA = ("athena", AtlanConnectionCategory.QUERY_ENGINE)
     DATABRICKS = ("databricks", AtlanConnectionCategory.LAKE)
     POWERBI = ("powerbi", AtlanConnectionCategory.BI)
+    FABRIC = ("fabric", AtlanConnectionCategory.BI)
     BIGQUERY = ("bigquery", AtlanConnectionCategory.WAREHOUSE)
     LOOKER = ("looker", AtlanConnectionCategory.BI)
     METABASE = ("metabase", AtlanConnectionCategory.BI)
+    COGNOS = ("cognos", AtlanConnectionCategory.BI)
+    DOMO = ("domo", AtlanConnectionCategory.BI)
     SALESFORCE = ("salesforce", AtlanConnectionCategory.SAAS)
     DATAVERSE = ("dataverse", AtlanConnectionCategory.SAAS)
     MYSQL = ("mysql", AtlanConnectionCategory.WAREHOUSE)
@@ -266,6 +269,7 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     API = ("api", AtlanConnectionCategory.API)
     DYNAMODB = ("dynamodb", AtlanConnectionCategory.WAREHOUSE)
     GCS = ("gcs", AtlanConnectionCategory.OBJECT_STORE)
+    DATAPLEX = ("dataplex", AtlanConnectionCategory.SAAS)
     HIVE = ("hive", AtlanConnectionCategory.WAREHOUSE)
     SAPHANA = ("sap-hana", AtlanConnectionCategory.WAREHOUSE)
     ADLS = ("adls", AtlanConnectionCategory.OBJECT_STORE)
@@ -294,6 +298,9 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     SQLITE = ("sqlite", AtlanConnectionCategory.DATABASE)
     ROCKSET = ("rockset", AtlanConnectionCategory.WAREHOUSE)
     MONGODB = ("mongodb", AtlanConnectionCategory.DATABASE)
+    COSMOS = ("cosmos", AtlanConnectionCategory.DATABASE)
+    COSMOSNOSQL = ("cosmosnosql", AtlanConnectionCategory.DATABASE)
+    CASSANDRA = ("cassandra", AtlanConnectionCategory.DATABASE)
     GREENPLUM = ("greenplum", AtlanConnectionCategory.WAREHOUSE)
     MONETDB = ("monetdb", AtlanConnectionCategory.WAREHOUSE)
     ALLOYDB = ("alloydb", AtlanConnectionCategory.DATABASE)
@@ -384,6 +391,7 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     AWS_ECS = ("aws-ecs", AtlanConnectionCategory.ELT)
     AWS_LAMBDA = ("aws-lambda", AtlanConnectionCategory.ELT)
     AWS_SAGEMAKER = ("aws-sagemaker", AtlanConnectionCategory.ELT)
+    AWS_SMUS = ("aws-smus", AtlanConnectionCategory.SAAS)
     CUSTOM = ("custom", AtlanConnectionCategory.CUSTOM)
     SHARED_DRIVE = ("shared-drive", AtlanConnectionCategory.OBJECT_STORE)
     SHARE_POINT = ("share-point", AtlanConnectionCategory.SAAS)
@@ -395,6 +403,7 @@ class AtlanConnectorType(str, Enum, metaclass=utils.ExtendableEnumMeta):
     SAP_ECC = ("sap-ecc", AtlanConnectionCategory.ERP)
     CLOUDSQL_POSTGRES = ("cloudsql-postgres", AtlanConnectionCategory.DATABASE)
     ALLOYDB_POSTGRES = ("alloydb-postgres", AtlanConnectionCategory.DATABASE)
+    SAGEMAKER = ("sagemaker", AtlanConnectionCategory.SAAS)
 
 
 class AtlanCustomAttributePrimitiveType(str, Enum):
@@ -2161,6 +2170,13 @@ class LineageDirection(str, Enum):
     BOTH = "BOTH"
 
 
+class LineageType(str, Enum):
+    """Graph a lineage request traverses: assets via processes (the default), or data products via their port assets."""
+
+    DATASET_PROCESS_LINEAGE = "DatasetProcessLineage"
+    PRODUCT_ASSET_LINEAGE = "ProductAssetLineage"
+
+
 class PersonaGlossaryAction(str, Enum):
     CREATE = "persona-glossary-create"
     READ = "persona-glossary-read"
@@ -3138,6 +3154,12 @@ class FormFieldType(str, Enum):
     BOOLEAN = "BOOLEAN"
     LONG = "LONG"
     JSON = "JSON"
+
+
+class GlueTagType(str, Enum):
+    PROPERTY = "property"
+    RESOURCE_TAG = "resource_tag"
+    LF_TAG = "lf_tag"
 
 
 class GoogleDatastudioAssetType(str, Enum):

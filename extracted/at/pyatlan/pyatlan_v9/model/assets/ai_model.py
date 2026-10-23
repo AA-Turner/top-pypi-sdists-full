@@ -19,6 +19,18 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan.model.enums import AIDatasetType, AtlanConnectorType
+from pyatlan.utils import to_camel_case
+from pyatlan_v9.model.assets.process import Process
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import get_type, register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
+from .ai_related import RelatedAIApplication, RelatedAIModel, RelatedAIModelVersion
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,19 +59,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan.model.enums import AIDatasetType, AtlanConnectorType
-from pyatlan.utils import to_camel_case
-from pyatlan_v9.model.assets.process import Process
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import get_type
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .ai_related import RelatedAIApplication, RelatedAIModel, RelatedAIModelVersion
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -797,6 +796,7 @@ def _ai_model_to_nested(ai_model: AIModel) -> AIModelNested:
         is_incomplete=ai_model.is_incomplete,
         provenance_type=ai_model.provenance_type,
         home_id=ai_model.home_id,
+        delete_handler=ai_model.delete_handler,
         depth=ai_model.depth,
         immediate_upstream=ai_model.immediate_upstream,
         immediate_downstream=ai_model.immediate_downstream,
@@ -841,6 +841,7 @@ def _ai_model_from_nested(nested: AIModelNested) -> AIModel:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -864,10 +865,7 @@ def _ai_model_from_nested_bytes(data: bytes, serde: Serde) -> AIModel:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 AIModel.AI_MODEL_DATASETS_DSL = KeywordField("aiModelDatasetsDSL", "aiModelDatasetsDSL")
 AIModel.AI_MODEL_STATUS = KeywordField("aiModelStatus", "aiModelStatus")

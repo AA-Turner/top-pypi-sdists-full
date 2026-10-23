@@ -159,6 +159,15 @@ impl EvaluationRequest {
         self.request.metadata()
     }
 
+    /// Conservatively reports clock dependence, including scheduled override activations.
+    /// Returns true when preparation is disabled; false does not rule out other invalidation sources.
+    /// Set `STATSIG_ENABLE_TIME_DEPENDENCE_METADATA=true` (or `1`) before constructing the store
+    /// to opt into config-only preparation. Unset/`false`/`0` and all other values disable it.
+    /// Existing stores and pinned requests retain their setting until recreated.
+    pub fn may_have_time_dependent_evaluations(&self) -> bool {
+        self.request.pinned.data.may_have_time_dependent_evaluations
+    }
+
     /// Reports whether the pinned snapshot contains a config eligible for this request's app.
     pub fn has_config(&self, config_name: &str) -> bool {
         self.request.has_config(config_name)

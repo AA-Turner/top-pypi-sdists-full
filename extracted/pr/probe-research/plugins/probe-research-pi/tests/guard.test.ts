@@ -9,6 +9,7 @@ import {
   DAEMON_PROFILE_DENY,
   DAEMON_PROFILE_DENY_WRITE,
   DENY_REASON_APPROVALS,
+  DENY_REASON_SESSIONS,
   guardToolCall,
   INLINE_SWITCH_DENY,
   PiTool,
@@ -17,7 +18,7 @@ import {
   sessionIsInline,
   sessionInlineReadOnly,
 } from "../src/guard.js";
-import { approvalsDir } from "../src/core/paths.js";
+import { approvalsDir, sessionsDir } from "../src/core/paths.js";
 import { ProbeState } from "../src/core/trackingState.js";
 
 let tmp: string;
@@ -114,6 +115,48 @@ describe("the daemon's question folder, in both profiles", () => {
   });
 });
 
+function sessionsRefusal(tool: string, path: string): string {
+  return DENY_REASON_SESSIONS.replace("{tool}", tool).replace("{path}", path);
+}
+
+describe("the per-session-state folder, in both profiles", () => {
+  const sid = "11111111-2222-3333-4444-555555555555";
+  it("refuses forging a state or inline file, however spelled", () => {
+    for (const suffix of [".state", ".inline", ".profile"]) {
+      const target = join(sessionsDir(env), `${sid}${suffix}`);
+      for (const context of [agent(), daemon()]) {
+        expect(guardToolCall(PiTool.Write, { path: target, content: "full" }, context)).toBe(sessionsRefusal("write", target));
+        expect(guardToolCall(PiTool.Edit, { path: target, edits: [] }, context)).toBe(sessionsRefusal("edit", target));
+      }
+    }
+    const relative = join("state", "probe", "sessions", `${sid}.inline`);
+    expect(guardToolCall(PiTool.Write, { path: relative }, agent())).toBe(sessionsRefusal("write", relative));
+    expect(guardToolCall(PiTool.Write, { path: `@${relative}` }, agent())).toBe(sessionsRefusal("write", `@${relative}`));
+  });
+
+  it("sees through a symlink and refuses a shell command that names it", () => {
+    mkdirSync(sessionsDir(env), { recursive: true });
+    const link = join(tmp, "innocent");
+    symlinkSync(sessionsDir(env), link);
+    expect(guardToolCall(PiTool.Write, { path: join(link, `${sid}.state`) }, agent())).toBe(
+      sessionsRefusal("write", join(link, `${sid}.state`)),
+    );
+    const folder = sessionsDir(env);
+    for (const command of [
+      `printf full > ${join(folder, `${sid}.state`)}`,
+      "echo x > $XDG_STATE_HOME/probe/sessions/s.inline",
+    ]) {
+      expect(guardToolCall(PiTool.Bash, { command }, agent())).toBe(sessionsRefusal("bash", folder));
+      expect(guardToolCall(PiTool.PowerShell, { command }, daemon())).toBe(sessionsRefusal("powershell", folder));
+    }
+  });
+
+  it("leaves a run read and a sibling folder alone", () => {
+    expect(guardToolCall(PiTool.Write, { path: join(sessionsDir(env) + "-old", "x") }, agent())).toBeNull();
+    expect(guardToolCall(PiTool.Bash, { command: "probe run get r1" }, daemon())).toBeNull();
+  });
+});
+
 describe("the daemon profile's allowlist", () => {
   it("refuses a probe command the daemon owns, naming it", () => {
     expect(guardToolCall(PiTool.Bash, { command: "cd repo && probe run list --limit 5" }, daemon())).toBe(
@@ -131,8 +174,8 @@ describe("the daemon profile's allowlist", () => {
   });
 
   it("refuses a read carrying `--directed` with the plain refusal: reads go through `probe ask`", () => {
-    expect(guardToolCall(PiTool.Bash, { command: "probe workspace list --directed" }, daemon())).toBe(
-      DAEMON_PROFILE_DENY.replace("{matched}", "probe workspace"),
+    expect(guardToolCall(PiTool.Bash, { command: "probe run list --directed" }, daemon())).toBe(
+      DAEMON_PROFILE_DENY.replace("{matched}", "probe run list"),
     );
     expect(guardToolCall(PiTool.Bash, { command: "probe session state on --directed" }, daemon())).toBe(
       RESEARCHER_SWITCH_DENY.replace("{matched}", "probe session state"),

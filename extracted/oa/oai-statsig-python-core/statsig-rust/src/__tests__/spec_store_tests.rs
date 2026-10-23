@@ -27,9 +27,11 @@ use crate::{
     output_logger::{
         LogLevel, OutputLogProvider, initialize_output_logger, shutdown_output_logger,
     },
+    scoped_evaluation_request::ScopedEvaluationRequest,
     scoped_snapshot_registry::EvaluationEngine,
     sdk_event_emitter::{SdkEvent, SdkEventEmitter},
     specs_response::{spec_types::SpecsResponseFull, statsig_config_specs as pb},
+    statsig_options::SnapshotEvaluationSessionInitOptions,
 };
 
 struct TestDataStore {
@@ -1145,6 +1147,79 @@ fn test_specs_updated_callback_runs_without_holding_store_lock() {
 }
 
 #[test]
+fn test_same_checksum_full_response_advances_cursor_without_replacing_snapshot() {
+    let json = include_bytes!("../../tests/data/eval_proj_dcs.json");
+    let mut initial: serde_json::Value = serde_json::from_slice(json).unwrap();
+    let next_lcut = initial["time"].as_u64().unwrap();
+    initial["time"] = (next_lcut - 1).into();
+
+    for full_response in [
+        ResponseData::from_bytes(json.to_vec()),
+        ResponseData::from_bytes_with_headers(
+            include_bytes!("../../tests/data/eval_proj_dcs.pb.br").to_vec(),
+            Some(proto_headers(
+                next_lcut,
+                initial["checksum"].as_str().unwrap(),
+            )),
+        ),
+    ] {
+        let spec_store = SpecStore::new(
+            "same-checksum-full-test",
+            "same-checksum-full-test".to_string(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            None,
+        );
+        apply_delta(
+            &spec_store,
+            ResponseData::from_bytes(serde_json::to_vec(&initial).unwrap()),
+            SpecsSource::Bootstrap,
+            "initial",
+        )
+        .unwrap();
+        let before = spec_store.load_data();
+
+        apply_delta(&spec_store, full_response, SpecsSource::Network, "full-api").unwrap();
+
+        let after = spec_store.load_data();
+        assert!(Arc::ptr_eq(&before.snapshot, &after.snapshot));
+        // The HTTP adapter uses this cursor for the next delta request.
+        let info = spec_store.get_current_specs_info();
+        assert_eq!(info.lcut, Some(next_lcut));
+        assert_eq!(info.checksum, before.snapshot.checksum);
+        assert_eq!(info.source_api.as_deref(), Some("full-api"));
+        assert_eq!(spec_store.get_current_values().unwrap().time, next_lcut);
+
+        // An older full response must not move the cursor back.
+        apply_delta(
+            &spec_store,
+            ResponseData::from_bytes(serde_json::to_vec(&initial).unwrap()),
+            SpecsSource::Network,
+            "stale-api",
+        )
+        .unwrap();
+        assert_eq!(spec_store.get_current_specs_info().lcut, Some(next_lcut));
+
+        apply_delta(
+            &spec_store,
+            protobuf_delta(
+                &after.snapshot,
+                next_lcut + 1,
+                "next-delta-checksum",
+                DeltaOverrides::default(),
+            ),
+            SpecsSource::Network,
+            "delta-api",
+        )
+        .unwrap();
+        assert_eq!(
+            spec_store.get_current_specs_info().lcut,
+            Some(next_lcut + 1)
+        );
+    }
+}
+
+#[test]
 #[serial]
 fn test_checksum_only_delta_reuses_snapshot_and_suppresses_side_effects() {
     let event_emitter = Arc::new(SdkEventEmitter::default());
@@ -1218,6 +1293,186 @@ fn test_checksum_only_delta_reuses_snapshot_and_suppresses_side_effects() {
         public_values.feature_gates.len(),
         before.snapshot.feature_gates.len()
     );
+}
+
+rusty_fork_test! {
+    // Each child sets its environment before constructing any SDK runtime.
+    #[test]
+    fn test_time_condition_metadata_tracks_delta_deletions() {
+        unsafe { std::env::set_var("STATSIG_ENABLE_TIME_DEPENDENCE_METADATA", "true"); }
+        let spec_store = SpecStore::new_with_snapshot_evaluation_session_options(
+            "time-condition-metadata",
+            "time-condition-metadata".into(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            None,
+            &SnapshotEvaluationSessionInitOptions {
+                config_only_mode: true,
+                ..Default::default()
+            },
+        );
+        apply_eval_project(&spec_store);
+        let before = spec_store.load_data();
+        let time_conditions: Vec<_> = before
+            .snapshot
+            .condition_map
+            .iter()
+            .filter(|(_, condition)| condition.condition_type.as_str() == "current_time")
+            .map(|(name, _)| name.as_str().to_string())
+            .collect();
+        assert!(!time_conditions.is_empty());
+        assert!(before.may_have_time_dependent_evaluations);
+
+        // An unrelated delta retains the condition and its snapshot metadata.
+        for (offset, deletions, expected) in [
+            (1, pb::RulesetsResponseDeletions::default(), true),
+            (
+                2,
+                pb::RulesetsResponseDeletions {
+                    condition_map: time_conditions,
+                    ..pb::RulesetsResponseDeletions::default()
+                },
+                false,
+            ),
+        ] {
+            apply_delta(
+                &spec_store,
+                protobuf_delta(
+                    &before.snapshot,
+                    before.lcut() + offset,
+                    &format!("time-conditions-{offset}"),
+                    DeltaOverrides {
+                        deletions,
+                        ..DeltaOverrides::default()
+                    },
+                ),
+                SpecsSource::Network,
+                "time-conditions-test",
+            )
+            .unwrap();
+            assert_eq!(
+                spec_store.load_data().may_have_time_dependent_evaluations,
+                expected
+            );
+            assert!(before.may_have_time_dependent_evaluations);
+        }
+    }
+
+    #[test]
+    fn time_dependency_metadata_is_conservative_without_preparation() {
+        unsafe { std::env::set_var("STATSIG_ENABLE_TIME_DEPENDENCE_METADATA", "true"); }
+        for options in [
+            SnapshotEvaluationSessionInitOptions::default(),
+            SnapshotEvaluationSessionInitOptions {
+                config_only_mode: false,
+                ..Default::default()
+            },
+        ] {
+            let store = SpecStore::new_with_snapshot_evaluation_session_options(
+                "unprepared-time-metadata",
+                "unprepared-time-metadata".into(),
+                StatsigRuntime::get_runtime(),
+                Arc::new(SdkEventEmitter::default()),
+                None,
+                &options,
+            );
+            store
+                .set_values(SpecsUpdate {
+                    data: ResponseData::from_bytes(json_specs_with_dynamic_config(
+                        json_dynamic_config(serde_json::json!({}), serde_json::json!([])),
+                    )),
+                    source: SpecsSource::Network,
+                    received_at: 1,
+                    source_api: None,
+                    has_updates: None,
+                })
+                .unwrap();
+            assert!(store.load_data().may_have_time_dependent_evaluations);
+        }
+    }
+
+    #[test]
+    fn time_dependency_metadata_is_pinned_across_scheduled_overrides() {
+        unsafe { std::env::set_var("STATSIG_ENABLE_TIME_DEPENDENCE_METADATA", "true"); }
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let _runtime_guard = runtime.enter();
+        let mut specs: serde_json::Value = serde_json::from_slice(&json_specs_with_dynamic_config(
+            json_dynamic_config(serde_json::json!({}), serde_json::json!([])),
+        ))
+        .unwrap();
+        let engine = EvaluationEngine::from_fixture(specs.to_string(), None).unwrap();
+        let prepare = || {
+            crate::EvaluationRequest::new(
+                ScopedEvaluationRequest::from_engine(
+                    engine.clone(),
+                    StatsigUser::with_user_id("time-test"),
+                    None,
+                ),
+                Arc::from("time-test"),
+            )
+        };
+        let original = prepare();
+        assert!(!original.may_have_time_dependent_evaluations());
+        for (index, start_time) in [0, 1, i64::MAX].into_iter().enumerate() {
+            specs["time"] = serde_json::json!(index + 2);
+            specs["checksum"] = serde_json::json!(format!("override-{index}"));
+            specs["overrides"] = serde_json::json!({"config": [{
+                "new_config_name": "replacement", "rules": [{"rule_name": "scheduled", "start_time": start_time}]
+            }]});
+            engine
+                .update_fixture_for_test(SpecsUpdate {
+                    data: ResponseData::from_bytes(serde_json::to_vec(&specs).unwrap()),
+                    source: SpecsSource::Network,
+                    received_at: index as u64 + 2,
+                    source_api: None,
+                    has_updates: None,
+                })
+                .unwrap();
+            assert_eq!(
+                prepare().may_have_time_dependent_evaluations(),
+                start_time > 0
+            );
+            assert!(!original.may_have_time_dependent_evaluations());
+        }
+    }
+
+    #[test]
+    fn time_dependency_metadata_requires_explicit_local_opt_in() {
+        const ENV: &str = "STATSIG_ENABLE_TIME_DEPENDENCE_METADATA";
+        // Keep this child single-threaded while changing its environment, including after construction.
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let _runtime_guard = runtime.enter();
+        for config_only_mode in [false, true] {
+            for value in [None, Some("false"), Some("0"), Some("true"), Some("1"), Some(""), Some("invalid")] {
+                unsafe {
+                    match value {
+                        Some(value) => std::env::set_var(ENV, value),
+                        None => std::env::remove_var(ENV),
+                    }
+                }
+                let enabled = config_only_mode && matches!(value, Some("true") | Some("1"));
+                let store = SpecStore::new_with_snapshot_evaluation_session_options(
+                    "time-metadata-control", "time-metadata-control".into(),
+                    StatsigRuntime::get_runtime(), Arc::new(SdkEventEmitter::default()), None,
+                    &SnapshotEvaluationSessionInitOptions { config_only_mode, ..Default::default() },
+                );
+                // A change after construction cannot partially toggle existing stores.
+                unsafe { std::env::set_var(ENV, if enabled { "false" } else { "true" }); }
+                for time in [1, 2] {
+                    let mut specs: serde_json::Value = serde_json::from_slice(&json_specs_with_dynamic_config(
+                        json_dynamic_config(serde_json::json!({}), serde_json::json!([])),
+                    )).unwrap();
+                    specs["time"] = serde_json::json!(time);
+                    store.set_values(SpecsUpdate {
+                        data: ResponseData::from_bytes(serde_json::to_vec(&specs).unwrap()),
+                        source: SpecsSource::Network, received_at: time, source_api: None, has_updates: None,
+                    }).unwrap();
+                    // The fixture has no clock dependencies: true proves preparation was skipped.
+                    assert_eq!(store.load_data().may_have_time_dependent_evaluations, !enabled);
+                }
+            }
+        }
+    }
 }
 
 #[test]

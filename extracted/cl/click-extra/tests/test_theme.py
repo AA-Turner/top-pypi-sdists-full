@@ -19,6 +19,7 @@ and ``[tool.<cli>.themes.<name>]`` config integration."""
 from __future__ import annotations
 
 import dataclasses
+import importlib.resources
 import logging
 import re
 import sys
@@ -526,10 +527,15 @@ class _MissingResource:
         raise FileNotFoundError("simulated missing themes.toml")
 
 
-def test_load_builtin_themes_tolerates_missing_file(caplog, monkeypatch):
-    """A dropped themes.toml degrades to an empty mapping plus a warning."""
+def test_load_builtin_themes_tolerates_missing_file(caplog, monkeypatch, tmp_path):
+    """A dropped themes.toml degrades to an empty mapping plus a warning.
+
+    Both reads must miss: the file beside the module, then the import system
+    the loader falls back to.
+    """
+    monkeypatch.setattr(theme_mod, "__file__", str(tmp_path / "theme.py"))
     monkeypatch.setattr(
-        theme_mod.resources, "files", lambda package: _MissingResource()
+        importlib.resources, "files", lambda package: _MissingResource()
     )
 
     with caplog.at_level(logging.WARNING, logger="click_extra"):
@@ -726,6 +732,57 @@ def test_config_theme_validation_error(invoke, create_config):
     assert result.exit_code == 1
     assert "midnight" in result.stderr
     assert "optoin" in result.stderr
+
+
+def test_command_validators_keep_the_theme_validator(invoke, create_config):
+    """Validators a command declares join the built-in themes validator.
+
+    `@command(config_validators=...)` forwards them to the default `--config`
+    option, which keeps the built-in validator beside them: a malformed
+    `[tool.<cli>.themes.<name>]` table is reported as a configuration validation
+    error, not a `TypeError`.
+    """
+
+    def check_orchard(tree: dict) -> None:
+        if "pear" not in tree:
+            raise click_extra.ValidationError("pear", "missing fruit", code="no-pear")
+
+    @click_extra.command(
+        config_validators=(click_extra.ConfigValidator("orchard", check_orchard),),
+    )
+    def palette() -> None:
+        pass
+
+    # The built-in validator still catches a malformed themes table.
+    config_path = create_config(
+        "palette.toml",
+        dedent("""\
+            [palette.orchard]
+            pear = "conference"
+
+            [palette.themes.midnight]
+            optoin = { fg = "blue" }
+            """),
+    )
+    result = invoke(palette, "--config", str(config_path))
+    assert result.exit_code == 1
+    assert "Configuration validation error: palette.themes.midnight" in result.stderr
+    assert "optoin" in result.stderr
+
+    # The command's own validator checks its sub-tree.
+    config_path = create_config(
+        "orchard.toml",
+        dedent("""\
+            [palette.orchard]
+            apple = "fuji"
+            """),
+    )
+    result = invoke(palette, "--config", str(config_path))
+    assert result.exit_code == 1
+    assert (
+        "Configuration validation error: palette.orchard.pear: missing fruit"
+        in result.stderr
+    )
 
 
 def test_config_theme_does_not_leak_across_invocations(invoke, create_config):

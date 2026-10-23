@@ -417,6 +417,9 @@ NOT_RESEARCH = frozenset(
         "context",
         "daemon",
         "deny",
+        # The desktop app's JSON interface over the import engine; imports run
+        # only after the researcher approves them in the app.
+        "desktop",
         "doctor",
         # `probe draft edit` changes a checked-out draft on disk (the push is the
         # write) and `probe file preview` prints a local file: nothing reaches Probe.
@@ -716,6 +719,7 @@ def test_every_daemon_exemption_names_a_real_command():
         session_marker.DAEMON_AGENT_WRITES
         | session_marker.DAEMON_RUN_WRITES
         | session_marker.DAEMON_PROFILE_ALLOWED
+        | session_marker.DAEMON_PROFILE_RUN_READS
         | session_marker.UNGATED_COMMANDS
         | session_marker.DIRECTED_ONLY
         | session_marker.READ_GROUP_WRITES
@@ -736,3 +740,92 @@ def test_main_runs_a_refused_exec_without_recording(monkeypatch, capsys):
     cli_main.main(["exec", "--", "python", "train.py"])
     assert ran == [["python", "train.py"]]
     assert "opens no run" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# The daemon profile: the CLI refuses the same commands as the plugin hook, so
+# a shell form that rebuilds the invocation (eval, $(echo probe), a renamed
+# copy) cannot reach a team-records read/write/removal the hook would catch.
+# ---------------------------------------------------------------------------
+
+
+def _daemon_profile() -> None:
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    _set(session_marker.STATE_DAEMON)
+
+
+@pytest.mark.parametrize("argv", [["run", "list"], ["series", "latest"], ["artifact", "list"],
+                                  ["run", "delete", "r1"], ["run", "tag", "r1", "good"],
+                                  ["notes", "push", "n.md"], ["logout"], ["token", "create"],
+                                  ["context", "use", "other"], ["wizard", "--action", "recorder", "--yes"],
+                                  ["outbox", "discard", "--held"], ["mcp", "headers"]])
+def test_the_cli_refuses_what_the_daemon_profile_hook_refuses(argv):
+    _daemon_profile()
+    assert not session_marker.daemon_profile_allows(argv)[0], "fixture must be a hook-refused command"
+    assert _refusal(argv) is not None
+
+
+@pytest.mark.parametrize("argv", [["run", "get", "r1"], ["metrics", "wide", "r1"], ["get", "r1"],
+                                  ["metrics", "plot", "r1"], ["run", "expect", "r1"],
+                                  ["exec", "--", "python", "train.py"], ["run", "start"], ["ask", "x"],
+                                  ["update", "--check"], ["service", "status"], ["doctor"],
+                                  ["session", "initialize", "--session", SID, "--cwd", "."]])
+def test_the_cli_still_runs_what_the_daemon_profile_allows(argv):
+    _daemon_profile()
+    assert _refusal(argv) is None
+
+
+def test_the_daemon_worker_capture_starts_is_never_refused():
+    """The tap's supervisor starts `probe daemon worker` with the session's own
+    environment, which can name the agent's session. Refused by the profile,
+    the live run's daemon session ran no worker in any sample. The hook still
+    refuses an agent's own `probe daemon worker`."""
+    _daemon_profile()
+    argv = ["daemon", "worker", "--session-id", SID, "--transcript", "/w/t.jsonl", "--cwd", "/w",
+            "--source", "claude_code"]
+    assert _refusal(argv) is None
+    assert not session_marker.daemon_profile_allows(argv)[0]
+
+
+def test_a_daemon_profile_run_keeps_its_own_work():
+    # Inside `probe exec` (PROBE_RUN_ID set) the run's own writes and reads still
+    # pass in a daemon profile; a team-records write is still refused.
+    _daemon_profile()
+    inside = {**ENV, "PROBE_RUN_ID": "r1"}
+    assert _refusal(["log", "--run", "r1", "acc=0.9"], env=inside) is None
+    assert _refusal(["run", "end", "r1"], env=inside) is None
+    assert _refusal(["notes", "push", "n.md"], env=inside) is not None
+
+
+def test_the_cli_directs_a_daemon_profile_write():
+    _daemon_profile()
+    assert _refusal(["notes", "push", "n.md", "--directed"]) is None
+
+
+def test_a_daemon_profile_write_the_researcher_asked_for_matches_the_hook_text():
+    _daemon_profile()
+    assert _refusal(["notes", "push", "n.md"]) == session_marker.daemon_profile_deny(
+        ["notes", "push", "n.md"], "probe notes push")
+
+
+def test_the_switch_and_mcp_calls_keep_their_own_cli_refusals(monkeypatch):
+    # These have dedicated handlers (the switch message; the bridge). The profile
+    # gate must not pre-empt them with the generic refusal.
+    _daemon_profile()
+    assert _refusal(["session", "state", "off"]) is None  # write_gate leaves the switch to its own handler
+    assert _refusal(["mcp", "call", "echo"]) is None  # the bridge owns mcp call
+
+
+def test_the_daemon_own_calls_are_never_gated_by_the_profile():
+    # The daemon's `probe` runs carry PROBE_DAEMON_SESSION, no coding-agent var,
+    # so `session_id_from_env` is unset and the gate never fires.
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    _set(session_marker.STATE_DAEMON)
+    assert _refusal(["run", "list"], env={"PROBE_DAEMON_SESSION": SID}) is None
+
+
+def test_an_inline_daemon_profile_session_reads_and_writes():
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    assert session_marker.switch_to_inline(SID)
+    assert _refusal(["run", "list"]) is None
+    assert _refusal(["notes", "push", "n.md"]) is None

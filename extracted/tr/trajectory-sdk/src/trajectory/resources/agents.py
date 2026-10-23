@@ -74,7 +74,7 @@ class Agents(APIResource):
     has_deployment: bool | None | Omit = omit,
     has_benchmarks: bool | None | Omit = omit,
     agent_id: SequenceNotStr[str] | None | Omit = omit,
-    model_slug: str | None | Omit = omit,
+    production_model_slug: str | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -95,7 +95,7 @@ class Agents(APIResource):
 
       agent_id: Return only these agents; repeat for each agent ID.
 
-      model_slug: Return only the agent serving this slug.
+      production_model_slug: Filter by exact production model slug.
 
       extra_headers: Send extra headers
 
@@ -114,7 +114,7 @@ class Agents(APIResource):
             "has_deployment": has_deployment,
             "has_benchmarks": has_benchmarks,
             "agent_id": agent_id,
-            "model_slug": model_slug,
+            "production_model_slug": production_model_slug,
             "cursor": cursor,
             "limit": limit,
             "sort": sort,
@@ -207,21 +207,18 @@ class Agents(APIResource):
     *,
     name: str | Omit = omit,
     description: str | None | Omit = omit,
-    model_slug: str | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> AgentResponse:
-    """Update an agent's name, description, or serving model assignment.
+    """Update an agent's name or description.
 
     Args:
       name: New agent name using only letters, digits, spaces, hyphens, underscores, and
         periods. Omit to leave unchanged.
 
       description: New agent description. Set to null to clear it; omit to leave unchanged.
-
-      model_slug: Existing serving model slug in this organization. Set null to unassign it.
 
       extra_headers: Send extra headers
 
@@ -243,7 +240,6 @@ class Agents(APIResource):
         {
           "name": name,
           "description": description,
-          "model_slug": model_slug,
         },
         AgentsUpdateParams,
       ),

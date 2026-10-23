@@ -24,7 +24,6 @@ from etils import epath
 from fiddle._src import config
 from fiddle._src.absl_flags import legacy_flags
 from fiddle._src.absl_flags import utils
-from fiddle._src.experimental import auto_config
 from fiddle._src.experimental import serialization
 
 # Legacy API aliases
@@ -72,7 +71,7 @@ class FiddleFlagSerializer(flags.ArgumentSerializer):
   which provides this serializer by default.
   """
 
-  def __init__(self, pyref_policy: serialization.PyrefPolicy):
+  def __init__(self, pyref_policy: Optional[serialization.PyrefPolicy] = None):
     self._pyref_policy = pyref_policy
 
   def serialize(self, value: config.Buildable) -> str:
@@ -119,7 +118,7 @@ class FiddleFlag(flags.MultiFlag):
       self,
       *args,
       default_module: Optional[types.ModuleType] = None,
-      allow_imports: bool = True,
+      allow_imports: bool = False,
       pyref_policy: Optional[serialization.PyrefPolicy] = None,
       **kwargs,
   ):
@@ -132,22 +131,19 @@ class FiddleFlag(flags.MultiFlag):
     # Due to the lazy evaluation of `value`, this list is needed to keep
     # track of the remaining `directives`.
     self._remaining_directives = []
-    super().__init__(*args, **kwargs)
+    # Save all arguments if needed for forwarding.
+    # This will save all arguments that have passed, when unparse() is called
+    # this will also be reset to empty.
+    self._all_arguments = []
 
-  def _initial_config(self, expression: str):
-    call_expr = utils.CallExpression.parse(expression)
-    base_name = call_expr.func_name
-    base_fn = utils.resolve_function_reference(
-        base_name,
-        utils.ImportDottedNameDebugContext.BASE_CONFIG,
-        self.default_module,
-        self.allow_imports,
-        "Could not init a buildable from",
-    )
-    if auto_config.is_auto_config(base_fn):
-      return base_fn.as_buildable(*call_expr.args, **call_expr.kwargs)
-    else:
-      return base_fn(*call_expr.args, **call_expr.kwargs)
+    if default_module is None and not allow_imports:
+      raise ValueError(
+          "A Fiddle config flag must either specify a default_module to load "
+          "configs from, or set allow_imports=True to allow them to be loaded "
+          "from any module."
+      )
+
+    super().__init__(*args, **kwargs)
 
   def _apply_fiddler(self, cfg: config.Buildable, expression: str):
     call_expr = utils.CallExpression.parse(expression)
@@ -176,6 +172,7 @@ class FiddleFlag(flags.MultiFlag):
     return new_cfg if new_cfg is not None else cfg
 
   def parse(self, arguments):
+    self._all_arguments.append(arguments)
     new_parsed = self._parse(arguments)
     self._remaining_directives.extend(new_parsed)
     self.present += len(new_parsed)
@@ -186,12 +183,15 @@ class FiddleFlag(flags.MultiFlag):
     # Reset it so that all `directives` not being processed yet will be
     # discarded.
     self._remaining_directives = []
+    # Reset saved arguments.
+    self._all_arguments = []
     self.present = 0
+    self._initial_config_expression = None
 
   def _parse_config(self, command: str, expression: str) -> None:
     if self._initial_config_expression:
       raise ValueError(
-          "Only one base configuration is permitted. Received"
+          "Only one base configuration is permitted. Received "
           f"{command}:{expression} after "
           f"{self.first_command}:{self._initial_config_expression} was"
           " already provided."
@@ -199,7 +199,9 @@ class FiddleFlag(flags.MultiFlag):
     else:
       self._initial_config_expression = expression
     if command == "config":
-      self.value = self._initial_config(expression)
+      self.value = utils.init_config_from_expression(
+          expression, self.default_module, self.allow_imports
+      )
     elif command == "config_file":
       with epath.Path(expression).open() as f:
         self.value = serialization.load_json(
@@ -226,7 +228,8 @@ class FiddleFlag(flags.MultiFlag):
       if not match:
         raise ValueError(
             f"All flag values to {self.name} must begin with 'config:', "
-            "'config_file:', 'config_str:', 'set:', or 'fiddler:'."
+            "'config_file:', 'config_str:', 'set:', or 'fiddler:'. "
+            f"Received: '{item}'"
         )
       command, expression = match.groups()
 
@@ -244,12 +247,26 @@ class FiddleFlag(flags.MultiFlag):
           or command == "config_file"
           or command == "config_str"
       ):
-        self._parse_config(command, expression)
+        try:
+          self._parse_config(command, expression)
+        except ValueError as e:
+          if (
+              "Could not resolve reference to named function" in str(e)
+              and not self.allow_imports
+          ):
+            raise ValueError(
+                "If this is a new error in previously-functional code, pass "
+                "allow_imports=True to DEFINE_fiddle_config(). This allows "
+                "anyone with control of the fiddle command-line flags to "
+                "execute arbitrary code; only do this if such imports are "
+                "trusted."
+            ) from e
+          raise
 
       elif command == "set":
-        utils.set_value(self._value, expression)
+        utils.set_value(self._value, expression)  # pyrefly: ignore[bad-argument-type]
       elif command == "fiddler":
-        self._value = self._apply_fiddler(self._value, expression)
+        self._value = self._apply_fiddler(self._value, expression)  # pyrefly: ignore[bad-argument-type]
       else:
         raise AssertionError("Internal error; should not be reached.")
     return self._value
@@ -257,6 +274,10 @@ class FiddleFlag(flags.MultiFlag):
   @value.setter
   def value(self, value):
     self._value = value
+
+  @property
+  def all_arguments(self):
+    return self._all_arguments
 
 
 def DEFINE_fiddle_config(  # pylint: disable=invalid-name
@@ -268,6 +289,7 @@ def DEFINE_fiddle_config(  # pylint: disable=invalid-name
     pyref_policy: Optional[serialization.PyrefPolicy] = None,
     flag_values: flags.FlagValues = flags.FLAGS,
     required: bool = False,
+    allow_imports: bool = False,
 ) -> flags.FlagHolder[Any]:
   r"""Declare and define a fiddle command line flag object.
 
@@ -326,6 +348,10 @@ def DEFINE_fiddle_config(  # pylint: disable=invalid-name
       registered. This should almost never need to be overridden.
     required: bool, is this a required flag. This must be used as a keyword
       argument.
+    allow_imports: If true, then fully qualified dotted names may be used to
+      specify configs or fiddlers that should be automatically imported. This
+      grants arbitrary code execution to anyone who can specify the fiddle
+      command-line flags.
 
   Returns:
     A handle to defined flag.
@@ -339,6 +365,7 @@ def DEFINE_fiddle_config(  # pylint: disable=invalid-name
           parser=flags.ArgumentParser(),
           serializer=FiddleFlagSerializer(pyref_policy=pyref_policy),
           help_string=help_string,
+          allow_imports=allow_imports,
       ),
       flag_values=flag_values,
       required=required,

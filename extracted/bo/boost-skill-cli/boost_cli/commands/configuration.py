@@ -30,6 +30,7 @@ from ..core import (
     config,
     frontmatter,
     gitutil,
+    installedview,
     installplan,
     installscan,
     integrity,
@@ -46,6 +47,8 @@ from ..core import (
     scopes,
     selfupdate,
     serve,
+    snapshot,
+    staleness,
     store,
     typedvalue,
     util,
@@ -89,11 +92,11 @@ def cmd_config(argv) -> int:
     if args.action == "list" and (args.key or args.value is not None):
         p.error("config list takes no KEY/VALUE")
     if args.action in ("get", "set", "unset") and not args.key:
-        raise BoostError("config %s requires a KEY" % args.action,
-                        hint="e.g. `boost config %s ai.enabled`" % args.action)
+        p.error("config %s requires a KEY" % args.action,
+                hint="e.g. `boost config %s ai.enabled`" % args.action)
     if args.action == "set" and args.value is None:
-        raise BoostError("config set requires a VALUE",
-                        hint="e.g. `boost config set ai.enabled false`")
+        p.error("config set requires a VALUE",
+                hint="e.g. `boost config set ai.enabled false`")
     if args.action in ("get", "unset") and args.value is not None:
         p.error("config %s takes no VALUE" % args.action)
 
@@ -126,8 +129,9 @@ def cmd_config(argv) -> int:
         try:
             config.set_value(args.key, args.value)
         except typedvalue.ValueTypeError as e:
+            # e.key is the leaf when a JSON object held the bad value.
             raise _bad_value(e, "boost config set %s <%s>"
-                             % (args.key, config.spec_for(args.key))) from e
+                             % (e.key, config.placeholder(e.key))) from e
         except TypeError as e:
             raise BoostError(str(e),
                             hint="the parent key holds a plain value — "
@@ -212,31 +216,54 @@ def cmd_clean(argv) -> int:
             for old in snaps[:-50]
         )
 
+    leftovers = store.leftover_copies()
+    items.extend((pth, "leftover skill copy", util.dir_size(pth))
+                 for pth in leftovers)
+    temps = store.stale_temps()
+    # The only copy of the previous store, once a kill cut a restore short:
+    # named, never removed — `boost doctor` says what to do with it.
+    for pth, kind in temps:
+        if kind == store.PARKED_STORE:
+            out.warn("left %s alone: it holds the %s — move back what %s is "
+                     "missing, then delete it" % (_tilde(pth), kind,
+                                                 _tilde(paths.store_dir())),
+                     stream=sys.stderr, wrap=True)
+    temps = [t for t in temps if t[1] != store.PARKED_STORE]
+    items.extend((pth, kind, util.dir_size(pth) if pth.is_dir()
+                  else pth.stat().st_size) for pth, kind in temps)
+    leftovers += [pth for pth, _kind in temps if pth.is_dir()]
     if paths.store_dir().is_dir():
         for pth in sorted(paths.store_dir().rglob("*")):
+            if any(pth.is_relative_to(d) for d in leftovers):
+                continue    # removed whole, above
             if pth.name == "__pycache__" and pth.is_dir():
                 items.append((pth, "__pycache__", util.dir_size(pth)))
             elif pth.name == ".DS_Store" and pth.is_file():
                 items.append((pth, ".DS_Store", pth.stat().st_size))
 
     declined = False
+    old_snaps: list[snapshot.Unit] = []
     if args.deep and paths.snapshots_dir().is_dir():
-        cutoff = time.time() - 90 * 86400
-        old_snaps = [s for s in sorted(paths.snapshots_dir().iterdir())
-                     if s.lstat().st_mtime < cutoff]
+        # Counted and aged per snapshot — a tarball and its sidecar are one,
+        # aged by the `created` `snapshot list` shows (see snapshot.Unit).
+        old_snaps = snapshot.older_than(paths.snapshots_dir(),
+                                        time.time() - 90 * 86400)
         # `quiet` under --json for the reason out.confirm documents: on a
         # non-TTY decline it prints a bypass hint, which would land as a stray
         # prose line ahead of the payload and stop it parsing.
         if old_snaps and not args.dry_run and not (args.yes or out.confirm(
-                "remove %d snapshot(s) older than 90 days?" % len(old_snaps),
+                "remove %d snapshot%s older than 90 days?"
+                % (len(old_snaps), _s(len(old_snaps))),
                 quiet=args.json)):
             if not args.json:
                 out.info("keeping old snapshots")
             declined = True
             old_snaps = []
-        for s in old_snaps:
-            size = util.dir_size(s) if s.is_dir() else s.lstat().st_size
-            items.append((s, "old snapshot", size))
+        for unit in old_snaps:
+            items.extend((f, "old snapshot", size)
+                         for f, size in zip(unit.files, unit.sizes, strict=True))
+    snaps_note = (" (%d old snapshot%s)" % (len(old_snaps), _s(len(old_snaps)))
+                  if old_snaps else "")
 
     if not items:
         # `declined` means the only candidate was the --deep snapshot purge
@@ -244,6 +271,7 @@ def cmd_clean(argv) -> int:
         # nothing to do when there was, and the user just declined doing it.
         if args.json:
             print(json.dumps({"items": [], "count": 0, "bytes": 0,
+                              "snapshots": 0,
                               "dry_run": args.dry_run, "removed": 0,
                               "failed": [], "declined": declined,
                               "ok": not declined}, indent=2))
@@ -258,12 +286,14 @@ def cmd_clean(argv) -> int:
         if args.json:
             print(json.dumps({"items": [row(*i) for i in items],
                               "count": len(items), "bytes": freed,
+                              "snapshots": len(old_snaps),
                               "dry_run": True, "removed": 0, "failed": [],
                               "declined": declined, "ok": True}, indent=2))
             return 0
         for pth, kind, _size in items:
             out.info("would remove %s %s" % (_tilde(pth), out.role("(%s)" % kind, "muted")))
-        out.dim("  %d item(s) · %s would be freed" % (len(items), util.human_size(freed)))
+        out.dim("  %d item(s)%s · %s would be freed"
+                % (len(items), snaps_note, util.human_size(freed)))
         return 0
 
     removed, freed, failures = util.remove_items(items)
@@ -273,7 +303,8 @@ def cmd_clean(argv) -> int:
                     freed=util.human_size(freed))
         print(json.dumps(
             {"items": [row(*i) for i in items], "count": len(items),
-             "bytes": freed, "dry_run": False, "removed": removed,
+             "bytes": freed, "snapshots": len(old_snaps),
+             "dry_run": False, "removed": removed,
              "failed": [{"path": str(pth), "error": err}
                         for pth, err in failures],
              "declined": declined, "ok": not failures}, indent=2))
@@ -319,6 +350,16 @@ def cmd_compact(argv) -> int:
     rows: list[dict] = []
 
     taps = [registry.get(n) for n in args.tap] if args.tap else registry.list_taps()
+    # boost's own tap ships inside the wheel: a plain directory with no
+    # `.git`, so there is nothing to narrow and no remote to re-clone from.
+    # Handed to git it warned on every sweep, and `--reclone` deleted it and
+    # then failed to clone `builtin:boost`. Only a named request is answered.
+    for tap in taps:
+        if tap.is_wheel and args.tap:
+            rows.append({"tap": tap.name, "skipped": "ships with boost"})
+            if not args.json:
+                out.info("%s ships with boost — nothing to compact" % tap.name)
+    taps = [t for t in taps if not t.is_wheel]
     # A named tap is a request about that one tap (`registry.update`'s
     # convention), so a missing clone is the answer to it. Filtering it out
     # silently used to fall through to a green, global "no cloned taps to
@@ -331,23 +372,20 @@ def cmd_compact(argv) -> int:
                          stream=sys.stderr if args.json else None)
     taps = [t for t in taps if t.is_cloned]
     if not taps:
+        errored = any("error" in r for r in rows)
         if args.json:
             print(json.dumps({"taps": rows, "count": 0, "bytes": 0,
-                              "dry_run": args.dry_run, "ok": not rows},
+                              "dry_run": args.dry_run, "ok": not errored},
                              indent=2))
-            return 1 if rows else 0
-        if rows:
+            return 1 if errored else 0
+        if errored:
             return 1
-        out.ok("no cloned taps to compact")
+        if not rows:            # a named wheel tap was answered above
+            out.ok("no cloned taps to compact")
         return 0
 
-    # source_dir keeps an installed skill's own assets on disk, so routine
-    # hashing (`outdated`, `doctor`) stays offline after the freight is gone.
-    keep: dict[str, list[str]] = {}
-    for section in lockfile.all_installed().values():
-        for entry in section.values():
-            if entry.get("source_dir"):
-                keep.setdefault(entry.get("tap", ""), []).append(entry["source_dir"])
+    # Installed skills' own assets stay on disk, user and project scope alike.
+    keep = compactplan.keep_dirs()
 
     freed = 0
     removed = 0                 # bytes deleted before any re-download (reclone)
@@ -423,6 +461,16 @@ def cmd_compact(argv) -> int:
                         # failure; this is the path that gets there first.
                         util.rmtree(tap.path)
                         raise
+                try:
+                    # A re-clone is a fresh download, so it gets the
+                    # provenance gate `boost tap` and `boost update` apply.
+                    # The old clone is already gone; removing the unverified
+                    # one leaves a tap `doctor` names and `update` re-clones
+                    # through the same gate.
+                    registry.require_signed_clone(tap.name, tap.path)
+                except BoostError:
+                    util.rmtree(tap.path)
+                    raise
                 # The re-clone can change what's on disk even when the byte
                 # count doesn't (a pinned tap's tree is identical, but the
                 # cache's recorded commit and mtime are now stale either way).
@@ -602,15 +650,17 @@ def _parse_policy_value(key: str, raw: str):
 def _warn_invalid_policy_values() -> None:
     """Name every stored policy value boost had to ignore, and why.
 
-    `policy.load()` substitutes the default for a value it cannot read at the
-    key's type, which is the right thing to do in the middle of an install and
-    the wrong thing to do silently. This is where it stops being silent.
+    `policy.load()` shows the default for a value it cannot read at the
+    key's type, but enforcement refuses while any such value stands
+    (`policy.invalid_violation`), so the warning says that rather than
+    "using the default" — every default is the permissive one.
     """
     for key, value, expected in policy.invalid_values():
-        out.warn("ignoring %s = %s in policy.json — expects %s"
+        out.warn("cannot read %s = %s in policy.json — expects %s"
                  % (key, json.dumps(value), expected))
-        out.dim("  using the default; fix it with `boost policy set %s <%s>`"
-                % (key, policy.spec_for(key)), wrap=True)
+        out.dim("  installs and taps are refused until it is fixed with "
+                "`boost policy set %s <%s>`" % (key, policy.spec_for(key)),
+                wrap=True)
 
 
 def cmd_policy(argv) -> int:
@@ -633,8 +683,8 @@ def cmd_policy(argv) -> int:
 
     if args.action in ("set", "unset"):
         if not args.key:
-            raise BoostError("policy %s requires a KEY" % args.action,
-                            hint="keys: " + ", ".join(sorted(policy.DEFAULTS)))
+            p.error("policy %s requires a KEY" % args.action,
+                    hint="keys: " + ", ".join(sorted(policy.DEFAULTS)))
         if args.key not in policy.DEFAULTS:
             raise BoostError("unknown policy key %r" % args.key,
                             hint="keys: " + ", ".join(sorted(policy.DEFAULTS)))
@@ -648,14 +698,17 @@ def cmd_policy(argv) -> int:
             _warn_invalid_policy_values()
             diff = sorted(k for k in policy.DEFAULTS
                           if pol.get(k) != policy.DEFAULTS[k])
-            out.dim("  modified from defaults: %s" % ", ".join(diff)
-                    if diff else "  all values at defaults")
+            if diff:
+                out.dim("  modified from defaults: %s" % ", ".join(diff))
+            elif not policy.invalid_values():
+                # An unreadable value displays as its default but is not one.
+                out.dim("  all values at defaults")
         return 0
 
     if args.action == "set":
         if args.value is None:
-            raise BoostError("policy set requires a VALUE",
-                            hint="e.g. `boost policy set min_quality_score 60`")
+            p.error("policy set requires a VALUE",
+                    hint="e.g. `boost policy set min_quality_score 60`")
         value = _parse_policy_value(args.key, args.value)
         policy.set_key(args.key, value)
         journal.log("policy", args.key, op="set")
@@ -709,6 +762,12 @@ def cmd_policy(argv) -> int:
         if pol["allowed_taps"] and tap not in pol["allowed_taps"] and tap != "local":
             violations.append((name, kind, label,
                                "tap %s is not on the allowlist" % tap))
+        if store.is_url_import(entry):
+            # `local` is exempt above, but a URL import names its source; the
+            # clone is gone, so signing cannot be re-checked here.
+            violations.extend(
+                (name, kind, label, msg) for msg in policy.source_violations(
+                    store.url_source_name(str(entry["source_url"])), pol))
         violations.extend(
             (name, kind, label, msg)
             for msg in policy.check_installed_version(entry))
@@ -742,9 +801,10 @@ def cmd_policy(argv) -> int:
                 violations.append(
                     (name, kind, label,
                      "quality score %d < required %d" % (score, min_score)))
-    # A policy.json that does not parse read as defaults above, so every row
-    # passed; that is a failed check, whatever policy_enforce says.
-    corrupt_msg = policy.corrupt_violation()
+    # A policy.json that does not parse, or holds a value unreadable at its
+    # type, read as defaults above, so every row passed; that is a failed
+    # check, whatever policy_enforce says.
+    corrupt_msg = policy.unreadable_violation()
     if corrupt_msg:
         violations.append((None, None, "(policy)", corrupt_msg))
     max_skills_msg = policy.max_skills_violation(skill_count)
@@ -1022,9 +1082,11 @@ def cmd_onboard(argv) -> int:
         gitutil.run(["-C", str(repo), "commit", "-m",
                      "chore: add boost skill tracking (boost onboard)"])
         try:
-            proc = subprocess.run(["gh", "pr", "create", "--fill"],
+            proc = subprocess.run(util.resolve_exe(["gh", "pr", "create",
+                                                    "--fill"]),
                                   cwd=str(repo), capture_output=True,
-                                  text=True, timeout=120)
+                                  text=True, encoding="utf-8",
+                                  errors="replace", timeout=120)
         except (subprocess.TimeoutExpired, OSError) as e:
             raise BoostError("gh pr create failed: %s" % e,
                             hint="branch %s is committed — push it and open the PR manually" % branch) from e
@@ -1213,7 +1275,7 @@ def _crontab_lines():
     """Current crontab lines, [] when empty, None when crontab is unusable."""
     try:
         proc = subprocess.run(["crontab", "-l"], capture_output=True, text=True,
-                              timeout=30)
+                              encoding="utf-8", errors="replace", timeout=30)
     except (OSError, subprocess.TimeoutExpired):
         return None
     if proc.returncode != 0:
@@ -1365,9 +1427,11 @@ def cmd_schedule(argv) -> int:
             out.ok("wrote %s" % _tilde(plist))
             try:
                 subprocess.run(["launchctl", "unload", str(plist)],
-                               capture_output=True, text=True, timeout=30)
+                               capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=30)
                 proc = subprocess.run(["launchctl", "load", "-w", str(plist)],
-                                      capture_output=True, text=True, timeout=30)
+                                      capture_output=True, text=True,
+                                      encoding="utf-8", errors="replace", timeout=30)
                 if proc.returncode != 0:
                     tail = (proc.stderr or "").strip().splitlines()
                     out.warn("launchctl load failed: %s"
@@ -1388,7 +1452,8 @@ def cmd_schedule(argv) -> int:
                 try:
                     proc = subprocess.run(["crontab", "-"],
                                           input="\n".join([*kept, entry]) + "\n",
-                                          capture_output=True, text=True, timeout=30)
+                                          capture_output=True, text=True,
+                                          encoding="utf-8", errors="replace", timeout=30)
                 except (OSError, subprocess.TimeoutExpired):
                     proc = None
                 if proc is None or proc.returncode != 0:
@@ -1406,7 +1471,8 @@ def cmd_schedule(argv) -> int:
         if plist.exists():
             try:
                 subprocess.run(["launchctl", "unload", "-w", str(plist)],
-                               capture_output=True, text=True, timeout=30)
+                               capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=30)
             except (OSError, subprocess.TimeoutExpired):
                 out.warn("launchctl unavailable — removed the plist only")
             plist.unlink()
@@ -1419,7 +1485,8 @@ def cmd_schedule(argv) -> int:
                 try:
                     proc = subprocess.run(["crontab", "-"],
                                           input="\n".join(kept) + ("\n" if kept else ""),
-                                          capture_output=True, text=True, timeout=30)
+                                          capture_output=True, text=True,
+                                          encoding="utf-8", errors="replace", timeout=30)
                     removed = proc.returncode == 0
                 except (OSError, subprocess.TimeoutExpired):
                     pass
@@ -1444,16 +1511,29 @@ def cmd_serve(argv) -> int:
     try:
         default_port = config.get_int("serve.port", 8787) or 8787
     except typedvalue.ValueTypeError as e:
-        raise _bad_value(e, "boost config set serve.port <int>") from e
+        raise _bad_value(e, "boost config set serve.port <0-65535>") from e
     p = cliparse.parser(
         prog="boost serve",
         description="Browse the catalogue in a browser: search, facets and a tap graph")
-    p.add_argument("--port", type=util.port_number, default=default_port,
+    p.add_argument("--port", type=util.port_number, default=None,
                    help="port to listen on (default: config serve.port)")
     p.add_argument("--host", default="127.0.0.1",
                    help="address to bind (default: 127.0.0.1)")
     args = p.parse_args(argv)
-    serve.serve_http(args.host, args.port)
+    port = args.port
+    if port is None:
+        # argparse never runs `type=` over a non-string default, so an
+        # out-of-range `serve.port` reached the bind and was reported as an
+        # "invalid --port" nobody passed. Checked only when it is the port in
+        # use: an explicit --port still overrides a bad stored value.
+        try:
+            port = config.check_value("serve.port", default_port)
+        except typedvalue.ValueTypeError as e:
+            raise BoostError(
+                "config serve.port is %s — must be 0-65535" % default_port,
+                hint="`boost config set serve.port <0-65535>`, or `boost "
+                     "config unset serve.port` for the default") from e
+    serve.serve_http(args.host, port)
     return 0
 
 
@@ -1519,7 +1599,7 @@ def _path_hint(fn: Callable[[dict], tuple[str, bool]]
             raise BoostError(
                 e.message,
                 hint='call again with "path" set to one of the above, e.g. '
-                     '{"name": "%s", "path": "%s"}' % (e.bare, e.paths[0])
+                     '{"name": "%s", "path": "%s"}' % (e.qualified, e.paths[0])
             ) from e
     wrapped.__doc__ = fn.__doc__
     return wrapped
@@ -1594,7 +1674,8 @@ def _tool_search(args: dict):
         dropped = rag.dropped_terms(query) if tokenized_only else []
         ignored = tokenized_only and rag.ignored_by_design(query)
         return mcp.no_results(query, tapped=tapped, dropped=dropped,
-                              ignored=ignored), False
+                              ignored=ignored,
+                              config_error=config.check()), False
     # Name-keyed, the same test `lockfile.find_any` and `store.install` apply —
     # those are the tools this marker is advising about. mcp.hit_line's
     # docstring records why the imprecision is disclosed rather than removed,
@@ -1631,15 +1712,18 @@ def _tool_list(args: dict):
     # have" is least useful on its own. A name installed in both scopes is
     # two installs, so the skill count takes both.
     counted = everything | {"skill": [*everything["skill"], *project]}
-    footer = mcp.coverage_line(counted, tapped=builtin.configured_tap_count())
+    footer = mcp.coverage_line(counted, tapped=builtin.configured_tap_count(),
+                               config_error=config.check())
     if not any(everything.values()) and not project:
         return "nothing installed\n" + footer, False
     lines = []
     for kind, section in everything.items():
         for n, e in sorted(section.items()):
-            lines.append("%s v%s (%s)%s%s"
+            where = scopes.project_label(e) if kind != "skill" else None
+            lines.append("%s v%s (%s)%s%s%s"
                          % (n, e.get("version", "?"), e.get("tap", "?"),
                             "" if kind == "skill" else " [%s]" % kind,
+                            " [project %s]" % where if where else "",
                             " [pinned]" if e.get("pinned") else ""))
     if project:
         lines.append("project skills (%s):" % _tilde(pbase))
@@ -1651,9 +1735,46 @@ def _tool_list(args: dict):
     return "\n".join(lines), False
 
 
+def _installed_facts(name: str, kind: str, entry: dict, pbase, src: dict,
+                     matches: list[dict]) -> list[str]:
+    """``description``/``latest`` lines for an installed item, as `info` gives.
+
+    The description is the installed copy's; the catalog row is the tap's
+    HEAD, so its text is labelled upstream when it differs, and its version
+    is ``latest`` with the same update verdict `boost info` and `boost
+    outdated` reach.
+    """
+    if kind == "skill":
+        bare = catalog.split_name(name)[1]
+        sdir = (integrity.project_skill_dir(entry, pbase) if pbase is not None
+                else store.skill_store_dir(bare))
+        desc, upstream = installedview.skill_description(sdir, src)
+        note = {staleness.BEHIND: " (update available)",
+                staleness.AHEAD: " (older than installed)"}.get(
+            staleness.catalog_relation(str(entry.get("version") or ""),
+                                       str(src.get("version") or "")) or "",
+            "")
+    else:
+        reason, _ = installedview.installed_update(kind, entry, matches)
+        desc, upstream = installedview.materialized_description(
+            entry, src, reason)
+        note = {staleness.VERSION: " (update available)",
+                staleness.CONTENT: " (content changed)"}.get(reason or "", "")
+    lines = []
+    if desc:
+        lines.append("description: %s" % desc)
+    if upstream:
+        lines.append("upstream description: %s" % upstream)
+    if src.get("version"):
+        lines.append("latest: %s%s" % (src["version"], note))
+    return lines
+
+
 @_path_hint
 def _tool_info(args: dict):
     name = mcp.str_arg(args, "name") or ""
+    if not name.strip():
+        return mcp.needs_name("boost_info"), True
     path = mcp.str_arg(args, "path")
     # The resolver `boost info` uses: split a `tap:name`, hold the qualifier
     # against the installed record, and ask the project lock too. The unsplit
@@ -1665,8 +1786,10 @@ def _tool_info(args: dict):
         # The installed copy's own catalog row, never another tap's: version
         # and tap came from the lock while the description came from
         # whichever tap sorted first, one reply describing two items.
-        src = next((e for e in catalog.find(name)
-                    if e["tap"] == entry.get("tap")), {})
+        # Its kind and recorded source too: one tap can ship a name as a
+        # skill and as a workflow, and the first row by tap was either.
+        matches = catalog.find(name)
+        src = catalog.installed_row(matches, kind, entry) or {}
     elif not catalog.find(name):
         return "no skill named %r (installed or in any tap)" % name, True
     else:
@@ -1679,7 +1802,9 @@ def _tool_info(args: dict):
         lines.append("kind: %s" % kind_label)
     lines.extend(("version: %s" % (entry or src).get("version", "?"),
                   "tap: %s" % (entry or src).get("tap", "?")))
-    if src.get("description"):
+    if entry:
+        lines.extend(_installed_facts(name, kind, entry, pbase, src, matches))
+    elif src.get("description"):
         lines.append("description: %s" % src["description"])
     if entry:
         # Only the agents boost still writes for: a recorded row whose agent
@@ -1688,8 +1813,10 @@ def _tool_info(args: dict):
             integrity.written_agent_names(kind, entry)) or "none"
         lines.extend(("installed: yes (%s)" % entry.get("installed_at", "?"),
                       "agents: %s" % agents_s))
-        if pbase is not None:
-            lines.append("scope: project (%s)" % _tilde(pbase))
+        where = (_tilde(pbase) if pbase is not None
+                 else scopes.project_label(entry))
+        if where:
+            lines.append("scope: project (%s)" % where)
         if entry.get("pinned"):
             lines.append("pinned: yes")
         if entry.get("quarantined"):
@@ -1738,14 +1865,13 @@ def _tool_read(args: dict):
     name = mcp.str_arg(args, "name") or ""
     path = mcp.str_arg(args, "path")
     if not name.strip():
-        return "boost_read needs a name — pass one as boost_search returned it", True
+        return mcp.needs_name("boost_read"), True
     if path:
         # A `path` names one tap copy, so that copy is what is served — even
         # when the other one is installed, or there would be no way to read
         # the copy an agent is deciding whether to switch to.
         cat = catalog.resolve_one(name, path=path)
-        text = (registry.get(cat["tap"]).path / cat["skill_md"]).read_text(
-            encoding="utf-8", errors="replace")
+        text = info._read(store.source_file_for(cat))
         # "installed" must describe *this* copy: with a/twin installed, a read
         # of b/twin said "installed: yes" over text that is not on disk. An
         # older record without `source_dir` falls back to the tap alone.
@@ -1755,9 +1881,11 @@ def _tool_read(args: dict):
                 and rec.get("source_dir", cat.get("rel_dir"))
                 == cat.get("rel_dir"))
         return mcp.read_reply(name, text, kind=cat.get("kind") or "skill",
-                              installed=here), False
+                              installed=here,
+                              where=scopes.project_label(rec or {})), False
     text, kind, lock, _cat = info._resolve_text(name)
-    return mcp.read_reply(name, text, kind=kind, installed=lock is not None), False
+    return mcp.read_reply(name, text, kind=kind, installed=lock is not None,
+                          where=scopes.project_label(lock or {})), False
 
 
 @_path_hint
@@ -1770,8 +1898,10 @@ def _tool_install(args: dict):
     the wrong way round — here an agent chose the item with nobody watching —
     so both now take their plan and their words from ``core.installplan``.
     """
-    entry = catalog.resolve_one(mcp.str_arg(args, "name") or "",
-                                path=mcp.str_arg(args, "path"))
+    name = mcp.str_arg(args, "name") or ""
+    if not name.strip():
+        return mcp.needs_name("boost_install"), True
+    entry = catalog.resolve_one(name, path=mcp.str_arg(args, "path"))
     # The requested item's own refusal ("already installed", "is pinned")
     # first, so a refused call changes nothing — not its dependencies either.
     store.check_existing(entry)
@@ -1828,7 +1958,10 @@ def _install_lines(res: store.InstallResult, entry: dict) -> list[str]:
         lines.append("as a skill: %s" % res.skill_copy)
     if res.skill_note:
         lines.append(res.skill_note)
-    lines.append("quality score: %d/100" % res.score)
+    # Skill-only, as `boost install` prints it: a rule or workflow has no
+    # score, and "quality score: 0/100" told the agent a valid one scored zero.
+    if res.kind == "skill":
+        lines.append("quality score: %d/100" % res.score)
     if res.conflicts:
         lines.append("conflicts (left in place): %s" % ", ".join(res.conflicts))
     lines.extend("not %s: %s — ask the user to run %s, then `boost sync`"
@@ -1898,8 +2031,8 @@ def _tool_doctor(args: dict):
     # answered "healthy" while CLI `doctor` and `heal` exited 1.
     lock_bad = not integ.ok and not lost
     if lock_bad:
-        lines.append("the lock file %s — ask the user to restore it with "
-                     "`boost replay`" % lockfile.fault(integ))
+        lines.append("the lock file %s — ask the user to %s"
+                     % (lockfile.fault(integ), lockfile.remedy(integ)))
 
     def unrecorded(names: list[str]) -> list[str]:
         n = len(names)
@@ -1908,8 +2041,9 @@ def _tool_doctor(args: dict):
                     "re-records %s" % (n, "" if n == 1 else "s", ", ".join(names),
                                        "it" if n == 1 else "them")]
         return ["%d store dir%s the lock file cannot be read about (%s) — "
-                "`boost replay` restores the lock that knows whose they are"
-                % (n, "" if n == 1 else "s", ", ".join(names))]
+                "%s, and it will know whose they are"
+                % (n, "" if n == 1 else "s", ", ".join(names),
+                   lockfile.remedy(integ))]
 
     # Right after `boost replay rollback` over a corrupt lock, an unrecorded
     # store dir may be what the lock's last change installed, so `boost sync`
@@ -2006,9 +2140,7 @@ def _tool_doctor(args: dict):
     cfg_err = config.check()
     if cfg_err:
         total += 1
-        lines.append("%s — boost is running on defaults, so the user's taps are "
-                     "not listed; ask the user to repair the file or re-add "
-                     "their taps (run `boost doctor` for details)" % cfg_err)
+        lines.append(mcp.config_problem(cfg_err))
     elif not tapped:
         # Same command, same order, as mcp.no_results: an agent that calls
         # both tools in one session must not see the recommendation flipped
@@ -2383,7 +2515,9 @@ def _run_mcp_host(host: str, action: str, cmd, *,
     if cfg:
         return "refused", cfg
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        proc = subprocess.run(util.resolve_exe(cmd), capture_output=True,
+                              text=True, encoding="utf-8", errors="replace",
+                              timeout=60)
     except (OSError, subprocess.TimeoutExpired) as e:
         return "failed", str(e)
     for ln in (proc.stdout or "").strip().splitlines():
@@ -2468,7 +2602,7 @@ def _offer_boost_first(hosts: list[str]) -> None:
     """
     from ..core import builtin
 
-    if os.environ.get(NO_RULE_ENV):
+    if typedvalue.env_flag(NO_RULE_ENV, unknown=True):
         return
     # Scoped to hosts where boost actually registered a server. Offering it for
     # an agent with no boost tools would install standing text naming
@@ -2789,9 +2923,12 @@ def _self_update_git(dry_run: bool) -> int:
     # stale until a reinstall. Ask git for the freshly-pulled version directly
     # (mirrors boost_cli._detect_version()'s git-checkout fallback), and treat a
     # moved HEAD as the unambiguous "an update landed" signal — independent of
-    # how the two version strings happen to be formatted.
+    # how the two version strings happen to be formatted. `--match v[0-9]*`
+    # as there and in pyproject: unmatched, a newer `shards-latest` tag made
+    # this report `vshards-latest-1-g…` as the version just pulled.
     new = gitutil.run(
-        ["-C", str(root), "describe", "--tags", "--always", "--dirty"],
+        ["-C", str(root), "describe", "--tags", "--always", "--dirty",
+         "--match", "v[0-9]*"],
         check=False, timeout=10).stdout.strip().lstrip("v") or old
     updated = bool(after) and after != before
     journal.log("self-update", new if updated else old, previous=old)

@@ -88,6 +88,7 @@ from .type_defs import (
     ListStorageConfigurationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    RevokeConnectionTokenRequestTypeDef,
     StartCompositionRequestTypeDef,
     StartCompositionResponseTypeDef,
     StartParticipantReplicationRequestTypeDef,
@@ -467,6 +468,17 @@ class IvsrealtimeClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs-realtime/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs_realtime/client/#list_tags_for_resource)
+        """
+
+    def revoke_connection_token(
+        self, **kwargs: Unpack[RevokeConnectionTokenRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Revokes the specified connection token so that it can no longer connect to a
+        stage.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ivs-realtime/client/revoke_connection_token.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs_realtime/client/#revoke_connection_token)
         """
 
     def start_composition(

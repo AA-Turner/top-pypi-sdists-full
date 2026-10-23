@@ -1153,10 +1153,70 @@ class DataFrame:
             2. If you use :func:`Session.sql` with this method, the input query of
             :func:`Session.sql` can only be a SELECT statement.
 
-            3. For TIMESTAMP columns:
-            - TIMESTAMP_LTZ and TIMESTAMP_TZ are both converted to `datetime64[ns, tz]` in pandas,
-            as pandas cannot distinguish between the two.
-            - TIMESTAMP_NTZ is converted to `datetime64[ns]` (without timezone).
+        Data type mapping:
+            Conversion uses pandas representations rather than preserving the Snowflake schema
+            exactly. The following table describes typical mappings for Arrow query results.
+            Numeric widths can depend on the returned values; results can also vary with the
+            pandas and Python Connector versions.
+
+            .. list-table:: Snowflake to pandas mappings
+                :header-rows: 1
+                :widths: 30 40 30
+
+                * - Snowflake type
+                  - pandas dtype / Python value
+                  - SQL NULL representation
+                * - NUMBER with scale 0
+                  - Integer dtype when values fit; can become float64 for larger values
+                  - Can become float64 with NaN
+                * - NUMBER with scale greater than 0
+                  - float64
+                  - NaN
+                * - FLOAT / DOUBLE
+                  - float64
+                  - NaN
+                * - BOOLEAN
+                  - bool; object when NULLs are present
+                  - None
+                * - VARCHAR
+                  - object containing str
+                  - None
+                * - BINARY
+                  - object containing bytes
+                  - None
+                * - DATE
+                  - object containing datetime.date
+                  - None
+                * - TIME
+                  - object containing datetime.time
+                  - None
+                * - TIMESTAMP_NTZ
+                  - datetime64[ns] (without timezone)
+                  - NaT
+                * - TIMESTAMP_LTZ / TIMESTAMP_TZ
+                  - datetime64[ns, tz] (timezone-aware)
+                  - NaT
+                * - Semi-structured VARIANT / ARRAY / OBJECT
+                  - object containing JSON strings
+                  - None
+
+            Floating-point conversion can lose precision for decimals and large integers,
+            including integer columns containing NULLs. Casting the pandas column afterward
+            cannot recover precision already lost. Python datetime.time has microsecond
+            precision, so TIME values with finer precision are truncated. pandas does not
+            preserve the distinction between TIMESTAMP_LTZ and TIMESTAMP_TZ.
+
+        Example:
+            Inspect the Snowpark schema and the pandas dtypes before relying on a conversion:
+
+            >>> df = session.sql("SELECT 42::NUMBER(10,0) AS N, 'hello'::VARCHAR AS S")
+            >>> df.schema
+            StructType([StructField('N', LongType(), nullable=False), StructField('S', StringType(), nullable=False)])
+            >>> pdf = df.to_pandas()
+            >>> print(pdf.dtypes)
+            N      int8
+            S    object
+            dtype: object
         """
 
         if _emit_ast:
@@ -1390,13 +1450,12 @@ class DataFrame:
             **kwargs,
         )
 
-    @experimental(version="1.55.0")
     @df_collect_api_telemetry
     @publicapi
     def to_polars(
         self,
         *,
-        transport: typing.Literal["arrow", "parquet"] = "arrow",
+        transport: typing.Literal["arrow", "parquet"] = "parquet",
         max_workers: Optional[int] = None,
         statement_params: Optional[Dict[str, str]] = None,
     ) -> "polars.DataFrame":
@@ -1409,15 +1468,14 @@ class DataFrame:
         ==========  ============================================
         transport   Description
         ==========  ============================================
-        "arrow"     Arrow (default; full Snowflake type fidelity)
-        "parquet"   Parquet unload + eager parallel read
+        "parquet"   Parquet unload + eager parallel read (default)
+        "arrow"     Arrow (full Snowflake type fidelity)
         ==========  ============================================
 
         Usage Notes:
             - **Transport selection**:
-                - ``"parquet"``:
-                  Recommended when the result set is large and the type-fidelity
-                  caveats are acceptable. Snowflake's ``COPY INTO`` splits the
+                - ``"parquet"`` (default):
+                  The default transport. Snowflake's ``COPY INTO`` splits the
                   result into multiple Parquet files that are opened and read
                   concurrently. In server-side environments such as stored
                   procedures, each file open is a parallelizable I/O operation,
@@ -1427,7 +1485,7 @@ class DataFrame:
                   modest; for small or medium result sets the ``COPY INTO``
                   setup cost may outweigh the gain, making Arrow the more
                   efficient choice.
-                - ``"arrow"`` (default):
+                - ``"arrow"``:
                   Streams result batches directly from the cursor without
                   staging to disk. Preserves full Snowflake type fidelity.
                   Use when type accuracy is required, or when the result set is
@@ -1446,7 +1504,7 @@ class DataFrame:
             (2, 2)
 
         Args:
-            transport: Either ``"arrow"`` (default) or ``"parquet"``. When
+            transport: Either ``"parquet"`` (default) or ``"arrow"``. When
                 ``"parquet"``, unload the result to Parquet on the session
                 stage and read the files back in parallel. Can be faster than
                 the ``"arrow"`` transport for large, data-transfer-dominated
@@ -1467,13 +1525,13 @@ class DataFrame:
 
                - ``TIMESTAMP_LTZ`` and ``TIMESTAMP_TZ`` columns cause the
                  unload to error.
-               - ``TIMESTAMP_NTZ`` values with nanosecond precision are
-                 truncated to milliseconds.
+               - ``TIMESTAMP_NTZ`` values with sub-millisecond precision
+                 (microseconds or nanoseconds) are rounded to milliseconds.
                - ``FLOAT`` (double) columns are downcast to ``float32``.
 
             See the `COPY INTO <location> usage notes
             <https://docs.snowflake.com/en/sql-reference/sql/copy-into-location#usage-notes>`_
-            for the full unload type mapping. Use the Arrow default when
+            for the full unload type mapping. Use ``transport="arrow"`` when
             full type fidelity is required.
         """
         from snowflake.snowpark._internal.polars_backend import (

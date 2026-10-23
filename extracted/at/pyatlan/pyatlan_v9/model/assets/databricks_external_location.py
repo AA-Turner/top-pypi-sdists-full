@@ -14,10 +14,19 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, Dict, List, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -35,6 +44,10 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .databricks_related import (
+    RelatedDatabricksExternalLocation,
+    RelatedDatabricksExternalLocationPath,
+)
 from .dbt_related import (
     RelatedDbtModel,
     RelatedDbtSeed,
@@ -57,17 +70,6 @@ from .spark_related import RelatedSparkJob
 from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .databricks_related import (
-    RelatedDatabricksExternalLocation,
-    RelatedDatabricksExternalLocationPath,
 )
 
 # =============================================================================
@@ -433,6 +435,8 @@ class DatabricksExternalLocation(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this DatabricksExternalLocation instance.
@@ -457,6 +461,11 @@ class DatabricksExternalLocation(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"DatabricksExternalLocation validation failed: {errors}")
 
@@ -490,6 +499,34 @@ class DatabricksExternalLocation(Asset):
         if self.guid is not UNSET:
             return RelatedDatabricksExternalLocation(guid=self.guid)
         return RelatedDatabricksExternalLocation(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+    ) -> "DatabricksExternalLocation":
+        validate_required_fields(
+            ["name", "connection_qualified_name"], [name, connection_qualified_name]
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/{name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DatabricksExternalLocation":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DatabricksExternalLocation":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1023,6 +1060,7 @@ def _databricks_external_location_to_nested(
         is_incomplete=databricks_external_location.is_incomplete,
         provenance_type=databricks_external_location.provenance_type,
         home_id=databricks_external_location.home_id,
+        delete_handler=databricks_external_location.delete_handler,
         depth=databricks_external_location.depth,
         immediate_upstream=databricks_external_location.immediate_upstream,
         immediate_downstream=databricks_external_location.immediate_downstream,
@@ -1073,6 +1111,7 @@ def _databricks_external_location_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

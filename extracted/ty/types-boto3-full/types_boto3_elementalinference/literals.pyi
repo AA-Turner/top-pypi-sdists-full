@@ -32,10 +32,13 @@ __all__ = (
     "FilterNameType",
     "ListDictionariesPaginatorName",
     "ListFeedsPaginatorName",
+    "ListScheduleActionsPaginatorName",
     "OutputStatusType",
     "PaginatorName",
     "ProfanityFilterModeType",
     "ResourceServiceName",
+    "ScheduleActionErrorCodeType",
+    "ScheduleActionStatusType",
     "SearchFixturesPaginatorName",
     "ServiceName",
     "SummaryGenerationModeType",
@@ -54,8 +57,11 @@ FeedStatusType = Literal[
 FilterNameType = Literal["COMPETITOR"]
 ListDictionariesPaginatorName = Literal["list_dictionaries"]
 ListFeedsPaginatorName = Literal["list_feeds"]
+ListScheduleActionsPaginatorName = Literal["list_schedule_actions"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
 ProfanityFilterModeType = Literal["CENSOR", "DISABLED", "DROP"]
+ScheduleActionErrorCodeType = Literal["INTERNAL_ERROR", "INVALID_ACTION_TARGET"]
+ScheduleActionStatusType = Literal["COMPLETED", "FAILED", "PENDING"]
 SearchFixturesPaginatorName = Literal["search_fixtures"]
 SummaryGenerationModeType = Literal["DISABLED", "ENABLED"]
 TranscriptionLanguageType = Literal[
@@ -170,6 +176,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -500,5 +507,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_dictionaries", "list_feeds", "search_fixtures"]
+PaginatorName = Literal[
+    "list_dictionaries", "list_feeds", "list_schedule_actions", "search_fixtures"
+]
 WaiterName = Literal["feed_deleted"]

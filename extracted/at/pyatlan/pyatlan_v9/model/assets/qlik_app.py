@@ -20,6 +20,14 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -43,19 +51,12 @@ from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
+from .qlik_related import RelatedQlikApp, RelatedQlikSheet, RelatedQlikSpace
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .qlik_related import RelatedQlikApp, RelatedQlikSheet, RelatedQlikSpace
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -282,7 +283,7 @@ class QlikApp(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+/[^/]+$")
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/app/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -351,6 +352,57 @@ class QlikApp(Asset):
         if self.guid is not UNSET:
             return RelatedQlikApp(guid=self.guid)
         return RelatedQlikApp(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        qlik_id: str,
+        space_qualified_name: str,
+    ) -> "QlikApp":
+        """
+        Build a Qlik app; qualifiedName is {connection}/app/{qlik_id}.
+
+        space_qualified_name is the qualifiedName of the QlikSpace
+        ({connection}/space/{id}) or QlikStream ({connection}/stream/{id})
+        the app lives in. Its segment decides which type the qlik_space
+        relationship points at.
+        """
+        validate_required_fields(
+            ["name", "qlik_id", "space_qualified_name"],
+            [name, qlik_id, space_qualified_name],
+        )
+        space_parts = space_qualified_name.rsplit("/", 2)
+        if len(space_parts) != 3 or space_parts[1] not in ("space", "stream"):
+            raise ValueError(
+                "space_qualified_name must end in /space/<id> or /stream/<id>"
+            )
+        connection_qualified_name, space_kind, space_id = space_parts
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/app/{qlik_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            qlik_id=qlik_id,
+            qlik_space_id=space_id,
+            qlik_space_qualified_name=space_qualified_name,
+            qlik_space=RelatedQlikSpace(
+                type_name="QlikStream" if space_kind == "stream" else "QlikSpace",
+                qualified_name=space_qualified_name,
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "QlikApp":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "QlikApp":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -698,6 +750,7 @@ def _qlik_app_to_nested(qlik_app: QlikApp) -> QlikAppNested:
         is_incomplete=qlik_app.is_incomplete,
         provenance_type=qlik_app.provenance_type,
         home_id=qlik_app.home_id,
+        delete_handler=qlik_app.delete_handler,
         depth=qlik_app.depth,
         immediate_upstream=qlik_app.immediate_upstream,
         immediate_downstream=qlik_app.immediate_downstream,
@@ -742,6 +795,7 @@ def _qlik_app_from_nested(nested: QlikAppNested) -> QlikApp:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

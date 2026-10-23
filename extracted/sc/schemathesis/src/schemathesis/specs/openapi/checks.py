@@ -18,11 +18,12 @@ from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import NOT_SET, media_types, string_to_boolean
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, Failure
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator
+from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator, resolve_bundled_ref
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
 from schemathesis.core.transport import (
+    AUTH_REJECTION_STATUSES,
     HTTP_METHODS_SCHEMA,
     SAFE_METHODS,
     Response,
@@ -69,7 +70,7 @@ from schemathesis.specs.openapi.utils import (
     reads_as_null,
     sent_text_is_valid,
 )
-from schemathesis.transport.prepare import prepare_path
+from schemathesis.transport.prepare import prepare_path, replaces_body
 from schemathesis.transport.serialization import contains_binary
 
 if TYPE_CHECKING:
@@ -390,7 +391,7 @@ def _form_body_is_valid_as_sent(response: Response, case: Case, media_type: str)
     fields = _sent_form_fields(response, media_type)
     if fields is None:
         return False
-    alternative = next((item for item in case.operation.body if item.media_type == media_type), None)
+    alternative = case.operation.get_body_for_media_type(media_type)
     if alternative is None:
         return False
     # Urlencoded names round-trip exactly, while multipart escapes some characters in part names.
@@ -484,22 +485,21 @@ def _body_negation_is_only_forbidden_property(case: Case) -> bool:
         return False
 
     validator_cls = _get_openapi_schema(case).adapter.jsonschema_validator_cls
-    for alternative in case.operation.body:
-        if alternative.media_type != case.media_type:
-            continue
-        schema = alternative.optimized_schema
-        permissive = alternative.permissive_schema
-        # No property was forbidden, so validating against the permissive schema would repeat the check below.
-        if permissive is schema:
+    alternative = case.operation.get_body_for_media_type(case.media_type)
+    if alternative is None:
+        return False
+    schema = alternative.optimized_schema
+    permissive = alternative.permissive_schema
+    # No property was forbidden, so validating against the permissive schema would repeat the check below.
+    if permissive is schema:
+        return False
+    try:
+        if make_validator(schema, validator_cls).is_valid(case.body):
             return False
-        try:
-            if make_validator(schema, validator_cls).is_valid(case.body):
-                return False
-            return make_validator(permissive, validator_cls).is_valid(case.body)
-        except Exception:
-            # Schemas or values the validator cannot read — can't tell what was negated
-            return False
-    return False
+        return make_validator(permissive, validator_cls).is_valid(case.body)
+    except Exception:
+        # Schemas or values the validator cannot read — can't tell what was negated
+        return False
 
 
 def _single_element_array_becomes_valid_after_serialization(response: Response, case: Case) -> bool:
@@ -562,7 +562,7 @@ def _single_element_array_becomes_valid_after_serialization(response: Response, 
         # A single element serializes identically to a scalar; multiple elements become repeated keys and
         # some frameworks pick one of them. Either way, the request is valid if any element is.
         try:
-            validator = make_validator(param.validation_schema, param.adapter.jsonschema_validator_cls)
+            validator = param.get_validator()
         except Exception:
             neutralized.add((location, param_name))
             continue
@@ -597,7 +597,7 @@ def _single_element_array_becomes_valid_after_serialization(response: Response, 
 def _wire_value_matches_parameter(parameter: OpenApiParameter, wire_value: str) -> bool:
     """Check whether the text actually sent for `parameter` satisfies its original schema."""
     try:
-        validator = make_validator(parameter.validation_schema, parameter.adapter.jsonschema_validator_cls)
+        validator = parameter.get_validator()
     except Exception:
         # Schema rejected by jsonschema_rs - validity is unknown, so don't report a failure.
         return True
@@ -621,7 +621,7 @@ def _type_mutations_become_valid_after_serialization(case: Case) -> bool:
         return False
 
     phase_data = meta.phase.data
-    if not isinstance(phase_data, FuzzingPhaseData | StatefulPhaseData) or not phase_data.mutations:
+    if not isinstance(phase_data, (FuzzingPhaseData, StatefulPhaseData)) or not phase_data.mutations:
         return False
 
     locations = set()
@@ -830,14 +830,10 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
     return has_negative
 
 
-# Transport keyword arguments that replace the generated request body.
-_BODY_TRANSPORT_KWARGS = ("json", "data", "content", "files")
-
-
 def _negative_body_replaced_by_caller(ctx: CheckContext, case: Case) -> bool:
     """Whether the caller sent its own body, so the only invalid part of the case never reached the server."""
     transport_kwargs = ctx.internals.transport_kwargs
-    if not transport_kwargs or not any(key in transport_kwargs for key in _BODY_TRANSPORT_KWARGS):
+    if not transport_kwargs or not replaces_body(transport_kwargs):
         return False
     meta = case.meta
     assert meta is not None
@@ -930,10 +926,8 @@ def _collect_declared_properties(
         return set(), False
     reference = schema.get("$ref")
     if isinstance(reference, str):
-        if reference in visited:
-            return set(), False
-        target = bundle.get(reference.rsplit("/", 1)[-1])
-        if target is None:
+        target = resolve_bundled_ref(schema, bundle)
+        if reference in visited or target is schema:
             return set(), False
         return _collect_declared_properties(target, bundle, visited | {reference})
     properties = schema.get("properties")
@@ -989,46 +983,45 @@ def _additional_properties_hint(case: Case, response: Response) -> str | None:
 
     validator_cls = case.operation.schema.adapter.jsonschema_validator_cls
 
-    for alternative in case.operation.body:
-        if alternative.media_type != case.media_type:
-            continue
-        raw = alternative.raw_schema
-        if not isinstance(raw, dict):
-            return None
-        declared, forbids_extras = _collect_declared_properties(raw, raw.get(BUNDLE_STORAGE_KEY) or {}, set())
-        if forbids_extras:
-            return None
+    alternative = case.operation.get_body_for_media_type(case.media_type)
+    if alternative is None:
+        return None
+    raw = alternative.raw_schema
+    if not isinstance(raw, dict):
+        return None
+    declared, forbids_extras = _collect_declared_properties(raw, raw.get(BUNDLE_STORAGE_KEY) or {}, set())
+    if forbids_extras:
+        return None
 
-        extra = set(case.body.keys()) - declared
-        if not extra:
-            return None
-        # Many servers reject any string with a NUL character, so the extras are not the only plausible cause.
-        if _contains_nul(case.body):
-            return None
+    extra = set(case.body.keys()) - declared
+    if not extra:
+        return None
+    # Many servers reject any string with a NUL character, so the extras are not the only plausible cause.
+    if _contains_nul(case.body):
+        return None
 
-        stripped = {k: v for k, v in case.body.items() if k not in extra}
-        # `format: binary` fields hold raw bytes the JSON Schema validator cannot accept.
-        if contains_binary(stripped):
-            return None
-        if not make_validator(alternative.optimized_schema, validator_cls).is_valid(stripped):
-            return None
+    stripped = {k: v for k, v in case.body.items() if k not in extra}
+    # `format: binary` fields hold raw bytes the JSON Schema validator cannot accept.
+    if contains_binary(stripped):
+        return None
+    if not make_validator(alternative.optimized_schema, validator_cls).is_valid(stripped):
+        return None
 
-        # The server named a declared field and none of the extras, so the extras did not cause the rejection.
-        blamed = _blamed_body_properties(case, response)
-        if blamed & declared and not blamed & extra:
-            return None
+    # The server named a declared field and none of the extras, so the extras did not cause the rejection.
+    blamed = _blamed_body_properties(case, response)
+    if blamed & declared and not blamed & extra:
+        return None
 
-        count = len(extra)
-        examples = ", ".join(f"`{k}`" for k in sorted(extra)[:3])
-        if count > 3:
-            examples += f" and {count - 3} more"
-        noun = "property" if count == 1 else "properties"
-        return (
-            f"\nHint: The request body contains {count} additional {noun} not defined in the schema "
-            f"({examples}). The server appears to reject properties the schema allows. "
-            "Declare `additionalProperties: false` if extras are not accepted, or make the server ignore unknown fields."
-        )
-    return None
+    count = len(extra)
+    examples = ", ".join(f"`{k}`" for k in sorted(extra)[:3])
+    if count > 3:
+        examples += f" and {count - 3} more"
+    noun = "property" if count == 1 else "properties"
+    return (
+        f"\nHint: The request body contains {count} additional {noun} not defined in the schema "
+        f"({examples}). The server appears to reject properties the schema allows. "
+        "Declare `additionalProperties: false` if extras are not accepted, or make the server ignore unknown fields."
+    )
 
 
 # Statuses a credential-granting operation may answer to a well-formed request carrying credentials that do not exist.
@@ -1133,10 +1126,6 @@ def missing_required_header(ctx: CheckContext, response: Response, case: Case) -
                 message=f"Got {response.status_code} when missing required '{data.parameter}' header, expected {allowed}",
             )
     return None
-
-
-# Statuses that mean the server rejected the request at the authentication layer.
-AUTH_REJECTION_STATUSES = frozenset({401, 403})
 
 
 def _targets_generated_resource(ctx: CheckContext, operation: APIOperation) -> bool:
@@ -1268,7 +1257,7 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
 
             if _has_serialization_sensitive_types(schema, container):
                 # Wire-serialized arrays and objects can't be re-validated, so only mutation metadata can tell.
-                if isinstance(phase_data, FuzzingPhaseData | StatefulPhaseData) and any(
+                if isinstance(phase_data, (FuzzingPhaseData, StatefulPhaseData)) and any(
                     _negates_declared_parameter(mutation, location, schema) for mutation in phase_data.mutations
                 ):
                     return False
@@ -1289,7 +1278,7 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
                     for k, v in value.items()
                     if k in container
                 }
-                if isinstance(phase_data, FuzzingPhaseData | StatefulPhaseData):
+                if isinstance(phase_data, (FuzzingPhaseData, StatefulPhaseData)):
                     # Generated nulls are sent as the text `null`, but in a mutated parameter it may be a negated string.
                     mutated = {
                         mutation.parameter
@@ -1571,11 +1560,6 @@ class AuthKind(enum.StrEnum):
     GENERATED = "generated"
 
 
-# Statuses that mean the API refused an unauthenticated or badly authenticated request. Frameworks whose
-# first authentication scheme offers no challenge answer 403 instead of 401, and gateways do the same.
-AUTH_ENFORCED_STATUSES = frozenset({401, 403})
-
-
 @schemathesis.check
 @requires_openapi_schema
 @skips_on_unexpected_http_status
@@ -1654,7 +1638,7 @@ def _has_undeclared_explicit_authorization(
 
 
 def _enforces_auth(response: Response, authenticated: Response) -> bool:
-    if response.status_code in AUTH_ENFORCED_STATUSES or 300 <= response.status_code < 400:
+    if response.status_code in AUTH_REJECTION_STATUSES or 300 <= response.status_code < 400:
         return True
     # Session-based auth redirects to a sign-in page; a followed redirect ends on a different path.
     return urlparse(response.request.url).path != urlparse(authenticated.request.url).path

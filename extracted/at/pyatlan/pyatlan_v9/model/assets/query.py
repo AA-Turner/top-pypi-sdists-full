@@ -20,6 +20,15 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan.model.enums import AtlanConnectorType
+from pyatlan.utils import validate_required_fields
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -60,15 +69,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan.model.enums import AtlanConnectorType
-from pyatlan.utils import validate_required_fields
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sql_related import RelatedColumn, RelatedQuery, RelatedTable, RelatedView
 
 # =============================================================================
@@ -1235,6 +1235,7 @@ def _query_to_nested(query: Query) -> QueryNested:
         is_incomplete=query.is_incomplete,
         provenance_type=query.provenance_type,
         home_id=query.home_id,
+        delete_handler=query.delete_handler,
         depth=query.depth,
         immediate_upstream=query.immediate_upstream,
         immediate_downstream=query.immediate_downstream,
@@ -1279,6 +1280,7 @@ def _query_from_nested(nested: QueryNested) -> Query:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

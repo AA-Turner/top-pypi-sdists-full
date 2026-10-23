@@ -18,6 +18,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -42,22 +49,15 @@ from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .resource_related import (
     RelatedFile,
     RelatedLink,
     RelatedReadme,
     RelatedReadmeTemplate,
 )
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -613,6 +613,7 @@ def _readme_template_to_nested(readme_template: ReadmeTemplate) -> ReadmeTemplat
         is_incomplete=readme_template.is_incomplete,
         provenance_type=readme_template.provenance_type,
         home_id=readme_template.home_id,
+        delete_handler=readme_template.delete_handler,
         depth=readme_template.depth,
         immediate_upstream=readme_template.immediate_upstream,
         immediate_downstream=readme_template.immediate_downstream,
@@ -661,6 +662,7 @@ def _readme_template_from_nested(nested: ReadmeTemplateNested) -> ReadmeTemplate
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

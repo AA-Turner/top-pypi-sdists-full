@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.330.0"
+  version: "1.339.2"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -196,6 +196,11 @@ x-documentation:
     - `review.updated` - A Google Business Profile reviewer edited their review text or rating, or a reply was posted through `POST /v1/inbox/reviews/{reviewId}/reply`. A reply written directly in Google's own interface does NOT fire this event, because Google emits no notification for it.
     - `lead.received` - New lead submitted against a Meta Lead Gen (Instant) Form. `lead.fields` is the question-key → answer map; `lead.formId`/`lead.adId` give provenance.
     - `ad.status_changed` - Ad, ad set, or campaign changed status on the ad platform (Meta: `in_process_ad_objects` entry/exit and `with_issues_ad_objects` violations)
+    - `ad.review.approved` - An ad Zernio already tracked passed platform review, or a rejection was overturned (every ad network)
+    - `ad.review.rejected` - An ad Zernio already tracked was rejected in platform review (every ad network). `review.reasons` carries the platform's reason when it gives one
+    - `ad.delivery_issue` - An ad Zernio already tracked stopped delivering for a platform reason (Meta `WITH_ISSUES`, TikTok account or balance problems, LinkedIn removals). `issue.reasons` carries Meta's messages
+    - `campaign.budget.depleted` - A campaign Zernio already tracked ran out of budget (TikTok, the only network that reports it on the ad)
+    - `ad_account.status_changed` - An ad account Zernio already tracked became `active`, `restricted`, `disabled` or `closed` (Meta, Google, TikTok, X)
     - `ad.video.processed` - Meta finished processing a video uploaded with `POST /v1/ads/videos` and `async: true`. `video.status` is `ready` (usable as `video.id`) or `error`
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
     - `whatsapp.template.category_updated` - Meta reclassified a WhatsApp Business template's category (drives tariff and marketing opt-out applicability). `template.changeType` is `scheduled` (24h advance notice) or `applied`; `template.category` is always the category right now.
@@ -258,7 +263,7 @@ x-documentation:
     | `post.platform.*`, `post.tiktok.url_resolved` | `account.accountId` (the target this event is about; `post.platforms[].accountId` lists every target) |
     | `post.scheduled`, `post.published`, `post.failed`, `post.partial`, `post.cancelled`, `post.recycled` | `post.platforms[].accountId`, one per target; there is no top-level account |
     | `post.external.*` | `account.accountId` (also `post.accountId`) |
-    | `ad.status_changed`, `ad.video.processed`, `whatsapp.template.*`, `whatsapp.account.*`, `whatsapp.contact.identity_changed` | `account.accountId` |
+    | `ad.status_changed`, `ad.review.*`, `ad.video.processed`, `whatsapp.template.*`, `whatsapp.account.*`, `whatsapp.contact.identity_changed` | `account.accountId` |
     | `whatsapp.automatic_event` | top-level `accountId` |
     | `whatsapp.number.*`, `sms.registration.*` | none; `number.id` / `registration.id` are the number and registration ids, `number.profileId` / `registration.profileId` the profile |
     | `verification.*`, `phone_number.stock_available`, `api.changelog.published`, `webhook.test`, `contact.*`, `sequence.*`, `workflow.run.*` | none (`sequence.*` and `workflow.run.*` still reach subscriptions scoped to the sending account) |
@@ -595,7 +600,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.review.approved, ad.review.rejected, ad.delivery_issue, campaign.budget.depleted, ad_account.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* and contact.* to contacts, sequence.* and workflow.run.* to messages, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Support Assistant events (support.run.*) belong to no single group: they need every resource group enabled and a first-party full-scope caller (a session or a full-scope key, never an OAuth token or a profile-scoped key). Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
@@ -998,6 +1003,18 @@ components:
         Pinterest ads: Pinterest rate-limits per user and app, per category
         (ads_read, ads_write, ads_analytics). `Retry-After` comes from
         Pinterest's `x-ratelimit-reset` when it sends one, otherwise 60 seconds.
+
+        TikTok ads: TikTok caps requests per second for the whole app, across
+        every advertiser, and answers overage with code 40100 or with code
+        40002 `OVER_QPS_LIMIT`. Both return 429 `rate_limited` with
+        `platform: tiktok` and `Retry-After: 10`. Space out bulk reads (for
+        example one ad at a time per advertiser) instead of retrying at once.
+        The Smart+ review read (`GET /v1/ads/{adId}/tiktok-smart-plus-review`)
+        has a stricter quota of its own on TikTok: after an overage Zernio
+        answers 429 with `Retry-After: 60` for that advertiser and connection,
+        without calling TikTok, until the minute is over. The advertiser-wide
+        read (`GET /v1/ads/tiktok-smart-plus-reviews`) answers 200 with
+        `incomplete: true` instead.
       headers:
         Retry-After:
           description: 'Seconds remaining until the upstream quota resets.'
@@ -2678,7 +2695,7 @@ components:
           items: { type: string }
         regionalRegulationIdentities:
           type: object
-          additionalProperties: { type: integer }
+          additionalProperties: { type: [string, integer] }
           description: |
             Meta only. Verified identity IDs of the beneficiary and payer for each declared
             regionalRegulatedCategories value. Meta may require them on ad sets created through
@@ -2686,6 +2703,9 @@ components:
             settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
             The value is the Verified identity ID (Meta Business Settings > Verified identities),
             not a Page or Business ID, and beneficiary and payer may be the same ID.
+            Send each ID as a string of digits: Verified identity IDs can have 17 digits, more than a
+            JSON number holds exactly, and a number that arrives rounded is rejected. Numbers up to
+            9007199254740991 are still accepted. The IDs reach Meta unchanged.
             Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
             australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
             taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
@@ -2782,6 +2802,8 @@ components:
             custom fields object), `contact.lastInteractionAt` (ISO date), `contact.lastInteractionHoursAgo`
             (number), `contact.isFollower` (Instagram, from the stored profile: true, false or `''`
             when unknown), `referral.ref`, `referral.source`, `referral.type`, `referral.adId`,
+            `referral.adTitle` (the ad title or headline Meta sent), `referral.adName` (the synced ad's
+            name, else `referral.adTitle`), `referral.campaignName` (the synced ad's campaign),
             `postback.payload`, `postback.title`, `quickReply.payload`, `quickReply.title`, `story.id`,
             `story.url`, `comment.id`, `comment.text`, `comment.platformPostId`, `reaction.emoji`,
             `reaction.action` (added|removed). `api_call` runs also get the request's `variables`,
@@ -4328,7 +4350,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.review.approved, ad.review.rejected, ad.delivery_issue, campaign.budget.depleted, ad_account.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -5780,6 +5802,159 @@ components:
             omitted when no channel matches or `participantId` is absent. Lets
             integrators seed the CRM straight from `conversation.started` without
             waiting for the first `message.*` event.
+    ConversationAdAttribution:
+      type: [object, "null"]
+      description: |
+        The ad that opened the conversation, enriched from the ads Zernio syncs for
+        the account owner. null when the conversation did not start from a Meta
+        referral (ad click or ig.me / m.me ref link).
+
+        Meta's referral carries the ad ID but no campaign or ad set ID. When the ad
+        is in your synced ads (`GET /v1/ads`), `synced` is true and the ad name,
+        campaign, ad set and ad account come from there. Otherwise `synced` is false,
+        `name` falls back to the ad title (Instagram, Facebook) or headline (WhatsApp)
+        Meta sent with the click, and the other fields are null.
+
+        A team member limited to some profiles, or an API key scoped to profiles, is
+        enriched only from the ads it can list with `GET /v1/ads`; any other ad comes
+        back `synced` false.
+
+        A non-null object with `adId` null is a referral that is not an ad click:
+        an ig.me / m.me ref link (`name` null) or a WhatsApp click on a post
+        (`ctwa_source_type` post, `name` is Meta's headline). Nothing is looked up
+        in your ads for it and `synced` is false.
+      required: [adId, name, synced, campaignId, campaignName, adSetId, adSetName, adAccountId, adAccountName, platformPostId, isExternal]
+      properties:
+        adId:
+          type: [string, "null"]
+          description: "Meta's ad ID: `meta_ad_id` on Instagram and Facebook, `ctwa_source_id` on WhatsApp when `ctwa_source_type` is `ad`. Accepted by `GET /v1/ads/{adId}`."
+        name:
+          type: [string, "null"]
+          description: "The synced ad's name, else the ad title or headline Meta sent."
+        synced:
+          type: boolean
+          description: True when the ad was found in your synced ads.
+        campaignId: { type: [string, "null"], description: "Meta campaign ID. Synced ads only." }
+        campaignName: { type: [string, "null"], description: "Campaign name. Synced ads only." }
+        adSetId: { type: [string, "null"], description: "Meta ad set ID. Synced ads only." }
+        adSetName: { type: [string, "null"], description: "Ad set name. Synced ads only." }
+        adAccountId: { type: [string, "null"], description: "Meta ad account ID (act_...). Synced ads only." }
+        adAccountName: { type: [string, "null"], description: "Ad account name. Synced ads only." }
+        platformPostId:
+          type: [string, "null"]
+          description: "The post the ad promotes, from the synced ad or else Meta's `post_id` on the click."
+        isExternal:
+          type: [boolean, "null"]
+          description: "True when the ad was created outside Zernio (synced from Ads Manager), false when created through Zernio, null when not synced."
+    InboxConversationAdMetadata:
+      type: [object, "null"]
+      description: |
+        Click attribution for a conversation that started from a Meta ad or
+        a ref-tagged ig.me / m.me link, as Meta sent it. Absent when the
+        conversation did not originate from an attributable click. For the ad
+        name, campaign and ad set read `adAttribution` instead.
+
+        Captured from the referral Meta delivers for the click. If the same
+        person later arrives through a different ad or link, the original
+        values are kept, so the first referral wins; read the fresh referral
+        per click on the `message.received` / `referral.received` webhooks
+        instead. On Instagram Click-to-Direct Meta usually delivers the ad post
+        first as an attachment-only `share` / `ig_post` message with no
+        referral, then attaches the referral to the next message. One exception
+        on WhatsApp: when Meta omits `ctwa_clid` from that referral, a later
+        Meta automatic event can supply it and refresh `ctwa_captured_at`, so
+        treat `ctwa_captured_at` as the time Zernio stored the value, not the
+        time of the click.
+
+        Two families of keys, one per surface. They never appear together:
+
+          - `ctwa_*` is WhatsApp Click-to-WhatsApp. The ad ID is
+            `ctwa_source_id`. There is no `meta_ad_id` on WhatsApp.
+          - `meta_ad_*` is Instagram Click-to-Direct, Facebook Messenger
+            Click-to-Message, and ig.me / m.me ref links. The ad ID is
+            `meta_ad_id` (ad clicks only; a link capture carries
+            `meta_ad_ref` without it). `ctwa_clid` never appears on these
+            platforms.
+
+        Every key is optional and only the keys Meta supplied are returned, so
+        read defensively. Meta does not send a campaign or ad set ID; they are
+        resolved from your synced ads in `adAttribution`. More keys may be added
+        over time. Treat any key you do not recognise as an opaque string.
+
+        Key names differ from the `message.received` webhook on purpose. The
+        webhook forwards Meta's referral verbatim (`ad_id`, `source`, `type`)
+        while the stored conversation record uses the prefixed names below.
+        Renaming either side would break existing integrations, so both
+        spellings are kept.
+      properties:
+        ctwa_clid:
+          type: string
+          description: "WhatsApp only. Meta's click identifier, the value to forward to the Meta Conversions API for Business Messaging. Meta omits it on some numbers, so a WhatsApp referral can arrive without it."
+        ctwa_source_id:
+          type: string
+          description: "WhatsApp only. The Meta ad ID the user clicked (or the post ID when `ctwa_source_type` is post). This is the WhatsApp equivalent of meta_ad_id."
+        ctwa_source_type:
+          type: string
+          description: "WhatsApp only. What the user clicked, as supplied by Meta (for example ad or post)."
+        ctwa_source_url:
+          type: string
+          description: "WhatsApp only. Meta's URL for the ad that was clicked, normally an fb.me short link."
+        ctwa_headline:
+          type: string
+          description: "WhatsApp only. Headline of the ad creative at click time."
+        ctwa_body:
+          type: string
+          description: "WhatsApp only. Body text of the ad creative at click time."
+        ctwa_media_type:
+          type: string
+          description: "WhatsApp only. Media type of the ad creative, image or video."
+        ctwa_image_url:
+          type: string
+          description: "WhatsApp only. Image of the ad creative at click time (image ads)."
+        ctwa_video_url:
+          type: string
+          description: "WhatsApp only. Video of the ad creative at click time (video ads)."
+        ctwa_thumbnail_url:
+          type: string
+          description: "WhatsApp only. Thumbnail of the ad video at click time (video ads)."
+        ctwa_captured_at:
+          type: string
+          format: date-time
+          description: "WhatsApp only. When Zernio stored this referral. Always present when a WhatsApp referral was captured."
+        meta_ad_id:
+          type: string
+          description: "Instagram and Facebook only. The Meta ad ID the user clicked. Present for ad clicks; absent when the capture came from an ig.me / m.me ref link."
+        meta_ad_source:
+          type: string
+          description: "Instagram and Facebook only. Meta-supplied source identifier: ADS for ad clicks; SHORTLINK, SHORTLINKS or IGME-SOURCE-LINK for ref links (treat as opaque)."
+        meta_ad_type:
+          type: string
+          description: "Instagram and Facebook only. Meta-supplied referral type, for example OPEN_THREAD."
+        meta_ad_ref:
+          type: string
+          description: "Instagram and Facebook only. The ref parameter passed through from the ad creative or the ig.me / m.me link."
+        meta_ad_title:
+          type: string
+          description: "Instagram and Facebook only. Title of the ad creative at click time."
+        meta_ad_photo_url:
+          type: string
+          description: "Instagram and Facebook only. Image of the ad creative at click time."
+        meta_ad_video_url:
+          type: string
+          description: "Instagram and Facebook only. Video of the ad creative at click time."
+        meta_ad_post_id:
+          type: string
+          description: "Instagram and Facebook only. The organic post the ad promoted, when the ad was a boosted post."
+        meta_ad_product_id:
+          type: string
+          description: "Instagram and Facebook only. The catalogue product the user clicked, for product ads."
+        meta_ad_flow_id:
+          type: string
+          description: "Instagram and Facebook only. The Meta flow the ad launched, for flow ads."
+        meta_ad_captured_at:
+          type: string
+          format: date-time
+          description: "Instagram and Facebook only. When Zernio stored this referral. Always present when an Instagram or Facebook referral was captured."
     InboxWebhookAccount:
       type: object
       description: The account context included in inbox webhook payloads.
@@ -6441,6 +6616,18 @@ components:
                       type: string
                     flow_id:
                       type: string
+            ad:
+              allOf:
+                - $ref: '#/components/schemas/ConversationAdAttribution'
+              description: |
+                Present with `referral` whenever the referral is attributable: on
+                Instagram and Facebook every forwarded referral (an `ad_id` or a
+                `ref`), on WhatsApp a referral carrying `ctwa_clid`, `source_id`,
+                `source_url` or `headline`. The same click enriched from your
+                synced ads: the ad name, campaign, ad set and ad account Zernio
+                holds for this ad ID. Built from this message's referral, so it
+                follows a returning click, while the conversation's
+                `adAttribution` keeps the first one.
             unsupported:
               type: object
               description: |
@@ -6908,6 +7095,20 @@ components:
         starts the first time an account and a contact exchange a message on any DM
         platform (Instagram, Messenger/Facebook, Telegram, WhatsApp, X, Reddit,
         Bluesky, SMS, TikTok). Platform-agnostic: one subscription covers every DM platform.
+
+        `conversation.metadata` (the referral as Meta sent it) and
+        `conversation.adAttribution` (the ad, campaign and ad set from your synced
+        ads) are filled only when the message that created the conversation carried
+        Meta's referral. That holds for WhatsApp Click-to-WhatsApp and Facebook
+        Messenger Click-to-Message, and for ig.me / m.me ref links. On Instagram
+        Click-to-Direct it usually does NOT: Meta creates the thread with the ad post
+        itself, an attachment-only `share` / `ig_post` message with no referral, and
+        attaches the referral to the next message. That conversation.started then
+        has `adAttribution` null and no `metadata`. Read the click from `metadata.ad`
+        and `metadata.referral` on the `message.received` that follows, or from
+        `adAttribution` on `GET /v1/inbox/conversations` and
+        `GET /v1/inbox/conversations/{conversationId}`, which carry it once the
+        referral is stored.
       required: [id, event, conversation, account, startedAt, timestamp]
       properties:
         test:
@@ -6919,7 +7120,15 @@ components:
           type: string
           enum: [conversation.started]
         conversation:
-          $ref: '#/components/schemas/InboxWebhookConversationDetail'
+          allOf:
+            - $ref: '#/components/schemas/InboxWebhookConversationDetail'
+            - type: object
+              required: [adAttribution]
+              properties:
+                metadata:
+                  $ref: '#/components/schemas/InboxConversationAdMetadata'
+                adAttribution:
+                  $ref: '#/components/schemas/ConversationAdAttribution'
         account:
           $ref: '#/components/schemas/InboxWebhookAccount'
         startedAt:
@@ -7281,6 +7490,207 @@ components:
           type: string
           format: date-time
           description: UTC time at which Zernio generated this event.
+    WebhookPayloadAdReview:
+      type: object
+      description: |
+        Webhook payload for the `ad.review.approved` and `ad.review.rejected` events.
+        Emitted for every ad network Zernio syncs (Meta, Google, TikTok, LinkedIn,
+        Pinterest, X and the rest).
+
+        Fires when an ad Zernio already tracked changes review outcome: it leaves
+        review as deliverable (`approved`), a rejection is overturned (`approved`), or
+        the platform rejects it (`rejected`). Ads seen for the first time by a sync,
+        including the history loaded when an account is connected, never fire it.
+        An ad that leaves review paused (for example its ad set is paused) sends no
+        `approved` event.
+
+        Detected by Zernio's own ad sync (and, for Meta, the review poll), so it
+        arrives within one sync cycle of the platform's decision, not instantly.
+        Each outcome is delivered at most once per ad per 24 hours.
+      required: [id, event, account, adObject, review, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        profiles: { $ref: '#/components/schemas/WebhookProfiles' }
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
+        event:
+          type: string
+          enum: [ad.review.approved, ad.review.rejected]
+        account: { $ref: '#/components/schemas/WebhookAdsAccount' }
+        adObject:
+          type: object
+          required: [level, platformId, platformAdAccountId, adId, name]
+          properties:
+            level: { type: string, enum: [AD], description: Always `AD`. }
+            platformId: { type: string, description: Platform-native ad ID. }
+            platformAdAccountId: { type: string, description: Platform-native ad account ID. }
+            adId: { type: string, description: "Zernio ad ID, usable with GET /v1/ads/{adId}." }
+            name: { type: string }
+        review:
+          type: object
+          required: [status, raw, reasons]
+          properties:
+            status: { type: string, enum: [approved, rejected] }
+            raw: { type: string, description: "Platform-native status string, forwarded verbatim (Meta `ACTIVE` / `DISAPPROVED`, TikTok `DISABLE`, ...)." }
+            reasons:
+              type: array
+              description: "Why the platform rejected the ad, when it says. Always empty on `approved`. Most networks only return a generic message today."
+              items:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC time at which Zernio generated this event.
+    WebhookPayloadAdDeliveryIssue:
+      type: object
+      description: |
+        Webhook payload for the `ad.delivery_issue` event. Fires when an ad Zernio
+        already tracked moves into the platform's error state: Meta `WITH_ISSUES`
+        (payment, policy and account problems), TikTok account punishment or missing
+        balance, LinkedIn removals, and any platform status Zernio does not recognize
+        yet (check `issue.raw`). Ads seen for the first time by a sync never fire it.
+
+        Detected by Zernio's own ad sync, so it arrives within one sync cycle. Each
+        ad fires at most once per 24 hours. On Meta, `ad.status_changed` with
+        `WITH_ISSUES` can also fire for the same problem, straight from Meta's webhook.
+      required: [id, event, account, adObject, issue, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        profiles: { $ref: '#/components/schemas/WebhookProfiles' }
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
+        event:
+          type: string
+          enum: [ad.delivery_issue]
+        account: { $ref: '#/components/schemas/WebhookAdsAccount' }
+        adObject:
+          type: object
+          required: [level, platformId, platformAdAccountId, adId, name]
+          properties:
+            level: { type: string, enum: [AD], description: Always `AD`. }
+            platformId: { type: string, description: Platform-native ad ID. }
+            platformAdAccountId: { type: string, description: Platform-native ad account ID. }
+            adId: { type: string, description: "Zernio ad ID, usable with GET /v1/ads/{adId}." }
+            name: { type: string }
+        issue:
+          type: object
+          required: [raw, reasons]
+          properties:
+            raw: { type: string, description: "Platform-native status string, forwarded verbatim (Meta `WITH_ISSUES`, TikTok `ADVERTISER_ACCOUNT_PUNISH`, LinkedIn `REMOVED`, ...)." }
+            reasons:
+              type: array
+              description: "What the platform says is wrong. Meta reports it per campaign; other networks send no message today, so it is empty there."
+              items:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC time at which Zernio generated this event.
+    WebhookPayloadCampaignBudgetDepleted:
+      type: object
+      description: |
+        Webhook payload for the `campaign.budget.depleted` event. Fires when a campaign
+        Zernio already tracked stops delivering because its budget ran out. TikTok only:
+        it is the one network that reports an exhausted budget on the ad. Meta and Google
+        keep such ads `ACTIVE`, so they never fire it.
+
+        Detected by Zernio's own ad sync. Each campaign fires at most once per 6 hours, so a
+        daily budget that runs out again the next day is announced again.
+      required: [id, event, account, adObject, budget, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        profiles: { $ref: '#/components/schemas/WebhookProfiles' }
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
+        event:
+          type: string
+          enum: [campaign.budget.depleted]
+        account: { $ref: '#/components/schemas/WebhookAdsAccount' }
+        adObject:
+          type: object
+          required: [level, platformId, platformAdAccountId, name]
+          properties:
+            level: { type: string, enum: [CAMPAIGN], description: Always `CAMPAIGN`. }
+            platformId: { type: string, description: Platform-native campaign ID. }
+            platformAdAccountId: { type: string, description: Platform-native ad account ID. }
+            name: { type: [string, "null"] }
+        budget:
+          type: object
+          required: [raw]
+          properties:
+            raw: { type: string, description: "Platform-native status string, forwarded verbatim (TikTok `AD_STATUS_CAMPAIGN_EXCEED`)." }
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC time at which Zernio generated this event.
+    WebhookPayloadAdAccountStatusChanged:
+      type: object
+      description: |
+        Webhook payload for the `ad_account.status_changed` event. Fires when an ad
+        account Zernio already tracked moves between `active`, `restricted`, `disabled`
+        and `closed`, as read by Zernio's ad account discovery (Meta, Google, TikTok, X).
+        An account seen for the first time, an account not seen in the last 48 hours,
+        or a platform status Zernio does not recognize, never fires it.
+
+        `restricted` means the account exists but cannot run ads normally until
+        something is settled (Meta unpaid balance or risk review, TikTok limits or
+        pending verification, X review). Each new status fires at most once per
+        account per 24 hours.
+      required: [id, event, account, adAccount, status, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        profiles: { $ref: '#/components/schemas/WebhookProfiles' }
+        test:
+          type: boolean
+          description: 'Always true when present: only a sample sent by POST /v1/webhooks/test with an event carries it. Real deliveries never do.'
+        event:
+          type: string
+          enum: [ad_account.status_changed]
+        account: { $ref: '#/components/schemas/WebhookAdsAccount' }
+        adAccount:
+          type: object
+          required: [platformAdAccountId, name]
+          properties:
+            platformAdAccountId: { type: string, description: Platform-native ad account ID. }
+            name: { type: [string, "null"] }
+        status:
+          type: object
+          required: [previous, current, raw]
+          properties:
+            previous: { type: string, enum: [active, restricted, disabled, closed] }
+            current: { type: string, enum: [active, restricted, disabled, closed] }
+            raw: { type: string, description: "Platform-native status, forwarded verbatim (Meta `account_status` code such as `2`, Google `SUSPENDED`, TikTok `STATUS_LIMIT`, X `REJECTED`)." }
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC time at which Zernio generated this event.
+    WebhookAdsAccount:
+      type: object
+      description: The connected ads account the event belongs to.
+      required: [accountId, profileId, platform, username]
+      properties:
+        accountId: { type: string, description: "Internal Zernio account ID (same as used in /v1/accounts/{accountId})." }
+        profileId: { type: string, description: Internal Zernio profile ID this account belongs to. }
+        platform: { type: string, description: "Ads connection platform (`metaads`, `googleads`, `tiktokads`, `linkedinads`, `pinterestads`, `xads`, ...).", example: tiktokads }
+        username: { type: string }
+        displayName: { type: [string, "null"] }
     WebhookPayloadAdStatusChanged:
       type: object
       description: |
@@ -8944,6 +9354,34 @@ components:
         username: { type: [string, "null"], description: Instagram handle of the account that posted the media and tagged yours. }
         likeCount: { type: [integer, "null"], description: Null when the owner hides like counts. }
         commentsCount: { type: [integer, "null"] }
+
+    InstagramMentionedMedia:
+      type: object
+      required: [id, caption, mediaType, mediaUrl, timestamp, username, likeCount, commentsCount]
+      properties:
+        id: { type: string, description: Instagram media ID of the post whose caption mentions the account. }
+        caption: { type: [string, "null"] }
+        mediaType: { type: [string, "null"], description: 'IMAGE, VIDEO or CAROUSEL_ALBUM.', example: IMAGE }
+        mediaUrl: { type: [string, "null"], description: 'Temporary CDN URL. Meta omits it for videos with copyrighted or licensed audio and reels whose owner disabled downloads.' }
+        timestamp: { type: [string, "null"], description: 'Publication time as Meta returns it (ISO 8601).' }
+        username: { type: [string, "null"], description: Instagram handle of the account that posted the media and mentioned yours. }
+        likeCount: { type: [integer, "null"], description: Null when the owner hides like counts. }
+        commentsCount: { type: [integer, "null"] }
+
+    InstagramMentionedComment:
+      type: object
+      required: [id, text, timestamp, likeCount, media]
+      properties:
+        id: { type: string, description: Instagram comment ID of the comment that mentions the account. }
+        text: { type: [string, "null"] }
+        timestamp: { type: [string, "null"], description: 'Creation time as Meta returns it (ISO 8601).' }
+        likeCount: { type: [integer, "null"] }
+        media:
+          type: [object, "null"]
+          description: The post the comment was left on.
+          required: [id]
+          properties:
+            id: { type: string, description: Instagram media ID of the post. }
 
     InstagramBusinessDiscovery:
       type: object
@@ -11207,6 +11645,32 @@ components:
       type: string
       enum: [approved, partially_approved, rejected, unknown]
       description: "TikTok `review_status` normalized: ALL_AVAILABLE -> approved, PART_AVAILABLE -> partially_approved (delivers in part of the targeted locations), UNAVAILABLE -> rejected, anything else or missing -> unknown (see `rawReviewStatus`)."
+    TikTokSmartPlusAdLevelReview:
+      type: [object, "null"]
+      description: "The ad-level verdict of a Smart+ ad (`smart_plus_ad_review_infos`). Null when TikTok returned none."
+      properties:
+        reviewStatus: { $ref: '#/components/schemas/TikTokSmartPlusReviewStatus' }
+        rawReviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim." }
+        rejectReasons: { type: array, items: { type: string }, description: "Every distinct reason across `rejections`." }
+        passedLocations: { type: array, items: { type: string }, description: "Location codes that passed the review." }
+        appealStatus: { type: [string, "null"], description: "TikTok `appeal_status`, verbatim: NOT_APPEALED, APPEALING, APPEAL_SUCCESSFUL, APPEAL_FAILED, APPEAL_DONE." }
+        appealRejectReasons: { type: array, items: { type: string } }
+        rejections: { type: array, items: { $ref: '#/components/schemas/TikTokReviewRejection' } }
+    TikTokSmartPlusMaterialReview:
+      type: object
+      description: "The verdict of one creative of a Smart+ ad (`material_review_infos`)."
+      properties:
+        adMaterialId: { type: string, description: "TikTok `ad_material_id` of the creative inside this ad." }
+        materialType: { type: [string, "null"], enum: [spark_post, video, carousel, catalog_carousel, null], description: "Null for a creative TikTok added on its own or a carousel image." }
+        tiktokItemId: { type: [string, "null"], description: "The TikTok post id when the creative is a Spark post." }
+        videoId: { type: [string, "null"] }
+        name: { type: [string, "null"] }
+        operationStatus: { type: [string, "null"], description: "TikTok `material_operation_status`: ENABLE or DISABLE." }
+        reviewStatus: { $ref: '#/components/schemas/TikTokSmartPlusReviewStatus' }
+        rawReviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim." }
+        rejectReasons: { type: array, items: { type: string }, description: "Every distinct reason across `rejections`. Empty when approved." }
+        passedLocations: { type: array, items: { type: string } }
+        rejections: { type: array, items: { $ref: '#/components/schemas/TikTokReviewRejection' } }
     TikTokReviewRejection:
       type: object
       description: "One TikTok `reject_info` entry."
@@ -11546,7 +12010,8 @@ components:
             type: object
             properties:
               date: { type: string, format: date }
-              spend: { type: number, description: "Native currency units (matches /ads/tree convention)." }
+              currency: { type: [string, "null"], description: "ISO 4217 currency of every money field in this row (spend, cpc, cpm, costPerConversion, purchaseValue, actionValues). An account whose ad accounts bill in different currencies gets one row per currency for that day, never a sum across currencies. Null when the currency of the ad accounts in this row is unknown. Added 2026-10-23." }
+              spend: { type: number, description: "Native currency units (matches /ads/tree convention), in `currency`." }
               impressions: { type: integer }
               reach: { type: integer, description: "Reach summed across the account's ads for this single day. A person seen by two ads the same day counts twice, and reach is de-duplicated per day only: do NOT sum it across days (people reached on multiple days would be double-counted)." }
               clicks: { type: integer }
@@ -11814,7 +12279,7 @@ components:
         engagement: { type: integer }
         conversions:
           type: number
-          description: "Count of conversion events over the requested date range. FRACTIONAL: attribution splits one conversion across touchpoints and Google additionally reports modeled conversions, so values like 0.347 are normal. Meta: the ad set's Ads Manager Results, derived per ad set: the optimization goal's result (LEAD_GENERATION and QUALITY_LEAD = leads, CONVERSATIONS = messaging conversations started, APP_INSTALLS = installs, LANDING_PAGE_VIEWS = landing page views, LINK_CLICKS = link clicks, THRUPLAY = ThruPlays; REACH, IMPRESSIONS, POST_ENGAGEMENT and PAGE_LIKES report 0), otherwise the promoted_object event (custom_conversion_id when set, else custom_event_type, else PURCHASE). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
+          description: "Count of conversion events over the requested date range. FRACTIONAL: attribution splits one conversion across touchpoints and Google additionally reports modeled conversions, so values like 0.347 are normal. Meta: the ad set's Ads Manager Results, derived per ad set: the optimization goal's result (LEAD_GENERATION and QUALITY_LEAD = leads, CONVERSATIONS = messaging conversations started, APP_INSTALLS = installs, LANDING_PAGE_VIEWS = landing page views, LINK_CLICKS = link clicks, THRUPLAY = ThruPlays; REACH, IMPRESSIONS, POST_ENGAGEMENT and PAGE_LIKES report 0), otherwise the promoted_object event (custom_conversion_id when set, else custom_event_type, else PURCHASE). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). Reddit: key conversions (`key_conversion_total_count`, added 2026-10-23; older days read 0). 0 for non-conversion campaigns or when no events have fired."
         allConversions:
           type: number
           description: 'All conversions, including actions excluded from the Conversions column (Google metrics.all_conversions). 0 on platforms without the concept.'
@@ -11840,7 +12305,7 @@ components:
             offsite_conversion.fb_pixel_add_to_cart: 980.50
         purchaseValue:
           type: number
-          description: "Convenience sum of purchase-type action values, picked from `actionValues` for the ad set promoted_object event (custom conversion, custom_event_type, else PURCHASE). It matches `conversions` for conversion-optimized ad sets; when the optimization goal reports a different result (LINK_CLICKS, LANDING_PAGE_VIEWS, ...) it stays on the promoted event so ROAS keeps its purchase basis. In ad-account native currency. 0 when the campaign has no purchase event configured. TikTok: app purchase value plus website complete-payment value (from 2026-10-08), or the Place an Order value when that is larger (they are never summed, since a pixel can fire both for one sale); days synced before each was added carry the app value only until the ad is re-synced. Other platforms report 0."
+          description: "Convenience sum of purchase-type action values, picked from `actionValues` for the ad set promoted_object event (custom conversion, custom_event_type, else PURCHASE). It matches `conversions` for conversion-optimized ad sets; when the optimization goal reports a different result (LINK_CLICKS, LANDING_PAGE_VIEWS, ...) it stays on the promoted event so ROAS keeps its purchase basis. In ad-account native currency. 0 when the campaign has no purchase event configured. TikTok: app purchase value plus website complete-payment value (from 2026-10-08), or the Place an Order value when that is larger (they are never summed, since a pixel can fire both for one sale); days synced before each was added carry the app value only until the ad is re-synced. Google: `conversions_value` of every primary conversion action. Pinterest: checkout value. LinkedIn: `conversionValueInLocalCurrency`, the advertiser-defined value of every conversion (days synced before 2026-10-23 report 0). Reddit: `conversion_purchase_total_value` (same history note). Other platforms report 0."
         roas:
           type: number
           description: "Return on ad spend, derived as `purchaseValue / spend`. 0 when `spend` is 0. Equivalent to Meta's `purchase_roas` under default attribution. At ad-set and campaign levels this is recomputed from summed purchaseValue + spend (NOT averaged across children) so it's mathematically correct at every rollup level."
@@ -11860,14 +12325,14 @@ components:
         uniqueCtr: { type: number, description: "Derived `uniqueClicks / impressions * 100` (NOT Meta's reach-based unique_ctr). Inherits the non-additivity caveat of `uniqueClicks`." }
         videoPlayActions:
           type: integer
-          description: "Number of times the video started playing, summed over the date range and across children at ad-set/campaign level. 0 for non-video ads. Sources: Meta `video_play_actions`, TikTok `video_play_actions`."
-        video30SecWatchedActions: { type: integer, description: "Views of at least 30 seconds (or to the end, for shorter videos). Sources: Meta `video_30_sec_watched_actions` (Meta only)." }
+          description: "Number of times the video started playing, summed over the date range and across children at ad-set/campaign level. 0 for non-video ads. Sources: Meta `video_play_actions`, TikTok `video_play_actions`, X `video_content_starts`, Reddit `video_started`, Pinterest `TOTAL_VIDEO_P0_COMBINED`. X, Reddit and Pinterest history note: added 2026-10-23, and their syncs only re-fetch recent days, so older days read 0 on every X, Reddit and Pinterest video field."
+        video30SecWatchedActions: { type: integer, description: "Views of at least 30 seconds (or to the end, for shorter videos). Sources: Meta `video_30_sec_watched_actions`, Google `video_trueview_views` (a TrueView view: 30 seconds, the whole video if shorter, or an interaction; Google history note: added 2026-10-23, older days read 0)." }
         videoThruplayWatchedActions: { type: integer, description: "ThruPlays (watched to completion, or at least 15 seconds). Sources: Meta `video_thruplay_watched_actions` (Meta only)." }
-        videoP25WatchedActions: { type: integer, description: "Views reaching 25% of the video's length. With the other percentile fields, powers hook/hold/drop-off analysis (e.g. hook rate = videoP25WatchedActions / videoPlayActions). Sources: Meta `video_p25_watched_actions`, TikTok `video_views_p25`." }
-        videoP50WatchedActions: { type: integer, description: "Views reaching 50% of the video's length. Sources: Meta `video_p50_watched_actions`, TikTok `video_views_p50`." }
-        videoP75WatchedActions: { type: integer, description: "Views reaching 75% of the video's length. Sources: Meta `video_p75_watched_actions`, TikTok `video_views_p75`." }
-        videoP95WatchedActions: { type: integer, description: "Views reaching 95% of the video's length. Sources: Meta `video_p95_watched_actions` (Meta only)." }
-        videoP100WatchedActions: { type: integer, description: "Views reaching 100% of the video's length. Sources: Meta `video_p100_watched_actions`, TikTok `video_views_p100`." }
+        videoP25WatchedActions: { type: integer, description: "Views reaching 25% of the video's length. With the other percentile fields, powers hook/hold/drop-off analysis (e.g. hook rate = videoP25WatchedActions / videoPlayActions). Sources: Meta `video_p25_watched_actions`, TikTok `video_views_p25`, X `video_views_25`, Reddit `video_watched_25_percent`, Google `video_quartile_p25_rate` x impressions, Pinterest `TOTAL_VIDEO_P25_COMBINED`." }
+        videoP50WatchedActions: { type: integer, description: "Views reaching 50% of the video's length. Sources: Meta `video_p50_watched_actions`, TikTok `video_views_p50`, X `video_views_50`, Reddit `video_watched_50_percent`, Google `video_quartile_p50_rate` x impressions, Pinterest `TOTAL_VIDEO_P50_COMBINED`." }
+        videoP75WatchedActions: { type: integer, description: "Views reaching 75% of the video's length. Sources: Meta `video_p75_watched_actions`, TikTok `video_views_p75`, X `video_views_75`, Reddit `video_watched_75_percent`, Google `video_quartile_p75_rate` x impressions, Pinterest `TOTAL_VIDEO_P75_COMBINED`." }
+        videoP95WatchedActions: { type: integer, description: "Views reaching 95% of the video's length. Sources: Meta `video_p95_watched_actions`, Pinterest `TOTAL_VIDEO_P95_COMBINED`." }
+        videoP100WatchedActions: { type: integer, description: "Views reaching 100% of the video's length. Sources: Meta `video_p100_watched_actions`, TikTok `video_views_p100`, X `video_views_100`, Reddit `video_watched_100_percent`, Google `video_quartile_p100_rate` x impressions, Pinterest `TOTAL_VIDEO_P100_COMPLETE`." }
         video2SecWatchedActions:
           type: integer
           description: "Plays of at least 2 seconds, replays excluded. Hook rate = video2SecWatchedActions / impressions. Sources: TikTok `video_watched_2s` (TikTok only; Meta's closest field, 2-second continuous plays, is not synced). TikTok history note: added 2026-10, and each sync re-fetches only the last 7 days, so older days read 0."
@@ -14476,6 +14941,51 @@ components:
         amount: { $ref: '#/components/schemas/CommerceMoney', description: 'Before discounts.' }
         discountTotal: { $ref: '#/components/schemas/CommerceMoney' }
         taxLines: { type: array, items: { $ref: '#/components/schemas/CommerceTaxLine' } }
+    CommerceOrderVisit:
+      type: object
+      description: 'A store session that led to the order.'
+      properties:
+        occurredAt: { type: [string, "null"], format: date-time, description: 'Null on WooCommerce, which records the session start without a timezone.' }
+        landingUrl: { type: [string, "null"], description: 'The first page of the session, with its query string.' }
+        referrerUrl: { type: [string, "null"] }
+        source: { type: [string, "null"], description: 'Where the visit came from, as the platform names it.', example: instagram }
+        sourceType:
+          type: [string, "null"]
+          description: 'Shopify marketing tactic (e.g. SOCIAL, AD, SEARCH) or WooCommerce source type (utm, organic, referral, typein, admin).'
+        utm:
+          type: [object, "null"]
+          description: 'Null when the landing URL carried no UTM parameters.'
+          properties:
+            source: { type: [string, "null"] }
+            medium: { type: [string, "null"] }
+            campaign: { type: [string, "null"] }
+            term: { type: [string, "null"] }
+            content: { type: [string, "null"] }
+    CommerceOrderAttribution:
+      type: object
+      description: 'Where the order came from. Shopify reads it from the customer journey, WooCommerce from its order attribution (WooCommerce 8.5+ with the feature on, orders placed after it was turned on).'
+      properties:
+        ready:
+          type: boolean
+          description: 'False while Shopify is still attributing a new order. No webhook fires when it becomes true, so read the order again later. Always true on WooCommerce.'
+        firstVisit:
+          description: 'The first session before the order. Shopify only; WooCommerce records the last session alone.'
+          oneOf:
+            - $ref: '#/components/schemas/CommerceOrderVisit'
+            - type: "null"
+        lastVisit:
+          description: 'The last session before the order.'
+          oneOf:
+            - $ref: '#/components/schemas/CommerceOrderVisit'
+            - type: "null"
+        customAttributes:
+          type: array
+          description: 'Shopify cart and note attributes, or WooCommerce public order meta.'
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              value: { type: string }
     CommerceOrder:
       type: object
       description: 'An order with what an invoice needs. Every amount is in `currency`, the store currency.'
@@ -14526,6 +15036,7 @@ components:
             - $ref: '#/components/schemas/CommerceAddress'
             - type: "null"
         buyerNote: { type: [string, "null"] }
+        attribution: { $ref: '#/components/schemas/CommerceOrderAttribution' }
         lineItems:
           type: array
           items:
@@ -16377,6 +16888,201 @@ webhooks:
       responses:
         '200':
           description: Webhook received successfully
+  ad.review.approved:
+    post:
+      operationId: onAdReviewApproved
+      summary: Ad review approved event
+      description: |
+        Fired when an ad Zernio already tracked passes platform review, or a rejection is overturned on appeal. Every ad network.
+        See `WebhookPayloadAdReview` for when it fires and when it does not.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadAdReview'
+            examples:
+              sample:
+                summary: TikTok ad approved
+                value:
+                  id: "01J7K3P4N5Q6R7S8T9V0W1X2Z2"
+                  event: ad.review.approved
+                  account:
+                    accountId: "65c8f7e2a1b3c4d5e6f7a8b9"
+                    profileId: "65c8f7e2a1b3c4d5e6f7a800"
+                    platform: tiktokads
+                    username: acme-ads
+                    displayName: Acme Ads
+                  adObject:
+                    level: AD
+                    platformId: "1870423675882786"
+                    platformAdAccountId: "7505325609036365841"
+                    adId: "65c8f7e2a1b3c4d5e6f7a8c1"
+                    name: Spring promo
+                  review:
+                    status: approved
+                    raw: ENABLE
+                    reasons: []
+                  timestamp: "2026-10-22T09:12:03.120Z"
+      responses:
+        '200':
+          description: Webhook received successfully
+  ad.review.rejected:
+    post:
+      operationId: onAdReviewRejected
+      summary: Ad review rejected event
+      description: |
+        Fired when the platform rejects an ad Zernio already tracked. Every ad network.
+        See `WebhookPayloadAdReview` for when it fires and when it does not.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadAdReview'
+            examples:
+              sample:
+                summary: TikTok ad rejected
+                value:
+                  id: "01J7K3P4N5Q6R7S8T9V0W1X2Z2"
+                  event: ad.review.rejected
+                  account:
+                    accountId: "65c8f7e2a1b3c4d5e6f7a8b9"
+                    profileId: "65c8f7e2a1b3c4d5e6f7a800"
+                    platform: tiktokads
+                    username: acme-ads
+                    displayName: Acme Ads
+                  adObject:
+                    level: AD
+                    platformId: "1870423675882786"
+                    platformAdAccountId: "7505325609036365841"
+                    adId: "65c8f7e2a1b3c4d5e6f7a8c1"
+                    name: Spring promo
+                  review:
+                    status: rejected
+                    raw: DISABLE
+                    reasons:
+                      - message: Ad was rejected by TikTok.
+                  timestamp: "2026-10-22T09:12:03.120Z"
+      responses:
+        '200':
+          description: Webhook received successfully
+  ad.delivery_issue:
+    post:
+      operationId: onAdDeliveryIssue
+      summary: Ad delivery issue event
+      description: |
+        Fired when an ad Zernio already tracked stops delivering for a platform reason (Meta, TikTok, LinkedIn).
+        See `WebhookPayloadAdDeliveryIssue` for when it fires and when it does not.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadAdDeliveryIssue'
+            examples:
+              sample:
+                summary: Meta ad with a payment issue
+                value:
+                  id: "01J7K3P4N5Q6R7S8T9V0W1X2Z2"
+                  event: ad.delivery_issue
+                  account:
+                    accountId: "65c8f7e2a1b3c4d5e6f7a8b9"
+                    profileId: "65c8f7e2a1b3c4d5e6f7a800"
+                    platform: metaads
+                    username: acme-ads
+                    displayName: Acme Ads
+                  adObject:
+                    level: AD
+                    platformId: "120200000000000001"
+                    platformAdAccountId: act_1234567890
+                    adId: "65c8f7e2a1b3c4d5e6f7a8c1"
+                    name: Spring promo
+                  issue:
+                    raw: WITH_ISSUES
+                    reasons:
+                      - message: Your payment method was declined. Update it to resume delivery.
+                  timestamp: "2026-10-22T09:12:03.120Z"
+      responses:
+        '200':
+          description: Webhook received successfully
+  campaign.budget.depleted:
+    post:
+      operationId: onCampaignBudgetDepleted
+      summary: Campaign budget depleted event
+      description: |
+        Fired when a campaign Zernio already tracked runs out of budget (TikTok).
+        See `WebhookPayloadCampaignBudgetDepleted` for when it fires and when it does not.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadCampaignBudgetDepleted'
+            examples:
+              sample:
+                summary: TikTok campaign out of budget
+                value:
+                  id: "01J7K3P4N5Q6R7S8T9V0W1X2Z2"
+                  event: campaign.budget.depleted
+                  account:
+                    accountId: "65c8f7e2a1b3c4d5e6f7a8b9"
+                    profileId: "65c8f7e2a1b3c4d5e6f7a800"
+                    platform: tiktokads
+                    username: acme-ads
+                    displayName: Acme Ads
+                  adObject:
+                    level: CAMPAIGN
+                    platformId: "1800000000000001"
+                    platformAdAccountId: "7505325609036365841"
+                    name: Autumn launch
+                  budget:
+                    raw: AD_STATUS_CAMPAIGN_EXCEED
+                  timestamp: "2026-10-22T09:12:03.120Z"
+      responses:
+        '200':
+          description: Webhook received successfully
+  ad_account.status_changed:
+    post:
+      operationId: onAdAccountStatusChanged
+      summary: Ad account status changed event
+      description: |
+        Fired when an ad account Zernio already tracked changes status (Meta, Google, TikTok, X).
+        See `WebhookPayloadAdAccountStatusChanged` for when it fires and when it does not.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadAdAccountStatusChanged'
+            examples:
+              sample:
+                summary: Meta ad account disabled
+                value:
+                  id: "01J7K3P4N5Q6R7S8T9V0W1X2Z2"
+                  event: ad_account.status_changed
+                  account:
+                    accountId: "65c8f7e2a1b3c4d5e6f7a8b9"
+                    profileId: "65c8f7e2a1b3c4d5e6f7a800"
+                    platform: metaads
+                    username: acme-ads
+                    displayName: Acme Ads
+                  adAccount:
+                    platformAdAccountId: act_1234567890
+                    name: Acme Main
+                  status:
+                    previous: active
+                    current: disabled
+                    raw: "2"
+                  timestamp: "2026-10-22T09:12:03.120Z"
+      responses:
+        '200':
+          description: Webhook received successfully
   ad.video.processed:
     post:
       operationId: onAdVideoProcessed
@@ -17833,7 +18539,7 @@ paths:
 
         LinkedIn personal accounts: Analytics are only available for posts published through Zernio. LinkedIn's API only returns metrics for posts authored by the authenticated user. Organization/company page analytics work for all posts.
 
-        Facebook Page stories: stories on a connected Page, published through Zernio or natively, are collected while they are live and returned like any other post (platformPostUrl points to the story). Their lifetime metrics refresh about hourly, with a final reading shortly before the story expires at 24 hours; after that the values stay at that last reading. Mapping: impressions = story impressions, reach = story reach, views = story media views, likes = story reactions, comments = story replies, shares = story shares. Meta exposes no link-click metric for stories, so clicks is always 0. Metrics for a story published through Zernio are available on its Zernio post ID.
+        Facebook Page stories: stories on a connected Page, published through Zernio or natively, are collected while they are live and returned like any other post (platformPostUrl points to the story). Their lifetime metrics refresh about hourly, with a final reading shortly before the story expires at 24 hours; after that the values stay at that last reading. Mapping: impressions = story media views (Meta stopped accepting per-story impressions in October 2026, so impressions equals views), reach = unique story media viewers, views = story media views, likes = story reactions, comments = story replies, shares = story shares. Meta exposes no link-click metric for stories, so clicks is always 0. Metrics for a story published through Zernio are available on its Zernio post ID.
       parameters:
         - name: postId
           in: query
@@ -22761,7 +23467,7 @@ paths:
                 dryRun:
                   type: boolean
                   default: false
-                  description: 'TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`. Accounts connected through the TikTok for Business app do not go through these limits at all and also always report `canPublish: true`, so on those accounts a dry run confirms the request is well-formed rather than gating it.'
+                  description: 'TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, and runs the same account access checks as a real create (it can return 400 or 403), then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`. Accounts connected through the TikTok for Business app do not go through these limits at all and also always report `canPublish: true`, so on those accounts a dry run confirms the request is well-formed rather than gating it.'
                 timezone:
                   type: string
                   description: 'IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset, and stored on the post. Has no effect on values that already carry one. When omitted, the post takes its profile''s `timezone` (the queue''s profile for a queued post, else the profile its accounts share), and UTC when there is none or the accounts sit on profiles with different timezones. An unknown name returns 400 when `scheduledFor` is set.'
@@ -24695,7 +25401,7 @@ paths:
             Page number (1-based). Must be provided together with limit to enable server-side pagination; sending only one of the two returns 400. Omit both for all accounts.
         - name: limit
           in: query
-          schema: { type: integer, minimum: 1, maximum: 100 }
+          schema: { type: integer, minimum: 1, maximum: 500 }
           description: |
             Page size. Must be provided together with page; sending only one of the two returns 400.
         - name: profileIds
@@ -26573,11 +27279,11 @@ paths:
               required: [code, state, profileId]
               properties:
                 code: { type: string }
-                state: { type: string }
+                state: { type: string, description: 'For twitter, the state X returned on the redirect (the same as the state query parameter of authUrl, ending in its -cv_ PKCE verifier suffix), signed and under 1 hour old. The state field of the GET JSON response does not carry the verifier.' }
                 profileId: { type: string }
       responses:
         '200': { description: Account connected }
-        '400': { description: 'Invalid params, or the platform requires choosing a destination (code: platform_requires_destination)' }
+        '400': { description: 'Invalid params, the platform requires choosing a destination (code: platform_requires_destination), or an X state without the verifier or with an invalid or expired signature (code: invalid_field_value, param: state)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403': { description: 'No access to the profile, or BYOK required for AppSumo X' }
@@ -26941,7 +27647,10 @@ paths:
         to redirect the merchant to; after they approve the install, Shopify
         redirects their browser to Zernio's callback, the account is created on
         the profile (platform `shopify`), and the browser is redirected to
-        `redirect_url` (or the Zernio dashboard when omitted). Requested scopes
+        `redirect_url` with `connected`, `profileId`, `accountId` and `username`
+        (the store's myshopify.com domain) added, or to the Zernio dashboard
+        when omitted. The account is the store the merchant approved, which can
+        differ from `shop`, so bind on `accountId`. Requested scopes
         are `read_content`, `write_content`, `read_products` and
         `write_products` (content and products only; no customer or order
         data). Connecting the same profile to a store again refreshes the
@@ -33349,6 +34058,113 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
           $ref: '#/components/responses/AccountConnectionRequired'
+  /v1/accounts/{accountId}/instagram/mentions/media/{mediaId}:
+    get:
+      x-resource-group: "engagement"
+      operationId: getInstagramMentionedMedia
+      tags: [Instagram]
+      summary: Get a post that mentions an Instagram account in its caption
+      description: |
+        Returns a post in which another Instagram user @mentioned the
+        connected account in the caption. Meta sends the media ID in its
+        mention notification and offers no list of mentions, so this reads one
+        mention by ID. Mentions in Stories are not supported by Meta.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        serves mentions on graph.facebook.com only, so accounts connected with
+        classic Instagram Login receive a 400
+        (`instagram_mentions_require_facebook_login`) and must be reconnected
+        choosing the Facebook option.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of a connected Instagram account (Facebook Login).
+          schema: { type: string }
+        - name: mediaId
+          in: path
+          required: true
+          description: Instagram media ID of the post that mentions the account (digits only).
+          schema: { type: string, pattern: '^[0-9]+$', maxLength: 32, example: '18027939643230671' }
+      responses:
+        '200':
+          description: Get a post that mentions an Instagram account in its caption
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstagramMentionedMedia' }
+        '400':
+          description: 'Invalid accountId or mediaId, an account on another platform (`platform_not_supported`), an account connected with Instagram Login (`instagram_mentions_require_facebook_login`), or a Meta rejection (`platform_api_error`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'The API key is not scoped to this account, or Meta refused the request (`platform_api_error`, for example a missing permission).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: 'The account is not reachable by the caller (`account_not_found`), or the media does not exist or does not mention the account in its caption (`resource_not_found`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          $ref: '#/components/responses/AccountConnectionRequired'
+  /v1/accounts/{accountId}/instagram/mentions/comments/{commentId}:
+    get:
+      x-resource-group: "engagement"
+      operationId: getInstagramMentionedComment
+      tags: [Instagram]
+      summary: Get a comment that mentions an Instagram account
+      description: |
+        Returns a comment in which another Instagram user @mentioned the
+        connected account, with the post it was left on. Meta sends the
+        comment ID in its mention notification and offers no list of mentions,
+        so this reads one mention by ID. Meta answers an error when comments
+        are disabled on that post.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        serves mentions on graph.facebook.com only, so accounts connected with
+        classic Instagram Login receive a 400
+        (`instagram_mentions_require_facebook_login`) and must be reconnected
+        choosing the Facebook option.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of a connected Instagram account (Facebook Login).
+          schema: { type: string }
+        - name: commentId
+          in: path
+          required: true
+          description: Instagram comment ID of the comment that mentions the account (digits only).
+          schema: { type: string, pattern: '^[0-9]+$', maxLength: 32, example: '17894227972186120' }
+      responses:
+        '200':
+          description: Get a comment that mentions an Instagram account
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstagramMentionedComment' }
+        '400':
+          description: 'Invalid accountId or commentId, an account on another platform (`platform_not_supported`), an account connected with Instagram Login (`instagram_mentions_require_facebook_login`), or a Meta rejection (`platform_api_error`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'The API key is not scoped to this account, or Meta refused the request (`platform_api_error`, for example a missing permission).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: 'The account is not reachable by the caller (`account_not_found`), or the comment does not exist or does not mention the account (`resource_not_found`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          $ref: '#/components/responses/AccountConnectionRequired'
   /v1/accounts/{accountId}/instagram/stories/{storyId}/insights:
     get:
       x-resource-group: "analytics"
@@ -36190,7 +37006,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.review.approved, ad.review.rejected, ad.delivery_issue, campaign.budget.depleted, ad_account.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -36347,7 +37163,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.review.approved, ad.review.rejected, ad.delivery_issue, campaign.budget.depleted, ad_account.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, commerce.order.created, commerce.order.updated, commerce.order.refunded, contact.tag_added, contact.tag_removed, contact.field_changed, sequence.enrolled, sequence.exited, workflow.run.started, workflow.run.completed, workflow.run.failed, support.run.completed, support.run.failed]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -36724,6 +37540,11 @@ paths:
                     - review.new
                     - review.updated
                     - ad.status_changed
+                    - ad.review.approved
+                    - ad.review.rejected
+                    - ad.delivery_issue
+                    - campaign.budget.depleted
+                    - ad_account.status_changed
                     - ad.video.processed
                     - lead.received
                     - whatsapp.template.status_updated
@@ -37128,95 +37949,9 @@ paths:
                               format: date-time
                               description: When this profile data was last fetched from Instagram
                         metadata:
-                          type: [object, "null"]
-                          description: |
-                            Click attribution for a conversation that started from a Meta ad or
-                            a ref-tagged ig.me / m.me link. Absent when the conversation did not
-                            originate from an attributable click.
-
-                            Captured from the referral Meta delivers for the click. If the same
-                            person later arrives through a different ad or link, the original
-                            values are kept, so the first referral wins; read the fresh referral
-                            per click on the `message.received` / `referral.received` webhooks
-                            instead. One exception on WhatsApp: when Meta omits `ctwa_clid`
-                            from that referral, a later Meta automatic event can supply it and
-                            refresh `ctwa_captured_at`, so treat `ctwa_captured_at` as the time
-                            Zernio stored the value, not the time of the click.
-
-                            Two families of keys, one per surface. They never appear together:
-
-                              - `ctwa_*` is WhatsApp Click-to-WhatsApp. The ad ID is
-                                `ctwa_source_id`. There is no `meta_ad_id` on WhatsApp.
-                              - `meta_ad_*` is Instagram Click-to-Direct, Facebook Messenger
-                                Click-to-Message, and ig.me / m.me ref links. The ad ID is
-                                `meta_ad_id` (ad clicks only; a link capture carries
-                                `meta_ad_ref` without it). `ctwa_clid` never appears on these
-                                platforms.
-
-                            Every key is optional and only the keys Meta supplied are returned, so
-                            read defensively. Meta does not send a campaign or ad set ID, so none
-                            is exposed here. More keys may be added over time. Treat any key you
-                            do not recognise as an opaque string.
-
-                            Key names differ from the `message.received` webhook on purpose. The
-                            webhook forwards Meta's referral verbatim (`ad_id`, `source`, `type`)
-                            while the stored conversation record uses the prefixed names below.
-                            Renaming either side would break existing integrations, so both
-                            spellings are kept.
-                          properties:
-                            ctwa_clid:
-                              type: string
-                              description: "WhatsApp only. Meta's click identifier, the value to forward to the Meta Conversions API for Business Messaging. Meta omits it on some numbers, so a WhatsApp referral can arrive without it."
-                            ctwa_source_id:
-                              type: string
-                              description: "WhatsApp only. The Meta ad ID the user clicked. This is the WhatsApp equivalent of meta_ad_id."
-                            ctwa_source_type:
-                              type: string
-                              description: "WhatsApp only. What the user clicked, as supplied by Meta (for example ad or post)."
-                            ctwa_source_url:
-                              type: string
-                              description: "WhatsApp only. Meta's URL for the ad that was clicked, normally an fb.me short link."
-                            ctwa_headline:
-                              type: string
-                              description: "WhatsApp only. Headline of the ad creative at click time."
-                            ctwa_captured_at:
-                              type: string
-                              format: date-time
-                              description: "WhatsApp only. When Zernio stored this referral. Always present when a WhatsApp referral was captured."
-                            meta_ad_id:
-                              type: string
-                              description: "Instagram and Facebook only. The Meta ad ID the user clicked. Present for ad clicks; absent when the capture came from an ig.me / m.me ref link."
-                            meta_ad_source:
-                              type: string
-                              description: "Instagram and Facebook only. Meta-supplied source identifier: ADS for ad clicks; SHORTLINK, SHORTLINKS or IGME-SOURCE-LINK for ref links (treat as opaque)."
-                            meta_ad_type:
-                              type: string
-                              description: "Instagram and Facebook only. Meta-supplied referral type, for example OPEN_THREAD."
-                            meta_ad_ref:
-                              type: string
-                              description: "Instagram and Facebook only. The ref parameter passed through from the ad creative or the ig.me / m.me link."
-                            meta_ad_title:
-                              type: string
-                              description: "Instagram and Facebook only. Title of the ad creative at click time."
-                            meta_ad_photo_url:
-                              type: string
-                              description: "Instagram and Facebook only. Image of the ad creative at click time."
-                            meta_ad_video_url:
-                              type: string
-                              description: "Instagram and Facebook only. Video of the ad creative at click time."
-                            meta_ad_post_id:
-                              type: string
-                              description: "Instagram and Facebook only. The organic post the ad promoted, when the ad was a boosted post."
-                            meta_ad_product_id:
-                              type: string
-                              description: "Instagram and Facebook only. The catalogue product the user clicked, for product ads."
-                            meta_ad_flow_id:
-                              type: string
-                              description: "Instagram and Facebook only. The Meta flow the ad launched, for flow ads."
-                            meta_ad_captured_at:
-                              type: string
-                              format: date-time
-                              description: "Instagram and Facebook only. When Zernio stored this referral. Always present when an Instagram or Facebook referral was captured."
+                          $ref: '#/components/schemas/InboxConversationAdMetadata'
+                        adAttribution:
+                          $ref: '#/components/schemas/ConversationAdAttribution'
                   pagination:
                     type: object
                     properties:
@@ -37819,69 +38554,9 @@ paths:
                             format: date-time
                             description: When this profile data was last fetched from Instagram
                       metadata:
-                        type: [object, "null"]
-                        description: |
-                          Ad-click attribution for a conversation that started from a Meta ad.
-                          Absent when the conversation did not originate from an ad click.
-
-                          Captured once, from the first inbound message Meta attaches the referral
-                          to, and never overwritten. If the same person later clicks a different
-                          ad, the original values are kept. On Instagram Click-to-Direct that is
-                          usually not the first message: Meta first delivers the ad post as an
-                          attachment-only `share` / `ig_post` message with no referral, then
-                          attaches the referral to the next message.
-
-                          This operation currently returns only the `meta_ad_*` family, which
-                          covers Instagram Click-to-Direct and Facebook Messenger
-                          Click-to-Message. WhatsApp Click-to-WhatsApp attribution (the `ctwa_*`
-                          keys, where the ad ID is `ctwa_source_id`) is returned by
-                          `GET /v1/inbox/conversations` instead.
-
-                          Every key is optional and only the keys Meta supplied are returned, so
-                          read defensively. Meta does not send a campaign or ad set ID, so none is
-                          exposed here. More keys may be added over time. Treat any key you do not
-                          recognise as an opaque string.
-
-                          Key names differ from the `message.received` webhook on purpose. The
-                          webhook forwards Meta's referral verbatim (`ad_id`, `source`, `type`)
-                          while the stored conversation record uses the prefixed names below.
-                          Renaming either side would break existing integrations, so both
-                          spellings are kept.
-                        properties:
-                          meta_ad_id:
-                            type: string
-                            description: "The Meta ad ID the user clicked. Always present when a referral was captured."
-                          meta_ad_source:
-                            type: string
-                            description: "Meta-supplied source identifier, for example ADS."
-                          meta_ad_type:
-                            type: string
-                            description: "Meta-supplied referral type, for example OPEN_THREAD."
-                          meta_ad_ref:
-                            type: string
-                            description: "The ref parameter passed through from the ad creative."
-                          meta_ad_title:
-                            type: string
-                            description: "Title of the ad creative at click time."
-                          meta_ad_photo_url:
-                            type: string
-                            description: "Image of the ad creative at click time."
-                          meta_ad_video_url:
-                            type: string
-                            description: "Video of the ad creative at click time."
-                          meta_ad_post_id:
-                            type: string
-                            description: "The organic post the ad promoted, when the ad was a boosted post."
-                          meta_ad_product_id:
-                            type: string
-                            description: "The catalogue product the user clicked, for product ads."
-                          meta_ad_flow_id:
-                            type: string
-                            description: "The Meta flow the ad launched, for flow ads."
-                          meta_ad_captured_at:
-                            type: string
-                            format: date-time
-                            description: "When Zernio stored this referral. Always present when a referral was captured."
+                        $ref: '#/components/schemas/InboxConversationAdMetadata'
+                      adAttribution:
+                        $ref: '#/components/schemas/ConversationAdAttribution'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -41867,8 +42542,15 @@ paths:
       operationId: listInboxMentions
       summary: List mentions
       description: |
-        Returns mentions of your connected organization accounts, delivered via platform webhooks.
-        Currently supports LinkedIn organization mentions.
+        Returns mentions of your connected accounts from the last 7 days.
+
+        - **LinkedIn**: organization mentions, delivered by webhooks and a background pull.
+        - **Instagram**: comment mentions (someone tags the account in a comment on their own media) and
+          caption mentions (someone tags it in their media caption), delivered by the Meta `mentions`
+          webhook. Only accounts connected through Facebook Login receive them; comments on the account's
+          own posts are never listed, even when they contain its @handle. Their text is read from Instagram
+          in the background after the first request, so `content` can be empty on the first read. Pass
+          `mediaId` and `commentId` to `POST /v1/inbox/mentions/reply` to answer one.
 
         Requires Inbox addon.
       tags: [Mentions]
@@ -41911,32 +42593,42 @@ paths:
                           description: Mention document ID
                         platform:
                           type: string
-                          enum: [linkedin]
+                          enum: [linkedin, instagram]
+                        type:
+                          type: [string, "null"]
+                          enum: [caption, comment, null]
+                          description: 'Instagram only: `caption` when the account was tagged in a media caption, `comment` when it was tagged in a comment. Null for LinkedIn.'
+                        mediaId:
+                          type: [string, "null"]
+                          description: 'Instagram only: ID of the media the account was mentioned in (or under). Null for LinkedIn.'
+                        commentId:
+                          type: [string, "null"]
+                          description: 'Instagram only: ID of the comment that mentioned the account. Null for caption mentions and LinkedIn.'
                         accountId:
                           type: string
                         accountUsername:
                           type: string
                         content:
                           type: string
-                          description: Text of the post that mentioned you
+                          description: 'Text that mentioned you: the post text on LinkedIn, the caption or comment text on Instagram. Empty until it has been read.'
                         permalink:
                           type: [string, "null"]
-                          description: URL to the source post on LinkedIn
+                          description: URL to the source post on LinkedIn. Null on Instagram.
                         authorUrn:
                           type: [string, "null"]
-                          description: LinkedIn URN of the person who mentioned you
+                          description: 'LinkedIn URN of the person who mentioned you, or the Instagram-scoped ID of the commenter on an Instagram comment mention.'
                         authorName:
                           type: [string, "null"]
                           description: Display name of the author, resolved from authorUrn. Null when LinkedIn does not allow resolving the profile.
                         authorUsername:
                           type: [string, "null"]
-                          description: LinkedIn vanity name of the author (the slug in their profile URL)
+                          description: 'LinkedIn vanity name of the author (the slug in their profile URL), or the Instagram username of the commenter or media owner.'
                         authorPicture:
                           type: [string, "null"]
                           description: Profile picture URL of the author. LinkedIn CDN URLs expire after some time, so fetch promptly rather than storing long-term.
                         organizationalEntity:
                           type: string
-                          description: URN of the organization that was mentioned
+                          description: 'URN of the LinkedIn organization that was mentioned, or the Instagram user ID of the mentioned account.'
                         publishedAt:
                           type: string
                           format: date-time
@@ -41978,10 +42670,8 @@ paths:
 
         Story mentions are not supported by Instagram's API.
 
-        `GET /v1/inbox/mentions` currently returns LinkedIn mentions only and does
-        not surface Instagram mentions. Source `mediaId` and `commentId` from Instagram's
-        `comments` webhook, which is where mention notifications are delivered for accounts
-        connected through Instagram Login.
+        `GET /v1/inbox/mentions` returns Instagram mentions with the `mediaId` and `commentId`
+        to pass here.
       tags: [Mentions]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -55227,6 +55917,7 @@ paths:
                         searchTerm: { type: [string, "null"] }
                         status: { type: [string, "null"], description: "ADDED / EXCLUDED / ADDED_EXCLUDED / NONE: whether the term is already a keyword or a negative." }
                         matchType: { type: [string, "null"], description: "How the term matched (BROAD, PHRASE, EXACT, NEAR_PHRASE, NEAR_EXACT)." }
+                        matchSource: { type: [string, "null"], description: "What matched the term: ADVERTISER_PROVIDED_KEYWORD (one of your keywords), AI_MAX_BROAD_MATCH or AI_MAX_KEYWORDLESS (AI Max expansion)." }
                         campaignId: { type: [string, "null"] }
                         campaignName: { type: [string, "null"] }
                         adGroupId: { type: [string, "null"] }
@@ -58214,7 +58905,8 @@ paths:
         Returns an ads account's spend, results and other metrics day by day, ready for a daily performance chart.
 
         Returns daily aggregate metrics across all ads in a SocialAccount as a single
-        time series, one row per calendar day in the requested range. Use this for
+        time series, one row per calendar day and currency in the requested range (one row
+        per day unless the account's ad accounts bill in different currencies). Use this for
         dashboards that draw a daily-spend or daily-conversions chart, instead of
         calling `/v1/ads/tree` once per day.
 
@@ -59969,6 +60661,14 @@ paths:
         (creator content, authorized TikTok posts, Creative Library content) and lists each image of a
         carousel under its own material id, so those entries come back with the review verdict and
         null descriptive fields. TikTok returns no review timestamp; `readAt` is when Zernio read it.
+
+        TikTok's review endpoint has a strict quota of its own. One TikTok call reads the review of
+        every live Smart+ ad of the ad group (up to 100), and each review is cached for 10 minutes per
+        connection, advertiser and Smart+ ad, so sibling ads are answered from the cache and `readAt`
+        can be up to 10 minutes old. Read reviews when you need them instead of sweeping every ad on a
+        loop. When TikTok answers over quota, Zernio returns 429 with `Retry-After: 60` and answers
+        429 for that advertiser and connection without calling TikTok until the minute is over; cached
+        reviews are still served.
       security:
         - bearerAuth: []
       parameters:
@@ -59985,40 +60685,17 @@ paths:
                   platform: { type: string, enum: [tiktok] }
                   platformAdId: { type: string }
                   smartPlusAdId: { type: string, description: "The TikTok Smart+ ad whose review this is." }
-                  review:
-                    type: [object, "null"]
-                    description: "The ad-level verdict (`smart_plus_ad_review_infos`). Null when TikTok returned none."
-                    properties:
-                      reviewStatus: { $ref: '#/components/schemas/TikTokSmartPlusReviewStatus' }
-                      rawReviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim." }
-                      rejectReasons: { type: array, items: { type: string }, description: "Every distinct reason across `rejections`." }
-                      passedLocations: { type: array, items: { type: string }, description: "Location codes that passed the review." }
-                      appealStatus: { type: [string, "null"], description: "TikTok `appeal_status`, verbatim: NOT_APPEALED, APPEALING, APPEAL_SUCCESSFUL, APPEAL_FAILED, APPEAL_DONE." }
-                      appealRejectReasons: { type: array, items: { type: string } }
-                      rejections: { type: array, items: { $ref: '#/components/schemas/TikTokReviewRejection' } }
+                  review: { $ref: '#/components/schemas/TikTokSmartPlusAdLevelReview' }
                   materials:
                     type: array
                     description: "One entry per creative TikTok reviewed (`material_review_infos`)."
-                    items:
-                      type: object
-                      properties:
-                        adMaterialId: { type: string, description: "TikTok `ad_material_id` of the creative inside this ad." }
-                        materialType: { type: [string, "null"], enum: [spark_post, video, carousel, catalog_carousel, null], description: "Null for a creative TikTok added on its own or a carousel image." }
-                        tiktokItemId: { type: [string, "null"], description: "The TikTok post id when the creative is a Spark post." }
-                        videoId: { type: [string, "null"] }
-                        name: { type: [string, "null"] }
-                        operationStatus: { type: [string, "null"], description: "TikTok `material_operation_status`: ENABLE or DISABLE." }
-                        reviewStatus: { $ref: '#/components/schemas/TikTokSmartPlusReviewStatus' }
-                        rawReviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim." }
-                        rejectReasons: { type: array, items: { type: string }, description: "Every distinct reason across `rejections`. Empty when approved." }
-                        passedLocations: { type: array, items: { type: string } }
-                        rejections: { type: array, items: { $ref: '#/components/schemas/TikTokReviewRejection' } }
+                    items: { $ref: '#/components/schemas/TikTokSmartPlusMaterialReview' }
                   readAt: { type: string, format: date-time, description: "When the verdict was read from TikTok." }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { description: "Ad not found, it has no TikTok ad or ad group id yet, or no Smart+ ad of its ad group holds it" }
+        '404': { description: "Ad not found, it has no TikTok ad or ad group id yet, or no Smart+ ad of its ad group holds it. In the last case `details.listedSmartPlusAds` is how many Smart+ ads TikTok lists in the ad group, deleted ones included: 0 means the ad group lists none." }
         '422': { description: "The TikTok ad is not an Upgraded Smart+ ad (read it with GET /v1/ads/{adId}/review)" }
-        '429': { $ref: '#/components/responses/RateLimited' }
+        '429': { description: "Rate limited. TikTok's general limit answers `Retry-After: 10`; its stricter Smart+ review quota answers `Retry-After` of up to 60 seconds, the time left before Zernio calls TikTok's review endpoint again for this advertiser and connection.", $ref: '#/components/responses/RateLimited' }
         '501': { description: "Only supported on TikTok" }
 
   /v1/ads/{adId}/media:
@@ -61321,7 +61998,7 @@ paths:
       tags: ["Ad Insights"]
       x-platforms: ["tiktok"]
       summary: Per-creative performance inside TikTok Smart+ ads
-      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. Metrics TikTok returns empty come back as null."
+      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. `purchases`, `purchaseValue` and `roas` come from Complete Payment, or from Place an Order (legacy ON_WEB_ORDER pixels) when that reports more; the two are never summed. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. A row is identified by `smartPlusAdId` + `materialId` at `level=ad` and by `adGroupId` + `materialId` at `level=adGroup`; each appears once across all pages. Rows are sorted by `spend` descending, then the Smart+ ad or ad group id, then `materialId`, and the full result is cached for 10 minutes per account, advertiser and query, so pages read within that window are consistent and `totalRows` counts distinct rows. The result can hold more rows than TikTok's unfiltered report declares, because the per-ad reads also return listed Smart+ ads that report leaves out. When the slices come back with fewer rows than TikTok declares on two reads, the call answers 502 instead of a short result. Metrics TikTok returns empty come back as null."
       security:
         - bearerAuth: []
       parameters:
@@ -61376,8 +62053,92 @@ paths:
                             roas: { type: [number, "null"] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "accountId is not a TikTok or TikTok Ads connection (code feature_not_available)." }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '422': { description: "The TikTok connection has no TikTok Ads token: connect TikTok Ads first (code ads_connection_required)." }
+        '502': { description: "TikTok's material report slices came back with fewer rows than the row count it declared, on two reads. Retry later." }
+  /v1/ads/tiktok-smart-plus-reviews:
+    get:
+      x-resource-group: "ads"
+      operationId: listTikTokSmartPlusReviews
+      tags: ["Ad Campaigns"]
+      x-platforms: ["tiktok"]
+      summary: Review status of every TikTok Smart+ ad of an advertiser
+      description: |-
+        Returns the review verdict of every Upgraded Smart+ ad of one TikTok advertiser, with each creative's verdict, in one paginated read. Use it to refresh reviews periodically: one call (plus its pages) per advertiser per refresh, instead of `GET /v1/ads/{adId}/tiktok-smart-plus-review` per ad.
+
+        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`; the listing is cached for 5 minutes) and reads `/smart_plus/ad/review_info/` for up to 100 Smart+ ads per call, across ad groups, one call after another. A full refresh of N Smart+ ads costs about `ceil(N / 100)` listing calls and `ceil(N / 100)` review calls on TikTok. Each review is cached for 10 minutes per connection, advertiser and Smart+ ad, shared with the single-ad read, so cached reviews are served without calling TikTok and `readAt` can be up to 10 minutes old.
+
+        TikTok's review endpoint has a strict quota of its own. When it is over quota (or Zernio is holding review reads for this advertiser and connection after an overage), Zernio stops calling TikTok and answers 200 with the reviews it has: `incomplete: true`, the Smart+ ads still to read in `pendingSmartPlusAdIds`, and `retryAfterSeconds` (also in the `Retry-After` header). Every Smart+ ad of the page is in `items`, `failedSmartPlusAds` or `pendingSmartPlusAdIds`. Wait `retryAfterSeconds` and read the same page again: only the pending ads reach TikTok.
+
+        A Smart+ ad whose review TikTok refuses on its own (for example one deleted on TikTok since the listing was cached) is returned in `failedSmartPlusAds` with TikTok's error, and the rest of the page is still read. Zernio finds it by splitting the refused batch in halves, at most 16 extra TikTok calls per page; ads still unresolved after that come back in `failedSmartPlusAds` with the batch error. A refusal of a single ad is remembered for 10 minutes. When both halves of a refused batch are refused with the same TikTok error (for example a permission error), the whole request fails with that error instead.
+
+        Items are sorted by `adGroupId`, then `smartPlusAdId`, so pages are stable. Read the pages of one advertiser one after another, not in parallel: parallel pages spend the review quota at the same time and come back incomplete.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A tiktok or tiktokads account ID" }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "TikTok advertiser ID" }
+        - { name: includeDeleted, in: query, required: false, schema: { type: boolean, default: false }, description: "Also return Smart+ ads deleted on TikTok (listed with `primary_status: STATUS_ALL`)." }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000, default: 500 } }
+      responses:
+        '200':
+          description: "The reviews of one page of the advertiser's Smart+ ads. Check `incomplete`: when true, some reviews are still pending."
+          headers:
+            Retry-After:
+              description: "Present only when `incomplete` is true: seconds until Zernio calls TikTok's review endpoint again for this advertiser and connection."
+              schema: { type: integer }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  includeDeleted: { type: boolean }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  totalPages: { type: integer }
+                  totalSmartPlusAds: { type: integer, description: "Smart+ ads of the advertiser across all pages." }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        smartPlusAdId: { type: string }
+                        adGroupId: { type: [string, "null"] }
+                        campaignId: { type: [string, "null"] }
+                        review: { $ref: '#/components/schemas/TikTokSmartPlusAdLevelReview' }
+                        materials:
+                          type: array
+                          description: "One entry per creative TikTok reviewed (`material_review_infos`)."
+                          items: { $ref: '#/components/schemas/TikTokSmartPlusMaterialReview' }
+                        readAt: { type: string, format: date-time, description: "When the verdict was read from TikTok." }
+                  failedSmartPlusAds:
+                    type: array
+                    description: "Smart+ ads of this page whose review TikTok refused on its own (for example an ad deleted on TikTok since the listing was cached). Zernio splits a refused batch in halves (at most 16 extra calls per page), so the other ads of the batch are still read; ads left unresolved by that cap carry the batch error. Empty when none."
+                    items:
+                      type: object
+                      properties:
+                        smartPlusAdId: { type: string }
+                        adGroupId: { type: [string, "null"] }
+                        campaignId: { type: [string, "null"] }
+                        error:
+                          type: object
+                          properties:
+                            tiktokCode: { type: [integer, "null"], description: "TikTok's error code, verbatim." }
+                            message: { type: string, description: "TikTok's error message, verbatim." }
+                  incomplete: { type: boolean, description: "True when some Smart+ ads of this page could not be read because of TikTok's review quota." }
+                  pendingSmartPlusAdIds: { type: array, items: { type: string }, description: "Smart+ ads of this page still to read. Empty when complete." }
+                  retryAfterSeconds: { type: [integer, "null"], description: "Seconds to wait before reading this page again. Null when complete." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: "accountId is not a TikTok or TikTok Ads connection (code feature_not_available)." }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '422': { description: "The TikTok connection has no TikTok Ads token: connect TikTok Ads first (code ads_connection_required)." }
+        '429': { description: "TikTok's general rate limit hit while listing the Smart+ ads (`Retry-After: 10`).", $ref: '#/components/responses/RateLimited' }
   /v1/ads/instagram-accounts:
     get:
       x-resource-group: "ads"
@@ -65640,16 +66401,17 @@ paths:
         Every listed ad account carries `selected`: whether it is in the connection's ad-account
         selection (the ad accounts picked at connect time or in the dashboard picker, the ones
         Zernio syncs). On a connection without a selection every ad account is `selected: true`.
-        Writes through /v1/ads endpoints to an ad account with `selected: false` are being
-        restricted and will answer `403 ad_account_not_selected`; add it to the selection first
-        (dashboard picker, or `GET /v1/connect/{platform}/ads` with `adAccountIds`).
+        Writes through /v1/ads endpoints to an ad account with `selected: false` answer
+        `403 ad_account_not_selected`; add it to the selection first (dashboard picker, or
+        `GET /v1/connect/{platform}/ads` with `adAccountIds`). The list includes unselected ad
+        accounts by default; pass `inScopeOnly=true` to get only the ones this connection can use.
       security:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: Account ID }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Filter response to a single platform ad account ID (e.g. `act_123` for Meta, advertiser_id for TikTok). Returns at most one item." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000 }, description: "Clamp the returned `accounts[]` length. Useful for typeahead pickers on agency tokens with hundreds of advertisers." }
-        - { name: inScopeOnly, in: query, required: false, schema: { type: boolean, default: false }, description: "Google Ads only. `true` returns only the customers this connection accepts as `adAccountId` (or `customerId`) on the other /v1/ads endpoints, i.e. those inside its ad-account selection. Without it every customer the Google login can reach is listed, including ones selected on another connection of the same login, which those endpoints answer with a 400. Ignored on other platforms. On every platform, each item's `selected` flags selection membership without narrowing the list." }
+        - { name: inScopeOnly, in: query, required: false, schema: { type: boolean, default: false }, description: "`true` returns only the ad accounts this connection accepts as `adAccountId` on the other /v1/ads endpoints, i.e. those inside its ad-account selection (every item then has `selected: true`). Without it, every ad account the login can reach is listed and `selected` flags selection membership. On Meta, LinkedIn, X and Reddit it drops the ad accounts with `selected: false`; a connection without a selection keeps them all. On Google Ads it also drops customers the login reaches that are not on this connection (for example ones selected on another connection of the same login), which those endpoints answer with a 400. TikTok and Pinterest have no selection, so the list is unchanged." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -65734,7 +66496,7 @@ paths:
                               the token cannot read the billing fields.
                         selectable: { type: boolean, description: "Meta and X only. Whether the account can create/run ads now. Always present on every Meta and X account. Absent (treat as true) on other platforms." }
                         unusableReason: { type: [string, "null"], description: "Meta and X only. Always present on every Meta and X account. Human-readable reason when selectable is false; null when selectable." }
-                        selected: { type: boolean, description: "Always present. True when the ad account is in this connection's ad-account selection, or when the connection has no selection (then every ad account is usable). For a posting account (e.g. facebook, twitter) the selection of its ads connection applies. Unrelated to `selectable`, which is the platform's own status. Writes to an ad account with `selected: false` will answer 403 `ad_account_not_selected`." }
+                        selected: { type: boolean, description: "Always present. True when the ad account is in this connection's ad-account selection, or when the connection has no selection (then every ad account is usable). For a posting account (e.g. facebook, twitter) the selection of its ads connection applies. Unrelated to `selectable`, which is the platform's own status. Writes to an ad account with `selected: false` answer 403 `ad_account_not_selected`; `inScopeOnly=true` lists only the selected ones." }
                   cachedAt: { type: [string, "null"], format: date-time, description: "Google only. When this list was fetched from Google. Null when it was never served from cache. Absent on other platforms." }
                   stale: { type: boolean, description: "Google only. True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read. Absent on other platforms." }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -66225,7 +66987,7 @@ paths:
                   items: { type: string }
                 regionalRegulationIdentities:
                   type: object
-                  additionalProperties: { type: integer }
+                  additionalProperties: { type: [string, integer] }
                   description: |
                     Meta only. Verified identity IDs of the beneficiary and payer for each declared
                     regionalRegulatedCategories value. Meta may require them on ad sets created through
@@ -66233,6 +66995,9 @@ paths:
                     settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
                     The value is the Verified identity ID (Meta Business Settings > Verified identities),
                     not a Page or Business ID, and beneficiary and payer may be the same ID.
+                    Send each ID as a string of digits: Verified identity IDs can have 17 digits, more than a
+                    JSON number holds exactly, and a number that arrives rounded is rejected. Numbers up to
+                    9007199254740991 are still accepted. The IDs reach Meta unchanged.
                     Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
                     australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
                     taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
@@ -67457,7 +68222,7 @@ paths:
                   items: { type: string }
                 regionalRegulationIdentities:
                   type: object
-                  additionalProperties: { type: integer }
+                  additionalProperties: { type: [string, integer] }
                   description: |
                     Meta only. Verified identity IDs of the beneficiary and payer for each declared
                     regionalRegulatedCategories value. Meta may require them on ad sets created through
@@ -67465,6 +68230,9 @@ paths:
                     settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
                     The value is the Verified identity ID (Meta Business Settings > Verified identities),
                     not a Page or Business ID, and beneficiary and payer may be the same ID.
+                    Send each ID as a string of digits: Verified identity IDs can have 17 digits, more than a
+                    JSON number holds exactly, and a number that arrives rounded is rejected. Numbers up to
+                    9007199254740991 are still accepted. The IDs reach Meta unchanged.
                     Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
                     australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
                     taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
@@ -69135,8 +69903,10 @@ paths:
           comma-separated (`NBA,Michael Jordan`) or, for names that contain a comma, a JSON array of
           strings (`["Earth, Wind & Fire","Yoga"]`, URL-encoded). A `q` starting with `[` is always read as
           JSON. A `q` with no name or malformed JSON returns 400 naming `q`. Meta also suggests behaviors
-          and demographics; Zernio keeps only interests (entries whose `path` starts with `Interests`), so
-          every id goes in `TargetingSpec.interests`, like `interest` results. Zernio asks Meta for three
+          and demographics; Zernio keeps only interests, so every id goes in `TargetingSpec.interests`, like
+          `interest` results. Zernio classifies them with a Meta call pinned to `en_US` (ids whose `path`
+          starts with `Interests`). Without `locale` results are in English; with another `locale`, a second
+          call in that locale returns the same interests with localized names and `path`. Zernio asks Meta for three
           times `limit` (at most 100) before filtering, so fewer than `limit` results can come back. Meta
           weights the first name heavily: a multi-name `q` mostly returns suggestions for the first one
         - `behavior`: Meta, TikTok and LinkedIn, matched by name; ids feed `TargetingSpec.behaviors`.
@@ -69265,7 +70035,7 @@ paths:
 
         Meta language: Meta matches `q` against names in one language and returns names and `path` in
         that language. Pass `locale` (e.g. `pl_PL`) to choose it. Without `locale`, the `behavior` and
-        `workIndustry` catalogs are in `en_US`, and `interest`, `interestSuggestion`, `geo`, `workPosition`
+        `workIndustry` catalogs and `interestSuggestion` are in `en_US`, and `interest`, `geo`, `workPosition`
         and `workEmployer` follow the language of the Facebook user who connected the account (so a
         Russian-language Facebook user gets Russian paths, and Polish names need `locale=pl_PL`).
         A non-English `behavior` or `workIndustry` query without `locale` never matches, so pass the
@@ -69283,7 +70053,7 @@ paths:
         - { name: geoType, in: query, required: false, schema: { type: string, enum: [all, country, country_group, region, city, subcity, neighborhood, place, zip, metro_area, geo_market], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`." }
         - { name: countryCode, in: query, required: false, schema: { type: string, minLength: 2, maxLength: 2 }, description: "ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search." }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400." }
-        - { name: locale, in: query, required: false, schema: { type: string, pattern: '^[a-z]{2,3}_[A-Z]{2}$', examples: [pl_PL] }, description: "Meta only: the language Meta matches `q` against and names results and `path` in, as language_TERRITORY (e.g. `pl_PL`, `en_US`). Applies to `geo`, `interest`, `interestSuggestion`, `behavior`, `workPosition`, `workEmployer` and `workIndustry`. Without it, `behavior` and `workIndustry` use `en_US` and the other searches use the language of the Facebook user who connected the account. `income` always uses `en_US`. Ignored on other platforms." }
+        - { name: locale, in: query, required: false, schema: { type: string, pattern: '^[a-z]{2,3}_[A-Z]{2}$', examples: [pl_PL] }, description: "Meta only: the language Meta matches `q` against and names results and `path` in, as language_TERRITORY (e.g. `pl_PL`, `en_US`). Applies to `geo`, `interest`, `interestSuggestion`, `behavior`, `workPosition`, `workEmployer` and `workIndustry`. Without it, `behavior`, `workIndustry` and `interestSuggestion` use `en_US` and the other searches use the language of the Facebook user who connected the account. `income` always uses `en_US`. Ignored on other platforms." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Maximum results to return." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }

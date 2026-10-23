@@ -7,6 +7,10 @@ import re
 from skylos.cicd.evidence import sanitize_bounded_payload, sanitize_untrusted_text
 from skylos.core.evidence_contract import finding_evidence_contract
 from skylos.deadcode.finding_evidence import dead_code_finding_evidence_payload
+from skylos.reporting.metadata_paths import (
+    EXTERNAL_PATH_PREFIX,
+    relativize_contract_traces,
+)
 
 
 _MAX_SARIF_MESSAGE_LENGTH = 4_000
@@ -95,6 +99,14 @@ def _positive_sarif_integer(value, default=1):
     except (TypeError, ValueError, OverflowError):
         return default
     return number if number >= 1 else default
+
+
+def _location_root():
+    """The folder SARIF locations are relative to, as in the function below."""
+    try:
+        return os.getcwd()
+    except OSError:
+        return None
 
 
 def normalize_file_path_for_sarif(file_path=None):
@@ -346,6 +358,16 @@ class SarifExporter:
                     max_length=40,
                 ),
             }
+            from skylos.reporting.listing import (
+                is_listed,
+                listing_decision,
+                map_listing_paths,
+            )
+
+            listing = listing_decision(finding)
+            if listing is not None:
+                listing = map_listing_paths(listing, self._secondary_uri)
+                properties["listing"] = {**listing, "listed": is_listed(finding, category)}
             if category == "PUBLISHER_CHANGE":
                 properties["review_only"] = True
 
@@ -380,13 +402,31 @@ class SarifExporter:
                     if category in {"DEPENDENCY", "PUBLISHER_CHANGE"}
                     else _MAX_SARIF_METADATA_ITEMS
                 )
+                metadata_input = dict(metadata)
+                if listing is not None and "listing" in metadata_input:
+                    metadata_input["listing"] = dict(properties["listing"])
+                located_trace = metadata_input.pop("security_trace", None)
                 safe_metadata = _sanitize_sarif_payload(
-                    metadata, max_items=metadata_items
+                    metadata_input, max_items=metadata_items
                 )
+                if isinstance(located_trace, dict):
+                    # A located trace has its own bounded graph budget. It must
+                    # not consume listing, review or semantic-proof fields.
+                    safe_trace = sanitize_bounded_payload(
+                        located_trace, max_depth=6, max_items=128,
+                        max_text_length=500, max_nodes=4096,
+                        neutralize_mentions=False,
+                    )
+                    safe_metadata["security_trace"] = safe_trace
                 if safe_metadata:
                     properties["skylos_metadata"] = safe_metadata
 
-            safe_evidence_input = _sanitize_sarif_payload(finding)
+            evidence_input = dict(finding)
+            if isinstance(metadata, dict) and "security_trace" in metadata:
+                evidence_metadata = dict(metadata)
+                evidence_metadata.pop("security_trace", None)
+                evidence_input["metadata"] = evidence_metadata
+            safe_evidence_input = _sanitize_sarif_payload(evidence_input)
             if not isinstance(safe_evidence_input, dict):
                 safe_evidence_input = {}
 
@@ -395,6 +435,9 @@ class SarifExporter:
                 analyzer_owned=self.analyzer_owned,
             )
             if evidence_contract is not None:
+                evidence_contract = relativize_contract_traces(
+                    evidence_contract, _location_root()
+                )
                 safe_contract = _sanitize_sarif_payload(evidence_contract)
                 if safe_contract:
                     properties["skylos_evidence_contract"] = safe_contract
@@ -475,6 +518,14 @@ class SarifExporter:
 
     def _secondary_uri(self, raw_file):
         if self.location_uri is not None:
+            # Masked external evidence is descriptive metadata, not a path
+            # inside the uploaded repository. Keep the existing fallback to
+            # the finding's own location for these code-flow steps.
+            if isinstance(raw_file, str) and (
+                raw_file == EXTERNAL_PATH_PREFIX
+                or raw_file.startswith(EXTERNAL_PATH_PREFIX + "/")
+            ):
+                return None
             return self.location_uri(raw_file)
         return normalize_file_path_for_sarif(raw_file)
 
@@ -594,14 +645,19 @@ def _sarif_code_flows(
     recorded flow.
     """
     evidence = _security_evidence(finding)
-    if evidence is None:
-        return []
     steps = None
-    for key in ("path", "trace", "traces", "flow"):
-        value = evidence.get(key)
-        if isinstance(value, list) and value:
-            steps = value
-            break
+    metadata = finding.get("metadata")
+    located = None
+    if isinstance(metadata, dict):
+        located = metadata.get("security_trace")
+    if isinstance(located, dict) and isinstance(located.get("steps"), list):
+        steps = located["steps"]
+    if not steps and evidence is not None:
+        for key in ("path", "trace", "traces", "flow"):
+            value = evidence.get(key)
+            if isinstance(value, list) and value:
+                steps = value
+                break
     if not steps:
         return []
     steps = [step for step in steps if isinstance(step, (str, dict)) and step]
@@ -640,10 +696,15 @@ def _sarif_code_flows(
     if not thread_locations:
         return []
     flow = {"threadFlows": [{"locations": thread_locations}]}
-    source = evidence.get("source")
-    sink = evidence.get("sink")
+    source = None
+    sink = None
+    if evidence is not None:
+        source = evidence.get("source")
+        sink = evidence.get("sink")
     if isinstance(source, str) and isinstance(sink, str) and source and sink:
         flow["message"] = {"text": _location_text(f"Flow from {source} to {sink}")}
+    if isinstance(located, dict) and located.get("status") != "source_to_sink":
+        flow["message"] = {"text": "Partial recorded static trace; unresolved steps are not runtime verification."}
     return [flow]
 
 

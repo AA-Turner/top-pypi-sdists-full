@@ -1,6 +1,6 @@
 [package]
 name = "chiavdf"
-version = "1.1.14"
+version = "1.2.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "Bindings to the chiavdf C++ library."
@@ -12,8 +12,8 @@ repository = "https://github.com/Chia-Network/chiavdf"
 link-cplusplus = "1.0.12"
 
 [build-dependencies]
-bindgen = "0.72.1"
-cmake = "0.1.54"
+bindgen = "0.73.2"
+cmake = "0.1.58"
 
 [dev-dependencies]
 hex = "0.4.3"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.30.6
+Version: 0.30.8
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -166,7 +166,7 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "drmcp"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "drmcp"
 Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == "drmcp"
 Requires-Dist: perplexityai<1.0,>=0.27; extra == "drmcp"
-Requires-Dist: pypdf<7.0.0,>=6.19.0; extra == "drmcp"
+Requires-Dist: pypdf<7.0.0,>=6.21.1; extra == "drmcp"
 Requires-Dist: polars<2.0.0,>=1.0.0; extra == "drmcp"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "drmcp"
 Requires-Dist: python-dateutil<3.0.0,>=2.9.0; extra == "drmcp"
@@ -204,7 +204,7 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "drtools"
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "drtools"
 Requires-Dist: tavily-python<1.0.0,>=0.7.20; extra == "drtools"
 Requires-Dist: perplexityai<1.0,>=0.27; extra == "drtools"
-Requires-Dist: pypdf<7.0.0,>=6.19.0; extra == "drtools"
+Requires-Dist: pypdf<7.0.0,>=6.21.1; extra == "drtools"
 Requires-Dist: polars<2.0.0,>=1.0.0; extra == "drtools"
 Requires-Dist: pyarrow<24.0.0,>=23.0.1; extra == "drtools"
 Requires-Dist: python-dateutil<3.0.0,>=2.9.0; extra == "drtools"

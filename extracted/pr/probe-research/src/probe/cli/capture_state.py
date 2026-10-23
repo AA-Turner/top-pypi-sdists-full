@@ -60,6 +60,34 @@ def pid_file(session_id: str, source: str) -> Path:
     return Path("/tmp") / f"{watcher_prefix(source)}-watcher-{session_id}.pid"
 
 
+def hosted_file(session_id: str, source: str) -> Path:
+    """Mirrors `tap.config.hosted_file`: the Probe service records the session
+    itself (plan A2), and this names its pid."""
+    return Path("/tmp") / f"{watcher_prefix(source)}-watcher-{session_id}.hosted"
+
+
+def _hosted_pid(session_id: str, source: str) -> int | None:
+    """The service's pid when it records `session_id` (`tap.record_client.hosted_pid`)."""
+    path = hosted_file(session_id, source)
+    try:
+        if path.lstat().st_uid != os.getuid():
+            return None
+        pid = int(path.read_text(encoding="utf-8").strip())
+        if pid <= 1:
+            return None
+        os.kill(pid, 0)
+    except (OSError, ValueError):
+        return None
+    try:
+        completed = subprocess.run(  # noqa: S603 - fixed binary, no shell
+            ["/bin/ps", "-ww", "-p", str(pid), "-o", "command="],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return pid if "probe.service" in completed.stdout else None
+
+
 def heal_marker(session_id: str, source: str) -> Path:
     """Mirrors `tap.config.heal_marker`; shared with `hooks/ensure-daemon.sh`."""
     return tap_plugin_dir(source) / "heal" / session_id
@@ -180,6 +208,9 @@ def session_capture_state(session_id: str, source: str | None = None) -> Capture
         raw = pid_file(session_id, source).read_text(encoding="utf-8").strip()
         pid = int(raw)
     except (OSError, ValueError):
+        hosted = _hosted_pid(session_id, source)
+        if hosted is not None:
+            return CaptureState(True, hosted, "running")
         return CaptureState(False, None, "not started")
 
     if pid <= 0:

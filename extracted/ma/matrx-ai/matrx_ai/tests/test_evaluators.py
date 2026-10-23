@@ -79,7 +79,7 @@ async def test_judge_runs_on_its_mandate_holder_not_a_code_default(monkeypatch):
         captured.update(kwargs)
         return JudgeVerdict(verdict="pass", confidence=0.9, reasoning="Meets the rubric.")
 
-    monkeypatch.setattr("matrx_ai.evaluators.ai_judge.hold_code_call", fake_hold)
+    monkeypatch.setattr("matrx_ai.mandates.hold_code_call", fake_hold)
     monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", fake_structured)
 
     verdict = await AIJudge().judge("be correct", {"answer": 42})
@@ -107,7 +107,7 @@ async def test_explicit_model_and_web_access_are_run_scope_overrides(monkeypatch
         captured.update(kwargs)
         return JudgeVerdict(verdict="fail", confidence=0.4, reasoning="Missing X.")
 
-    monkeypatch.setattr("matrx_ai.evaluators.ai_judge.hold_code_call", fake_hold)
+    monkeypatch.setattr("matrx_ai.mandates.hold_code_call", fake_hold)
     monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", fake_structured)
 
     await AIJudge(model="run-model", web_access=False).judge("r", "o")
@@ -131,7 +131,7 @@ async def test_web_access_reaches_the_holders_instructions_and_ceiling_is_the_ho
         captured.update(kwargs)
         return JudgeVerdict(verdict="pass", confidence=0.9, reasoning="ok")
 
-    monkeypatch.setattr("matrx_ai.evaluators.ai_judge.hold_code_call", fake_hold)
+    monkeypatch.setattr("matrx_ai.mandates.hold_code_call", fake_hold)
     monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", fake_structured)
 
     await AIJudge(web_access=False).judge("r", "o")
@@ -149,7 +149,7 @@ async def test_judge_refuses_when_its_mandate_cannot_resolve(monkeypatch):
     async def fake_hold(key, **kwargs):
         raise MandateResolutionUnavailable(key, "AIJudge", "no resolver")
 
-    monkeypatch.setattr("matrx_ai.evaluators.ai_judge.hold_code_call", fake_hold)
+    monkeypatch.setattr("matrx_ai.mandates.hold_code_call", fake_hold)
     with pytest.raises(JudgeError, match="could not resolve its mandate"):
         await AIJudge().judge(rubric="r", actual_output="o")
 

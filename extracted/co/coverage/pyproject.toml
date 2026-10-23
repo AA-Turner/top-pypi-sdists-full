@@ -186,7 +186,7 @@ sphinx-linklint = "P0D"
 
 [tool.ruff]
 # PYVERSION
-target-version = "py310"  # Can't use [project]
+target-version = "py311"  # Can't use [project]
 line-length = 100
 
 [tool.ruff.lint]
@@ -204,6 +204,9 @@ ignore = [
 ]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|[a-zA-Z0-9_]+_unused)$"
 
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 [tool.ruff.lint.per-file-ignores]
 "tests/**.py" = [
     "PT031",    # `pytest.warns()` block should contain a single simple statement
@@ -211,3 +214,11 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|[a-zA-Z0-9_]+_unused)$
     "RUF012",   # Mutable default value for class attribute
     "RUF024",   # Do not pass mutable objects as values to `dict.fromkeys`
 ]
+
+## CIBUILDWHEEL
+[tool.cibuildwheel]
+test-command = "python -m tests.smoke"
+test-sources = "tests/smoke.py"
+
+[tool.cibuildwheel.ios]
+xbuild-tools = []

@@ -5,7 +5,6 @@ import os
 import re
 import warnings
 from pathlib import Path
-from typing import Dict
 from zipfile import BadZipFile
 
 import numpy as np
@@ -20,6 +19,10 @@ from gridstatus.eia_constants import (
     CANCELED_OR_POSTPONED_GENERATOR_COLUMNS,
     EIA_FUEL_MIX_COLUMNS,
     EIA_FUEL_TYPES,
+    FACILITY_FUEL_COLUMN_RENAMES,
+    FACILITY_FUEL_COLUMNS,
+    FACILITY_FUEL_DATA_FIELDS,
+    FACILITY_FUEL_FLOAT_COLUMNS,
     GENERATOR_FLOAT_COLUMNS,
     GENERATOR_INT_COLUMNS,
     OPERATING_GENERATOR_COLUMNS,
@@ -33,6 +36,13 @@ logger = setup_gs_logger()
 HENRY_HUB_NATURAL_GAS_SPOT_PRICES_PATH = "natural-gas/pri/fut"
 # Physical location of Henry Hub is Louisiana
 HENRY_HUB_TIMEZONE = "US/Central"
+
+FACILITY_FUEL_ZIP_URLS = [
+    "https://www.eia.gov/electricity/data/eia923/xls/f923_{year}.zip",
+    "https://www.eia.gov/electricity/data/eia923/xls/f923_{year}er.zip",
+    "https://www.eia.gov/electricity/data/eia923/archive/xls/f923_{year}.zip",
+    "https://www.eia.gov/electricity/data/eia923/archive/xls/f906920_{year}.zip",
+]
 
 
 class EIA:
@@ -83,20 +93,14 @@ class EIA:
         params = {
             "api_key": self.api_key,
         }
-        try:
-            data = self.session.get(url, params=params)
-            data.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            raise err
+        data = self.session.get(url, params=params)
+        data.raise_for_status()
         response = data.json()["response"]
         return response
 
     def _fetch_page(self, url, headers):
-        try:
-            data = self.session.get(url, headers=headers)
-            data.raise_for_status()
-        except requests.exceptions.HTTPError as err:
-            raise err
+        data = self.session.get(url, headers=headers)
+        data.raise_for_status()
         response = data.json()["response"]
         df = pd.DataFrame(response["data"])
         return df, int(response["total"])
@@ -193,6 +197,11 @@ class EIA:
 
         raw_df, total_records = self._fetch_page(url, headers)
 
+        if total_records == 0:
+            raise NoDataFoundException(
+                f"No EIA data found for {dataset} between {start_str} and {end_str}",
+            )
+
         # Calculate the number of pages
         page_size = 5000
         total_pages = (total_records + page_size - 1) // page_size
@@ -214,7 +223,7 @@ class EIA:
             pages = range(1, total_pages)
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=n_workers,
-            ) as executor:  # noqa
+            ) as executor:
                 args = ((url, headers.copy(), page, page_size) for page in pages)
                 futures = [executor.submit(fetch_page_wrapper, *arg) for arg in args]
 
@@ -225,7 +234,7 @@ class EIA:
                         for future, page in zip(
                             concurrent.futures.as_completed(futures),
                             pages,
-                        ):  # noqa
+                        ):
                             progress_bar.update(1)
 
                 page_dfs = [future.result() for future in futures]
@@ -600,11 +609,11 @@ class EIA:
 
         coal_exports = pd.DataFrame(coal_exports)
         coal_exports["delivery_month"] = coal_exports["delivery_month"].map(
-            lambda x: datetime.datetime.strptime(str(x), "%Y%m"),
+            lambda x: datetime.datetime.strptime(str(x), "%Y%m"),  # noqa: DTZ007
         )
         coke_exports = pd.DataFrame(coke_exports)
         coke_exports["delivery_month"] = coke_exports["delivery_month"].map(
-            lambda x: datetime.datetime.strptime(str(x), "%Y%m"),
+            lambda x: datetime.datetime.strptime(str(x), "%Y%m"),  # noqa: DTZ007
         )
 
         return {
@@ -637,12 +646,159 @@ class EIA:
 
         return data
 
+    def get_facility_fuel(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Monthly electric power operations for individual power plants, by fuel
+        type and prime mover, as reported in the EIA-923 dataset.
+
+        https://www.eia.gov/electricity/data/eia923/
+
+        The Updated At column is the Last-Modified time of the per-year EIA-923
+        zip file that contains each row's period, falling back to the fetch time
+        if the file cannot be found.
+
+        Args:
+            date (str or pd.Timestamp): Start month to fetch data for. Truncated
+                to the beginning of the month.
+            end (str or pd.Timestamp, optional): End month to fetch data for,
+                inclusive. Truncated to the beginning of the month. Defaults to
+                the start month.
+            verbose (bool, optional): Whether to print progress. Defaults to False.
+
+        Returns:
+            pd.DataFrame: DataFrame with monthly plant-level generation and fuel
+                consumption data.
+        """
+        date = utils._handle_date(date, "UTC")
+        start_str = date.strftime("%Y-%m")
+
+        end_str = start_str
+        if end is not None:
+            end = utils._handle_date(end, "UTC")
+            end_str = end.strftime("%Y-%m")
+
+        url = f"{self.BASE_URL}electricity/facility-fuel/data/"
+
+        page_size = 5000
+
+        params = {
+            "start": start_str,
+            "end": end_str,
+            "frequency": "monthly",
+            "data": FACILITY_FUEL_DATA_FIELDS,
+            "offset": 0,
+            "length": page_size,
+            "sort": [
+                {"column": col, "direction": "asc"}
+                for col in ["period", "plantCode", "fuel2002", "fuelType", "primeMover"]
+            ],
+        }
+
+        headers = {
+            "X-Api-Key": self.api_key,
+            "X-Params": json.dumps(params),
+        }
+
+        if verbose:
+            logger.info(f"Fetching data from {url}")
+            logger.info(f"Params: {params}")
+
+        updated_at_by_year = {
+            year: self._get_facility_fuel_updated_at(year, verbose=verbose)
+            for year in range(date.year, (end or date).year + 1)
+        }
+
+        raw_df, total_records = self._fetch_page(url, headers)
+
+        if total_records == 0:
+            raise NoDataFoundException(
+                f"No EIA facility fuel data found between {start_str} and {end_str}",
+            )
+
+        total_pages = (total_records + page_size - 1) // page_size
+
+        if verbose:
+            logger.info(f"Total records: {total_records}")
+            logger.info(f"Total pages: {total_pages}")
+
+        page_dfs = [raw_df]
+
+        for page in range(1, total_pages):
+            params["offset"] = page * page_size
+            headers["X-Params"] = json.dumps(params)
+            page_df, _ = self._fetch_page(url, headers)
+            page_dfs.append(page_df)
+
+        df = pd.concat(page_dfs, ignore_index=True)
+
+        return self._handle_facility_fuel(df, updated_at_by_year=updated_at_by_year)
+
+    def _get_facility_fuel_updated_at(
+        self,
+        year: int,
+        verbose: bool = False,
+    ) -> pd.Timestamp:
+        """Get the publication time of a year of EIA-923 data from the
+        Last-Modified header of the per-year zip file on the EIA-923 page.
+
+        The zip file URL moves as the release cycle progresses (current year,
+        early release, archive, and the pre-2008 form 906/920 naming), so try
+        each known location. URLs that don't exist redirect to a landing page
+        instead of returning a 404.
+        """
+        for url_template in FACILITY_FUEL_ZIP_URLS:
+            zip_url = url_template.format(year=year)
+            response = self.session.head(zip_url, allow_redirects=False)
+
+            if response.status_code == 200 and "Last-Modified" in response.headers:
+                if verbose:
+                    logger.info(f"Using Last-Modified of {zip_url} as Updated At")
+                return pd.to_datetime(response.headers["Last-Modified"], utc=True)
+
+        logger.warning(
+            f"Could not find an EIA-923 zip file for {year}. "
+            "Using the fetch time as Updated At.",
+        )
+
+        return pd.Timestamp.utcnow().floor("s")
+
+    def _handle_facility_fuel(
+        self,
+        df: pd.DataFrame,
+        updated_at_by_year: dict[int, pd.Timestamp],
+    ) -> pd.DataFrame:
+        periods = pd.to_datetime(df["period"], format="%Y-%m")
+
+        df.insert(0, "Period", periods.dt.date)
+        df.insert(
+            1,
+            "Updated At",
+            pd.to_datetime(periods.dt.year.map(updated_at_by_year), utc=True),
+        )
+
+        df = df.rename(columns=FACILITY_FUEL_COLUMN_RENAMES)
+
+        df["Plant Code"] = df["Plant Code"].astype("Int64")
+
+        for col in FACILITY_FUEL_FLOAT_COLUMNS:
+            df[col] = df[col].replace({"NA": None}).astype(float)
+
+        df = df.sort_values(
+            ["Period", "Plant Code", "Fuel Code", "Fuel Type", "Prime Mover"],
+        ).reset_index(drop=True)
+
+        return df[FACILITY_FUEL_COLUMNS]
+
     def get_generators(
         self,
         date: str | datetime.datetime,
-        end: str | datetime.datetime = None,
+        end: str | datetime.datetime | None = None,
         verbose: bool = False,
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> dict[str, pd.DataFrame]:
         date = utils._handle_date(date, "UTC")
         month_name = date.strftime("%B").lower()
         year = date.year
@@ -766,7 +922,7 @@ class EIA:
             if col not in df.columns and col in columns:
                 if verbose:
                     logger.warning(
-                        f"Column {col} not found in data for {generator_status} generators. Adding and filling with np.nan values.",  # noqa
+                        f"Column {col} not found in data for {generator_status} generators. Adding and filling with np.nan values.",
                     )
                 df[col] = np.nan
 
@@ -788,6 +944,17 @@ class EIA:
                     .replace({"": None, "nan": None})
                     .astype("Int64")
                 )
+
+        # A blank or whitespace-only Plant ID survives the dropna above and only
+        # becomes null after the integer conversion, so drop those rows here.
+        null_plant_id_rows = df.loc[df["Plant ID"].isnull()]
+
+        if not null_plant_id_rows.empty:
+            logger.warning(
+                f"Found rows with null Plant Ids for {generator_status} "
+                + f"power plants. {null_plant_id_rows}",
+            )
+            df = df.dropna(subset=["Plant ID"])
 
         null_generator_id_rows = df.loc[df["Generator ID"].isnull()]
 
@@ -936,7 +1103,7 @@ def _handle_fuel_type_data(df):
     df["type-name"] = df["type-name"].str.lower()
 
     # These columns are grouped together by EIA as confirmed by inspection of the EIA
-    # fuel mix graphs. https://www.eia.gov/electricity/gridmonitor/expanded-view/electric_overview/US48/US48/GenerationByEnergySource-4/edit # noqa
+    # fuel mix graphs. https://www.eia.gov/electricity/gridmonitor/expanded-view/electric_overview/US48/US48/GenerationByEnergySource-4/edit
     df["type-name"] = df["type-name"].replace(
         {
             "battery": "battery storage",

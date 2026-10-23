@@ -16,6 +16,9 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     without_hidden_columns,
 )
 from snowflake.snowpark_connect.relation.write.map_write import map_write, map_write_v2
+from snowflake.snowpark_connect.utils.context import (
+    window_chain_materialization_allowed,
+)
 from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
@@ -87,10 +90,12 @@ def map_execution_command(
                 ),
             )
         case "write_operation":
-            map_write(request)
+            with window_chain_materialization_allowed():
+                map_write(request)
 
         case "write_operation_v2":
-            map_write_v2(request)
+            with window_chain_materialization_allowed():
+                map_write_v2(request)
 
         case "register_function":
             map_udf.register_udf(request.plan.command.register_function)

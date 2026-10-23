@@ -29,6 +29,8 @@ import asyncio
 import os
 import threading
 from collections.abc import Callable
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from matrx_ai._ext import get_ext, has_ext
 
@@ -125,6 +127,71 @@ def get_api_key_resolver() -> Callable[[str], str | None] | None:
     return resolver
 
 
+#: Who supplies the key the most recent ``resolve_api_key`` in THIS task returned:
+#: ``"own"`` = the person's or organization's own key (``AppContext.api_keys``,
+#: folded in from their vault or sent on the request), ``"platform"`` = ours (host
+#: resolver or environment). Read at the billed-usage chokepoint so a model call on
+#: the person's own key costs no points (owner ruling 2026-10-15, item 6).
+_KEY_SOURCE: ContextVar[str | None] = ContextVar("matrx_ai_last_api_key_source", default=None)
+
+OWN_KEY_USAGE_FLAG = "billed_to_own_key"
+
+#: The provider clients THIS task's preflight built for the keys THIS task resolved,
+#: keyed ``(id(adapter), descriptor attr)``. Adapters are process-shared, so the
+#: instance memo alone would let concurrent requests on different keys swap clients.
+_PREPARED_CLIENTS: ContextVar[dict[tuple[int, str], object] | None] = ContextVar(
+    "matrx_ai_prepared_provider_clients", default=None
+)
+
+
+#: Set inside a paid tool's execution (and any other platform-owned work running in
+#: a person's turn): the person's own vault keys are skipped, so the tool's internal
+#: model calls run on OUR key and charge (owner ruling 2026-10-15 #6).
+_PLATFORM_KEYS_ONLY: ContextVar[bool] = ContextVar("matrx_ai_platform_keys_only", default=False)
+
+
+def key_fingerprint(value: object) -> str:
+    """sha256 of a key value; ``AppContext.own_api_key_fingerprints`` holds these, never values."""
+    import hashlib
+
+    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+
+@contextmanager
+def platform_keys_only():
+    """Within this block a model call never runs on the person's own key."""
+    token = _PLATFORM_KEYS_ONLY.set(True)
+    try:
+        yield
+    finally:
+        _PLATFORM_KEYS_ONLY.reset(token)
+
+
+def begin_dispatch_key_scope() -> None:
+    """Every dispatch starts with NO key source and NO prepared clients, so nothing
+    inherits an earlier call's "own" (same task, or a parent task's copied context)."""
+    _KEY_SOURCE.set(None)
+    _PREPARED_CLIENTS.set(None)
+
+
+def last_resolved_key_source() -> str | None:
+    """``"own"`` / ``"platform"`` for the last key resolved in this task, or None."""
+    return _KEY_SOURCE.get()
+
+
+def mark_usage_key_source(usage: object) -> None:
+    """Stamp a billed usage that ran on the person's own key (``usage.metadata``).
+
+    ``TokenUsage.calculate_cost`` then answers 0 — the platform paid nothing for
+    the model — while ``calculate_catalog_cost`` keeps the list-price evidence.
+    """
+    if _KEY_SOURCE.get() != "own":
+        return
+    metadata = getattr(usage, "metadata", None)
+    if isinstance(metadata, dict):
+        metadata[OWN_KEY_USAGE_FLAG] = True
+
+
 def resolve_api_key(*env_names: str, required: bool = False) -> str | None:
     """Resolve a provider API key.
 
@@ -147,6 +214,7 @@ def resolve_api_key(*env_names: str, required: bool = False) -> str | None:
         for name in env_names:
             value = resolver(name)
             if value:
+                _KEY_SOURCE.set("platform")
                 return value
     try:
         from matrx_connect.context.app_context import try_get_app_context
@@ -155,16 +223,27 @@ def resolve_api_key(*env_names: str, required: bool = False) -> str | None:
     except (ImportError, RuntimeError):
         ctx = None
     ambient_keys = getattr(ctx, "api_keys", None) if ctx is not None else None
+    own_prints = getattr(ctx, "own_api_key_fingerprints", None) or frozenset()
+    platform_only = _PLATFORM_KEYS_ONLY.get()
     if isinstance(ambient_keys, dict):
         for name in env_names:
             shorthand = name.removesuffix("_API_KEY").lower()
             for candidate in (name, name.lower(), shorthand):
                 value = ambient_keys.get(candidate)
-                if value:
-                    return str(value)
+                if not value:
+                    continue
+                # WHOSE key, never WHERE it was found: only a value the vault fold
+                # fingerprinted is the person's own. A platform key a code path
+                # copied into api_keys is ours and charges.
+                own = key_fingerprint(value) in own_prints
+                if own and platform_only:
+                    continue  # our paid tools and system work never spend the person's key
+                _KEY_SOURCE.set("own" if own else "platform")
+                return str(value)
     for name in env_names:
         value = os.environ.get(name)
         if value:
+            _KEY_SOURCE.set("platform")
             return value
     if required:
         raise ApiKeyNotFoundError(
@@ -236,6 +315,14 @@ class keyed_provider_client:  # noqa: N801 — descriptor, used like a property
         state = obj.__dict__.get(self._state_attr)
         if state is not None and state[0]:
             return state[2]
+        prepared = _PREPARED_CLIENTS.get()
+        if prepared:
+            bound = prepared.get((id(obj), self._state_attr))
+            if bound is not None:
+                # THIS task's preflight chose this client for THIS task's key. The
+                # adapter instance is process-shared, so the instance memo may by
+                # now hold another request's key (a person's own key, or ours).
+                return bound
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -287,17 +374,35 @@ class keyed_provider_client:  # noqa: N801 — descriptor, used like a property
             obj.__dict__[self._state_attr] = (False, api_key, client, None)
             return client
 
+    def _resolve_with_source(self) -> tuple[str | None, str | None]:
+        api_key = resolve_api_key(*self._env_names, required=self._required)
+        return api_key, _KEY_SOURCE.get()
+
+    def _get_or_create_with_source(self, obj: object) -> tuple[object, str | None]:
+        client = self._get_or_create(obj)
+        return client, _KEY_SOURCE.get()
+
     async def prepare(self, obj: object) -> object:
         state = obj.__dict__.get(self._state_attr)
         if state is not None and state[0]:
             return state[2]
+        # Credentials resolve on a worker thread, whose ContextVar writes stay in
+        # the thread's copied context. Carry WHO supplied the key back into this
+        # task (own-key zero-rating reads it) and bind the client built for THIS
+        # task's key to this task, so a concurrent request on the shared adapter
+        # can never swap a person's key for ours mid-call, or ours for theirs.
         if self._event_loop_bound:
-            api_key = await asyncio.to_thread(
-                resolve_api_key, *self._env_names, required=self._required
-            )
+            api_key, source = await asyncio.to_thread(self._resolve_with_source)
             loop = asyncio.get_running_loop()
-            return self._get_or_create_on_loop(obj, api_key, loop)
-        return await asyncio.to_thread(self._get_or_create, obj)
+            client = self._get_or_create_on_loop(obj, api_key, loop)
+        else:
+            client, source = await asyncio.to_thread(self._get_or_create_with_source, obj)
+        if source is not None:
+            _KEY_SOURCE.set(source)
+        prepared = dict(_PREPARED_CLIENTS.get() or {})
+        prepared[(id(obj), self._state_attr)] = client
+        _PREPARED_CLIENTS.set(prepared)
+        return client
 
     def _get_or_create_on_loop(
         self,
@@ -350,6 +455,9 @@ async def prepare_provider_clients(instance: object) -> None:
     Credentials resolve off-loop. Ordinary SDKs also construct off-loop, while
     descriptors that declare loop-bound transports construct on the active loop.
     """
+    # A pinned client resolves no key: never let an earlier call's source in this
+    # task stamp this one (unknown = charged, the safe direction).
+    _KEY_SOURCE.set(None)
     descriptors: list[keyed_provider_client] = []
     for cls in type(instance).__mro__:
         descriptors.extend(
@@ -361,7 +469,10 @@ async def prepare_provider_clients(instance: object) -> None:
 
 __all__ = [
     "ApiKeyNotFoundError",
+    "begin_dispatch_key_scope",
     "get_api_key_resolver",
+    "key_fingerprint",
+    "platform_keys_only",
     "get_credential_resolver",
     "keyed_provider_client",
     "prepare_provider_clients",

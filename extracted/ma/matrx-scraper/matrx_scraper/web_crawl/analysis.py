@@ -59,8 +59,15 @@ from matrx_scraper.db.models_web import (
     Site as WebSite,
     Snapshot as WebSnapshot,
 )
+from matrx_scraper.click_curve import (  # noqa: F401 — expected_ctr_for_position re-exported
+    GSC_EXPECTED_CTR_CURVE,
+    expected_ctr_for_position,
+    resolve_click_curve,
+)
 from matrx_scraper.crawler import _normalise_url
 from matrx_scraper.parser.link_extractor import ANCHOR_RECORD_LIMIT
+from matrx_scraper.audit_metrics import canonical_is_self, self_canonical_urls
+from matrx_scraper.parser.knobs import KnobScope
 from matrx_scraper.seo_audit import (
     BUSINESS_CORE_PROPERTIES,
     BUSINESS_ENHANCED_PROPERTIES,
@@ -80,7 +87,13 @@ from matrx_scraper.seo_audit import (
     legacy_business_types_in,
     clamp_score,
     hreflang_entries,
+    js_shell_not_applicable,
+    kept_soft_404_not_applicable,
     lab_performance_from_lighthouse,
+    page_is_js_shell,
+    reset_js_shell_knobs,
+    resolve_js_shell_knobs,
+    use_js_shell_knobs,
     normalized_url_key,
     registrable_host,
     sample_urls,
@@ -334,26 +347,6 @@ GSC_CTR_POOR_SCORE = 55
 GSC_CTR_FAIR_RATIO = 0.80
 GSC_CTR_FAIR_SCORE = 75
 
-#: Expected organic CTR by average position, 1-indexed (index 0 = position 1).
-#: The contract says "expected-for-position" without supplying the curve, so
-#: this is it — one declaration, used by nothing else.
-GSC_EXPECTED_CTR_BY_POSITION: tuple[float, ...] = (
-    0.28,
-    0.15,
-    0.11,
-    0.08,
-    0.06,
-    0.05,
-    0.04,
-    0.032,
-    0.028,
-    0.025,
-)
-#: Positions 11–20 (page two) and anything deeper — one flat expectation each,
-#: because below page one the curve is noise, not signal.
-GSC_EXPECTED_CTR_PAGE_TWO = 0.015
-GSC_EXPECTED_CTR_DEEP = 0.008
-GSC_EXPECTED_CTR_DEEP_POSITION = 20
 
 #: A score at or above this is a pass; at or above the second, a warn.
 GSC_PASS_SCORE_FLOOR = 80
@@ -675,6 +668,15 @@ class SiteGscEvidence:
     earliest_date: date | None = None
     latest_date: date | None = None
     by_page: dict[str, PageGscStats] = field(default_factory=dict)
+    #: The organization's click curve (``seo.click_curve`` through the host's
+    #: resolver; the platform curve standalone). The CTR check reads it.
+    ctr_curve: tuple[float, ...] = GSC_EXPECTED_CTR_CURVE
+    #: Set when the organization's stored curve was unusable and the platform
+    #: curve was used (the CTR check's evidence carries it).
+    ctr_curve_notice: str | None = None
+    #: Set when the curve could not be READ at all; the CTR check then answers
+    #: n_a naming that, and no other check is affected.
+    ctr_curve_error: str | None = None
 
     @property
     def synced(self) -> bool:
@@ -731,7 +733,49 @@ def _norm_text(value: str | None) -> str | None:
 # `seo_audit`; see the module docstring.
 
 
+def is_duplicate_candidate(facts: PageFacts) -> bool:
+    """Whether a page belongs in the duplicate title / description / content groups.
+
+    OpenSEO's ``isDuplicateCandidate`` (multipage-checks.ts): pages the owner
+    already de-duplicated — noindexed, or canonicalized to another URL — do not
+    belong in a duplicate group, and neither does a non-2xx URL or an unrendered
+    app shell (an empty frame every route of an app shares). Flagging them tells
+    the person to fix something they already fixed, or something that is not
+    there.
+    """
+    status = facts.http_status
+    if status is not None and not 200 <= status < 300:
+        return False
+    if facts.noindex or facts.canonical_matches is False:
+        return False
+    if facts.kept_soft_404:
+        return False  # a kept soft 404 is judged by soft_404_detection only
+    return not page_is_js_shell(facts)
+
+
+def _duplicate_exclusion(facts: PageFacts) -> CheckOutcome | None:
+    """The plain reason a page is left out of duplicate comparison, or ``None``."""
+    shell = js_shell_not_applicable(facts)
+    if shell:
+        return shell
+    if is_duplicate_candidate(facts):
+        return None
+    if facts.noindex:
+        reason = "This page is noindexed, so it is already kept out of search and is not compared for duplicates."
+    elif facts.canonical_matches is False:
+        reason = (
+            "This page names another page as its canonical, so it is already consolidated "
+            "and is not compared for duplicates."
+        )
+    else:
+        reason = f"This URL answers with HTTP {facts.http_status}, so it is not compared for duplicates."
+    return CheckOutcome("n_a", None, reason)
+
+
 def _check_title_duplication(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
+    excluded = _duplicate_exclusion(facts)
+    if excluded:
+        return excluded
     norm = _norm_text(facts.title)
     if norm is None:
         return CheckOutcome(
@@ -765,6 +809,9 @@ def _check_title_duplication(facts: PageFacts, site: SiteAggregates) -> CheckOut
 
 
 def _check_meta_description_duplication(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
+    excluded = _duplicate_exclusion(facts)
+    if excluded:
+        return excluded
     norm = _norm_text(facts.description)
     if norm is None:
         return CheckOutcome(
@@ -907,6 +954,9 @@ def _check_internal_redirect_links(facts: PageFacts, site: SiteAggregates) -> Ch
 
 
 def _check_duplicate_content_exact(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
+    excluded = _duplicate_exclusion(facts)
+    if excluded:
+        return excluded
     if facts.exact_sha256 is None or facts.fingerprint_version is None:
         return CheckOutcome(
             "n_a",
@@ -1560,16 +1610,6 @@ def _gsc_windows(latest: date) -> tuple[tuple[date, date], ...]:
     return (current_start, latest), (prior_start, prior_end), (quarter_start, quarter_end)
 
 
-def expected_ctr_for_position(position: float) -> float:
-    """The CTR a page at this average position would normally earn."""
-    rank = max(1, round(position))
-    if rank <= len(GSC_EXPECTED_CTR_BY_POSITION):
-        return GSC_EXPECTED_CTR_BY_POSITION[rank - 1]
-    if rank <= GSC_EXPECTED_CTR_DEEP_POSITION:
-        return GSC_EXPECTED_CTR_PAGE_TWO
-    return GSC_EXPECTED_CTR_DEEP
-
-
 def _gsc_today() -> date:
     return datetime.now(UTC).date()
 
@@ -1661,8 +1701,16 @@ def _check_gsc_ctr_opportunity(facts: PageFacts, site: SiteAggregates) -> CheckO
             "click-through rate against.",
         )
 
+    if gsc.ctr_curve_error is not None:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"There is nothing to compare this page's click-through rate against: "
+            f"{gsc.ctr_curve_error}. Every other Search Console check is unaffected.",
+        )
+
     actual = current.ctr or 0.0
-    expected = expected_ctr_for_position(current.position)
+    expected = expected_ctr_for_position(current.position, gsc.ctr_curve)
     ratio = actual / expected
     expected_clicks = round(expected * current.impressions)
     missed_clicks = max(0, expected_clicks - current.clicks)
@@ -1675,6 +1723,8 @@ def _check_gsc_ctr_opportunity(facts: PageFacts, site: SiteAggregates) -> CheckO
         "average_position": round(current.position, 1),
         "missed_clicks": missed_clicks,
     }
+    if gsc.ctr_curve_notice:
+        evidence["curve_notice"] = gsc.ctr_curve_notice
 
     if ratio < GSC_CTR_SEVERE_RATIO and current.impressions >= GSC_CTR_SEVERE_IMPRESSIONS:
         score = GSC_CTR_SEVERE_SCORE
@@ -1836,16 +1886,20 @@ def index_page_facts(facts_list: list[PageFacts], aggregates: SiteAggregates) ->
     lookalike that can silently disagree with it.
     """
     for facts in facts_list:
-        title_norm = _norm_text(facts.title)
-        if title_norm:
-            aggregates.pages_by_title.setdefault(title_norm, []).append(facts)
-        desc_norm = _norm_text(facts.description)
-        if desc_norm:
-            aggregates.pages_by_description.setdefault(desc_norm, []).append(facts)
-        if facts.exact_sha256 is not None and facts.fingerprint_version is not None:
-            aggregates.pages_by_sha.setdefault(
-                (facts.fingerprint_version, facts.exact_sha256), []
-            ).append(facts)
+        # Duplicate groups hold only pages that can still be duplicates
+        # (`is_duplicate_candidate`): not noindexed, not canonicalized elsewhere,
+        # 2xx, and not an unrendered app shell.
+        if is_duplicate_candidate(facts):
+            title_norm = _norm_text(facts.title)
+            if title_norm:
+                aggregates.pages_by_title.setdefault(title_norm, []).append(facts)
+            desc_norm = _norm_text(facts.description)
+            if desc_norm:
+                aggregates.pages_by_description.setdefault(desc_norm, []).append(facts)
+            if facts.exact_sha256 is not None and facts.fingerprint_version is not None:
+                aggregates.pages_by_sha.setdefault(
+                    (facts.fingerprint_version, facts.exact_sha256), []
+                ).append(facts)
         # The site's business identity + the hreflang graph, from evidence the
         # snapshot already carries.
         if facts.structured_data:
@@ -2174,6 +2228,9 @@ class SiteFacts:
         default_factory=GscCannibalizationEvidence
     )
     near_duplicates: NearDuplicateReport | None = None
+    #: Pages that are unrendered app shells (`seo_audit.page_is_js_shell`) —
+    #: left out of the near-duplicate population, and said so.
+    js_shell_pages: int = 0
     #: page id -> URL, so evidence that arrives keyed by page id (Search Console
     #: query x page splits) can name the pages a person would recognize.
     page_urls: dict[str, str] = field(default_factory=dict)
@@ -2430,6 +2487,15 @@ def _site_check_tls_certificate(site: SiteFacts) -> CheckOutcome:
 
 def _site_check_near_duplicate_content(site: SiteFacts) -> CheckOutcome:
     report = site.near_duplicates
+    if report is not None and report.indexable_pages == 0 and site.js_shell_pages:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"All {site.js_shell_pages} page(s) we could compare are drawn by JavaScript after "
+            "they load, and this crawl read them without running it, so there is no content to "
+            "compare. See the \"content needs rendering\" finding.",
+            evidence=report.evidence(),
+        )
     if report is not None and report.indexable_pages == 0:
         return CheckOutcome(
             "n_a",
@@ -2549,6 +2615,12 @@ def _near_duplicate_indexable(page: PageFacts) -> bool | None:
     status = page.http_status
     if status is not None and not 200 <= status < 300:
         return False
+    if page.kept_soft_404:
+        return False  # a soft 404 has no content of its own to be a near-duplicate of
+    if page_is_js_shell(page):
+        # An unrendered app frame has no content of its own: every route of the
+        # app shares it, so it is never a near-duplicate of anything.
+        return False
     return None if page.noindex is None else not page.noindex
 
 
@@ -2556,6 +2628,7 @@ def _build_site_facts(site_id: str, facts_list: list[PageFacts]) -> SiteFacts:
     """Fold the per-page evidence into the site's own evidence. Pure."""
     facts = SiteFacts(site_id=site_id)
     facts.page_urls = {p.page_id: p.url for p in facts_list if p.page_id and p.url}
+    facts.js_shell_pages = sum(1 for p in facts_list if page_is_js_shell(p))
     for page in facts_list:
         scheme = urlsplit(page.url).scheme.lower()
         if scheme == "https":
@@ -2646,6 +2719,10 @@ CATALOGUED_PAGE_CHECKS: tuple[str, ...] = (
     # Pure URL-shape verdict. `seo_audit` owns the implementation; the sweep
     # supplies `web.page.url` through PageFacts and records the same outcome.
     "url_design_quality",
+    # The app-shell guard's own finding, and the dead-end link check. Both read
+    # snapshot evidence only (`extracted.app_shell`, `links_summary`).
+    "content_needs_rendering",
+    "dead_end_page",
     # Lab performance. These score `seo.page_performance` — the PageSpeed store
     # matrx-seo writes — NOT the crawl: no HTTP fetch can produce a Core Web
     # Vital. A page PageSpeed has never measured answers n_a with the one-click
@@ -2676,9 +2753,21 @@ def _adapt(key: str) -> Callable[[PageFacts, SiteAggregates], CheckOutcome]:
 # Registry: catalog item key -> check function. Adding a PER-PAGE check means
 # adding it to `seo_audit.PAGE_CHECKS`, adding a `web.analysis_item` row, then
 # naming it in CATALOGUED_PAGE_CHECKS. Never implement one here.
+def _cross_unless_kept_soft_404(
+    check: Callable[[PageFacts, SiteAggregates], CheckOutcome],
+) -> Callable[[PageFacts, SiteAggregates], CheckOutcome]:
+    """A kept soft 404 is judged by `soft_404_detection` only (one cause, one finding)."""
+
+    def guarded(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
+        return kept_soft_404_not_applicable(facts) or check(facts, site)
+
+    guarded.__wrapped__ = check  # type: ignore[attr-defined]
+    return guarded
+
+
 PAGE_CHECKS: dict[str, Callable[[PageFacts, SiteAggregates], CheckOutcome]] = {
     **{key: _adapt(key) for key in CATALOGUED_PAGE_CHECKS},
-    **CROSS_PAGE_CHECKS,
+    **{key: _cross_unless_kept_soft_404(check) for key, check in CROSS_PAGE_CHECKS.items()},
 }
 
 #: What the per-page loop runs on every page. Site-scoped cross-page checks are
@@ -2771,6 +2860,36 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
     # snapshots captured before the field existed, which is an honest n_a.
     text_bytes = extracted.get("text_bytes")
     link_score, target_keyword = _page_link_facts(page)
+    # A stored "points elsewhere" verdict from before canonicals were resolved
+    # against the page URL (`/p`, `//host/p` read as another page) is re-judged
+    # with the ONE resolver; a stored True/None is kept.
+    canonical_matches = indexability.get("canonical_matches")
+    if canonical_matches is False and isinstance(head.get("canonical_url"), str):
+        stored_chain = extracted.get("redirect_chain")
+        canonical_matches = bool(
+            canonical_is_self(
+                head.get("canonical_url"),
+                *self_canonical_urls(
+                    getattr(snap, "final_url", None) or str(page.url),
+                    stored_chain if isinstance(stored_chain, list) else [],
+                    str(page.url),
+                ),
+            )
+        )
+    # The `is_js_shell` inputs: link counts from the snapshot's own link census
+    # and the app-shell markup facts. Absent keys stay None (unknown, never 0).
+    links_summary = getattr(snap, "links_summary", None) or {}
+    app_shell = extracted.get("app_shell")
+    app_shell = app_shell if isinstance(app_shell, dict) else {}
+    link_total = links_summary.get("total")
+    # Onward same-site links (`seo_audit` count: www/apex equivalent, no `#`,
+    # no self links). A snapshot older than that count carries only the raw
+    # `internal` tally, which misses www/apex links and counts `#`/self links:
+    # trusted only when it is positive, otherwise unknown (never a dead end).
+    link_internal = links_summary.get("onward_internal")
+    if not isinstance(link_internal, int):
+        raw_internal = links_summary.get("internal")
+        link_internal = raw_internal if isinstance(raw_internal, int) and raw_internal > 0 else None
 
     return PageFacts(
         page_id=str(page.id),
@@ -2781,7 +2900,7 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
         description_metrics=seo.get("description") or {},
         meta_robots=head.get("meta_robots"),
         canonical_url=head.get("canonical_url"),
-        canonical_matches=indexability.get("canonical_matches"),
+        canonical_matches=canonical_matches,
         noindex=indexability.get("noindex"),
         nofollow=indexability.get("nofollow"),
         h1_count=int(h1_count) if isinstance(h1_count, int | float) else None,
@@ -2808,6 +2927,34 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
         image_items=[item for item in image_items if isinstance(item, dict)]
         if isinstance(image_items, list)
         else [],
+        link_count=link_total if isinstance(link_total, int) else None,
+        internal_link_count=link_internal if isinstance(link_internal, int) else None,
+        app_root=app_shell.get("app_root") if isinstance(app_shell.get("app_root"), bool) else None,
+        executable_script=(
+            app_shell.get("executable_script")
+            if isinstance(app_shell.get("executable_script"), bool)
+            else None
+        ),
+        bot_wall=app_shell.get("bot_wall") if isinstance(app_shell.get("bot_wall"), bool) else None,
+        kept_soft_404=(
+            isinstance(extracted.get("kept_from_failed_read"), dict)
+            and extracted["kept_from_failed_read"].get("kind") == "soft_404"
+        ),
+        # A bot wall that reached a snapshot is a BLOCKED read: the transport
+        # checks' existing wall handling answers for it, never "needs rendering".
+        fetch_blocked_reason="cloudflare_block" if app_shell.get("bot_wall") is True else None,
+        root_text_words=(
+            app_shell.get("root_text_words")
+            if isinstance(app_shell.get("root_text_words"), int)
+            and not isinstance(app_shell.get("root_text_words"), bool)
+            else None
+        ),
+        app_shell_words=(
+            app_shell.get("visible_words")
+            if isinstance(app_shell.get("visible_words"), int)
+            and not isinstance(app_shell.get("visible_words"), bool)
+            else None
+        ),
         fingerprint_version=fp_version if isinstance(fp_version, int) else None,
         exact_sha256=exact_sha if isinstance(exact_sha, str) else None,
         simhash64=simhash64 if isinstance(simhash64, str) else None,
@@ -3206,9 +3353,20 @@ async def _load_gsc_stats(site: WebSite, aggregates: SiteAggregates) -> None:
         aggregates.gsc = SiteGscEvidence(bound=False, unbound_reason=str(exc))
         return
 
-    evidence = SiteGscEvidence(bound=True)
-    aggregates.gsc = evidence
     site_id = str(site.id)
+    # The curve first: a curve that cannot be read is reported as itself (on the
+    # CTR check), never as "connected but no data".
+    try:
+        resolved = await resolve_click_curve(str(site.organization_id), site_id)
+        curve, curve_notice, curve_error = resolved.curve, resolved.notice, None
+    except Exception as exc:  # noqa: BLE001 — named on the CTR check, logged here
+        logger.exception("click curve for site %s could not be read", site_id)
+        curve, curve_notice = GSC_EXPECTED_CTR_CURVE, None
+        curve_error = f"the organization's click curve (seo.click_curve) could not be read ({type(exc).__name__})"
+    evidence = SiteGscEvidence(
+        bound=True, ctr_curve=curve, ctr_curve_notice=curve_notice, ctr_curve_error=curve_error
+    )
+    aggregates.gsc = evidence
     span = await (
         WebGscPageStat.filter(site_id=site_id, deleted_at__isnull=True)
         .group_by("site_id")
@@ -3697,6 +3855,30 @@ def stamp_http_variant_evidence(
 
 
 async def analyze_site_pages(
+    *,
+    site_id: str,
+    run_id: str | None = None,
+    on_progress: ProgressCallback | None = None,
+) -> AnalysisRunResult:
+    """Run every registered deterministic page check for one site.
+
+    The app-shell test's knobs resolve for the SITE's organization once, here, and
+    every check of the run reads them through the context.
+    """
+    site = await WebSite.get_or_none(id=site_id, deleted_at__isnull=True)
+    scope = (
+        KnobScope(organization_id=str(site.organization_id), site_id=str(site_id))
+        if site is not None and site.organization_id
+        else None
+    )
+    token = use_js_shell_knobs(await resolve_js_shell_knobs(scope))
+    try:
+        return await _analyze_site_pages(site_id=site_id, run_id=run_id, on_progress=on_progress)
+    finally:
+        reset_js_shell_knobs(token)
+
+
+async def _analyze_site_pages(
     *,
     site_id: str,
     run_id: str | None = None,

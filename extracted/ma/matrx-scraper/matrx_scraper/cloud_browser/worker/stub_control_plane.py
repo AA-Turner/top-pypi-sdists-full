@@ -134,12 +134,17 @@ class StubControlPlane:
         return response
 
     async def heartbeat(
-        self, *, access_still_valid: bool = True, lease_seconds: int = 60
+        self,
+        *,
+        access_still_valid: bool = True,
+        lease_seconds: int = 60,
+        liveness_probe_timeout_ms: int | None = None,
     ) -> M.HeartbeatResponse:
         req = M.HeartbeatRequest(
             **self._env(sequenced=False),
             lease_expires_at=_now() + timedelta(seconds=lease_seconds),
             access_still_valid=access_still_valid,
+            liveness_probe_timeout_ms=liveness_probe_timeout_ms,
         )
         return await self.worker.heartbeat(req, bearer=self._bearer("heartbeat"))
 
@@ -151,12 +156,16 @@ class StubControlPlane:
         page_id: str | None = None,
         sequence: int | None = None,
         idem: str | None = None,
+        agent_ref: str | None = None,
+        agent_tab_limit: int | None = None,
     ) -> M.CommandResponse:
         req = M.CommandRequest(
             **self._env(sequenced=True, sequence=sequence, idem=idem),
             origin=origin,  # type: ignore[arg-type]
             page_id=page_id,
             command=command,  # type: ignore[arg-type]
+            agent_ref=agent_ref,
+            agent_tab_limit=agent_tab_limit,
         )
         return await self.worker.command(req, bearer=self._bearer("command"))
 
@@ -174,12 +183,14 @@ class StubControlPlane:
         reason: str = "operator",
         page_id: str | None = None,
         return_base64: bool = True,
+        agent_ref: str | None = None,
     ) -> M.CaptureResponse:
         req = M.CaptureRequest(
             **self._env(sequenced=True),
             kind=kind,  # type: ignore[arg-type]
             reason=reason,  # type: ignore[arg-type]
             page_id=page_id,
+            agent_ref=agent_ref,
             return_base64=return_base64,
             redaction_policy_version="v1",
         )

@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,13 +54,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .tableau_related import RelatedTableauFlow, RelatedTableauProject
 
 # =============================================================================
@@ -663,6 +663,7 @@ def _tableau_flow_to_nested(tableau_flow: TableauFlow) -> TableauFlowNested:
         is_incomplete=tableau_flow.is_incomplete,
         provenance_type=tableau_flow.provenance_type,
         home_id=tableau_flow.home_id,
+        delete_handler=tableau_flow.delete_handler,
         depth=tableau_flow.depth,
         immediate_upstream=tableau_flow.immediate_upstream,
         immediate_downstream=tableau_flow.immediate_downstream,
@@ -709,6 +710,7 @@ def _tableau_flow_from_nested(nested: TableauFlowNested) -> TableauFlow:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -732,10 +734,7 @@ def _tableau_flow_from_nested_bytes(data: bytes, serde: Serde) -> TableauFlow:
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 TableauFlow.SITE_QUALIFIED_NAME = KeywordField("siteQualifiedName", "siteQualifiedName")
 TableauFlow.PROJECT_QUALIFIED_NAME = KeywordField(

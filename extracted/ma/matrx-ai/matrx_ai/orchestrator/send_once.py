@@ -73,6 +73,7 @@ async def send_once(
     around: Callable[[Awaitable[Any]], Awaitable[Any]] | None = None,
     stop_exceptions: tuple[type[BaseException], ...] = (),
     on_provider_error: Callable[[Exception], Awaitable[None]] | None = None,
+    transient_retries: int = 0,
 ) -> SendOnceResult:
     """Send ``request`` through the send boundary to the provider, exactly once.
 
@@ -89,6 +90,11 @@ async def send_once(
         stop_exceptions: exceptions that mean "stopped", not "failed".
         on_provider_error: awaited after restore + redaction when the provider
             call itself raises; the exception is then re-raised unchanged.
+        transient_retries: opt-in extra sends the dispatch seam
+            (``UnifiedAIClient._dispatch_with_billing_net``) gives a transient,
+            unbilled refusal — the classifier-aware retry, never a billing
+            refusal. Only a request/response path with no retry loop of its own
+            sets it; the chat engine never does.
     """
     from matrx_ai.config.send_boundary import STAGE_LOOP, prepare_for_send
     from matrx_ai.mandate_taps import observe_first_send
@@ -121,7 +127,11 @@ async def send_once(
 
     try:
         with watching_first_output(state):
-            call = client.execute(request)
+            call = (
+                client.execute(request, transient_retries=transient_retries)
+                if transient_retries
+                else client.execute(request)
+            )
             response = await (around(call) if around is not None else call)
     except stop_exceptions:
         if wire_config is not None:

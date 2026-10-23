@@ -90,3 +90,12 @@ async def test_default_off_an_old_client_still_gets_the_full_result():
     frame, _ = await _complete("web", big)
     assert frame["data"]["result"] == big
     assert not frame["data"].get("result_omitted")
+
+
+@pytest.mark.asyncio
+async def test_an_unpersisted_run_keeps_the_full_result():
+    """store=false has no chat.tool_call row to read by id: slimming would leave a blank."""
+    big = _big_result()
+    frame, _ = await _complete("web", big, row_id=None)
+    assert frame["data"]["result"] == big
+    assert frame["data"].get("result_omitted") in (None, False)

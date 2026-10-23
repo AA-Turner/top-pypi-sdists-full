@@ -54,6 +54,49 @@ def test_no_pi_package_means_no_pi_step(monkeypatch):
     assert upgrading._update_pi_package().lines == []
 
 
+@pytest.mark.parametrize("cli_ok,plugin_ok", [(True, True), (False, True), (True, False)])
+def test_update_stream_reports_real_stage_boundaries(monkeypatch, cli_ok, plugin_ok):
+    from probe.cli import updater
+    from probe.core import events
+
+    emitted = []
+    monkeypatch.setenv("PROBE_AGENT", "pi")
+    monkeypatch.setattr(updater, "fetch_latest", lambda base: {})
+    monkeypatch.setattr(updater, "detect_install", lambda: updater.Install(updater.Method.UV_TOOL))
+    monkeypatch.setattr(upgrading, "_report_attempt", lambda *a, **k: None)
+
+    def cli(install, current, target):
+        assert emitted[-1]["name"] == events.Step.UPDATE_CLI
+        assert emitted[-1]["status"] == events.Status.STARTED
+        assert emitted[-2]["name"] == events.Step.UPDATE_MANIFEST
+        assert emitted[-2]["status"] == events.Status.DONE
+        return updater.CliResult(ran=True, ok=cli_ok, changed=False, before=current,
+                                 after=current, message="checked")
+
+    def plugins():
+        assert emitted[-1]["name"] == events.Step.UPDATE_INTEGRATIONS
+        assert emitted[-1]["status"] == events.Status.STARTED
+        return upgrading._PiUpdate([], ok=plugin_ok, detail="" if plugin_ok else "failed")
+
+    monkeypatch.setattr(updater, "upgrade_cli", cli)
+    monkeypatch.setattr(upgrading, "_update_pi_package", plugins)
+    with events.session(True, sink=emitted.append):
+        outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+
+    stages = [event for event in emitted if event["event"] == events.Event.STEP]
+    completed = [event for event in stages if event["status"] != events.Status.STARTED]
+    assert [event["name"] for event in completed] == [
+        "update_manifest", "update_cli", "update_integrations", "verify_update",
+    ]
+    assert [event["status"] for event in completed] == [
+        events.Status.DONE,
+        events.Status.DONE if cli_ok else events.Status.FAILED,
+        events.Status.DONE if plugin_ok else events.Status.FAILED,
+        events.Status.DONE,
+    ]
+    assert outcome.ok is (cli_ok and plugin_ok)
+
+
 def test_pi_update_runs_with_pi_open_and_clears_an_old_deferral(monkeypatch, pi_installed):
     """Waiting for pi to exit never ended for pi agents running around the clock
     (strand-ai, 2026-10-15): it runs whatever pi is doing, and a running pi

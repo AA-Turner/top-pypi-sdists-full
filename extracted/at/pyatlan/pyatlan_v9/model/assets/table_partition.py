@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -59,14 +67,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
 from .sql_related import RelatedColumn, RelatedTable, RelatedTablePartition
 
 # =============================================================================
@@ -536,14 +536,6 @@ class TablePartition(Asset):
                 errors.append("table_name is required for creation")
             if self.table_qualified_name is UNSET:
                 errors.append("table_qualified_name is required for creation")
-            if self.schema_name is UNSET:
-                errors.append("schema_name is required for creation")
-            if self.schema_qualified_name is UNSET:
-                errors.append("schema_qualified_name is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"TablePartition validation failed: {errors}")
 
@@ -1283,6 +1275,7 @@ def _table_partition_to_nested(table_partition: TablePartition) -> TablePartitio
         is_incomplete=table_partition.is_incomplete,
         provenance_type=table_partition.provenance_type,
         home_id=table_partition.home_id,
+        delete_handler=table_partition.delete_handler,
         depth=table_partition.depth,
         immediate_upstream=table_partition.immediate_upstream,
         immediate_downstream=table_partition.immediate_downstream,
@@ -1331,6 +1324,7 @@ def _table_partition_from_nested(nested: TablePartitionNested) -> TablePartition
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

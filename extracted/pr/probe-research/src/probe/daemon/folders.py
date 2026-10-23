@@ -87,10 +87,12 @@ def protected_paths() -> list[Path]:
     from probe.service import paths as service_paths
 
     cfg = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    out = [Path(cfg) / "probe", _state_base() / "daemon", _state_base() / "approvals", service_paths.service_dir()]
-    socket_dir = service_paths.socket_path().parent
-    if socket_dir != service_paths.service_dir():
-        out.append(socket_dir)
+    root = service_paths.root_dir()
+    out = [Path(cfg) / "probe", _state_base() / "daemon", _state_base() / "approvals", root]
+    for sock in (service_paths.socket_path(), service_paths.legacy_socket_path()):
+        # Every machine's folder sits inside `root`; a socket moved to /tmp does not.
+        if root not in sock.parent.parents and sock.parent != root and sock.parent not in out:
+            out.append(sock.parent)
     if os.environ.get("PROBE_CONFIG_PATH"):
         out.append(Path(os.environ["PROBE_CONFIG_PATH"]))
     return out

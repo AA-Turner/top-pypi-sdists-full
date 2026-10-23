@@ -15,14 +15,25 @@ from pyspark.errors.exceptions.connect import IllegalArgumentException
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column, DataFrame
-from snowflake.snowpark.types import StructField, StructType
+from snowflake.snowpark._internal.utils import quote_name
+from snowflake.snowpark.types import (
+    DataType,
+    DateType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 from snowflake.snowpark_connect.column_name_handler import (
     ColumnNames,
     ColumnQualifier,
     JoinColumnNameMap,
     make_unique_snowpark_name,
 )
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_spark_string_datetime_comparison_enabled,
+)
 from snowflake.snowpark_connect.constants import COLUMN_METADATA_COLLISION_KEY
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -33,6 +44,9 @@ from snowflake.snowpark_connect.error.error_utils import (
 from snowflake.snowpark_connect.expression.map_expression import (
     map_single_column_expression,
 )
+from snowflake.snowpark_connect.expression.map_unresolved_function import (
+    _coerce_for_comparison,
+)
 from snowflake.snowpark_connect.expression.typer import JoinExpressionTyper
 from snowflake.snowpark_connect.relation.map_relation import (
     NATURAL_JOIN_TYPE_BASE,
@@ -41,6 +55,7 @@ from snowflake.snowpark_connect.relation.map_relation import (
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
     without_internal_columns,
 )
+from snowflake.snowpark_connect.typed_column import TypedColumn
 from snowflake.snowpark_connect.utils.context import (
     push_evaluating_join_condition,
     push_sql_scope,
@@ -226,6 +241,15 @@ def map_join(rel: relation_proto.Relation) -> DataFrameContainer:
                 left_container, disambiguated_right_container, join_info
             )
 
+    sides = (left_container.column_map, disambiguated_right_container.column_map)
+    result_container.column_map.carry_sort_identity(
+        {
+            c.snowpark_name: (side, c.snowpark_name)
+            for c in result_container.column_map.columns
+            for side in sides
+            if c.snowpark_name in side.snowpark_to_col
+        }
+    )
     return result_container
 
 
@@ -277,6 +301,58 @@ def _join_unconditionally(
         ),
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in columns],
     )
+
+
+def _column_types(df: DataFrame) -> dict[str, DataType]:
+    """Each column's type from ``df.schema`` by quoted name, without a typing
+    SELECT. The first field wins for a repeated name."""
+    types: dict[str, DataType] = {}
+    for field in df.schema.fields:
+        types.setdefault(field.column_identifier.quoted_name, field.datatype)
+    return types
+
+
+def _using_key_types(
+    left_input: DataFrame, right_input: DataFrame
+) -> tuple[dict[str, DataType], dict[str, DataType]] | None:
+    """Both sides' column types, read once per join for all USING keys.
+
+    None when the I038 coercion is off, so that path never reads a schema.
+    """
+    if not is_spark_string_datetime_comparison_enabled():
+        return None
+    return _column_types(left_input), _column_types(right_input)
+
+
+def _using_column_equality(
+    left: Column,
+    right: Column,
+    key_types: tuple[dict[str, DataType], dict[str, DataType]] | None,
+) -> Column:
+    """``left == right`` for a USING key, coerced like a condition join.
+
+    Spark resolves ``USING (k)`` to ``left.k = right.k`` before type coercion,
+    so a string key against a date/timestamp key is cast the same way
+    (I038). Other key types, and ``key_types`` None, keep the plain equality.
+    """
+    if key_types is None:
+        return left == right
+    left_types, right_types = key_types
+    left_type = left_types.get(quote_name(left._expression.name))
+    right_type = right_types.get(quote_name(right._expression.name))
+    datetime_types = (DateType, TimestampType)
+    if not (
+        isinstance(left_type, StringType)
+        and isinstance(right_type, datetime_types)
+        or isinstance(left_type, datetime_types)
+        and isinstance(right_type, StringType)
+    ):
+        return left == right
+    left_col, right_col, _ = _coerce_for_comparison(
+        TypedColumn(left, lambda: [left_type]),
+        TypedColumn(right, lambda: [right_type]),
+    )
+    return left_col == right_col
 
 
 def _join_using_columns(
@@ -331,11 +407,15 @@ def _join_using_columns(
 
     # this is a condition join, so it will contain left + right columns
     # we need to postprocess this later to have a correct projection
+    key_types = _using_key_types(left_input, right_input)
     joined_df = left_input.join(
         right=right_input,
         on=reduce(
             snowpark.Column.__and__,
-            (left == right for left, right in snowpark_using_columns),
+            (
+                _using_column_equality(left, right, key_types)
+                for left, right in snowpark_using_columns
+            ),
         ),
         how=info.join_type,
         directed=info.is_directed,
@@ -883,6 +963,12 @@ def _disambiguate_snowpark_columns(
         table_name=right.table_name,
         cached_schema_getter=_schema_getter,
         equivalent_snowpark_names=equivalent_snowpark_names,
+    )
+    disambiguated_right.column_map.carry_sort_identity(
+        {
+            new: (column_map, c.snowpark_name)
+            for new, c in zip(disambiguated_snowpark_names, column_map.columns)
+        }
     )
 
     # since we just renamed some snowpark columns, we need to update the dataframe container for the given plan_id

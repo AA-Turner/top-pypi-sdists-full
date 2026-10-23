@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyatlan
-Version: 11.4.1
+Version: 11.5.0
 Summary: Atlan Python Client
 Author-email: Atlan Technologies Pvt Ltd <engineering@atlan.com>
 Maintainer-email: Atlan Technologies Pvt Ltd <engineering@atlan.com>
@@ -35,8 +35,8 @@ Requires-Dist: PyYAML~=6.0.3
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: httpx-retries~=0.4.6; python_version < "3.10"
 Requires-Dist: httpx-retries~=0.6.0; python_version >= "3.10"
-Requires-Dist: authlib~=1.6.9; python_version < "3.10"
-Requires-Dist: authlib~=1.7.2; python_version >= "3.10"
+Requires-Dist: authlib~=1.6.12; python_version < "3.10"
+Requires-Dist: authlib~=1.9.1; python_version >= "3.10"
 Requires-Dist: msgspec~=0.20.0; python_version < "3.10"
 Requires-Dist: msgspec~=0.21.1; python_version >= "3.10"
 Dynamic: license-file

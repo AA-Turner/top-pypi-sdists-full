@@ -1,0 +1,5 @@
+---
+features:
+  - Reduce the size of manylinux wheels.
+upgrade:
+  - Don't include debug info in built ``.so`` files.

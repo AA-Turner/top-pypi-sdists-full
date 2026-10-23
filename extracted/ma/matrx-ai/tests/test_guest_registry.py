@@ -266,7 +266,7 @@ async def test_blocked_guest_is_refused_before_any_counter_or_identity_write(
 async def test_expired_block_resolves_like_an_unblocked_guest(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Positive control, same semantics as public.check_guest_execution_limit:
+    # Positive control, same semantics as billing.check_guest_execution_limit:
     # a block whose blocked_until has passed is no longer a block. Break caught:
     # a refusal keyed on is_blocked alone that locks expired blocks out forever.
     auth_user_id = "1f8d19c8-fdb8-49f1-b658-3cdab32d0c6e"

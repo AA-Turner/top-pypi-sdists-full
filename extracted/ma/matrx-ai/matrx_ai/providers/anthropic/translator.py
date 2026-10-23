@@ -78,8 +78,13 @@ class AnthropicTranslator(BaseTranslator):
         # `assistant_prefill` capability). Cache marks are the platform's alone
         # (config/cache_marks.py): system, end of the authored template, rolling.
         from matrx_ai.config.cache_marks import template_mark_index
+        from matrx_ai.config.cache_plan import MARKS_ALL, MARKS_NONE, marks_for
 
         long_cache = bool(getattr(config, "extended_prompt_cache", False))
+        # The send boundary's plan: a mark no later call reads is a pure write surcharge
+        # (config/cache_plan.py). ``none`` sends no mark, ``prefix`` no rolling mark.
+        cache_marks = marks_for(config)
+        caching = PROMPT_CACHING_ENABLED and cache_marks != MARKS_NONE
         template_block: dict[str, Any] | None = None
         trailing_prefill = False
         # A history system message (kept in place as data) has no Anthropic role: it goes
@@ -87,7 +92,7 @@ class AnthropicTranslator(BaseTranslator):
         from matrx_ai.providers.system_notes import history_system_messages_as_notes
 
         wire_messages = history_system_messages_as_notes(self.messages_for_wire(config), provider="anthropic")
-        template_position = template_mark_index(wire_messages) if PROMPT_CACHING_ENABLED else None
+        template_position = template_mark_index(wire_messages) if caching else None
         for position, msg in enumerate(wire_messages):
             message_content = msg.to_anthropic_blocks()
             flags = flags_of(msg)
@@ -280,7 +285,7 @@ class AnthropicTranslator(BaseTranslator):
         # (<1024 tokens) are silently ignored by the API — safe to always add.
         # The flag lives in cache_guard so the guard's expectation can never
         # drift from what we actually send.
-        if PROMPT_CACHING_ENABLED:
+        if caching:
             if system_text:
                 # System must be a block array (not a bare string) to carry
                 # cache_control. This breakpoint caches tools + system.
@@ -302,7 +307,13 @@ class AnthropicTranslator(BaseTranslator):
             # Rolling breakpoint on the last message → incremental history cache.
             # With a trailing prefill the rolling breakpoint sits on the turn
             # before it (the prefill is not history that will be replayed).
-            self._mark_last_message_cacheable(messages[:-1] if trailing_prefill else messages)
+            if cache_marks == MARKS_ALL:
+                self._mark_last_message_cacheable(messages[:-1] if trailing_prefill else messages)
+            else:
+                note_capture(
+                    "Prompt cache: no rolling history mark — this one-shot call has no later "
+                    "round to read it (config/cache_plan.py)."
+                )
             # Anthropic allows at most 4 marks per request; the platform places at
             # most 3 (system, template, rolling). Anything past 4 (a mark that rode in
             # on a content block) is dropped LOUDLY, never silently.
@@ -317,6 +328,11 @@ class AnthropicTranslator(BaseTranslator):
                     )
                 )
         else:
+            if PROMPT_CACHING_ENABLED:
+                note_capture(
+                    "Prompt cache: no cache marks — this one-shot call has no later read "
+                    "expected (config/cache_plan.py, knob agents.prompt_cache.one_shot_marks)."
+                )
             if system_text:
                 anthropic_request["system"] = system_text
             if all_tools:

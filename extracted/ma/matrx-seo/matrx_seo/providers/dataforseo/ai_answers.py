@@ -146,7 +146,7 @@ def answer_mentions_target(
     compact_answer = re.sub(r"[^\w]", "", normalized_answer, flags=re.UNICODE)
     for alias in accepted:
         if is_flagged(alias, common_word_terms):
-            if proper_name_match(alias, answer_text) is not None:
+            if proper_name_match(alias, answer_text, co_terms=accepted) is not None:
                 return True, accepted
             continue
         pattern = _mention_pattern(alias)

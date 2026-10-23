@@ -264,6 +264,28 @@ struct mj_recompile {
   }
 };
 
+struct mj_loadTexture {
+  static constexpr char name[] = "mj_loadTexture";
+  static constexpr char doc[] = "Decode texture id to raw bytes, exactly what compilation would store in tex_data, with tex_nchannel channels; embedded textures are copied from the model. The buffer is allocated with mju_malloc and freed by the caller; colorspace receives the resolved colorspace (mjtColorSpace). Return 0 on success.";
+  using type = int (const mjModel *, int, mjtByte * *, int *, int *, int *, char *, int);
+  static constexpr auto param_names = std::make_tuple("m", "id", "data", "width", "height", "colorspace", "error", "error_sz");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_loadTexture;
+  }
+};
+
+struct mj_embedAssets {
+  static constexpr char name[] = "mj_embedAssets";
+  static constexpr char doc[] = "Copy of m with every by-reference asset loaded into it, as compilation would have stored it. Return NULL with error on a file that does not resolve. A hermetic MJB file of a model with by-reference assets is mj_embedAssets, then mj_saveModel, then mj_deleteModel.";
+  using type = mjModel * (const mjModel *, char *, int);
+  static constexpr auto param_names = std::make_tuple("m", "error", "error_sz");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mj_embedAssets;
+  }
+};
+
 struct mj_saveLastXML {
   static constexpr char name[] = "mj_saveLastXML";
   static constexpr char doc[] = "Update XML data structures with info from low-level model created with mj_loadXML, save as MJCF. If error is not NULL, it must have size error_sz.";
@@ -2389,7 +2411,7 @@ struct mjr_resizeOffscreen {
 
 struct mjr_uploadTexture {
   static constexpr char name[] = "mjr_uploadTexture";
-  static constexpr char doc[] = "Upload texture to GPU, overwriting previous upload if any.";
+  static constexpr char doc[] = "Upload texture to GPU, overwriting previous upload if any. A by-reference texture (tex_adr == -1) is decoded with mj_loadTexture.";
   using type = void (const mjModel *, const mjrContext *, int);
   static constexpr auto param_names = std::make_tuple("m", "con", "texid");
 
@@ -4843,8 +4865,8 @@ struct mjs_addSkin {
 struct mjs_addTexture {
   static constexpr char name[] = "mjs_addTexture";
   static constexpr char doc[] = "Add texture.";
-  using type = mjsTexture * (mjSpec *);
-  static constexpr auto param_names = std::make_tuple("s");
+  using type = mjsTexture * (mjSpec *, const mjsDefault *);
+  static constexpr auto param_names = std::make_tuple("s", "def_");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_addTexture;
@@ -5348,7 +5370,7 @@ struct mjs_resolveOrientation {
 
 struct mjs_fuseStatic {
   static constexpr char name[] = "mjs_fuseStatic";
-  static constexpr char doc[] = "Fuse the static bodies of the spec with their parents, return 0 on success.";
+  static constexpr char doc[] = "Fuse the static bodies of the spec with their parents; return the number fused, -1 on error.";
   using type = int (mjSpec *, const mjVFS *);
   static constexpr auto param_names = std::make_tuple("s", "vfs");
 
@@ -5359,12 +5381,23 @@ struct mjs_fuseStatic {
 
 struct mjs_discardVisual {
   static constexpr char name[] = "mjs_discardVisual";
-  static constexpr char doc[] = "Discard the visual elements of the spec, return 0 on success.";
+  static constexpr char doc[] = "Discard the visual elements of the spec; return the number discarded, -1 on error.";
   using type = int (mjSpec *, const mjVFS *);
   static constexpr auto param_names = std::make_tuple("s", "vfs");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_discardVisual;
+  }
+};
+
+struct mjs_dedupAssets {
+  static constexpr char name[] = "mjs_dedupAssets";
+  static constexpr char doc[] = "Merge the textures and meshes of the spec which would compile to the same asset; return the number merged, -1 on error.";
+  using type = int (mjSpec *);
+  static constexpr auto param_names = std::make_tuple("s");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_dedupAssets;
   }
 };
 

@@ -4,6 +4,7 @@ import re
 import time
 import warnings
 from typing import Literal
+from xml.etree import ElementTree
 from zipfile import ZipFile
 
 import numpy as np
@@ -23,6 +24,7 @@ from gridstatus.base import (
 )
 from gridstatus.caiso import caiso_utils, daily_energy_storage
 from gridstatus.caiso.caiso_constants import (
+    AS_TYPE_MAP,
     CURRENT_BASE,
     HISTORY_BASE,
     OASIS_DATASET_CONFIG,
@@ -32,6 +34,11 @@ from gridstatus.decorators import support_date_range
 from gridstatus.gs_logging import logger
 from gridstatus.lmp_config import lmp_config
 
+# The PRC_CORR_GRP summary lists every market/correction-method combination for a
+# trade date; combinations with no corrections carry this sentinel in the reason
+# column and are dropped during parsing.
+PRICE_CORRECTION_NO_RECORDS_REASON = "No records found for report."
+
 
 def _determine_lmp_frequency(args: dict) -> str:
     """if querying all must use 1d frequency"""
@@ -39,9 +46,7 @@ def _determine_lmp_frequency(args: dict) -> str:
     market = args.get("market", "")
     # due to limitations of OASIS api
     if isinstance(locations, str) and locations.lower() in ["all", "all_ap_nodes"]:
-        if market == Markets.REAL_TIME_5_MIN:
-            return "1h"
-        elif market == Markets.REAL_TIME_15_MIN:
+        if market == Markets.REAL_TIME_5_MIN or market == Markets.REAL_TIME_15_MIN:
             return "1h"
         elif market == Markets.DAY_AHEAD_HOURLY:
             return "1D"
@@ -102,7 +107,10 @@ def _get_historical(
         url: str = f"{HISTORY_BASE}/{date_str}/{file}.csv?_={cache_buster}"
         latest = False
     logger.info(f"Fetching URL: {url}")
-    df = pd.read_csv(url)
+    # NOTE: Use requests instead of pd.read_csv(url); urllib fails SSL verify on CAISO's Sectigo R46 chain with macOS system CAs.
+    r = requests.get(url, timeout=120)
+    r.raise_for_status()
+    df = pd.read_csv(io.StringIO(r.text))
 
     # sometimes there are extra rows at the end, so this lets us ignore them
     df = df.dropna(subset=["Time"])
@@ -148,7 +156,6 @@ def _caiso_handle_start_end(
     start = date.tz_convert("UTC")
 
     if end:
-        end = end
         end = end.tz_convert("UTC")
     else:
         end = start + pd.DateOffset(1)
@@ -354,7 +361,7 @@ class CAISO(ISOBase):
         config["startdatetime"] = start
         config["enddatetime"] = end
 
-        base_url = f"http://oasis.caiso.com/oasisapi/{config.pop('path')}?"
+        base_url = f"https://oasis.caiso.com/oasisapi/{config.pop('path')}?"
 
         url = base_url + "&".join(
             [f"{k}={v}" for k, v in config.items()],
@@ -509,7 +516,7 @@ class CAISO(ISOBase):
         # maybe better way to do this in case there are other cases
         # where there are all na rows
         # ignore Time, Interval Start, Interval End columns
-        subset = set(df.columns) - set(["Time", "Interval Start", "Interval End"])
+        subset = set(df.columns) - {"Time", "Interval Start", "Interval End"}
         df = df.dropna(axis=0, how="all", subset=subset)
 
         return df
@@ -1331,6 +1338,122 @@ class CAISO(ISOBase):
             publish_time_offset=pd.Timedelta(minutes=22.5),
         )
 
+    @support_date_range(frequency="DAY_START")
+    def get_edam_wind_solar_forecast(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Day-ahead, hourly, BAA-level wind and solar forecasts for balancing
+        areas participating in the extended day-ahead market (EDAM).
+
+        Data at: http://oasis.caiso.com/mrioasis/logon.do at Energy >
+        EDAM > Wind and Solar Forecast.
+
+        Per the OASIS Publications Schedule, the report is published every
+        30 minutes between 6:00 and 10:00 AM Pacific. The Publish Time on
+        each row is the actual publish timestamp pulled from the
+        ``MessageHeader.TimeDate`` of the corresponding XML report, not a
+        derived offset.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: hourly EDAM wind and solar forecasts by BAA
+        """
+        rows = self._fetch_edam_wind_solar_forecast_xml(
+            date=date,
+            end=end,
+            verbose=verbose,
+        )
+        df = pd.DataFrame(rows)
+        df["Solar"] = pd.to_numeric(df["Solar"])
+        df["Wind"] = pd.to_numeric(df["Wind"])
+        df["Interval Start"] = df["Interval Start"].dt.tz_convert(
+            self.default_timezone,
+        )
+        df["Interval End"] = df["Interval End"].dt.tz_convert(
+            self.default_timezone,
+        )
+
+        return (
+            df[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Publish Time",
+                    "BAA",
+                    "Solar",
+                    "Wind",
+                ]
+            ]
+            .sort_values(["Interval Start", "BAA"])
+            .reset_index(drop=True)
+        )
+
+    def _fetch_edam_wind_solar_forecast_xml(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> list[dict]:
+        """Fetch the OASIS XML version of the EDAM Wind and Solar Forecast
+        and return a list of row dicts that include the publish timestamp
+        from each daily file's ``MessageHeader.TimeDate``.
+        """
+        start = utils._handle_date(date, self.default_timezone)
+        if end is not None:
+            end = utils._handle_date(end, self.default_timezone)
+        start_str, end_str = _caiso_handle_start_end(start, end)
+
+        url = (
+            "http://oasis.caiso.com/oasisapi/GroupZip"
+            f"?resultformat=5&version=1&groupid=EDAM_WND_SLR_FORECAST_GRP"
+            f"&startdatetime={start_str}&enddatetime={end_str}"
+        )
+        logger.info(f"Fetching URL: {url}")
+
+        # NOTE: OASIS rate-limits ~1 request per 5s; pace daily chunks to stay under it.
+        # Matches the _get_oasis retry-on-429 pattern
+        time.sleep(5)
+        r = requests.get(url, verify=True)
+        r.raise_for_status()
+
+        rows: list[dict] = []
+        ns = "{http://www.caiso.com/soa/EDAMWindAndSolarForecast_v1.xsd}"
+        with ZipFile(io.BytesIO(r.content)) as z:
+            for fname in z.namelist():
+                with z.open(fname) as fh:
+                    tree = ElementTree.parse(fh)
+                root = tree.getroot()
+                publish_time = pd.Timestamp(
+                    root.find(f"./{ns}MessageHeader/{ns}TimeDate").text,
+                )
+                for record in root.iter(f"{ns}REPORT_DATA"):
+                    fields = {child.tag.replace(ns, ""): child.text for child in record}
+                    rows.append(
+                        {
+                            "Interval Start": pd.to_datetime(
+                                fields["INTERVAL_START_GMT"],
+                                utc=True,
+                            ),
+                            "Interval End": pd.to_datetime(
+                                fields["INTERVAL_END_GMT"],
+                                utc=True,
+                            ),
+                            "Publish Time": publish_time,
+                            "BAA": fields["BAA_GRP_ID"],
+                            "Solar": fields["SOLAR"],
+                            "Wind": fields["WIND"],
+                        },
+                    )
+
+        return rows
+
     def get_pnodes(self, verbose: bool = False) -> pd.DataFrame:
         start = utils._handle_date("today")
 
@@ -1357,11 +1480,11 @@ class CAISO(ISOBase):
         },
     )
     @support_date_range(frequency=_determine_lmp_frequency)
-    def get_lmp(
+    def _get_lmp(
         self,
         date: str | pd.Timestamp,
         market: str,
-        locations: list = None,
+        locations: list | None = None,
         sleep: int = 5,
         end: str | pd.Timestamp = None,
         verbose: bool = False,
@@ -1432,7 +1555,6 @@ class CAISO(ISOBase):
             warnings.warn(
                 "Only 1 hour of data will be returned for real time markets if end is "
                 "not specified and all nodes are requested",
-                # noqa
             )
 
         df = self.get_oasis_dataset(
@@ -1489,37 +1611,21 @@ class CAISO(ISOBase):
             "Location Type",
         ] = "DLAP"
 
-        if market == Markets.DAY_AHEAD_HOURLY:
-            df = df[
-                [
-                    "Time",
-                    "Interval Start",
-                    "Interval End",
-                    "Market",
-                    "Location",
-                    "Location Type",
-                    "LMP",
-                    "Energy",
-                    "Congestion",
-                    "Loss",
-                ]
+        df = df[
+            [
+                "Time",
+                "Interval Start",
+                "Interval End",
+                "Market",
+                "Location",
+                "Location Type",
+                "LMP",
+                "Energy",
+                "Congestion",
+                "Loss",
+                "GHG",
             ]
-        else:
-            df = df[
-                [
-                    "Time",
-                    "Interval Start",
-                    "Interval End",
-                    "Market",
-                    "Location",
-                    "Location Type",
-                    "LMP",
-                    "Energy",
-                    "Congestion",
-                    "Loss",
-                    "GHG",
-                ]
-            ]
+        ]
 
         # data = utils.filter_lmp_locations(df, locations=location_filter)
         data = df
@@ -1528,6 +1634,224 @@ class CAISO(ISOBase):
         data.columns.name = None
 
         return data
+
+    @lmp_config(
+        supports={
+            Markets.DAY_AHEAD_HOURLY: ["latest", "today", "historical"],
+            Markets.REAL_TIME_15_MIN: ["latest", "today", "historical"],
+            Markets.REAL_TIME_5_MIN: ["latest", "today", "historical"],
+        },
+    )
+    def get_lmp(
+        self,
+        date: str | pd.Timestamp,
+        market: str,
+        locations: list | None = None,
+        sleep: int = 5,
+        end: str | pd.Timestamp = None,
+        verbose: bool = False,
+    ):
+        """Deprecated. Use the per-dataset methods instead:
+        :meth:`get_lmp_real_time_5_min`, :meth:`get_lmp_real_time_15_min`,
+        :meth:`get_lmp_day_ahead_hourly`.
+        """
+        warnings.warn(
+            "CAISO.get_lmp is deprecated; use the per-dataset methods "
+            "get_lmp_real_time_5_min, get_lmp_real_time_15_min, or "
+            "get_lmp_day_ahead_hourly instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._get_lmp(
+            date,
+            market=market,
+            locations=locations,
+            sleep=sleep,
+            end=end,
+            verbose=verbose,
+        )
+
+    def get_lmp_real_time_5_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        sleep: int = 5,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get real-time 5-minute LMPs for all nodes."""
+        return self._get_lmp(
+            date,
+            market=Markets.REAL_TIME_5_MIN,
+            locations="ALL",
+            sleep=sleep,
+            end=end,
+            verbose=verbose,
+        )
+
+    def get_lmp_real_time_15_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        sleep: int = 5,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get real-time 15-minute LMPs for all nodes."""
+        return self._get_lmp(
+            date,
+            market=Markets.REAL_TIME_15_MIN,
+            locations="ALL",
+            sleep=sleep,
+            end=end,
+            verbose=verbose,
+        )
+
+    def get_lmp_day_ahead_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        sleep: int = 5,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get day-ahead hourly LMPs for all nodes."""
+        return self._get_lmp(
+            date,
+            market=Markets.DAY_AHEAD_HOURLY,
+            locations="ALL",
+            sleep=sleep,
+            end=end,
+            verbose=verbose,
+        )
+
+    def get_price_corrections(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return CAISO price corrections (OASIS ``PRC_CORR_GRP`` summary).
+
+        CAISO reprices an operating day when it detects an error in published
+        prices and posts a structured summary of every correction to the
+        ``PRC_CORR_GRP`` report group. Each row describes a single corrected
+        interval: the trade date (operating day) and market that were
+        corrected, the hour ending and interval, the correction method and
+        reason, and the time the correction was generated.
+
+        The report is keyed by trade date and serves one day per request, so a
+        range is fetched one day at a time. A correction is typically generated
+        several days to two weeks after the trade date, so ``Report Generated``
+        is the column to use when selecting recently issued corrections.
+
+        Arguments:
+            date (datetime.date, str): start of the trade-date range.
+
+            end (datetime.date, str): end of the trade-date range. If None,
+                returns only ``date``. Defaults to None.
+
+            sleep (int): seconds to sleep between requests to avoid the OASIS
+                rate limit. Defaults to 4.
+
+            verbose (bool, optional): print out url being fetched. Defaults to
+                False.
+
+        Returns:
+            pandas.DataFrame: one row per corrected interval with columns
+            ``Trade Date`` (the corrected operating day), ``Hour Ending``,
+            ``Interval``, ``Market`` (e.g. ``DAM``, ``RTD``, ``RTPD``),
+            ``Affected Area``, ``Correction Method``, ``Correction Count``,
+            ``Energy Type``, ``Correction Reason`` and ``Report Generated``
+            (when the correction was issued). ``Trade Date`` and
+            ``Report Generated`` are Pacific-localized timestamps.
+
+        Raises:
+            NoDataFoundException: if no corrections were issued for the range.
+        """
+        raw = self._get_price_corrections_raw(
+            date=date,
+            end=end,
+            sleep=sleep,
+            verbose=verbose,
+        )
+
+        result = self._parse_price_corrections(raw)
+
+        if result.empty:
+            raise NoDataFoundException(
+                f"No CAISO price corrections for trade dates between {date} and {end}",
+            )
+
+        return result
+
+    @support_date_range(frequency="DAY_START")
+    def _get_price_corrections_raw(
+        self,
+        date: pd.Timestamp,
+        end: pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Fetch the ``PRC_CORR_GRP`` summary for one trade date; the decorator
+        iterates and concatenates a range. A "no data" response (the group is
+        not generated for the date yet, or a transient rate limit) is retried,
+        then returns an empty frame.
+        """
+        start, _ = _caiso_handle_start_end(date)
+        url = (
+            "http://oasis.caiso.com/oasisapi/GroupZip?resultformat=6"
+            f"&groupid=PRC_CORR_GRP&version=1&startdatetime={start}"
+        )
+        if verbose:
+            print(f"Fetching URL: {url}")
+        logger.info(f"Fetching URL: {url}")
+
+        for _ in range(4):
+            response = requests.get(url, verify=True)
+            if response.status_code == 200:
+                archive = ZipFile(io.BytesIO(response.content))
+                contents = archive.read(archive.namelist()[0])
+                # A data response is a CSV; "no data" is an XML error document.
+                if b"ERR_CODE" not in contents[:600]:
+                    return pd.read_csv(io.BytesIO(contents))
+            time.sleep(sleep)
+
+        return pd.DataFrame()
+
+    def _parse_price_corrections(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Rename and type the ``PRC_CORR_GRP`` columns, dropping the placeholder
+        rows that mark market/method combinations with no correction for the day.
+        """
+        if df.empty:
+            return df
+
+        df = df[df["CORRECTION_REASON"] != PRICE_CORRECTION_NO_RECORDS_REASON]
+        if df.empty:
+            return df
+
+        def to_pacific(column: pd.Series) -> pd.Series:
+            return pd.to_datetime(column).dt.tz_localize(
+                self.default_timezone,
+                ambiguous=True,
+                nonexistent="shift_forward",
+            )
+
+        result = pd.DataFrame(
+            {
+                "Trade Date": to_pacific(df["TRADE_DATE"]),
+                "Hour Ending": df["HOUR_ENDING"].astype("Int64"),
+                "Interval": df["INTERVAL"].astype("Int64"),
+                "Market": df["MARKET"],
+                "Affected Area": df["AFFECTED_AREA"],
+                "Correction Method": df["CORRECTION_METHOD"],
+                "Correction Count": df["CORRECTION_COUNT"].astype("Int64"),
+                "Energy Type": df["ENERGY_TYPECODE"],
+                "Correction Reason": df["CORRECTION_REASON"],
+                "Report Generated": to_pacific(df["REPORT_GENERATED"]),
+            },
+        )
+        return result.sort_values(
+            ["Trade Date", "Market", "Hour Ending", "Interval"],
+        ).reset_index(drop=True)
 
     @support_date_range(frequency="DAY_START")
     def get_storage(
@@ -1643,7 +1967,7 @@ class CAISO(ISOBase):
         """Retrieves the (mostly static) list of fuel regions with associated data.
         This file can be joined to the gas prices on Fuel Region Id"""
         url = (
-            "https://www.caiso.com/documents/fuelregion_electricregiondefinitions.xlsx"  # noqa
+            "https://www.caiso.com/documents/fuelregion_electricregiondefinitions.xlsx"
         )
 
         logger.info(f"Fetching {url}")
@@ -1934,6 +2258,124 @@ class CAISO(ISOBase):
         df = df.replace("", np.nan)
         return df
 
+    def _pivot_aggregated_generation_outages(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        df = df.copy()
+        df["Fuel Category"] = df["Fuel Category"].replace(
+            {"Not Avail": "Not Available"},
+        )
+
+        df = df.pivot_table(
+            index=[
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Trading Hub",
+            ],
+            columns="Fuel Category",
+            values="MW",
+            aggfunc="first",
+        ).reset_index()
+
+        df.columns.name = None
+
+        for column in [
+            "Aggregated",
+            "Hydro",
+            "Not Available",
+            "Renewable",
+            "Thermal",
+        ]:
+            if column not in df.columns:
+                df[column] = np.nan
+
+        component_sum = df[["Hydro", "Not Available", "Renewable", "Thermal"]].sum(
+            axis=1,
+            min_count=1,
+        )
+        df["Aggregated"] = df["Aggregated"].combine_first(component_sum)
+
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Trading Hub",
+                "Aggregated",
+                "Hydro",
+                "Not Available",
+                "Renewable",
+                "Thermal",
+            ]
+        ]
+
+    @support_date_range(frequency="DAY_START")
+    def get_aggregated_generation_outages(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return hourly aggregated generator outages by trading hub.
+
+        Outage MW is reported with an ``Aggregated`` hub-total column plus
+        fuel-category breakdown columns where CAISO provides them. Some hubs
+        (e.g. ZP26) publish only the aggregate; others publish Thermal,
+        Renewable, Hydro, and sometimes Not Available. ``Aggregated`` uses the
+        published value when present, otherwise the sum of the breakdown
+        columns.
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            sleep (int, optional): seconds to sleep between requests.
+                Defaults to 4.
+
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with one row per
+            (Interval Start, Publish Time, Trading Hub), with outage MW by
+            fuel category in separate columns.
+        """
+        df = self.get_oasis_dataset(
+            dataset="aggregated_generation_outages",
+            date=date,
+            end=end,
+            raw_data=False,
+            sleep=sleep,
+            verbose=verbose,
+        )
+
+        if df.empty:
+            return df
+
+        df["Publish Time"] = pd.to_datetime(
+            df["REPORT_DATE_GMT"],
+            utc=True,
+        ).dt.tz_convert(self.default_timezone)
+
+        df = df.rename(
+            columns={
+                "FUEL_CATEGORY": "Fuel Category",
+                "TRADING_HUB": "Trading Hub",
+            },
+        )
+
+        df["MW"] = pd.to_numeric(df["MW"])
+
+        return (
+            self._pivot_aggregated_generation_outages(df)
+            .sort_values(["Interval Start", "Trading Hub"])
+            .reset_index(drop=True)
+        )
+
     @support_date_range(frequency="DAY_START")
     def get_as_prices(
         self,
@@ -1980,15 +2422,7 @@ class CAISO(ISOBase):
             },
         )
 
-        as_type_map = {
-            "NR": "Non-Spinning Reserves",
-            "RD": "Regulation Down",
-            "RMD": "Regulation Mileage Down",
-            "RMU": "Regulation Mileage Up",
-            "RU": "Regulation Up",
-            "SR": "Spinning Reserves",
-        }
-        df["ANC_TYPE"] = df["ANC_TYPE"].map(as_type_map)
+        df["ANC_TYPE"] = df["ANC_TYPE"].map(AS_TYPE_MAP)
 
         df = df.pivot_table(
             index=[
@@ -2007,6 +2441,300 @@ class CAISO(ISOBase):
         df.columns.name = None
 
         return df
+
+    def get_as_prices_real_time_15_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 5,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return real-time 15-minute AS prices for each region.
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of real-time 15-minute AS prices
+        """
+        if end is None and not isinstance(date, tuple):
+            date_ts = utils._handle_date(date, self.default_timezone)
+            end = date_ts + pd.DateOffset(days=1)
+
+        df = self.get_oasis_dataset(
+            dataset="as_clearing_prices_real_time_15_min",
+            date=date,
+            end=end,
+            sleep=sleep,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        columns = [
+            "Interval Start",
+            "Interval End",
+            "Region",
+            "Non-Spinning Reserves",
+            "Regulation Down",
+            "Regulation Mileage Down",
+            "Regulation Mileage Up",
+            "Regulation Up",
+            "Spinning Reserves",
+        ]
+
+        if df.empty:
+            return pd.DataFrame(columns=columns)
+
+        df = df.rename(
+            columns={
+                "ANC_REGION": "Region",
+            },
+        )
+
+        df["ANC_TYPE"] = df["ANC_TYPE"].map(AS_TYPE_MAP)
+
+        df = df.pivot_table(
+            index=[
+                "Interval Start",
+                "Interval End",
+                "Region",
+            ],
+            columns="ANC_TYPE",
+            values="MW",
+        ).reset_index()
+
+        df = df.fillna(0)
+
+        df.columns.name = None
+
+        df = df.reindex(
+            columns=columns,
+            fill_value=0,
+        )
+
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_ir_rc_prices(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return day-ahead nodal Imbalance Reserve and Reliability Capacity prices.
+
+        The Marginal Clearing Price for Reliability Capacity (RCU/RCD) is comprised
+        of Capacity, Congestion, and Loss components, while Imbalance Reserves
+        (IRU/IRD) only have Capacity and Congestion components (Loss is NaN).
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of IR/RC prices with one row per
+            (Interval Start, Location, Product). Earliest available date is
+            May 1, 2026.
+        """
+        df = self.get_oasis_dataset(
+            dataset="ir_rc_prices_day_ahead_hourly",
+            start=date,
+            end=end,
+            sleep=sleep,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        columns = [
+            "Interval Start",
+            "Interval End",
+            "Location",
+            "Product",
+            "MCP",
+            "Capacity",
+            "Congestion",
+            "Loss",
+        ]
+
+        df = df.rename(
+            columns={
+                "NODE": "Location",
+                "PRODUCT": "Product",
+                "MARGINAL_CLEARING_PRICE": "MCP",
+                "CAPACITY_PRICE": "Capacity",
+                "CONGESTION_PRICE": "Congestion",
+                "LOSS_PRICE": "Loss",
+            },
+        )
+
+        df = df[columns]
+
+        df = df.sort_values(
+            ["Interval Start", "Location", "Product"],
+        ).reset_index(drop=True)
+
+        return df
+
+    def _parse_ir_rc_requirements_awards(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.rename(
+            columns={
+                "BAA_GRP_ID": "BAA",
+                "PRODUCT_TYPE": "Product",
+            },
+        )
+
+        df = df.melt(
+            id_vars=[
+                "Interval Start",
+                "Interval End",
+                "BAA",
+                "Product",
+            ],
+            value_vars=["REQ_MW", "AGG_AWD_MW"],
+            var_name="Type",
+            value_name="MW",
+        )
+
+        df["Type"] = df["Type"].map(
+            {
+                "REQ_MW": "Requirement",
+                "AGG_AWD_MW": "Award",
+            },
+        )
+
+        df["MW"] = pd.to_numeric(df["MW"], errors="coerce")
+        df = df.dropna(subset=["MW"])
+
+        columns = [
+            "Interval Start",
+            "Interval End",
+            "BAA",
+            "Product",
+            "Type",
+            "MW",
+        ]
+
+        return (
+            df[columns]
+            .sort_values(["Interval Start", "BAA", "Product", "Type"])
+            .reset_index(drop=True)
+        )
+
+    @support_date_range(frequency="DAY_START")
+    def get_ir_rc_requirements_awards_dam(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return day-ahead hourly Imbalance Reserve requirements and
+        Imbalance Reserve and Reliability Capacity awards by BAA.
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with one row per
+            (Interval Start, BAA, Product, Type). Earliest available date is
+            May 1, 2026.
+        """
+        df = self.get_oasis_dataset(
+            dataset="ir_rc_requirements_awards",
+            start=date,
+            end=end,
+            params={"groupid": "DAM_CAP_REQ_AWRD_GRP"},
+            sleep=sleep,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        return self._parse_ir_rc_requirements_awards(df)
+
+    @support_date_range(frequency="DAY_START")
+    def get_ir_rc_requirements_awards_2da(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return two-day-ahead hourly Imbalance Reserve requirements by BAA.
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with one row per
+            (Interval Start, BAA, Product, Type). Earliest available date is
+            May 1, 2026.
+        """
+        df = self.get_oasis_dataset(
+            dataset="ir_rc_requirements_awards",
+            start=date,
+            end=end,
+            params={"groupid": "2DA_CAP_REQ_AWRD_GRP"},
+            sleep=sleep,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        return self._parse_ir_rc_requirements_awards(df)
+
+    @support_date_range(frequency="DAY_START")
+    def get_ir_rc_requirements_awards_3da(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        sleep: int = 4,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return three-day-ahead hourly Imbalance Reserve requirements by BAA.
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with one row per
+            (Interval Start, BAA, Product, Type). Earliest available date is
+            May 1, 2026.
+        """
+        df = self.get_oasis_dataset(
+            dataset="ir_rc_requirements_awards",
+            start=date,
+            end=end,
+            params={"groupid": "3DA_CAP_REQ_AWRD_GRP"},
+            sleep=sleep,
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        return self._parse_ir_rc_requirements_awards(df)
 
     @support_date_range(frequency="DAY_START")
     def get_curtailed_non_operational_generator_report(
@@ -2059,11 +2787,11 @@ class CAISO(ISOBase):
         ):
             date_str = date.strftime("%Y%m%d")
 
-        url = f"https://www.caiso.com/documents/curtailed-non-operational-generator-prior-trade-date-report-{date_str}.xlsx"  # noqa
+        url = f"https://www.caiso.com/documents/curtailed-non-operational-generator-prior-trade-date-report-{date_str}.xlsx"
 
         # Jun 1, 2024 has an extra "and" in the url
         if date.date() == pd.Timestamp("2024-06-01").date():
-            url = f"https://www.caiso.com/documents/curtailed-and-non-operational-generator-prior-trade-date-report-{date_str}.xlsx"  # noqa
+            url = f"https://www.caiso.com/documents/curtailed-and-non-operational-generator-prior-trade-date-report-{date_str}.xlsx"
 
         logger.info(f"Fetching {url}")
         # fetch this way to avoid having to
@@ -2231,10 +2959,9 @@ class CAISO(ISOBase):
         )
 
         df.columns = df.columns.map(
-            lambda x: x.title()
-            .replace("_", " ")
-            .replace("Baa", "BAA")
-            .replace("Mw", "MW"),
+            lambda x: (
+                x.title().replace("_", " ").replace("Baa", "BAA").replace("Mw", "MW")
+            ),
         )
 
         # Create an identifier column (separated by hyphens because some of the tie
@@ -2303,15 +3030,7 @@ class CAISO(ISOBase):
             },
         )
 
-        as_type_map = {
-            "NR": "Non-Spinning Reserves",
-            "RD": "Regulation Down",
-            "RMD": "Regulation Mileage Down",
-            "RMU": "Regulation Mileage Up",
-            "RU": "Regulation Up",
-            "SR": "Spinning Reserves",
-        }
-        df["ANC_TYPE"] = df["ANC_TYPE"].map(as_type_map)
+        df["ANC_TYPE"] = df["ANC_TYPE"].map(AS_TYPE_MAP)
 
         result_type_map = {
             "AS_BUY_MW": "Procured (MW)",
@@ -3057,6 +3776,10 @@ class CAISO(ISOBase):
                 values = extract_array(html_content, var_name)
                 if len(values) > target_length:
                     values = values[-target_length:]
+                elif len(values) < target_length and unit == "month":
+                    # On the last day of a month the rolling monthly chart drops
+                    # its oldest month. The values still end at the current month
+                    values = [np.nan] * (target_length - len(values)) + values
                 elif len(values) < target_length:
                     raise ValueError(
                         f"Renewables report column {var_name} returned {len(values)} values for {date.strftime('%Y-%m-%d')}, expected {target_length}",

@@ -5,6 +5,7 @@
 import copy
 from dataclasses import dataclass
 
+import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
 import snowflake.snowpark.functions as snowpark_fn
@@ -13,7 +14,9 @@ from snowflake.snowpark import Column
 from snowflake.snowpark._internal.analyzer.unary_expression import Alias
 from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.column_name_handler import (
+    ColumnNameMap,
     make_column_names_snowpark_compatible,
+    order_by_reuse_fingerprints,
 )
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
 from snowflake.snowpark_connect.dataframe_container import (
@@ -31,6 +34,7 @@ from snowflake.snowpark_connect.relation.output_struct_utils import (
 )
 from snowflake.snowpark_connect.relation.utils import (
     create_pivot_column_condition,
+    map_pivot_aggregates,
     map_pivot_value_to_spark_column_name,
 )
 from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
@@ -118,15 +122,19 @@ def map_group_by_aggregate(
         ],
     )
 
-    return DataFrameContainer.create_with_column_mapping(
-        dataframe=result,
-        spark_column_names=columns.spark_names(),
-        snowpark_column_names=columns.snowpark_names(),
-        snowpark_column_types=columns.field_types(),
-        column_qualifiers=columns.get_qualifiers(),
-        parent_column_name_map=input_df_container.column_map,
-        equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
-        aggregate_metadata=aggregate_metadata,
+    return _set_grouping_sort_resolution(
+        DataFrameContainer.create_with_column_mapping(
+            dataframe=result,
+            spark_column_names=columns.spark_names(),
+            snowpark_column_names=columns.snowpark_names(),
+            snowpark_column_types=columns.field_types(),
+            column_qualifiers=columns.get_qualifiers(),
+            parent_column_name_map=input_df_container.column_map,
+            equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
+            aggregate_metadata=aggregate_metadata,
+        ),
+        input_df_container.column_map,
+        columns,
     )
 
 
@@ -153,14 +161,17 @@ def map_rollup_aggregate(
     # Spark does not allow ORDER BY to reference pre-aggregation columns for ROLLUP
     # Only regular GROUP BY supports this
 
-    return DataFrameContainer.create_with_column_mapping(
-        dataframe=result,
-        spark_column_names=columns.spark_names(),
-        snowpark_column_names=columns.snowpark_names(),
-        snowpark_column_types=columns.field_types_with_nullable_groupings(),
-        column_qualifiers=columns.get_qualifiers(),
-        parent_column_name_map=input_container.column_map,
-        equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
+    return _with_reuse_fingerprints(
+        DataFrameContainer.create_with_column_mapping(
+            dataframe=result,
+            spark_column_names=columns.spark_names(),
+            snowpark_column_names=columns.snowpark_names(),
+            snowpark_column_types=columns.field_types_with_nullable_groupings(),
+            column_qualifiers=columns.get_qualifiers(),
+            parent_column_name_map=input_container.column_map,
+            equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
+        ),
+        columns,
     )
 
 
@@ -187,14 +198,17 @@ def map_cube_aggregate(
     # Spark does not allow ORDER BY to reference pre-aggregation columns for CUBE
     # Only regular GROUP BY supports this
 
-    return DataFrameContainer.create_with_column_mapping(
-        dataframe=result,
-        spark_column_names=columns.spark_names(),
-        snowpark_column_names=columns.snowpark_names(),
-        snowpark_column_types=columns.field_types_with_nullable_groupings(),
-        column_qualifiers=columns.get_qualifiers(),
-        parent_column_name_map=input_container.column_map,
-        equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
+    return _with_reuse_fingerprints(
+        DataFrameContainer.create_with_column_mapping(
+            dataframe=result,
+            spark_column_names=columns.spark_names(),
+            snowpark_column_names=columns.snowpark_names(),
+            snowpark_column_types=columns.field_types_with_nullable_groupings(),
+            column_qualifiers=columns.get_qualifiers(),
+            parent_column_name_map=input_container.column_map,
+            equivalent_snowpark_names=columns.get_equivalent_snowpark_names(),
+        ),
+        columns,
     )
 
 
@@ -332,6 +346,10 @@ class _ColumnMetadata:
     field_type: FieldType | None
     qualifiers: set[ColumnQualifier]
     equivalent_snowpark_names: set[str]
+    # Input Snowpark name when this grouping key is a plain column reference.
+    source_snowpark_name: str | None = None
+    # The Spark expression of a computed key or aggregate, for ORDER BY reuse.
+    sort_expression: expressions_proto.Expression | None = None
 
 
 @dataclass(frozen=True)
@@ -404,6 +422,70 @@ class _Columns:
         ]
 
 
+def _grouping_source_snowpark_name(
+    exp: expressions_proto.Expression,
+    snowpark_name: str | None,
+    input_column_map: ColumnNameMap,
+) -> str | None:
+    if exp.WhichOneof("expr_type") != "unresolved_attribute":
+        return None
+    if "." in exp.unresolved_attribute.unparsed_identifier:
+        return None
+    if snowpark_name and snowpark_name in input_column_map.snowpark_to_col:
+        return snowpark_name
+    return None
+
+
+def _computed_expression(
+    exp: expressions_proto.Expression,
+) -> expressions_proto.Expression | None:
+    return None if exp.WhichOneof("expr_type") == "unresolved_attribute" else exp
+
+
+def _set_grouping_sort_resolution(
+    container: DataFrameContainer,
+    input_column_map: ColumnNameMap,
+    columns: _Columns,
+) -> DataFrameContainer:
+    """ORDER BY may resolve a duplicated name to a grouping column (SNOW-4222753).
+
+    Spark ``resolveExprsAndAddMissingAttrs`` walks into an Aggregate and keeps
+    the result only when it is a grouping expression.
+    """
+    container.column_map.set_sort_resolution_child(
+        input_column_map,
+        sources={
+            g.snowpark_name: g.source_snowpark_name
+            for g in columns.grouping_columns
+            if g.snowpark_name and g.source_snowpark_name
+        },
+        grouping_only=True,
+        expressions=_reuse_fingerprints(columns),
+    )
+    return container
+
+
+def _reuse_fingerprints(columns: _Columns) -> dict[str, bytes]:
+    return order_by_reuse_fingerprints(
+        [
+            (c.snowpark_name, c.spark_name, c.sort_expression)
+            for c in columns.grouping_columns + columns.aggregation_columns
+            if c.snowpark_name
+        ]
+    )
+
+
+def _with_reuse_fingerprints(
+    container: DataFrameContainer, columns: _Columns
+) -> DataFrameContainer:
+    """rollup and cube: ORDER BY may reuse a repeated aggregate (SNOW-4222753).
+
+    No child link: the ORDER BY name walk does not go through these.
+    """
+    container.column_map.set_sort_resolution_expressions(_reuse_fingerprints(columns))
+    return container
+
+
 def map_aggregate_helper(
     rel: relation_proto.Relation, pivot: bool = False, skip_alias: bool = False
 ):
@@ -444,60 +526,87 @@ def map_aggregate_helper(
                 snowpark_column.field_type,
                 qualifiers=snowpark_column.get_qualifiers(),
                 equivalent_snowpark_names=equivalent_snowpark_names,
+                source_snowpark_name=_grouping_source_snowpark_name(
+                    exp, snowpark_column.col.get_name(), input_container.column_map
+                ),
+                sort_expression=_computed_expression(exp),
             )
         )
 
     grouping_cols = [g.spark_name for g in groupings]
     set_current_grouping_columns(grouping_cols)
 
-    for exp in expressions:
-        new_name, snowpark_column = map_single_column_expression(
-            exp, input_container.column_map, typer
-        )
-        alias = make_column_names_snowpark_compatible(
-            [new_name], rel.common.plan_id, len(groupings) + len(aggregations)
-        )[0]
+    agg_result_types: list = []
 
-        def type_agg_expr(
-            agg_exp: TypedColumn, schema_inferrable: bool
-        ) -> FieldType | None:
-            if not schema_inferrable:
-                return None
-            try:
-                return agg_exp.field_type
-            except Exception:
-                # This type used for schema inference optimization purposes.
-                # typer may not be able to infer the type of some expressions
-                # in that case we return None, and the optimization will not be applied.
-                return None
-
-        agg_col_typ = type_agg_expr(snowpark_column, schema_inferrable)
-        if agg_col_typ is None:
-            schema_inferrable = False
-
-        aggregations.append(
-            _ColumnMetadata(
-                snowpark_column.col if skip_alias else snowpark_column.col.alias(alias),
-                new_name,
-                None if skip_alias else alias,
-                agg_col_typ,
-                qualifiers=set(),
-                equivalent_snowpark_names=set(),
+    def _map_agg_expressions(schema_ok: bool) -> tuple[list[_ColumnMetadata], bool]:
+        mapped: list[_ColumnMetadata] = []
+        for exp in expressions:
+            new_name, snowpark_column = map_single_column_expression(
+                exp, input_container.column_map, typer
             )
-        )
+            alias = make_column_names_snowpark_compatible(
+                [new_name], rel.common.plan_id, len(groupings) + len(mapped)
+            )[0]
 
-        # Register LCA alias so subsequent aggregate expressions can reference
-        # this alias by name (e.g. df.agg(collect_list("a").alias("foo"),
-        # concat_ws("", col("foo")).alias("bar"))).  Store a column reference
-        # to the snowpark alias; Snowflake resolves the lateral alias natively.
-        if not skip_alias and exp.HasField("alias") and exp.alias.name:
-            register_lca_alias(
-                exp.alias.name[0],
-                TypedColumn(
-                    snowpark_fn.col(alias),
-                    lambda typ=agg_col_typ: [typ] if typ is not None else None,
-                ),
+            def type_agg_expr(
+                agg_exp: TypedColumn, can_infer: bool
+            ) -> FieldType | None:
+                if not can_infer:
+                    return None
+                try:
+                    return agg_exp.field_type
+                except Exception:
+                    # This type used for schema inference optimization purposes.
+                    # typer may not be able to infer the type of some expressions
+                    # in that case we return None, and the optimization will not be applied.
+                    return None
+
+            agg_col_typ = type_agg_expr(snowpark_column, schema_ok)
+            if agg_col_typ is None:
+                schema_ok = False
+            if pivot:
+                result_type = agg_col_typ or type_agg_expr(snowpark_column, True)
+                agg_result_types.append(
+                    None if result_type is None else result_type.datatype
+                )
+
+            mapped.append(
+                _ColumnMetadata(
+                    snowpark_column.col
+                    if skip_alias
+                    else snowpark_column.col.alias(alias),
+                    new_name,
+                    None if skip_alias else alias,
+                    agg_col_typ,
+                    qualifiers=set(),
+                    equivalent_snowpark_names=set(),
+                    sort_expression=_computed_expression(exp),
+                )
             )
+
+            # Register LCA alias so subsequent aggregate expressions can reference
+            # this alias by name (e.g. df.agg(collect_list("a").alias("foo"),
+            # concat_ws("", col("foo")).alias("bar"))).  Store a column reference
+            # to the snowpark alias; Snowflake resolves the lateral alias natively.
+            if not skip_alias and exp.HasField("alias") and exp.alias.name:
+                register_lca_alias(
+                    exp.alias.name[0],
+                    TypedColumn(
+                        snowpark_fn.col(alias),
+                        lambda typ=agg_col_typ: [typ] if typ is not None else None,
+                    ),
+                )
+        return mapped, schema_ok
+
+    def _map_pass() -> tuple[list[_ColumnMetadata], bool]:
+        agg_result_types.clear()
+        return _map_agg_expressions(schema_inferrable)
+
+    # Only the aggregate expressions follow Spark's pivot first/last rule; the
+    # input and grouping keys are mapped outside it.
+    aggregations, schema_inferrable = map_pivot_aggregates(
+        pivot, _map_pass, lambda _: agg_result_types
+    )
 
     return (
         input_container,

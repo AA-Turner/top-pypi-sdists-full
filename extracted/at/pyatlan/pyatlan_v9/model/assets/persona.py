@@ -18,6 +18,24 @@ from typing import Any, ClassVar, List, Set, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan.model.enums import (
+    AuthPolicyCategory,
+    AuthPolicyResourceCategory,
+    AuthPolicyType,
+    DataAction,
+    PersonaDomainAction,
+    PersonaGlossaryAction,
+    PersonaMetadataAction,
+)
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
+from .access_control_related import RelatedAuthPolicy, RelatedPersona
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -41,24 +59,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan.model.enums import (
-    AuthPolicyCategory,
-    AuthPolicyResourceCategory,
-    AuthPolicyType,
-    DataAction,
-    PersonaDomainAction,
-    PersonaGlossaryAction,
-    PersonaMetadataAction,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .access_control_related import RelatedAuthPolicy, RelatedPersona
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -754,6 +754,7 @@ def _persona_to_nested(persona: Persona) -> PersonaNested:
         is_incomplete=persona.is_incomplete,
         provenance_type=persona.provenance_type,
         home_id=persona.home_id,
+        delete_handler=persona.delete_handler,
         depth=persona.depth,
         immediate_upstream=persona.immediate_upstream,
         immediate_downstream=persona.immediate_downstream,
@@ -798,6 +799,7 @@ def _persona_from_nested(nested: PersonaNested) -> Persona:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

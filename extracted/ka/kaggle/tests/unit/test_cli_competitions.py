@@ -95,6 +95,7 @@ def test_competitions_download_parser_default_succeeds(parser):
     assert kwargs.get("competition") is None
     assert kwargs.get("file_name") is None
     assert kwargs.get("path") is None
+    assert kwargs.get("unzip") is False
     assert kwargs.get("force") is False
     assert kwargs.get("quiet") is False
 
@@ -109,6 +110,7 @@ def test_competitions_download_parser_with_flags_succeeds(parser):
             "file.csv",
             "-p",
             "/tmp/download",
+            "--unzip",
             "--force",
             "--quiet",
         ]
@@ -117,6 +119,7 @@ def test_competitions_download_parser_with_flags_succeeds(parser):
     assert kwargs["competition"] == "my-competition"
     assert kwargs["file_name"] == "file.csv"
     assert kwargs["path"] == "/tmp/download"
+    assert kwargs["unzip"] is True
     assert kwargs["force"] is True
     assert kwargs["quiet"] is True
 
@@ -213,6 +216,27 @@ def test_competitions_submission_limits_dash_c_succeeds(parser):
     assert kwargs["competition"] is None
     assert kwargs["competition_opt"] == "my-comp"
     assert kwargs["json_output"] is False
+
+
+def test_competitions_submission_download_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "submission-download", "12345", "-p", "/tmp/out", "-o"])
+    assert func.__name__ == "competition_download_submission_cli"
+    assert kwargs["submission_id"] == 12345
+    assert kwargs["path"] == "/tmp/out"
+    assert kwargs["force"] is True
+
+
+def test_competitions_submission_download_dash_i_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "submission-download", "-i", "12345"])
+    assert func.__name__ == "competition_download_submission_cli"
+    assert kwargs["submission_id"] is None
+    assert kwargs["submission_id_opt"] == 12345
+    assert kwargs["force"] is False
+
+
+def test_competitions_submission_download_non_int_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["competitions", "submission-download", "not-a-number"])
 
 
 def test_competitions_episodes_parser_missing_sub_id_fails(parser):
@@ -364,6 +388,28 @@ def test_competitions_hosts_positional_succeeds(parser):
     func, kwargs = parser.dispatch(["competitions", "hosts", "my-comp"])
     assert func.__name__ == "competition_list_hosts_cli"
     assert kwargs["competition"] == "my-comp"
+
+
+def test_competitions_host_add_missing_user_fails(parser):
+    with pytest.raises(SystemExit):
+        parser.dispatch(["competitions", "host-add", "my-comp"])
+
+
+def test_competitions_host_add_positional_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "host-add", "my-comp", "-u", "alice"])
+    assert func.__name__ == "competition_add_host_cli"
+    assert kwargs["competition"] == "my-comp"
+    assert kwargs["user_name"] == "alice"
+    assert kwargs["no_confirm"] is False
+
+
+def test_competitions_host_add_dash_c_and_yes_succeeds(parser):
+    func, kwargs = parser.dispatch(["competitions", "host-add", "-c", "my-comp", "--user", "alice", "-y"])
+    assert func.__name__ == "competition_add_host_cli"
+    assert kwargs.get("competition") is None
+    assert kwargs["competition_opt"] == "my-comp"
+    assert kwargs["user_name"] == "alice"
+    assert kwargs["no_confirm"] is True
 
 
 def test_competitions_data_update_missing_args_fails(parser):

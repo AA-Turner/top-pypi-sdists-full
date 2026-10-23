@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from docutils import nodes
 from docutils.parsers.rst import directives
@@ -23,11 +24,23 @@ from sphinx_needs.utils import (
     save_matplotlib_figure,
 )
 
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
 logger = get_logger(__name__)
 
 
 class Needbar(nodes.General, nodes.Element):
-    pass
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            rawsource: str,
+            /,
+            **kwargs: Unpack[NeedsBarType],
+        ) -> None: ...
+
+        attributes: NeedsBarType
 
 
 class NeedbarDirective(FilterBase):
@@ -90,9 +103,7 @@ class NeedbarDirective(FilterBase):
 
         title = self.arguments[0].strip() if self.arguments else None
 
-        text_color = self.options.get("text_color")
-        if text_color:
-            text_color = text_color.strip()
+        text_color = _stripped(self.options.get("text_color"))
 
         style = self.options.get("style")
         matplotlib = import_matplotlib()
@@ -104,29 +115,15 @@ class NeedbarDirective(FilterBase):
 
         legend = "legend" in self.options
 
-        colors = self.options.get("colors")
-        if colors:
-            colors = [x.strip() for x in colors.split(",")]
+        colors = _stripped_items(self.options.get("colors"))
 
-        x_axis_title = self.options.get("x_axis_title")
-        if x_axis_title:
-            x_axis_title = x_axis_title.strip()
-        xlabels = self.options.get("xlabels")
-        if xlabels:
-            xlabels = [x.strip() for x in xlabels.split(",")]
-        xlabels_rotation = self.options.get("xlabels_rotation")
-        if xlabels_rotation:
-            xlabels_rotation = xlabels_rotation.strip()
+        x_axis_title = _stripped(self.options.get("x_axis_title"))
+        xlabels = _stripped_items(self.options.get("xlabels"))
+        xlabels_rotation = _stripped(self.options.get("xlabels_rotation"))
 
-        y_axis_title = self.options.get("y_axis_title")
-        if y_axis_title:
-            y_axis_title = y_axis_title.strip()
-        ylabels = self.options.get("ylabels")
-        if ylabels:
-            ylabels = [y.strip() for y in ylabels.split(",")]
-        ylabels_rotation = self.options.get("ylabels_rotation")
-        if ylabels_rotation:
-            ylabels_rotation = ylabels_rotation.strip()
+        y_axis_title = _stripped(self.options.get("y_axis_title"))
+        ylabels = _stripped_items(self.options.get("ylabels"))
+        ylabels_rotation = _stripped(self.options.get("ylabels_rotation"))
 
         separator = self.options.get("separator")
         if not separator:
@@ -153,14 +150,14 @@ class NeedbarDirective(FilterBase):
             "filter": filter_attributes["filter"],
             "error_id": error_id,
             "title": title,
-            "content": content,  # ty: ignore[invalid-argument-type]
+            "content": content,
             "legend": legend,
-            "x_axis_title": x_axis_title,  # ty: ignore[invalid-argument-type]
-            "xlabels": xlabels,  # ty: ignore[invalid-argument-type]
-            "xlabels_rotation": xlabels_rotation,  # ty: ignore[invalid-argument-type]
-            "y_axis_title": y_axis_title,  # ty: ignore[invalid-argument-type]
-            "ylabels": ylabels,  # ty: ignore[invalid-argument-type]
-            "ylabels_rotation": ylabels_rotation,  # ty: ignore[invalid-argument-type]
+            "x_axis_title": x_axis_title,
+            "xlabels": xlabels,
+            "xlabels_rotation": xlabels_rotation,
+            "y_axis_title": y_axis_title,
+            "ylabels": ylabels,
+            "ylabels_rotation": ylabels_rotation,
             "separator": separator,
             "stacked": stacked,
             "show_sum": show_sum,
@@ -169,8 +166,8 @@ class NeedbarDirective(FilterBase):
             "transpose": transpose,
             "horizontal": horizontal,
             "style": style,
-            "colors": colors,  # ty: ignore[invalid-argument-type]
-            "text_color": text_color,  # ty: ignore[invalid-argument-type]
+            "colors": colors,
+            "text_color": text_color,
         }
 
         bar_node = Needbar("", **data_attributes)
@@ -179,6 +176,16 @@ class NeedbarDirective(FilterBase):
         add_doc(env, env.docname)
 
         return [targetnode, bar_node]
+
+
+def _stripped(value: str | None) -> str | None:
+    """An option value stripped; ``None`` if the option was not given."""
+    return value.strip() if value else value
+
+
+def _stripped_items(value: str | None) -> list[str] | None:
+    """An option value split on ``,``, each item stripped; ``None`` if not given."""
+    return [item.strip() for item in value.split(",")] if value else None
 
 
 # Algorithm:
@@ -217,11 +224,12 @@ def process_needbar(
     # NEEDFLOW
     # for node in doctree.findall(Needbar):
     for node in found_nodes:
+        assert isinstance(node, Needbar)
         if not needs_config.include_needs:
             remove_node_from_tree(node)
             continue
 
-        current_needbar: NeedsBarType = node.attributes  # ty: ignore[invalid-assignment]
+        current_needbar: NeedsBarType = node.attributes
 
         if matplotlib is None:
             message = "Matplotlib missing for needbar plot"
@@ -517,7 +525,7 @@ def process_needbar(
         # 9. final storage
 
         # We need to calculate an unique bar-image file name
-        hash_value = hashlib.sha256(node.attributes["ids"][0].encode()).hexdigest()[:5]
+        hash_value = hashlib.sha256(node["ids"][0].encode()).hexdigest()[:5]
         image_node = save_matplotlib_figure(
             app, figure, f"need_bar_{hash_value}", fromdocname
         )

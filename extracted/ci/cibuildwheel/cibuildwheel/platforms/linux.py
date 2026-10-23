@@ -9,6 +9,7 @@ __lazy_modules__ = {
     "cibuildwheel.util.file",
     "cibuildwheel.util.helpers",
     "cibuildwheel.util.packaging",
+    "cibuildwheel.venv",
     "collections",
     "contextlib",
     "pathlib",
@@ -35,9 +36,10 @@ from cibuildwheel.frontend import get_build_frontend_extra_flags, prepare_config
 from cibuildwheel.logger import log
 from cibuildwheel.oci_container import OCIContainer, OCIContainerEngineConfig, OCIPlatform
 from cibuildwheel.util import resources
-from cibuildwheel.util.file import copy_test_sources
+from cibuildwheel.util.file import ca_bundle_path, copy_test_sources
 from cibuildwheel.util.helpers import prepare_command, unwrap
 from cibuildwheel.util.packaging import find_compatible_wheel
+from cibuildwheel.venv import needs_pip_cert
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -203,6 +205,10 @@ def build_in_container(
     log.step("Copying project into container...")
     container.copy_into(Path.cwd(), container_project_path)
 
+    # for pip without truststore, see needs_pip_cert
+    container_ca_bundle = PurePosixPath("/cibuildwheel-ca-bundle.pem")
+    container.copy_into(Path(ca_bundle_path()), container_ca_bundle)
+
     before_all_options_identifier = platform_configs[0].identifier
     before_all_options = options.build_options(before_all_options_identifier)
 
@@ -212,6 +218,7 @@ def build_in_container(
         env = container.get_environment()
         env["PATH"] = f"/opt/python/cp39-cp39/bin:{env['PATH']}"
         env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+        env["PIP_CERT"] = str(container_ca_bundle)
         env["PIP_ROOT_USER_ACTION"] = "ignore"
         env = before_all_options.environment.as_dictionary(
             env, executor=container.environment_executor
@@ -249,6 +256,9 @@ def build_in_container(
         env = container.get_environment()
         env["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
         env["PIP_ROOT_USER_ACTION"] = "ignore"
+        implementation_name = "graalpy" if config.identifier.startswith("gp") else ""
+        if needs_pip_cert(config.version, implementation_name):
+            env["PIP_CERT"] = str(container_ca_bundle)
 
         # put this config's python top of the list
         python_bin = config.path / "bin"

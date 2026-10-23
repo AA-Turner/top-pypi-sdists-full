@@ -166,6 +166,10 @@ def create_worker_app(
             "stream_rtc_config": stream is not None,
             # Keeps a watched stream up while the agent drives (view mode).
             "stream_view": stream is not None,
+            # Heartbeats may ask for a liveness probe (``liveness_probe_timeout_ms``).
+            "browser_liveness": True,
+            # Each agent (CommandRequest.agent_ref) drives its own tab.
+            "tab_per_agent": True,
             # Chrome older than the profile's last Chrome (ruling 16), else null.
             "chrome_downgrade": worker.chrome_downgrade,
         }

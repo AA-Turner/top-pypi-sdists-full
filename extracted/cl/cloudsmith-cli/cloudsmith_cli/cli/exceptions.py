@@ -7,6 +7,7 @@ import sys
 import click
 
 from ..core.api.exceptions import ApiException
+from ..core.certificate_errors import describe_certificate_error
 
 
 @contextlib.contextmanager
@@ -195,13 +196,18 @@ def get_error_hint(ctx, opts, exc):
     return None
 
 
+def get_0_error_hint(_ctx, _opts, exc):
+    """Get the hint for a request that failed before the API replied."""
+    return describe_certificate_error(exc)
+
+
 def get_401_error_hint(ctx, opts, exc):
     """Get the hint for a 401/Unauthorised error."""
     # pylint: disable=unused-argument
     credential = getattr(opts, "credential", None)
 
     if credential and credential.auth_type == "bearer":
-        return "Since you have an SSO access token set, this probably means that it has expired. Try getting a new token with 'cloudsmith auth', then try again."
+        return "Since you have a SAML access token set, this probably means that it has expired. Try getting a new token with 'cloudsmith auth', then try again."
 
     if credential:
         return (
@@ -210,8 +216,8 @@ def get_401_error_hint(ctx, opts, exc):
             "try again."
         )
 
-    if ctx.info_name == "token":
-        # This is already the token command
+    if ctx.info_name in ("login", "token"):
+        # This is already the (deprecated) login command
         return (
             "The login failed - Either your email address and/or "
             "your password was incorrect. Please check them and "
@@ -219,15 +225,19 @@ def get_401_error_hint(ctx, opts, exc):
         )
 
     return (
-        "You don't have an API key or access token set, but it seems this action "
-        "requires authentication - Try getting your API key via "
-        "'cloudsmith token', or access token via 'cloudsmith auth', then try again."
+        "This command requires authentication, and no API key or SAML session was "
+        "found. Set `CLOUDSMITH_API_KEY` to your API key, or run "
+        "`cloudsmith auth --workspace <workspace>` to log in with SAML."
     )
 
 
 def get_404_error_hint(ctx, opts, exc):
     """Get the hint for a 404/NotFound error."""
     # pylint: disable=unused-argument
+    if ctx.info_name in ("login", "token"):
+        # The token endpoint itself is gone, not a user/org
+        return None
+
     # pylint: disable=fixme
     # TODO(ls): Expand this to be contextual (we could look at the
     # arguments for the command).

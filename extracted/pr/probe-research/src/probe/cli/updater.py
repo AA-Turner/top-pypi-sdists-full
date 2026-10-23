@@ -25,6 +25,7 @@ from pathlib import Path
 
 import httpx
 
+from probe._shared import installs
 from probe.cli import claude_cli, plugin_cli
 from probe.cli.capabilities import (
     DAEMON_PLUGIN_NAME,
@@ -174,7 +175,9 @@ def detect_install() -> Install:
         return Install(Method.UNKNOWN)
     s = str(pkg).replace(os.sep, "/")
 
-    if "/uv/tools/probe-research/" in s:
+    if "/uv/tools/probe-research/" in s or installs.running_from_versions(s):
+        # A side-by-side version env (`probe._shared.installs`, plan D6) is the
+        # same uv tool install, one version of it.
         return Install(Method.UV_TOOL)
     if "/uv/tools/probe-agent/" in s:
         return Install(Method.UV_TOOL_LEGACY, detail="installed under the legacy probe-agent name")
@@ -723,6 +726,17 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
         return _finalize(current, target, "pip")
 
     # Method.UV_TOOL
+    side = upgrade_side_by_side(current, target)
+    if side is not None:
+        return side
+    if os.environ.get(REQUIRE_SIDE_BY_SIDE_ENV) == "1":
+        # The service let runs and workers go on through this update; in place
+        # would replace their files under them. The next cycle tries again.
+        return CliResult(
+            True, False, False, current, current,
+            "the CLI was not updated: it can only be updated beside the running version now, "
+            "and that was not possible (see above); the next update tries again",
+        )
     # `[all]` is restated FIRST (plan 2.11): `uv tool upgrade` re-resolves the
     # requirement the tool was first installed with, so upgrading a bare
     # receipt onto the release that drops these dependencies from core would
@@ -776,6 +790,74 @@ def upgrade_cli(install: Install, current: str | None, target: str | None) -> Cl
     if unrecorded:
         res = dataclasses.replace(res, message=res.message + unrecorded)
     return res
+
+
+#: Set to 1 to update the uv tool env in place, as before side-by-side installs.
+IN_PLACE_ENV = "PROBE_UPDATE_IN_PLACE"
+#: Set by the Probe service (`probe.service.updater.SIDE_BY_SIDE_ENV`) when it did
+#: not wait for runs and daemon workers: the CLI is updated beside them or not at all.
+REQUIRE_SIDE_BY_SIDE_ENV = "PROBE_UPDATE_SIDE_BY_SIDE"
+
+
+def upgrade_side_by_side(current: str | None, target: str | None) -> CliResult | None:
+    """The uv tool update of plan D6: install `target` as its own environment
+    beside the running one, check it starts (the service's start path, the
+    CLI's import), then switch the tool path to it in one rename and point
+    `runtime.json` at it. The running version stays, for the switch back (D5).
+    Nothing is changed unless all of that worked: a failed install leaves the
+    machine on `current`.
+
+    None when this layout cannot be used here (no target version known, a
+    receipt that cannot be restated, another filesystem, or IN_PLACE_ENV):
+    the caller updates in place, as before."""
+    if not target or os.environ.get(IN_PLACE_ENV) == "1":
+        return None
+    kept = kept_from_uv_receipt()
+    if kept is None:
+        return None
+    try:
+        tools = installs.tool_dir()
+        if not installs.usable(tools):
+            return None
+    except Exception:  # noqa: BLE001 -- unknown: update in place, as before
+        return None
+    if current and not is_newer(target, current):
+        return CliResult(True, True, False, current, current, f"CLI already at the latest ({current})")
+    if target in installs.rejected(tools):
+        return CliResult(
+            True, False, False, current, current,
+            f"CLI {target} failed its check on this machine and was switched back; staying on "
+            f"{current} until a newer release",
+        )
+    spec = _dist(kept.extras) + f"=={target}"
+    try:
+        env = installs.install(
+            target, spec, with_packages=kept.with_packages, python=kept.python, tools=tools,
+            timeout=_UPGRADE_TIMEOUT_S,
+        )
+    except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+        return CliResult(True, False, False, current, current, f"could not install CLI {target}; nothing changed: {exc}")
+    problem = installs.selftest(env)
+    if problem:
+        installs.discard(env)
+        return CliResult(
+            True, False, False, current, current, f"CLI {target} installed but does not start ({problem}); nothing changed"
+        )
+    try:
+        installs.activate(env, tools=tools)
+    except (RuntimeError, OSError) as exc:
+        return CliResult(True, False, False, current, current, f"could not switch to CLI {target}; nothing changed: {exc}")
+    try:
+        from probe.service import client
+
+        client.write_runtime(str(installs.env_python(env)), target)
+    except Exception:  # noqa: BLE001 -- the service falls back to the tool path, which is this version now
+        pass
+    installs.prune(tools)
+    return CliResult(
+        True, True, True, current, target,
+        f"CLI upgraded {current} → {target} (beside {current}, which stays for a switch back)",
+    )
 
 
 @dataclass

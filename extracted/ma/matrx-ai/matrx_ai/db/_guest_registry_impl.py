@@ -364,7 +364,7 @@ async def resolve_guest_uuid(
 
             # A blocked guest is refused HERE — before its counters move and
             # before an anonymous auth user is minted or backfilled for it.
-            # Same rule as public.check_guest_execution_limit: the block holds
+            # Same rule as billing.check_guest_execution_limit: the block holds
             # while blocked_until is unset or still in the future.
             blocked_until = getattr(row, "blocked_until", None)
             if getattr(row, "is_blocked", False) and (

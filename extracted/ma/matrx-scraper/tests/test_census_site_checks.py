@@ -388,12 +388,20 @@ def test_two_hop_301_is_clean_and_three_hops_fire_with_honest_text():
 
 # 13 ------------------------------------------------------------------------
 def test_canonical_matching_requested_url_or_hop_is_self():
+    # Self = the final URL (stored, or the redirect chain's LAST hop — "hop" below is
+    # that last hop, where the transport landed while the stored final URL was wrong),
+    # or the requested URL when nothing redirected ("right"). A redirecting start or
+    # middle URL is NOT self (test_js_shell_and_dead_end: points to a redirect).
     right = audit_metrics.evaluate_indexability(200, None, "https://x.com/blog/", [], "https://x.com/blog/page/7?et", "https://x.com/blog/")
     assert right["ok"] and "Canonical points elsewhere" not in str(right["issues"])
     hop = audit_metrics.evaluate_indexability(
         200, None, "https://x.com/blog/", [{"url": "https://x.com/blog", "status": 301}, {"url": "https://x.com/blog/"}],
         "https://x.com/garbage")
     assert "Canonical points elsewhere" not in str(hop["issues"])
+    start = audit_metrics.evaluate_indexability(
+        200, None, "https://x.com/old-blog", [{"url": "https://x.com/old-blog", "status": 301}, {"url": "https://x.com/blog/"}],
+        "https://x.com/blog/", "https://x.com/old-blog")
+    assert start["canonical_matches"] is False
     wrong = audit_metrics.evaluate_indexability(200, None, "https://x.com/other", [], "https://x.com/a", "https://x.com/a")
     assert "Canonical points elsewhere" in str(wrong["issues"])
 

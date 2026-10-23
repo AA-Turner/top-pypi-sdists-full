@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dagster-ray
-Version: 0.4.7
+Version: 0.4.8
 Summary: Dagster integration library for Ray
 Keywords: dagster,ray,ETL,distributed
 Author: Daniel Gafni
@@ -10,20 +10,21 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: dagster>=1.10.0
+Requires-Dist: dagster>=1.12.0
 Requires-Dist: eval-type-backport>=0.2.2 ; python_full_version < '3.10'
 Requires-Dist: tenacity>=8.0.0
-Requires-Dist: ray[client] ; extra == 'executor'
+Requires-Dist: ray[client]>=2.58.0 ; extra == 'executor'
 Requires-Dist: pyyaml ; extra == 'kuberay'
 Requires-Dist: kubernetes>=20.0.0 ; extra == 'kuberay'
-Requires-Dist: dagster-k8s>=0.19.0 ; extra == 'kuberay'
+Requires-Dist: dagster-k8s>=0.28.0 ; extra == 'kuberay'
 Requires-Dist: pyyaml>=4.0.0 ; extra == 'kuberay'
-Requires-Dist: ray[client] ; extra == 'pipes'
-Requires-Dist: ray[client] ; extra == 'run-launcher'
-Requires-Python: >=3.10, <3.14
+Requires-Dist: ray[client]>=2.58.0 ; extra == 'pipes'
+Requires-Dist: ray[client]>=2.58.0 ; extra == 'run-launcher'
+Requires-Python: >=3.10, <3.15
 Project-URL: GitHub, https://github.com/danielgafni/dagster-ray
 Project-URL: Documentation, https://danielgafni.github.io/dagster-ray/
 Project-URL: Changelog, https://github.com/danielgafni/dagster-ray/blob/main/CHANGELOG.md
@@ -60,7 +61,7 @@ Learn more in the [docs](https://danielgafni.github.io/dagster-ray)
 - **🔧 Ray Resources**: Automatically create and destroy ephemeral Ray clusters and connect to them in client mode
 - **📡 Dagster Pipes Integration**: Submit external scripts as Ray jobs, stream back logs and rich Dagster metadata
 - **☸️ KubeRay Support**: Utilize `RayJob` and `RayCluster` custom resources in client or job submission mode ([tutorial](https://danielgafni.github.io/dagster-ray/tutorial/kuberay))
-- **🏭 Production Ready**: Tested against a matrix of core dependencies, integrated with Dagster+
+- **🏭 Production Ready**: Tested against a [matrix of core dependencies](https://danielgafni.github.io/dagster-ray/compatibility-matrix), integrated with Dagster+
 - **⚡ Instant Startup**: Leverage `RayCluster` with [Cluster Sharing](https://danielgafni.github.io/dagster-ray/tutorial/kuberay/#cluster-sharing) for lightning-fast development cycles with zero cold start times (intended for development environments)
 
 ## 📦 Installation
@@ -81,6 +82,7 @@ pip install dagster-ray
 
 These happy users are running `dagster-ray` in production:
 
+- [TypeSafe AI](https://typesafe.ai)
 - [Anam](https://anam.ai)
 - [kaiko](https://kaiko.ai/)
 - [Sanas](https://www.sanas.ai/)

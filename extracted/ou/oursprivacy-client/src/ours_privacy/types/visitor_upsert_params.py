@@ -413,6 +413,9 @@ class UserProperties(TypedDict, total=False):
 
     ttclid: Optional[str]
 
+    ttd_impression_id: Optional[str]
+    """Leading and trailing whitespace is removed before validation."""
+
     twclid: Optional[str]
 
     user_agent: Optional[str]
@@ -462,6 +465,8 @@ class UserProperties(TypedDict, total=False):
     """Leading and trailing whitespace is removed before validation."""
 
     wbraid: Optional[str]
+
+    ylpcid: Optional[str]
 
     zip: Union[Optional[str], float, bool, Iterable[object], Mapping[str, object], int, None]
     """Any JSON value: string, number, boolean, array, object, or null."""
@@ -848,6 +853,13 @@ class DefaultProperties(TypedDict, total=False):
     Ex: ttclid123 Leading and trailing whitespace is removed before validation.
     """
 
+    ttd_impression_id: Optional[str]
+    """
+    The Trade Desk impression ID, captured from a configured ttd_impression_id URL
+    parameter using the %%TTD_IMPRESSIONID%% creative macro. Sent as imp on
+    conversions. Leading and trailing whitespace is removed before validation.
+    """
+
     twclid: Optional[str]
     """The Twitter Click ID.
 
@@ -938,6 +950,9 @@ class DefaultProperties(TypedDict, total=False):
 
     webview: Optional[bool]
     """Whether the user is in a webview. Ex: true"""
+
+    ylpcid: Optional[str]
+    """The Yelp Click ID from the landing URL, sent unchanged and unhashed."""
 
 
 class IdentityContext(TypedDict, total=False):

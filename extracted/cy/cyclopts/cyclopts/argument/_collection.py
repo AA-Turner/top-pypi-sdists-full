@@ -3,15 +3,16 @@
 import copy as copy_module
 import inspect
 import itertools
-import json
 from collections.abc import Callable, Iterable, Sequence
-from typing import TYPE_CHECKING, Any, SupportsIndex, TypeVar, overload
+from functools import partial
+from typing import TYPE_CHECKING, Any, SupportsIndex, TypeVar, get_args, overload
 
 if TYPE_CHECKING:
     from cyclopts.core import App
 
-from cyclopts.annotations import get_hint_name, is_typeddict, is_unpack, resolve, resolve_unpack
+from cyclopts.annotations import get_hint_name, is_typeddict, is_union, is_unpack, resolve, resolve_unpack
 from cyclopts.exceptions import (
+    CoercionError,
     UnknownOptionError,
 )
 from cyclopts.field_info import (
@@ -20,7 +21,7 @@ from cyclopts.field_info import (
 from cyclopts.group import Group
 from cyclopts.parameter import Parameter
 from cyclopts.token import Token
-from cyclopts.utils import UNSET, is_iterable
+from cyclopts.utils import UNSET, is_builtin, is_iterable
 
 from ._argument import Argument
 from .utils import (
@@ -432,7 +433,13 @@ class ArgumentCollection(list[Argument]):
         out.append(argument)
         if argument._accepts_keywords:
             # Use resolved_hint for extracting docstrings (needs a class, not Optional[class])
-            hint_docstring_lookup = extract_docstring_help(argument.resolved_hint) if parse_docstring else {}
+            hint_docstring_lookup = {}
+            if parse_docstring:
+                hint = argument.resolved_hint
+                # Earlier union members win, e.g. ``Foo``'s field docs on ``Foo | Bar``.
+                for member in reversed(get_args(hint) if is_union(hint) else (hint,)):
+                    if not is_builtin(member):
+                        hint_docstring_lookup.update(extract_docstring_help(member))
             hint_docstring_lookup.update(docstring_lookup)
 
             for sub_field_name, sub_field_info in argument._lookup.items():
@@ -783,6 +790,57 @@ def _is_valid_option_key(option_key: str, arguments: "ArgumentCollection") -> bo
     )
 
 
+def _decodes_json_object(argument: Argument, value: str) -> bool:
+    if argument._use_pydantic_type_adapter:
+        # ``Argument._convert_pydantic`` decodes a JSON object regardless of ``json_dict``.
+        return value.lstrip().startswith("{")
+    return argument._should_attempt_json_dict([value])
+
+
+def _is_keyless_value(argument: Argument, value: Any) -> bool:
+    """A whole value (e.g. ``false``) for a composite ``argument``, as opposed to a JSON object or a field value."""
+    if isinstance(value, Token):
+        if value.keys:
+            return False
+        if value.implicit_value is not UNSET:
+            return not isinstance(value.implicit_value, dict)
+        value = value.value
+    if isinstance(value, dict):
+        return False
+    return not (isinstance(value, str) and _decodes_json_object(argument, value))
+
+
+def expand_json_objects(arguments: "ArgumentCollection"):
+    """Expand keyless JSON-object tokens into the fields they set, so a later source can see which are taken."""
+    for argument in sorted(arguments, key=lambda a: len(a.keys)):
+        argument._expand_json_object_tokens()
+
+
+def earlier_source_filter(arguments: Iterable[Argument]) -> Callable[[Argument, tuple[str, ...], Any], bool]:
+    """Build a predicate: whether earlier sources' tokens (already expanded per field) win over a new value.
+
+    Each source fills only what earlier sources left unset. An argument with tokens keeps them; a keyless value (e.g. ``--no-x``) also keeps every ``--x.<field>``;
+    and ``--x.<field>`` values reject a later keyless value. ``enum.Flag`` values combine.
+    """
+    taken: set[int] = set()
+    rejects_keyless: set[int] = set()
+    for argument in arguments:
+        composite = argument.children and not argument._enum_flag_type
+        if argument.tokens:
+            taken.add(id(argument))
+            if composite and any(_is_keyless_value(argument, token) for token in argument.tokens):
+                taken.update(id(child) for child in argument.children_recursive)
+        if composite and any(child.has_tokens for child in argument.children):
+            rejects_keyless.add(id(argument))
+
+    def rejects(argument: Argument, remaining_keys: tuple[str, ...], value: Any) -> bool:
+        return id(argument) in taken or (
+            id(argument) in rejects_keyless and not remaining_keys and _is_keyless_value(argument, value)
+        )
+
+    return rejects
+
+
 def update_argument_collection(
     config: dict,
     source: str,
@@ -791,6 +849,7 @@ def update_argument_collection(
     *,
     root_keys: Iterable[str],
     allow_unknown: bool,
+    key_prefix: tuple[str, ...] = (),
 ):
     """Updates an argument collection with values from a configuration dictionary.
 
@@ -819,6 +878,9 @@ def update_argument_collection(
         Base path keys to prepend to all configuration keys.
     allow_unknown : bool
         If True, ignore unrecognized configuration keys instead of raising errors.
+    key_prefix : tuple[str, ...]
+        Keys of the argument whose JSON value ``config`` holds, when it is nested;
+        aliases are matched against field keys below it.
 
     Raises
     ------
@@ -831,8 +893,7 @@ def update_argument_collection(
     precedence over configuration files.
     """
     meta_arguments = _meta_arguments(apps or ())
-
-    do_not_update = {}
+    rejects = earlier_source_filter(arguments)
 
     for option_key, option_value in config.items():
         for subkeys, value in walk_leaves(option_value):
@@ -851,12 +912,13 @@ def update_argument_collection(
                 argument, remaining_keys, _ = arguments.match(cli_option_name)
             except ValueError:
                 if subkeys and _is_valid_option_key(option_key, arguments):
+                    field_keys = (*key_prefix, *subkeys)
                     for arg in arguments:
-                        if len(subkeys) != len(arg.keys):
+                        if len(field_keys) != len(arg.keys):
                             continue
 
                         all_match = True
-                        for i, (subkey, arg_key) in enumerate(zip(subkeys, arg.keys, strict=False)):
+                        for i, (subkey, arg_key) in enumerate(zip(field_keys, arg.keys, strict=False)):
                             if subkey == arg_key:
                                 continue
 
@@ -889,34 +951,42 @@ def update_argument_collection(
                     token=Token(keyword=complete_keyword, source=source), argument_collection=arguments
                 ) from None
 
-            if do_not_update.setdefault(id(argument), bool(argument.tokens)):
+            if rejects(argument, remaining_keys, value):
                 continue
+
+            if isinstance(value, list) and value and (hint := argument._scalar_hint(remaining_keys)) is not None:
+                import json
+
+                raise CoercionError(
+                    token=Token(
+                        keyword=complete_keyword,
+                        value=json.dumps(value, default=str),
+                        source=source,
+                        keys=remaining_keys,
+                    ),
+                    argument=argument,
+                    target_type=hint,
+                )
 
             if not is_iterable(value):
                 value = (value,)
 
+            make_token = partial(
+                Token, keyword=complete_keyword, source=source, keys=remaining_keys, _option_name=cli_option_name
+            )
             if value:
                 for i, v in enumerate(value):
                     if v is None:
-                        token = Token(
-                            keyword=complete_keyword,
-                            implicit_value=None,
-                            source=source,
-                            index=i,
-                            keys=remaining_keys,
-                        )
+                        token = make_token(implicit_value=None, index=i)
                     else:
                         if isinstance(v, dict | list):
                             # Serialize to JSON string; will be deserialized in Argument._json()
+                            import json
+
                             value_str = json.dumps(v)
                         else:
                             value_str = str(v)
-                        token = Token(
-                            keyword=complete_keyword, value=value_str, source=source, index=i, keys=remaining_keys
-                        )
+                        token = make_token(value=value_str, index=i)
                     argument.append(token)
             else:
-                token = Token(
-                    keyword=complete_keyword, implicit_value=value, source=source, index=0, keys=remaining_keys
-                )
-                argument.append(token)
+                argument.append(make_token(implicit_value=value))

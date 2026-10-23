@@ -113,6 +113,7 @@ from snowflake.snowpark_connect.utils.cache import (
     analyze_memo_clear_session,
     analyze_memo_pop,
     df_cache_map_get,
+    df_cache_map_is_materialized,
     df_cache_map_pop,
     df_cache_map_put_if_absent,
     pending_persist_add,
@@ -123,6 +124,7 @@ from snowflake.snowpark_connect.utils.context import (
     clean_request_external_tables,
     clear_context_data,
     get_request_external_tables,
+    get_request_window_chain_tables,
     get_spark_session_id,
     set_is_analyze_plan_request,
     set_spark_session_id,
@@ -154,6 +156,7 @@ from snowflake.snowpark_connect.utils.profiling import PROFILING_ENABLED, profil
 from snowflake.snowpark_connect.utils.request_utils import get_or_generate_operation_id
 from snowflake.snowpark_connect.utils.scos_query_tag import (
     clear_client_stack_trace,
+    scos_internal_query_tag,
     store_client_stack_trace,
 )
 from snowflake.snowpark_connect.utils.session import (
@@ -180,6 +183,9 @@ from snowflake.snowpark_connect.utils.spark_session_cache import (
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
+)
+from snowflake.snowpark_connect.utils.window_chain_materialization import (
+    drop_window_chain_tables,
 )
 from snowflake.snowpark_connect.utils.xxhash64 import xxhash64_string
 
@@ -507,6 +513,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             clear_rpc_type()
             otel_flush_telemetry()
             self._cleanup_external_tables()
+            self._cleanup_window_chain_tables()
             telemetry.send_request_summary_telemetry()
 
     @profile_method
@@ -592,9 +599,16 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                     # Spark Connect's persist() is lazy: it marks the plan for caching
                     # but does no work until the first action. Record the plan as
                     # pending; map_relation resolves and materializes it (cache_result)
-                    # on the first ExecutePlan resolution. Skip if already materialized.
+                    # on the first ExecutePlan resolution.
+                    #
+                    # Skip only if the entry is genuinely backed by a temp table. "Present
+                    # in df_cache_map" is not the same thing: an NSS read is memoized by
+                    # map_read with without_materialization(), so a plan resolved earlier
+                    # (df.schema, df.columns, a prior action) leaves a *lazy* entry. Keying
+                    # off presence made cache() a no-op for exactly that ordering
+                    # (SNOW-4231637).
                     key = (request.session_id, plan_id)
-                    if df_cache_map_get(key) is None:
+                    if not df_cache_map_is_materialized(key):
                         pending_persist_add(key)
 
                     storage_level = request.persist.storage_level
@@ -1186,6 +1200,11 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                 logger.warning(f"Failed to drop external table {table}: {e}")
         clean_request_external_tables()
 
+    def _cleanup_window_chain_tables(self) -> None:
+        if not get_request_window_chain_tables():
+            return
+        drop_window_chain_tables(get_or_create_snowpark_session())
+
     # TODO: These are required in Spark 4.x.
     # def ReleaseSession(self, request, context):
     #     """Release a session.
@@ -1219,47 +1238,65 @@ def _serve(
     server_error = None
     server_error_type = None
     try:
-        config_snowpark()
+        # Every statement issued between here and ``server.start()`` is SCOS
+        # startup plumbing, not something a user asked for: session
+        # configuration, session registration, and the warm-up queries fired by
+        # ``SnowflakeConnectServicer.__init__`` -> ``initialize_resources()``.
+        # Tagging the phase as a whole means a new startup step is marked by
+        # default instead of having to remember a wrapper (SNOW-4231647).
+        #
+        # The block deliberately closes before ``wait_for_termination()`` so the
+        # marker covers startup only; request handling must not inherit it.
+        # ``scos_internal_query_tag`` restores the previous value in a
+        # ``finally``, so the marker is cleared on exception and on the TCM
+        # early return below.
+        #
+        # Thread-local, so it only covers statements issued on *this* thread:
+        # gRPC worker threads correctly do not inherit it, but a startup step
+        # that spawns its own thread would silently escape the tag. Call sites
+        # that must stay tagged keep their own wrapper and unit guard.
+        with scos_internal_query_tag():
+            config_snowpark()
 
-        if session is None:
-            session = get_or_create_snowpark_session()
-        else:
-            # If a session is passed in, explicitly call config session to be consistent with sessions created
-            # under the hood.
-            # SNOW-3517484: always run configure to keep non-ALTER setup in sync;
-            # ALTER SESSION deduping is handled inside configure_snowpark_session.
-            configure_snowpark_session(session)
+            if session is None:
+                session = get_or_create_snowpark_session()
+            else:
+                # If a session is passed in, explicitly call config session to be consistent with sessions created
+                # under the hood.
+                # SNOW-3517484: always run configure to keep non-ALTER setup in sync;
+                # ALTER SESSION deduping is handled inside configure_snowpark_session.
+                configure_snowpark_session(session)
 
-        _register_snowpark_connect_session(session, app_name=app_name)
+            _register_snowpark_connect_session(session, app_name=app_name)
 
-        if tcm.TCM_MODE:
-            # No need to start grpc server in TCM
-            return
+            if tcm.TCM_MODE:
+                # No need to start grpc server in TCM
+                return
 
-        server_options = _get_default_grpc_options()
-        max_workers = get_int_from_env("SPARK_CONNECT_SERVER_GRPC_MAX_WORKERS", 10)
+            server_options = _get_default_grpc_options()
+            max_workers = get_int_from_env("SPARK_CONNECT_SERVER_GRPC_MAX_WORKERS", 10)
 
-        # cProfile doesn't work correctly with multiple threads
-        max_workers = 1 if PROFILING_ENABLED else max_workers
+            # cProfile doesn't work correctly with multiple threads
+            max_workers = 1 if PROFILING_ENABLED else max_workers
 
-        server = grpc.server(
-            futures.ThreadPoolExecutor(max_workers=max_workers),
-            options=server_options,
-        )
+            server = grpc.server(
+                futures.ThreadPoolExecutor(max_workers=max_workers),
+                options=server_options,
+            )
 
-        control_servicer = ControlServicer(session)
-        proto_base_grpc.add_SparkConnectServiceServicer_to_server(
-            SnowflakeConnectServicer(control_servicer.log_spark_connect_batch),
-            server,
-        )
-        control_grpc.add_ControlServiceServicer_to_server(control_servicer, server)
-        server_url = get_server_url()
-        server.add_insecure_port(server_url)
-        logger.info(f"Starting Snowpark Connect server on {server_url}...")
-        server.start()
-        server_running.set()
-        logger.info("Snowpark Connect server started!")
-        telemetry.send_server_started_telemetry()
+            control_servicer = ControlServicer(session)
+            proto_base_grpc.add_SparkConnectServiceServicer_to_server(
+                SnowflakeConnectServicer(control_servicer.log_spark_connect_batch),
+                server,
+            )
+            control_grpc.add_ControlServiceServicer_to_server(control_servicer, server)
+            server_url = get_server_url()
+            server.add_insecure_port(server_url)
+            logger.info(f"Starting Snowpark Connect server on {server_url}...")
+            server.start()
+            server_running.set()
+            logger.info("Snowpark Connect server started!")
+            telemetry.send_server_started_telemetry()
 
         current_stack_size = threading.stack_size()
         if _DEFAULT_THREAD_STACK_SIZE < current_stack_size < _MIN_THREAD_STACK_SIZE:
@@ -1855,6 +1892,12 @@ def start_session(
 
     patch_proto_to_string()
 
+    from snowflake.snowpark_connect.utils.patch_dataframe_star import (
+        patch_dataframe_star,
+    )
+
+    patch_dataframe_star()
+
     # Client stack injection feeds OTel spans and JSON QUERY_TAG (when enabled).
     # Patching is skipped only when both features are off at server startup.
     from snowflake.snowpark_connect.config import is_add_debug_info_to_query_tag_enabled
@@ -2019,6 +2062,12 @@ def init_spark_session(
             )
         from pyspark.sql import SparkSession
 
+        from snowflake.snowpark_connect.utils.patch_dataframe_star import (
+            patch_dataframe_star,
+        )
+
+        # Submit jobs build plans in this process and never call start_session.
+        patch_dataframe_star()
         builder = SparkSession.builder
         if conf is not None:
             for k, v in conf.getAll():

@@ -68,6 +68,7 @@ tests = [
   'test-subset-varc.c',
   'test-subset-sbix.c',
   'test-subset-gpos.c',
+  'test-subset-math.c',
   'test-subset-colr.c',
   'test-subset-cbdt.c',
   'test-unicode.c',
@@ -107,6 +108,7 @@ endif
 
 if conf.get('HB_EXPERIMENTAL_API', 0) == 1
   tests += 'test-ot-depend.c'
+  tests += 'test-shape-justify.c'
 endif
 
 # Default test running environment
@@ -132,7 +134,7 @@ foreach source : tests
     suite += 'subset'
   endif
 
-  if test_name.contains('-instance')
+  if test_name.contains('-instance') or test_name.contains('-justify')
     cpp_args += '-DHB_EXPERIMENTAL_API'
   endif
 

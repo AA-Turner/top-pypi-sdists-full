@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -34,6 +41,14 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .fabric_related import (
+    RelatedFabricDashboard,
+    RelatedFabricDataflow,
+    RelatedFabricDataPipeline,
+    RelatedFabricReport,
+    RelatedFabricSemanticModel,
+    RelatedFabricWorkspace,
+)
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,21 +62,6 @@ from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_related import RelatedDatabase
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .fabric_related import (
-    RelatedFabricDashboard,
-    RelatedFabricDataPipeline,
-    RelatedFabricDataflow,
-    RelatedFabricReport,
-    RelatedFabricSemanticModel,
-    RelatedFabricWorkspace,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -650,6 +650,7 @@ def _fabric_workspace_to_nested(
         is_incomplete=fabric_workspace.is_incomplete,
         provenance_type=fabric_workspace.provenance_type,
         home_id=fabric_workspace.home_id,
+        delete_handler=fabric_workspace.delete_handler,
         depth=fabric_workspace.depth,
         immediate_upstream=fabric_workspace.immediate_upstream,
         immediate_downstream=fabric_workspace.immediate_downstream,
@@ -698,6 +699,7 @@ def _fabric_workspace_from_nested(nested: FabricWorkspaceNested) -> FabricWorksp
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

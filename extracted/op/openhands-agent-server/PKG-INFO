@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openhands-agent-server
-Version: 1.57.0
+Version: 1.58.1
 Summary: OpenHands Agent Server - REST/WebSocket interface for OpenHands AI Agent
 Project-URL: Source, https://github.com/OpenHands/software-agent-sdk
 Project-URL: Homepage, https://github.com/OpenHands/software-agent-sdk
@@ -9,6 +9,7 @@ Project-URL: Bug Tracker, https://github.com/OpenHands/software-agent-sdk/issues
 Requires-Python: >=3.12
 Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: alembic>=1.13
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: docker<8,>=7.1
 Requires-Dist: fastapi>=0.104
 Requires-Dist: openhands-sdk

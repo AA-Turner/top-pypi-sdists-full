@@ -38,8 +38,7 @@ dependencies:
   - pandoc
   - seaborn
   - esda
-  - splot
   - watermark
   - pip
   - pip:
-    - pulp
+    - pulp<4

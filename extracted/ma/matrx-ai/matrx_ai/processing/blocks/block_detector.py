@@ -2543,11 +2543,17 @@ def _split_lines(
             xml_type, matched_tag = xml_match
             flush_text()
             extraction = extract_xml_block(xml_type, matched_tag, i, lines)
+            # Keep the written wrapper for section Copy, as the TypeScript
+            # splitter does. ``content`` and ``rawXml`` contain only the body.
+            written = "\n".join(lines[i : extraction.next_index])
+            closer = f"</{matched_tag[1:-1]}>"
+            end = written.rfind(closer)
+            xml_source = (written[: end + len(closer)] if end >= 0 else written).strip()
             blocks.append(
                 DetectedBlock(
                     type=xml_type,
                     content=extraction.content,
-                    metadata=extraction.metadata,
+                    metadata={**extraction.metadata, "xmlSource": xml_source},
                 )
             )
             i = extraction.next_index

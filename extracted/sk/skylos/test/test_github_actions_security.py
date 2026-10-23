@@ -54,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: someorg/lint-action@v1
       - run: echo "${{ github.event.pull_request.title }}"
 """.lstrip(),
         encoding="utf-8",
@@ -95,24 +98,24 @@ jobs:
   one:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: someorg/action@v1
   two:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: someorg/action@v1
 """.lstrip(),
         encoding="utf-8",
     )
 
     findings = scan_github_actions(tmp_path)
-    checkout_credentials = [
+    unpinned = [
         finding
         for finding in findings
-        if finding["rule_id"] == "SKY-D293"
-        and finding.get("value") == "actions/checkout@v4"
+        if finding["rule_id"] == "SKY-D292"
+        and finding.get("value") == "someorg/action@v1"
     ]
 
-    assert len(checkout_credentials) == 1
+    assert len(unpinned) == 1
 
 
 def test_github_actions_run_block_env_exfil_flags(tmp_path):
@@ -320,7 +323,6 @@ jobs:
         "SKY-D296",
         "SKY-D297",
         "SKY-D298",
-        "SKY-D299",
         "SKY-D300",
         "SKY-D301",
         "SKY-D302",
@@ -390,7 +392,7 @@ def test_github_actions_scanner_handles_shared_yaml_alias_once(tmp_path):
     workflow.write_text(
         """
 name: CI
-on: pull_request
+on: issue_comment
 x-secret-step: &secret-step
   run: echo "${{ secrets.PROD_TOKEN }}"
 jobs:
@@ -454,7 +456,6 @@ jobs:
         "SKY-D310",
         "SKY-D311",
         "SKY-D312",
-        "SKY-D313",
     }.issubset(_rule_ids(findings))
 
 
@@ -519,6 +520,7 @@ def test_publish_workflow_verifies_required_checks_before_publish():
         '["test", "analyzer-speed", "corpus", "quality-benchmark", "scan"]'
     )
     assert "gh api" in check_step["run"]
+    assert "--paginate --slurp" in check_step["run"]
     assert "check-runs?per_page=100&filter=all" in check_step["run"]
     assert "for attempt in {1..180}" in check_step["run"]
     assert 'run["id"]' in check_step["run"]
@@ -527,29 +529,60 @@ def test_publish_workflow_verifies_required_checks_before_publish():
     assert "Required release checks are not complete yet" in check_step["run"]
 
 
-def test_release_please_waits_for_required_ci_on_current_main():
+def test_release_please_rechecks_completed_ci_on_current_main():
     workflow = _release_please_workflow()
-    trigger = workflow.get("on", workflow.get(True))["push"]
+    triggers = workflow.get("on", workflow.get(True))
+    assert "push" not in triggers
+    trigger = triggers["workflow_run"]
     assert trigger["branches"] == ["main"]
+    assert trigger["types"] == ["completed"]
+    producers = [
+        "tests.yaml",
+        "analyzer-speed.yml",
+        "corpus.yml",
+        "quality-benchmark.yml",
+        "skylos.yaml",
+    ]
+    assert set(trigger["workflows"]) == {
+        yaml.safe_load((Path(".github/workflows") / name).read_text())["name"]
+        for name in producers
+    }
 
     job = workflow["jobs"]["release-please"]
     assert job["permissions"]["checks"] == "read"
-    assert job["timeout-minutes"] >= 75
+    assert job["timeout-minutes"] <= 15
+    assert job["concurrency"] == {
+        "group": "release-please-main",
+        "cancel-in-progress": False,
+        "queue": "max",
+    }
+    assert job["if"] == (
+        "github.event.workflow_run.event == 'push' && "
+        "github.event.workflow_run.head_branch == 'main' && "
+        "github.event.workflow_run.head_repository.full_name == github.repository && "
+        "github.event.workflow_run.head_sha == github.sha && "
+        "github.event.workflow_run.conclusion == 'success'"
+    )
     steps = job["steps"]
     head_step = next(s for s in steps if s.get("id") == "main_commit")
     check_step = next(s for s in steps if s.get("id") == "checks")
     release_step = next(s for s in steps if s.get("id") == "release")
     assert "git/ref/heads/main" in head_step["run"]
-    assert head_step["env"]["TESTED_SHA"] == "${{ github.sha }}"
+    tested_sha = "${{ github.event.workflow_run.head_sha }}"
+    assert head_step["env"]["TESTED_SHA"] == tested_sha
+    assert check_step["env"]["TESTED_SHA"] == tested_sha
+    checkout = next(s for s in steps if s.get("uses", "").startswith("actions/checkout@"))
+    assert checkout["with"]["ref"] == tested_sha
     assert "check_release_checks.py" in check_step["run"]
     assert "check-runs?per_page=100&filter=all" in check_step["run"]
-    assert "for attempt in {1..180}" in check_step["run"]
-    poll = check_step["run"].split("for attempt in {1..180}; do", 1)[1]
+    assert "--paginate --slurp" in check_step["run"]
+    assert "for attempt in 1 2 3" in check_step["run"]
+    poll = check_step["run"].split("for attempt in 1 2 3; do", 1)[1]
     before_check = poll.split("check-runs?per_page=100&filter=all", 1)[0]
     assert "git/ref/heads/main" in before_check
     assert 'if [[ "$TESTED_SHA" != "$main_sha" ]]; then' in before_check
     assert "exit 0" in before_check
-    assert "did not complete within one hour" in check_step["run"]
+    assert "Release deferred" in check_step["run"]
     assert release_step["if"] == "steps.checks.outputs.ready == 'true'"
     assert release_step["with"]["target-branch"] == "main"
     assert not {"SKY-D290", "SKY-D305"}.intersection(
@@ -654,6 +687,9 @@ def test_skylos_pr_workflow_uses_trusted_scanner_package():
     scan_step = next(s for s in steps if s.get("name") == "Run Skylos")
     assert "python -m skylos.cli" not in scan_step["run"]
     assert ".venv/bin/skylos" in scan_step["run"]
+    full_scan = scan_step["run"].split("\nelse\n", 1)[1].split("\nfi", 1)[0]
+    assert "--baseline" not in full_scan
+    assert "--diff" not in full_scan
 
     advisory_step = next(
         s for s in steps if s.get("name") == "Report findings (advisory)"
@@ -661,7 +697,7 @@ def test_skylos_pr_workflow_uses_trusted_scanner_package():
     assert "--advisory" in advisory_step["run"]
 
     blocker_step = next(
-        s for s in steps if s.get("name") == "Block new high-risk security findings"
+        s for s in steps if s.get("name") == "Block high-risk security findings"
     )
     assert blocker_step["if"] == "always() && steps.scan.outcome == 'success'"
     assert "HIGH" in blocker_step["run"]
@@ -724,7 +760,7 @@ def test_skylos_workflow_reports_incomplete_scan_before_preserving_exit_code():
     preserve_index = steps.index(preserve_step)
     report_steps = {
         "Report findings (advisory)",
-        "Block new high-risk security findings",
+        "Block high-risk security findings",
         "GitHub annotations",
         "Upload report artifact",
     }
@@ -749,7 +785,6 @@ def test_skylos_workflow_routes_github_context_through_environment():
         "EVENT_NAME": "${{ github.event_name }}",
         "PR_BASE_SHA": "${{ github.event.pull_request.base.sha }}",
         "BEFORE_SHA": "${{ github.event.before }}",
-        "REF_NAME": "${{ github.ref_name || 'main' }}",
     }
     assert "${{" not in diff_step["run"]
     assert '[[ ! "$PR_BASE_SHA" =~ ^[0-9a-f]{40}$ ]]' in diff_step["run"]
@@ -757,7 +792,10 @@ def test_skylos_workflow_routes_github_context_through_environment():
     assert 'echo "base=$PR_BASE_SHA"' in diff_step["run"]
     assert '[[ "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]]' in diff_step["run"]
     assert 'git cat-file -e "$BEFORE_SHA^{commit}"' in diff_step["run"]
-    assert 'git check-ref-format --branch "$REF_NAME"' in diff_step["run"]
+    assert 'git merge-base --is-ancestor "$BEFORE_SHA" HEAD' in diff_step["run"]
+    assert 'echo "base=" >> "$GITHUB_OUTPUT"' in diff_step["run"]
+    assert "git fetch" not in diff_step["run"]
+    assert "origin/" not in diff_step["run"]
 
 
 def test_composite_action_validates_and_quotes_max_comments_input():
@@ -844,6 +882,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: someorg/build-action@v1
 """.lstrip(),
         encoding="utf-8",
     )
@@ -970,6 +1011,8 @@ jobs:
       - uses: actions/checkout@${{{{ inputs.ref }}}}
       - uses: actions-rs/toolchain@v1
       - uses: github-actions/foo@v1
+      - uses: actions/cache/./@v4
+      - uses: actions//checkout@v4
       - uses: actions/setup-node@0b93645e9fea7318ecaed2b359559ac225c90a2b
   reuse:
     uses: actions/reusable/.github/workflows/x.yml@v1
@@ -1004,9 +1047,265 @@ def test_unpinned_github_owned_actions_are_low_and_third_party_high(
         "github/codeql-action/init@v3": "LOW",
         "actions/setup-python@main": "LOW",
         "actions/reusable/.github/workflows/x.yml@v1": "LOW",
+        "actions/cache/./@v4": "HIGH",
+        "actions//checkout@v4": "HIGH",
         "someorg/action@v1": "HIGH",
         "tj-actions/changed-files@v45": "HIGH",
         "actions/checkout@${{ inputs.ref }}": "HIGH",
         "actions-rs/toolchain@v1": "HIGH",
         "github-actions/foo@v1": "HIGH",
     }
+
+
+def _workflow_findings(tmp_path, text, rule_id):
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    assert write_text_no_symlink(workflows / "ci.yml", text.lstrip(), encoding="utf-8")
+    return [f for f in scan_github_actions(tmp_path) if f["rule_id"] == rule_id]
+
+
+_TWO_JOBS = """
+name: ci
+on: push
+{workflow_permissions}jobs:
+  build:
+    runs-on: ubuntu-latest
+{build_permissions}    steps:
+      - run: make
+  test:
+    runs-on: ubuntu-latest
+{test_permissions}    steps:
+      - run: make test
+"""
+_JOB_READ = "    permissions:\n      contents: read\n"
+
+
+def test_missing_permissions_are_one_workflow_finding_naming_inheriting_jobs(tmp_path):
+    findings = _workflow_findings(
+        tmp_path,
+        _TWO_JOBS.format(workflow_permissions="", build_permissions="", test_permissions=""),
+        "SKY-D291",
+    )
+    assert [(f["line"], f["value"]) for f in findings] == [(1, "default_permissions")]
+    assert "jobs build, test run with the repository's default" in findings[0]["message"]
+
+
+def test_missing_workflow_permissions_with_every_job_scoped_is_not_reported(tmp_path):
+    text = _TWO_JOBS.format(
+        workflow_permissions="", build_permissions=_JOB_READ, test_permissions=_JOB_READ
+    )
+    assert _workflow_findings(tmp_path, text, "SKY-D291") == []
+
+
+def test_missing_workflow_permissions_names_only_the_inheriting_job(tmp_path):
+    text = _TWO_JOBS.format(
+        workflow_permissions="", build_permissions=_JOB_READ, test_permissions=""
+    )
+    findings = _workflow_findings(tmp_path, text, "SKY-D291")
+    assert len(findings) == 1
+    assert "job test run with" in findings[0]["message"]
+    assert "build" not in findings[0]["message"]
+
+
+@pytest.mark.parametrize(
+    ("build_permissions", "expected"),
+    [("", ["contents:write"]), (_JOB_READ, [])],
+)
+def test_workflow_write_grant_is_reported_only_when_several_jobs_inherit_it(
+    tmp_path, build_permissions, expected
+):
+    text = _TWO_JOBS.format(
+        workflow_permissions="permissions:\n  contents: write\n",
+        build_permissions=build_permissions,
+        test_permissions="",
+    )
+    findings = _workflow_findings(tmp_path, text, "SKY-D291")
+    assert [f["value"] for f in findings] == expected
+    if expected:
+        assert findings[0]["line"] == 4
+
+
+def test_job_write_all_points_at_that_jobs_permissions(tmp_path):
+    text = _TWO_JOBS.format(
+        workflow_permissions="permissions: {}\n",
+        build_permissions=_JOB_READ,
+        test_permissions="    permissions: write-all\n",
+    )
+    findings = _workflow_findings(tmp_path, text, "SKY-D291")
+    assert [(f["value"], f["line"]) for f in findings] == [("test:write-all", 13)]
+
+
+_CHECKOUT_JOB = """
+name: ci
+on: {trigger}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+{permissions}    steps:
+      - uses: actions/checkout@v4
+{checkout_with}{later}"""
+
+
+def _persisted(tmp_path, *, trigger="push", permissions="", checkout_with="", later=""):
+    text = _CHECKOUT_JOB.format(
+        trigger=trigger,
+        permissions=permissions,
+        checkout_with=checkout_with,
+        later=later,
+    )
+    return _workflow_findings(tmp_path, text, "SKY-D293")
+
+
+_WRITE = "    permissions:\n      contents: write\n"
+_THIRD_PARTY = "      - uses: someorg/deploy@v1\n"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        {},
+        {"later": "      - run: make\n"},
+        {"permissions": _WRITE, "later": "      - uses: actions/setup-node@v4\n"},
+        {"permissions": _WRITE, "later": "      - uses: ./.github/actions/local\n"},
+        {"permissions": "    permissions:\n      id-token: write\n", "later": _THIRD_PARTY},
+        {"later": _THIRD_PARTY},
+        {
+            "permissions": _WRITE,
+            "checkout_with": "        with:\n          persist-credentials: false\n",
+            "later": _THIRD_PARTY,
+        },
+        {"trigger": "pull_request_target", "later": "      - run: make\n"},
+        {"trigger": "issue_comment", "permissions": "    permissions:\n      issues: write\n"},
+    ],
+)
+def test_persisted_checkout_without_exposure_evidence_is_not_reported(tmp_path, case):
+    assert _persisted(tmp_path, **case) == []
+
+
+def test_persisted_write_token_beside_later_third_party_action_is_reported(tmp_path):
+    findings = _persisted(tmp_path, permissions=_WRITE, later=_THIRD_PARTY)
+    assert [f["line"] for f in findings] == [9]
+    assert "contents write access" in findings[0]["message"]
+    assert "someorg/deploy@v1" in findings[0]["message"]
+
+
+def test_persisted_checkout_of_pull_request_code_on_untrusted_trigger_is_reported(
+    tmp_path,
+):
+    findings = _persisted(
+        tmp_path,
+        trigger="pull_request_target",
+        checkout_with=(
+            "        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n"
+        ),
+        later="      - run: make\n",
+    )
+    assert len(findings) == 1
+    assert "pull_request_target" in findings[0]["message"]
+
+
+def _upload(ref, path, extra=""):
+    return (
+        f"      - uses: actions/upload-artifact@{ref}\n"
+        f"        with:\n          name: site\n          path: {path}\n{extra}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("later", "checkout_with", "reported"),
+    [
+        (_upload("v4.3.6", "."), "", True),
+        (_upload("v3", "${{ github.workspace }}"), "", True),
+        (_upload("de0fac2e4500dabe0009e67214ff5f5447ce83dd", "./"), "", True),
+        (_upload("v4", ".", "          include-hidden-files: true\n"), "", True),
+        (_upload("v4", "."), "", False),
+        (_upload("v5.0.0", "."), "", False),
+        (_upload("v4.3.6", "dist/"), "", False),
+        (_upload("v4.3.6", "src"), "        with:\n          path: src\n", True),
+        (_upload("v4.3.6", "src/dist"), "        with:\n          path: src\n", False),
+    ],
+)
+def test_persisted_checkout_uploaded_as_artifact(tmp_path, later, checkout_with, reported):
+    findings = _persisted(tmp_path, later=later, checkout_with=checkout_with)
+    assert bool(findings) is reported
+    if reported:
+        assert "as an artifact" in findings[0]["message"]
+
+
+_SECRET_JOB = """
+name: ci
+on: {trigger}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+{job_extra}    steps:
+      - run: ./deploy.sh
+        env:
+          TOKEN: ${{{{ secrets.DEPLOY_TOKEN }}}}
+"""
+
+
+@pytest.mark.parametrize(
+    ("trigger", "job_extra"),
+    [
+        ("push", ""),
+        ("schedule", ""),
+        ("workflow_dispatch", ""),
+        ("release", ""),
+        ("pull_request", ""),
+        ("\n  pull_request_target:\n    types: [labeled]", ""),
+        ("issue_comment", "    environment: production\n"),
+        (
+            "issue_comment",
+            "    if: github.event.comment.author_association == 'OWNER'\n",
+        ),
+    ],
+)
+def test_secret_in_job_only_writers_can_start_is_not_reported(tmp_path, trigger, job_extra):
+    text = _SECRET_JOB.format(trigger=trigger, job_extra=job_extra)
+    assert _workflow_findings(tmp_path, text, "SKY-D299") == []
+
+
+@pytest.mark.parametrize("trigger", ["issue_comment", "pull_request_target", "issues"])
+def test_secret_in_job_outsiders_can_start_is_reported(tmp_path, trigger):
+    text = _SECRET_JOB.format(trigger=trigger, job_extra="")
+    findings = _workflow_findings(tmp_path, text, "SKY-D299")
+    assert [f["value"] for f in findings] == ["deploy:DEPLOY_TOKEN"]
+    assert trigger in findings[0]["message"]
+
+
+_TIMEOUT_JOB = """
+name: ci
+on: {trigger}
+jobs:
+  publish:
+    runs-on: {runner}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@{checkout}
+{checkout_with}      - run: make release
+"""
+_PR_HEAD = "        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n"
+
+
+@pytest.mark.parametrize(
+    ("trigger", "runner", "checkout_with", "reported"),
+    [
+        ("release", "ubuntu-latest", "", False),
+        ("push", "ubuntu-latest", "", False),
+        ("pull_request_target", "ubuntu-latest", "", False),
+        ("release", "[self-hosted, linux]", "", False),
+        ("pull_request_target", "ubuntu-latest", _PR_HEAD, True),
+    ],
+)
+def test_privileged_job_timeout_is_reported_only_when_the_default_does_not_bound_it(
+    tmp_path, trigger, runner, checkout_with, reported
+):
+    text = _TIMEOUT_JOB.format(
+        trigger=trigger,
+        runner=runner,
+        checkout="de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+        checkout_with=checkout_with,
+    )
+    assert bool(_workflow_findings(tmp_path, text, "SKY-D313")) is reported

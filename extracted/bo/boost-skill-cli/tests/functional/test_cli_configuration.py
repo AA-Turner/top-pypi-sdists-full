@@ -59,7 +59,7 @@ class TestConfig:
         cfg = json.loads(r.out)
         assert cfg["ai"]["model"] == "claude-haiku-4-5-20251001"
         assert cfg["serve"]["port"] == 8787
-        assert cfg["telemetry"] is False
+        assert "telemetry" not in cfg   # retired: nothing read it
         # non-json variant appends the config path
         r = boost("config")
         assert "~/.boost/config.json" in r.out
@@ -75,7 +75,7 @@ class TestConfig:
     def test_list_once_config_json_exists_names_it_plainly(self, boost, sandbox):
         # The sibling of the pristine-home case: once the file is real, the
         # trailer goes back to naming it with no "not created yet" caveat.
-        boost("config", "set", "telemetry", "true")
+        boost("config", "set", "policy_enforce", "true")
         assert paths.config_path().exists()
         r = boost("config")
         assert r.out.rstrip().endswith("~/.boost/config.json")
@@ -90,7 +90,7 @@ class TestConfig:
         assert json.loads(r.out) == {"port": 8787}
         r = boost("config", "get", "no.such.key", expect=1)
         assert "no config key 'no.such.key'" in r.err
-        r = boost("config", "get", expect=1)
+        r = boost("config", "get", expect=2)     # usage error
         assert "config get requires a KEY" in r.err
 
     def test_set_with_a_typo_warns_and_names_the_meant_key(self, boost, sandbox):
@@ -114,7 +114,7 @@ class TestConfig:
         on_disk = json.loads(paths.config_path().read_text(encoding="utf-8"))
         assert on_disk["serve"]["port"] == 9999
         assert boost("config", "get", "serve.port", "--json").out.strip() == "9999"
-        r = boost("config", "set", "serve.port", expect=1)
+        r = boost("config", "set", "serve.port", expect=2)   # usage error
         assert "config set requires a VALUE" in r.err
 
     def test_set_through_scalar_fails_cleanly(self, boost, sandbox):
@@ -148,8 +148,8 @@ class TestConfig:
         # used to report success and freeze all of DEFAULTS into a brand new
         # config.json.
         assert not paths.config_path().exists()
-        r = boost("config", "unset", "telemetry")
-        assert "telemetry not set" in r.out
+        r = boost("config", "unset", "policy_enforce")
+        assert "policy_enforce not set" in r.out
         assert not paths.config_path().exists()
 
     def test_stray_positionals_are_usage_errors(self, boost, sandbox):
@@ -447,7 +447,7 @@ class TestPolicy:
         r = boost("policy", "set", "nope", "1", expect=1)
         assert "unknown policy key 'nope'" in r.err
         assert "blocked_skills" in r.err  # hint lists valid keys
-        r = boost("policy", "set", "pin_only", expect=1)
+        r = boost("policy", "set", "pin_only", expect=2)     # usage error
         assert "policy set requires a VALUE" in r.err
 
     def test_check_clean_vs_violations(self, boost, installed):
@@ -686,7 +686,7 @@ class TestOnboard:
         real_run = subprocess.run
 
         def fake_run(cmd, **kw):  # intercept only gh; git must stay real
-            if cmd and cmd[0] == "gh":
+            if cmd and cmd[0] == "/usr/bin/gh":
                 calls.append(list(cmd))
                 return _proc(cmd, 0, out="https://github.com/o/r/pull/7\n")
             return real_run(cmd, **kw)
@@ -695,7 +695,9 @@ class TestOnboard:
                             fake_run)
         r = boost("onboard", "--repo", repo, "--pr")
         assert "opened PR https://github.com/o/r/pull/7" in r.out
-        assert calls == [["gh", "pr", "create", "--fill"]]
+        # launched by the path `which` found (a .cmd shim on Windows cannot
+        # be started by its bare name), with the git calls left alone
+        assert calls == [["/usr/bin/gh", "pr", "create", "--fill"]]
         head = subprocess.run(["git", "rev-parse", "--abbrev-ref", "HEAD"],
                               cwd=str(repo), capture_output=True, text=True)
         assert head.stdout.strip() == "boost/onboard-skill-tracker"
@@ -711,7 +713,7 @@ class TestOnboard:
         monkeypatch.setattr(
             "boost_cli.commands.configuration.subprocess.run",
             lambda cmd, **kw: _proc(cmd, 1, err="boom")
-            if cmd and cmd[0] == "gh" else real_run(cmd, **kw))
+            if cmd and cmd[0] == "/usr/bin/gh" else real_run(cmd, **kw))
         r = boost("onboard", "--repo", repo, "--pr", expect=1)
         assert "gh pr create failed: boom" in r.err
         assert "boost/onboard-skill-tracker" in r.err  # hint names the branch
@@ -725,7 +727,7 @@ class TestOnboard:
         monkeypatch.setattr(
             "boost_cli.commands.configuration.subprocess.run",
             lambda cmd, **kw: _proc(cmd, 1, err="boom")
-            if cmd and cmd[0] == "gh" else real_run(cmd, **kw))
+            if cmd and cmd[0] == "/usr/bin/gh" else real_run(cmd, **kw))
         boost("onboard", "--repo", repo, "--pr", expect=1)
         main = subprocess.run(["git", "rev-parse", "--abbrev-ref", "@{-1}"],
                               cwd=str(repo), capture_output=True, text=True)
@@ -899,7 +901,7 @@ class TestOnboardOverwrite:
         monkeypatch.setattr(
             "boost_cli.commands.configuration.subprocess.run",
             lambda cmd, **kw: _proc(cmd, 0, out="https://github.com/o/r/pull/9\n")
-            if cmd and cmd[0] == "gh" else real_run(cmd, **kw))
+            if cmd and cmd[0] == "/usr/bin/gh" else real_run(cmd, **kw))
         monkeypatch.delenv("BOOST_ASSUME_YES")     # decline the lock overwrite
         boost("onboard", "--repo", repo, "--pr")
 
@@ -2028,7 +2030,11 @@ class TestMcp:
         calls = []
 
         def fake_run(cmd, **kw):
-            calls.append(list(cmd))
+            # Launched by the path `which` resolved, never the bare name:
+            # Windows cannot start an npm `.cmd` shim by its bare name.
+            cli = pathlib.PurePosixPath(cmd[0]).name
+            assert cmd[0] == "/usr/local/bin/" + cli
+            calls.append([cli, *cmd[1:]])
             return _proc(cmd, 0, out="Added stdio MCP server boost\n")
 
         monkeypatch.setattr("boost_cli.commands.configuration.subprocess.run",
@@ -2174,8 +2180,9 @@ class TestMcp:
                 self.returncode, self.stderr, self.stdout = rc, err, ""
 
         def fake_run(cmd, **kw):
-            seen.append(cmd[0])
-            return _P(*results[cmd[0]])
+            cli = pathlib.PurePosixPath(cmd[0]).name
+            seen.append(cli)
+            return _P(*results[cli])
 
         monkeypatch.setattr("boost_cli.commands.configuration.subprocess.run",
                             fake_run)
@@ -2568,12 +2575,13 @@ class TestMcp:
         calls = []
 
         def fake_run(cmd, **kw):
+            cli = pathlib.PurePosixPath(cmd[0]).name
             target = pathlib.Path(mcphost.user_config_path(
-                cmd[0], os.environ, os.environ["HOME"]))
+                cli, os.environ, os.environ["HOME"]))
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('{"mcpServers": {"boost": {}}}',
                               encoding="utf-8")
-            calls.append(list(cmd))
+            calls.append([cli, *cmd[1:]])
             return _proc(cmd, 0, out="Added stdio MCP server boost\n")
 
         monkeypatch.setattr("boost_cli.commands.configuration.subprocess.run",
@@ -2797,10 +2805,32 @@ class TestSelfUpdate:
         monkeypatch.setattr("sys.prefix", str(sandbox))
         monkeypatch.setattr("boost_cli.core.selfupdate.installed_version",
                             lambda: "1.0.0")
+        monkeypatch.setattr("boost_cli.core.selfupdate.installer",
+                            lambda: "pip")
+        monkeypatch.setattr("boost_cli.core.selfupdate.has_pip", lambda: True)
         r = boost("self-update", "--dry-run")
         assert "installed with: pip" in r.out
         assert ("would run: %s -m pip install --no-cache-dir --upgrade "
                 "boost-skill-cli" % sys.executable) in r.out
+
+    def test_a_uv_pip_install_upgrades_with_uv_not_a_missing_pip(
+            self, boost, sandbox, monkeypatch):
+        # INSTALLER=uv in a venv made without pip: `python -m pip` there is
+        # "No module named pip", so the only command that can work is uv's.
+        self._not_a_checkout(monkeypatch, sandbox)
+        monkeypatch.setattr("sys.prefix", str(sandbox))
+        monkeypatch.setattr("boost_cli.core.selfupdate.installed_version",
+                            lambda: "1.0.9")
+        monkeypatch.setattr("boost_cli.core.selfupdate.installer",
+                            lambda: "uv")
+        monkeypatch.setattr("boost_cli.core.selfupdate.has_pip", lambda: False)
+        monkeypatch.setattr("boost_cli.core.selfupdate.shutil.which",
+                            lambda t: "/opt/bin/" + t)
+        r = boost("self-update", "--dry-run")
+        assert "installed with: uv-pip" in r.out
+        assert ("would run: /opt/bin/uv pip install --python %s --refresh "
+                "--upgrade boost-skill-cli" % sys.executable) in r.out
+        assert "-m pip" not in r.out
 
     def test_pipx_upgrade_reports_the_new_version(self, boost, sandbox,
                                                   monkeypatch):
@@ -2847,6 +2877,20 @@ class TestSelfUpdate:
         # The hint has to be actionable: a plain `upgrade` has already been
         # tried and declined, so it must pin the version and force it.
         assert "pipx install --force boost-skill-cli==99.0.0" in r.err
+
+    def test_a_dev_build_of_the_latest_release_is_not_up_to_date(
+            self, boost, sandbox, monkeypatch):
+        # 1.0.424.dev3 precedes 1.0.424 (PEP 440); comparing the release
+        # numbers alone called them equal and printed "already up to date".
+        self._no_op_upgrade(monkeypatch, sandbox, latest="1.0.424")
+        monkeypatch.setattr("boost_cli.commands.configuration.__version__",
+                            "1.0.424.dev3+g36b74ba")
+        monkeypatch.setattr("boost_cli.core.selfupdate.observed_version",
+                            lambda: "1.0.424.dev3+g36b74ba")
+        r = boost("self-update", expect=1)
+        assert "already up to date" not in r.out
+        assert ("pipx exited 0 but boost is still v1.0.424.dev3+g36b74ba — "
+                "PyPI has v1.0.424") in r.err
 
     def test_a_no_op_upgrade_at_the_latest_version_is_up_to_date(
             self, boost, sandbox, monkeypatch):
@@ -2969,11 +3013,15 @@ class TestSelfUpdate:
         # the pull fast-forwards HEAD -> report the git-described new version.
         # This path was unreachable before the fix (the old code grepped
         # __init__.py for a __version__ literal setuptools-scm never writes).
-        self._fake_git(monkeypatch, before="oldsha\n", after="newsha\n",
-                       described="v9.9.9\n")
+        calls = self._fake_git(monkeypatch, before="oldsha\n",
+                               after="newsha\n", described="v9.9.9\n")
         r = boost("self-update")
         from boost_cli import __version__
         assert ("boost v%s → v9.9.9" % __version__) in r.out
+        # Only version tags may describe the pull: a newer `shards-latest`
+        # tag otherwise reported "→ vshards-latest-1-g…".
+        assert ["-C", str(paths.repo_root()), "describe", "--tags", "--always",
+                "--dirty", "--match", "v[0-9]*"] in calls
         ev = journal.events(action="self-update")[0]
         assert ev["subject"] == "9.9.9"          # git-derived, not the stale const
         assert ev["previous"] == __version__
@@ -3132,14 +3180,71 @@ class TestTypedValues:
         paths.policy_path().write_text(
             json.dumps({"max_skills": "abc", "blocked_skills": 42}),
             encoding="utf-8")
-        for argv in (("policy", "list"), ("policy", "check")):
-            r = boost(*argv)
-            assert ('ignoring max_skills = "abc" in policy.json — expects '
-                    "a whole number, or null for no limit") in r.out
-            assert ("ignoring blocked_skills = 42 in policy.json — expects "
-                    "a comma-separated list, or a JSON array") in r.out
-            assert ("using the default; fix it with "
-                    "`boost policy set max_skills <int-or-null>`") in r.out
+        for argv, rc in ((("policy", "list"), 0), (("policy", "check"), 1)):
+            r = boost(*argv, expect=rc)
+            out = " ".join(r.out.split())
+            assert ('cannot read max_skills = "abc" in policy.json — expects '
+                    "a whole number, or null for no limit") in out
+            assert ("cannot read blocked_skills = 42 in policy.json — expects "
+                    "a comma-separated list, or a JSON array") in out
+            assert ("installs and taps are refused until it is fixed with "
+                    "`boost policy set max_skills <int-or-null>`") in out
+            assert "using the default" not in out
+        # Shown as the default, but it is not one.
+        assert "all values at defaults" not in boost("policy", "list").out
+
+    @pytest.mark.parametrize("key, raw, expected, spec", [
+        ("blocked_skills", '{"cowboy-coding": true}',
+         "a comma-separated list, or a JSON array", "list"),
+        ("pin_only", "frozen",
+         "a boolean (true/false, yes/no, on/off, 1/0)", "bool"),
+        ("max_skills", "2.5", "a whole number, or null for no limit",
+         "int-or-null"),
+    ])
+    def test_policy_set_refuses_what_policy_json_could_not_hold(
+            self, boost, sandbox, key, raw, expected, spec):
+        r = boost("policy", "set", key, raw, expect=1)
+        err = " ".join(r.err.split())
+        assert "Error: %s expects %s" % (key, expected) in err
+        assert "try `boost policy set %s <%s>`" % (key, spec) in err
+        assert not paths.policy_path().exists()
+
+    def test_an_unreadable_policy_value_fails_closed(self, boost, tapped):
+        # `{"blocked_skills": {...}}` read as an empty blocklist: the blocked
+        # skill installed, check passed and doctor said healthy.
+        paths.ensure_dirs()
+        p = paths.policy_path()
+        p.write_text(json.dumps({"blocked_skills": {"brainstorming": True}}),
+                     encoding="utf-8")
+        why = ('policy.json holds blocked_skills = {"brainstorming": true}, '
+               "which expects a comma-separated list, or a JSON array — boost "
+               "cannot read it, so it will not install until it is fixed with "
+               "`boost policy set` or `boost policy unset`")
+        r = boost("install", "brainstorming", expect=1)
+        assert ("policy blocks installing brainstorming: %s" % why
+                in " ".join(r.err.split()))
+        r = boost("policy", "check", "--json", expect=1)
+        assert json.loads(r.out)["violations"] == [
+            {"name": None, "kind": None, "skill": "(policy)", "violation": why}]
+        r = boost("doctor", "--json", expect=None)
+        assert r.rc == 1
+        rows = [c for c in json.loads(r.out)["checks"] if c["name"] == "policy"]
+        assert [c["message"] for c in rows] == [
+            'policy.json holds blocked_skills = {"brainstorming": true}, which '
+            "expects a comma-separated list, or a JSON array — every install "
+            "is refused until it is fixed with `boost policy set "
+            "blocked_skills <list>`"]
+        # Setting another key keeps the unreadable value rather than writing
+        # the empty default over it.
+        boost("policy", "set", "require_description", "true")
+        assert json.loads(p.read_text(encoding="utf-8"))["blocked_skills"] == {
+            "brainstorming": True}
+        boost("install", "brainstorming", expect=1)
+        # Fixing the key itself is the repair, and the blocklist then holds.
+        boost("policy", "set", "blocked_skills", "brainstorming")
+        r = boost("install", "brainstorming", expect=1)
+        assert "skill 'brainstorming' is on the blocklist" in r.err
+        assert "cannot read" not in r.err
 
     def test_policy_set_and_unset_json(self, boost, sandbox):
         r = boost("policy", "set", "pin_only", "no", "--json")
@@ -3168,17 +3273,29 @@ class TestTypedValues:
     def test_config_set_rejects_a_non_number_port(self, boost, sandbox):
         r = boost("config", "set", "serve.port", "abc", expect=1)
         assert "serve.port expects a whole number" in r.err
-        assert '`boost config set serve.port <int>`' in r.err
+        # The placeholder names the range set_value enforces, not just "int".
+        assert '`boost config set serve.port <0-65535>`' in r.err
         assert not paths.config_path().exists()
 
     def test_config_set_boolean_words(self, boost, sandbox):
-        assert "set telemetry = false" in boost("config", "set",
-                                                "telemetry", "no").out
-        assert "set telemetry = true" in boost("config", "set",
-                                               "telemetry", "on").out
-        r = boost("config", "set", "telemetry", "maybe", expect=1)
-        assert "telemetry expects a boolean" in r.err
-        assert "`boost config set telemetry <bool>`" in r.err
+        assert "set policy_enforce = false" in boost(
+            "config", "set", "policy_enforce", "no").out
+        assert "set policy_enforce = true" in boost(
+            "config", "set", "policy_enforce", "on").out
+        r = boost("config", "set", "policy_enforce", "maybe", expect=1)
+        assert "policy_enforce expects a boolean" in r.err
+        assert "`boost config set policy_enforce <bool>`" in r.err
+
+    def test_config_set_retired_telemetry_warns(self, boost, sandbox):
+        # An old config.json holding it still loads; a set saves and says so.
+        r = boost("config", "set", "telemetry", "true")
+        assert r.out.strip() == "✓ set telemetry = true"
+        assert " ".join(r.err.split()) == (
+            "! 'telemetry' has no effect — boost collects no telemetry, so "
+            "nothing reads this key (saved anyway)")
+        assert json.loads(paths.config_path().read_text(
+            encoding="utf-8")) == {"telemetry": True}
+        assert boost("config", "list", "--json").out.count('"telemetry"') == 1
 
     def test_config_set_rejects_a_scalar_for_a_section(self, boost, sandbox):
         r = boost("config", "set", "ai", "3", expect=1)
@@ -3193,17 +3310,17 @@ class TestTypedValues:
         assert boost("config", "get", "custom.flag", "--json").out.strip() == "true"
 
     def test_config_set_json(self, boost, sandbox):
-        r = boost("config", "set", "telemetry", "no", "--json")
-        assert json.loads(r.out) == {"key": "telemetry", "value": False}
+        r = boost("config", "set", "policy_enforce", "no", "--json")
+        assert json.loads(r.out) == {"key": "policy_enforce", "value": False}
         r = boost("config", "set", "ai.enabled", "true", "--json")
         assert json.loads(r.out) == {"key": "ai.enabled", "value": True}
 
     def test_config_unset_json(self, boost, sandbox):
-        boost("config", "set", "telemetry", "no")
-        r = boost("config", "unset", "telemetry", "--json")
-        assert json.loads(r.out) == {"key": "telemetry", "unset": True}
-        r = boost("config", "unset", "telemetry", "--json")
-        assert json.loads(r.out) == {"key": "telemetry", "unset": False}
+        boost("config", "set", "policy_enforce", "no")
+        r = boost("config", "unset", "policy_enforce", "--json")
+        assert json.loads(r.out) == {"key": "policy_enforce", "unset": True}
+        r = boost("config", "unset", "policy_enforce", "--json")
+        assert json.loads(r.out) == {"key": "policy_enforce", "unset": False}
 
     def test_serve_help_survives_a_hand_edited_port(self, boost, sandbox):
         # `serve --help` used to die with a bare ValueError and exit 70,

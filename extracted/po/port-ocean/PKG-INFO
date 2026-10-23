@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.55.3
+Version: 0.55.5
 Summary: Port Ocean is a Python framework for building integrations that ingest data into Port, the platform for building your AI software factory.
 License-File: LICENSE.md
 Keywords: ocean,port-ocean,port
@@ -28,6 +28,7 @@ Provides-Extra: cli
 Requires-Dist: aiofiles (>=25.1.0,<26.0.0)
 Requires-Dist: aiostream (>=0.5.2,<0.7.0)
 Requires-Dist: boto3 (>=1.43.106,<2.0.0) ; extra == "aws-vault"
+Requires-Dist: certifi (>=2026.10.19)
 Requires-Dist: click (>=8.5.0,<9.0.0) ; extra == "cli"
 Requires-Dist: confluent-kafka (>=2.15.1,<3.0.0)
 Requires-Dist: cookiecutter (>=2.1.1,<3.0.0) ; extra == "cli"
@@ -61,7 +62,7 @@ Requires-Dist: starlette (>=1.7.0,<2.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0)
 Requires-Dist: urllib3 (>=2.8.0,<3.0.0)
 Requires-Dist: uvicorn (>=0.54.0,<0.55.0)
-Requires-Dist: virtualenv (>=21.14.2,<22.0.0)
+Requires-Dist: virtualenv (>=21.14.9,<22.0.0)
 Requires-Dist: werkzeug (>=3.1.9,<4.0.0)
 Project-URL: Documentation, https://docs.port.io/context-lake/ingestion/ingest-data-into-port/native-integrations/ocean-framework/overview/
 Project-URL: Homepage, https://docs.port.io/context-lake/ingestion/ingest-data-into-port/native-integrations/ocean-framework/overview/

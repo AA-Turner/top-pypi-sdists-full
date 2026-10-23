@@ -122,6 +122,9 @@ class PageState:
     meta_description: str | None = None
     content_hash: str | None = None
     word_count: int | None = None
+    #: The snapshot's text fingerprint version — the counting method its
+    #: `word_count` came from. Word counts of different versions are never compared.
+    text_version: int | None = None
 
 
 @dataclass(slots=True)
@@ -245,8 +248,22 @@ def compute_diff(
     for key in both_keys:
         before = base_pages[key]
         after = compare_pages[key]
+        comparable = _CHANGE_FIELDS
+        # Only two KNOWN, different counting methods mute the word count. A missing
+        # version is a page whose text became (or was) empty — a fingerprint is
+        # not computed over no text — and that is a real change, never muted.
+        if (
+            _counting_method(before) is not None
+            and _counting_method(after) is not None
+            and _counting_method(before) != _counting_method(after)
+            and before.word_count != after.word_count
+        ):
+            # The counting method changed between the two captures; a different
+            # number says nothing about the page. Said once, in the counts.
+            comparable = tuple(name for name in _CHANGE_FIELDS if name != "word_count")
+            counts.word_count_method_changed += 1
         changed_fields = [
-            name for name in _CHANGE_FIELDS if getattr(before, name) != getattr(after, name)
+            name for name in comparable if getattr(before, name) != getattr(after, name)
         ]
         if not changed_fields:
             counts.pages_unchanged += 1
@@ -442,9 +459,32 @@ async def build_session_pages(session_ids: list[str]) -> dict[str, SessionPages]
                 meta_description=_head_tag(snapshot, "meta_description"),
                 content_hash=snapshot.content_hash if snapshot is not None else None,
                 word_count=snapshot.word_count if snapshot is not None else None,
+                text_version=_text_version(snapshot),
             )
         out[session_id] = result
     return out
+
+
+#: A snapshot with text but no fingerprint version predates versioned counting.
+LEGACY_COUNTING = 0
+
+
+def _counting_method(state: PageState) -> int | None:
+    """How a state's word count was made: its fingerprint version, `LEGACY_COUNTING`
+    for a non-empty snapshot older than versioning, or None for an EMPTY page (no
+    text, so no fingerprint) — a page becoming empty is always a real change."""
+    if state.text_version is not None:
+        return state.text_version
+    return LEGACY_COUNTING if state.word_count else None
+
+
+def _text_version(snapshot: Any) -> int | None:
+    """The snapshot's text fingerprint version (`extracted.fingerprint.version`)."""
+    if snapshot is None:
+        return None
+    fingerprint = ((getattr(snapshot, "extracted", None) or {}).get("fingerprint")) or {}
+    version = fingerprint.get("version") if isinstance(fingerprint, dict) else None
+    return version if isinstance(version, int) and not isinstance(version, bool) else None
 
 
 async def _resolve_previous(session: WebCrawlSession) -> WebCrawlSession | None:

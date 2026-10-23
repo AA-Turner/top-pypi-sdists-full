@@ -1,18 +1,21 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pip-check
-Version: 3.2.1
+Version: 3.3
 Summary: Display installed pip packages and their update status.
 Project-URL: Homepage, https://github.com/bartTC/pip-check/
 Project-URL: Issues, https://github.com/bartTC/pip-check/issues
+Project-URL: Changelog, https://github.com/bartTC/pip-check/blob/main/CHANGELOG.md
 Author-email: Martin Mahner <martin@mahner.org>
-License: MIT
+License-Expression: MIT
 License-File: LICENSE
+Keywords: dependencies,outdated,packages,pip,upgrade,uv
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -20,9 +23,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Software Development
+Classifier: Topic :: System :: Software Distribution
+Classifier: Topic :: Utilities
 Requires-Python: >=3.8
-Requires-Dist: packaging
-Requires-Dist: terminaltables
+Requires-Dist: packaging>=20.0
+Requires-Dist: terminaltables>=3.1
 Description-Content-Type: text/markdown
 
 [![Testsuite](https://github.com/bartTC/pip-check/actions/workflows/test.yml/badge.svg)](https://github.com/bartTC/pip-check/actions/workflows/test.yml)
@@ -34,7 +41,7 @@ Description-Content-Type: text/markdown
 # pip-check
 
 pip-check gives you a quick overview of all installed packages and their
-update status. Under the hood it calls `pip list --outdated --format=columns`
+update status. Under the hood it calls `pip list --outdated --format=json`
 and transforms it into a more user-friendly table.
 
 pip-check also supports uv, or pip at any location. Pass the `pip`
@@ -64,7 +71,7 @@ pip install pip-check==2.5.2
 
 ```bash
 $ pip-check -h
-usage: __init__.py [-h] [-a] [-c PIP_CMD] [-l] [-r] [-f] [-H] [-u] [-U]
+usage: pip-check [options] [-- PIP_ARGS ...]
 
 A quick overview of all installed packages and their update status. Supports `pip` or `uv pip`.
 
@@ -78,7 +85,30 @@ options:
   -H, --hide-unchanged  Do not show "unchanged" packages.
   -u, --show-update     Show update instructions for updatable packages. (pip only)
   -U, --user            Show only user installed packages. (pip only)
+  --version             Show the version of pip-check and exit.
+
+Arguments after `--` are passed to `pip list` as they are, e.g. `pip-check -- --pre` to include pre-releases, or `pip-check -- --extra-index-url URL` to also check another index. With uv, use uv's
+options, e.g. `-- --index URL`. They are also added to the --show-update command.
 ```
+
+## Pre-releases and other package indexes:
+
+Everything after `--` is passed to `pip list` unchanged, so pip-check can use
+any of pip's options:
+
+```
+pip-check -- --pre                                        # include pre-releases
+pip-check -- --extra-index-url https://my.index/simple    # also check another index
+pip-check -- --index-url https://mirror.example/simple    # check a mirror instead of PyPI
+pip-check -c "uv pip" -- --index https://my.index/simple  # uv uses its own option names
+```
+
+The same arguments are added to the upgrade command that `--show-update`
+prints, so e.g. a listed pre-release actually gets installed. uv's `pip list`
+has no pre-release option, so `--pre` only works with pip.
+
+pip's own configuration applies as well, so a `pip.conf` or environment
+variables such as `PIP_PRE=1` or `PIP_EXTRA_INDEX_URL` work without `--`.
 
 ## Local Development
 
@@ -87,8 +117,19 @@ pip-check uses `uv` for local development.
 ```
 uv sync         # Create a .venv and install dependencies
 uv build        # Build distribution packages
-uvx uv-publish  # Publish on Pypi
 ```
+
+### Releasing:
+
+Releases are published to PyPI by GitHub Actions. Bump `version` in
+`pyproject.toml`, add the CHANGELOG entry, then push a matching tag:
+
+```bash
+$ git tag v3.3 && git push origin v3.3
+```
+
+The Publish workflow checks that the tag matches the project version, runs
+the full test suite and uploads the package using PyPI Trusted Publishing.
 
 ### Testing:
 
@@ -105,6 +146,19 @@ $ uv run nox
 
 
 # Changelog
+
+v3.3 (2026-10-22):
+
+- Pass extra arguments to `pip list` after `--`, e.g. `pip-check -- --pre` to include pre-releases (#28) or `pip-check -- --extra-index-url URL` to also check another index (#30). They're added to the `--show-update` upgrade command too.
+- Report a failing pip command with pip's error message and exit code 1. Previously it showed up as "No outdated packages".
+- A `--cmd` that can't be run (e.g. a typo) now prints an error instead of a traceback.
+- Ctrl-C now exits quietly with code 130 instead of printing a traceback.
+- Require `packaging>=20.0`. Older versions lack `Version.major` and made pip-check crash.
+- The sdist can be built with pip older than 19.3 (the pip that came with Python 3.8), which couldn't parse `pyproject.toml`.
+- Test against **Python 3.15**. Python 3.8 and later remain supported.
+- Use an SPDX license expression (PEP 639) and add project keywords, topics and a changelog link.
+- Limit the sdist to source, docs and tests. It previously included local files such as `.coverage` and `uv.lock`.
+- Releases are published from GitHub Actions using PyPI Trusted Publishing.
 
 v3.2 (2025-08-27):
 v3.2.1 (2025-08-27):

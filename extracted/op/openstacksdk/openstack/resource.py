@@ -414,17 +414,14 @@ class CreateOpts:
     #: ``resource_key`` attribute of the resource. Set to None to disable
     #: de-enveloping.
     response_key: str | types.Unset | None = types.UNSET
-    # TODO(stephenfin): Change default to POST once Resource.create_method is
-    # gone.
-    #: Method to use for create requests.
-    method: Literal['POST', 'PUT'] | types.Unset = types.UNSET
+    #: Method to use for create requests. If unset, defaults to POST.
+    method: Literal['POST', 'PUT'] = 'POST'
     # TODO(stephenfin): Could we drop this in favour of a SingletonResource or
     # similar?
     #: Whether an ID is required or not. If unset, derived from the method.
     requires_id: bool | types.Unset = types.UNSET
-    #: Whether the response includes a body. If unset, defaults to the
-    #: ``has_body`` attribute of the resource.
-    has_body: bool | types.Unset = types.UNSET
+    #: Whether the response includes a body. If unset, defaults to True.
+    response_has_body: bool = True
 
 
 class Resource(dict[str, Any]):
@@ -477,22 +474,9 @@ class Resource(dict[str, Any]):
     #: Do calls for this resource require an ID.
     requires_id = True
 
-    #: Do responses for this resource have bodies.
-    has_body = True
-
     #: Class-level configuration for the create operation. Subclasses can
     #: override this to set per-resource defaults without overriding create().
     create_opts: ClassVar[CreateOpts] = CreateOpts()
-
-    #: **DEPRECATED:** Use ``create_opts.method`` instead.
-    #: Method for creating a resource.
-    create_method: Literal['POST', 'PUT'] = 'POST'
-    #: **DEPRECATED:** Use ``create_opts.requires_id`` instead.
-    #: Whether create requires an ID (determined from method if None).
-    create_requires_id: bool | None = None
-    #: **DEPRECATED:** Use ``create_opts.has_body`` instead.
-    #: Does create returns a body (if False requires ID), defaults to has_body
-    create_returns_body: bool | None = None
 
     #: Commits happen without header or body being dirty.
     allow_empty_commit = False
@@ -1352,7 +1336,7 @@ class Resource(dict[str, Any]):
         and body on this instance and clears the dirty set.
         """
         if has_body is None:
-            has_body = self.has_body
+            has_body = True
 
         exceptions.raise_from_response(response, error_message=error_message)
 
@@ -1552,11 +1536,7 @@ class Resource(dict[str, Any]):
         if not self.allow_create:
             raise exceptions.MethodNotSupported(self, 'create')
 
-        method = (
-            self.create_opts.method
-            if self.create_opts.method is not types.UNSET
-            else self.create_method
-        )
+        method = self.create_opts.method
 
         if method not in {'PUT', 'POST'}:
             raise exceptions.ResourceFailure(
@@ -1570,11 +1550,7 @@ class Resource(dict[str, Any]):
         if not isinstance(self.create_opts.requires_id, types.Unset):
             requires_id = self.create_opts.requires_id
         else:
-            requires_id = (
-                self.create_requires_id
-                if self.create_requires_id is not None
-                else method == 'PUT'
-            )
+            requires_id = bool(method == 'PUT')
 
         if not isinstance(self.create_opts.request_key, types.Unset):
             prepend_key = self.create_opts.request_key is not None
@@ -1616,20 +1592,15 @@ class Resource(dict[str, Any]):
                 params=params,
             )
 
-        has_body = (
-            self.has_body
-            if self.create_returns_body is None
-            else self.create_returns_body
-        )
         self.microversion = microversion
 
         self._translate_response(
             response,
-            has_body=has_body,
+            has_body=self.create_opts.response_has_body,
             resource_response_key=response_key,
         )
         # direct comparision to False since we need to rule out None
-        if self.has_body and self.create_returns_body is False:
+        if self.create_opts.response_has_body is False:
             # fetch the body if it's required but not returned by create
             return self.fetch(
                 session,
@@ -1667,11 +1638,7 @@ class Resource(dict[str, Any]):
         if not cls.allow_create:
             raise exceptions.MethodNotSupported(cls, 'create')
 
-        method = (
-            cls.create_opts.method
-            if cls.create_opts.method is not types.UNSET
-            else cls.create_method
-        )
+        method = cls.create_opts.method
 
         if method not in {'PUT', 'POST'}:
             raise exceptions.ResourceFailure(
@@ -1692,11 +1659,7 @@ class Resource(dict[str, Any]):
         if not isinstance(cls.create_opts.requires_id, types.Unset):
             requires_id = cls.create_opts.requires_id
         else:
-            requires_id = (
-                cls.create_requires_id
-                if cls.create_requires_id is not None
-                else method == 'PUT'
-            )
+            requires_id = bool(method == 'PUT')
 
         _body: list[Any] = []
         resources = []
@@ -1755,12 +1718,7 @@ class Resource(dict[str, Any]):
         else:
             json = [json]
 
-        has_body = (
-            cls.has_body
-            if cls.create_returns_body is None
-            else cls.create_returns_body
-        )
-        if has_body and cls.create_returns_body is False:
+        if not cls.create_opts.response_has_body:
             return (r.fetch(session) for r in resources)
         else:
             return (

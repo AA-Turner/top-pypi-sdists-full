@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.283.0
+Version: 0.290.1
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -27,15 +27,18 @@ Requires-Dist: pydantic>=2.9
 Requires-Dist: questionary<3,>=2.0
 Requires-Dist: tiktoken<0.14,>=0.8
 Requires-Dist: tomli>=1.1; python_version < '3.11'
+Requires-Dist: tomlkit>=0.12
 Requires-Dist: typer<1.0,>=0.12
 Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
+Requires-Dist: tomlkit>=0.12; extra == 'all'
 Requires-Dist: typer<1.0,>=0.12; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
+Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<1.0,>=0.12; extra == 'cli'
 Provides-Extra: daemon
 Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'

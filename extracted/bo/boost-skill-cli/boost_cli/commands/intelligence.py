@@ -84,8 +84,8 @@ def _skill_text(name: str) -> tuple[str, str]:
     content, and answering "not installed" (or "vanished from tap") for an
     installed rule would deny what `boost list` shows.
     """
-    if lockfile.get_skill(name):
-        p = store.skill_store_dir(name) / "SKILL.md"
+    if (lk := lockfile.get_skill(name)):
+        p = store.copy_dir(name, lk) / "SKILL.md"
         if p.exists():
             return p.read_text(encoding="utf-8", errors="replace"), "installed"
     found = lockfile.find_any(name)
@@ -287,11 +287,7 @@ def _distill_ai(new: str, sources: list[dict]) -> str | None:
         % (len(sources), new, blocks),
         system="You are an expert author of SKILL.md files for AI coding "
                "agents. Reply with ONLY the complete merged SKILL.md content.")
-    if not reply:
-        return None
-    text = ai.extract_markdown(reply)
-    meta, _ = frontmatter.parse(text)
-    return text if meta.get("name") else None
+    return ai.authored_skill(reply, new)
 
 
 _FENCE_RE = re.compile(r"^`{3,}")
@@ -366,7 +362,9 @@ def cmd_simulate(argv: list[str]) -> int:
     _, bare = catalog.split_name(args.name)
     text, origin = _skill_text(args.name)
     task = args.task or "a typical coding task in this repo"
-    out.heading("simulating %s  %s" % (bare, out.role("(%s)" % origin, "muted")))
+    out.heading("simulating %s  %s" % (out.plain(bare),
+                                       out.role("(%s)" % out.plain(origin),
+                                                "muted")))
 
     if ai.available():
         reply = ai.ask(
@@ -376,7 +374,7 @@ def cmd_simulate(argv: list[str]) -> int:
             "skill on that task. Be concrete and terse." % (text, task))
         if reply:
             for line in reply.splitlines():
-                out.info(line)
+                out.info(out.plain(line))
             return 0
     _note_fallback()
 
@@ -384,15 +382,16 @@ def cmd_simulate(argv: list[str]) -> int:
     out.kv("task", task)
     rules = imperative.imperative_rules(body)
     out.info("Without it: default behavior — none of the rules below are enforced.")
-    out.info(out.c("With %s active, Claude would:" % bare, out.BOLD))
+    out.info(out.c("With %s active, Claude would:" % out.plain(bare), out.BOLD))
     if rules:
         for rule in rules[:8]:
-            out.info("  • " + rule)
+            out.info("  • " + out.plain(rule))
         if len(rules) > 8:
             out.info(out.role("  … and %d more rules" % (len(rules) - 8), "muted"))
     else:
         out.info("  • (no imperative rules found in the skill body)")
-    desc = str(meta.get("description") or "").strip()
+    # Sanitised before the clip, so the 100 counts characters that print.
+    desc = out.plain(meta.get("description") or "").strip()
     if desc:
         # Clipped to 100 characters, which is a length and not a width: at
         # 80 columns the quoted description ran seven past the pane. Wrapping
@@ -433,7 +432,10 @@ def cmd_infer(argv: list[str]) -> int:
     root = paths.expand(args.path).resolve()
     if not root.is_dir():
         raise BoostError("%s is not a directory" % _tilde(root))
-    name = util.slugify(args.name)
+    # resolve_slug, not slugify: the shared validator refuses a name with
+    # nothing to slug rather than quietly naming the skill "skill", and says
+    # so when the slug differs from what was typed.
+    name = util.resolve_slug(args.name, what="skill name")
     facts = _probe_repo(root)
 
     text = _infer_ai(name, root, facts) if ai.available() else None
@@ -597,11 +599,7 @@ def _infer_ai(name: str, root: Path, facts: dict) -> str | None:
         % (json.dumps(detected), listing, name),
         system="You are an expert author of SKILL.md files for AI coding "
                "agents. Reply with ONLY the complete SKILL.md content.")
-    if not reply:
-        return None
-    text = ai.extract_markdown(reply)
-    meta, _ = frontmatter.parse(text)
-    return text if meta.get("name") else None
+    return ai.authored_skill(reply, name)
 
 
 def _infer_template(name: str, facts: dict) -> str:
@@ -793,11 +791,7 @@ def _absorb_ai(name: str, patterns: list[tuple[str, int]]) -> str | None:
         % (listing, name),
         system="You are an expert author of SKILL.md files for AI coding "
                "agents. Reply with ONLY the complete SKILL.md content.")
-    if not reply:
-        return None
-    text = ai.extract_markdown(reply)
-    meta, _ = frontmatter.parse(text)
-    return text if meta.get("name") else None
+    return ai.authored_skill(reply, name)
 
 
 def _absorb_template(name: str, patterns: list[tuple[str, int]]) -> str:
@@ -845,6 +839,9 @@ def cmd_evolve(argv: list[str]) -> int:
         raise BoostError("%s is not installed — evolve works on installed "
                         "skills" % args.name,
                         hint="install it first with `boost install %s`" % args.name)
+    held = store.held_refusal(args.name, lockfile.get_skill(args.name))
+    if held is not None:
+        raise held
     skill_md = store.skill_store_dir(args.name) / "SKILL.md"
     if not skill_md.exists():
         raise BoostError("%s has no SKILL.md in the store" % args.name,
@@ -858,7 +855,8 @@ def cmd_evolve(argv: list[str]) -> int:
     old_ver = str(old_meta.get("version") or "0.0.0")
 
     out.heading("evolving %s  %s" % (args.name, out.role("(v%s)" % old_ver, "muted")))
-    new = _evolve_ai(old, old_ver, feedback) if ai.available() else None
+    new = (_evolve_ai(args.name, old, old_ver, feedback) if ai.available()
+           else None)
     if new is None:
         _note_fallback()
         new = _evolve_append(old, old_ver, feedback)
@@ -899,7 +897,8 @@ def cmd_evolve(argv: list[str]) -> int:
     return 0
 
 
-def _evolve_ai(old: str, old_ver: str, feedback: str) -> str | None:
+def _evolve_ai(name: str, old: str, old_ver: str,
+               feedback: str) -> str | None:
     reply = ai.ask_author(
         "Revise this SKILL.md based on user feedback. Keep everything that "
         "still holds, integrate the feedback as concrete rules, and bump the "
@@ -907,12 +906,12 @@ def _evolve_ai(old: str, old_ver: str, feedback: str) -> str | None:
         % (old_ver, feedback, old),
         system="You are an expert author of SKILL.md files for AI coding "
                "agents. Reply with ONLY the complete revised SKILL.md content.")
-    if not reply:
+    # The installed name, whatever the model wrote: the store dir is named
+    # for it, and a different `name:` renamed the skill under `--apply`.
+    text = ai.authored_skill(reply, name)
+    if text is None:
         return None
-    text = ai.extract_markdown(reply)
     meta, body = frontmatter.parse(text)
-    if not meta.get("name"):
-        return None
     if not util.semver_gt(str(meta.get("version") or ""), old_ver):
         meta["version"] = _bump_patch(old_ver)
         text = frontmatter.dump(meta) + "\n\n" + body.strip() + "\n"
@@ -1061,7 +1060,8 @@ def cmd_context(argv: list[str]) -> int:
         inst = lockfile.installed()
         for name in sorted(_mentioned_skills(state)):
             entry = inst.get(name)
-            if entry and entry.get("sidelined_by") == "context":
+            if (entry and entry.get("sidelined_by") == "context"
+                    and not entry.get("quarantined")):
                 _warn_unwritable(store.unsideline(name))
                 restored += 1
         state["enabled"] = False
@@ -1202,36 +1202,50 @@ def cmd_focus(argv: list[str]) -> int:
         # still reported "N skill(s) restored". `sidelined_by == "focus"` is
         # only true of skills THIS session actually unlinked.
         had_session = state_path.exists()
+        prior = (_load_state(_FOCUS_STATE, {}).get("prior") or {}
+                 if had_session else {})
         restored = 0
         for name, entry in sorted(lockfile.installed().items()):
-            if entry.get("sidelined_by") != "focus":
+            if entry.get("sidelined_by") != "focus" or entry.get("quarantined"):
                 continue
             _warn_unwritable(store.unsideline(name),
                              stream=sys.stderr if args.json else None)
             restored += 1
+        residelined = _focus_put_back(prior)
         if had_session:
             state_path.unlink()
-        journal.log("focus", "clear", restored=restored)
+        journal.log("focus", "clear", restored=restored,
+                    residelined=residelined or None)
         if args.json:
             print(json.dumps({"active": [], "restored": restored,
+                              "residelined": residelined,
                               "had_session": had_session}))
             return 0
         if not had_session and not restored:
             out.info("no focus session")
             return 0
         out.ok("focus cleared — %d skill(s) restored" % restored)
+        if residelined:
+            out.info("sidelined again, as before the focus: %s"
+                     % ", ".join(residelined), wrap=True)
         return 0
 
     if args.status or not args.skills:
         state = _load_state(_FOCUS_STATE, {})
+        displaced = store.focus_displaced(list(state.get("active", [])),
+                                          lockfile.installed())
         if args.json:
             print(json.dumps({"active": state.get("active", []),
-                              "since": state.get("since")}))
+                              "since": state.get("since"),
+                              "displaced": dict(displaced)}))
             return 0
         if state.get("active"):
             out.info("⌁ focus: %s  %s"
                      % (", ".join(state["active"]),
                         out.role("(since %s)" % util.rel_time(state.get("since", "")), "muted")))
+            for name, why in displaced:
+                out.warn("%s is not linked — %s since the focus began"
+                         % (name, why), wrap=True)
             out.info(out.role("end it with `boost focus --clear`", "muted"))
         else:
             print(out.empty_state("no focus session",
@@ -1263,7 +1277,13 @@ def cmd_focus(argv: list[str]) -> int:
     # Recorded before anything is sidelined: a state dir that refuses the
     # write used to crash *after* every other skill had lost its links, and
     # with no session on file `boost focus` then said there was none.
-    _save_state(_FOCUS_STATE, {"active": names, "since": util.now_iso()})
+    # And the sideline each focused skill had before (context, profile), so
+    # `--clear` can put it back rather than leave it linked.
+    carried = (_load_state(_FOCUS_STATE, {}).get("prior")
+               if state_path.exists() else None)
+    prior = store.sideline_priors(inst, names, carried)
+    _save_state(_FOCUS_STATE, {"active": names, "since": util.now_iso(),
+                               **({"prior": prior} if prior else {})})
     sidelined = 0
     for name, entry in sorted(inst.items()):
         if name in names or entry.get("quarantined"):
@@ -1286,6 +1306,28 @@ def cmd_focus(argv: list[str]) -> int:
              % (", ".join(names),
                 out.role("(other %d skill%s sidelined)" % (sidelined, _s(sidelined)), "muted")))
     return 0
+
+
+def _focus_put_back(prior: dict) -> list[str]:
+    """Re-apply the sidelines focus had lifted off its own skills.
+
+    Only onto a skill still installed, unquarantined and linked: one another
+    command set aside since is that command's now. A ``context`` sideline
+    needs context still enabled — `context disable` mid-session ended it.
+    """
+    if not isinstance(prior, dict):
+        return []
+    context_on = bool(_load_state(_CONTEXT_STATE, _CONTEXT_DEFAULT).get("enabled"))
+    inst = lockfile.installed()
+    put_back = []
+    for name, by in sorted(prior.items()):
+        entry = inst.get(name)
+        if (entry is None or entry.get("quarantined") or entry.get("sidelined_by")
+                or (by == "context" and not context_on)):
+            continue
+        store.sideline(name, str(by))
+        put_back.append(name)
+    return put_back
 
 
 # ---------------------------------------------------------------- impact
@@ -1414,12 +1456,15 @@ def _print_reply(reply: chat_engine.Reply, show_sources: bool) -> None:
     is the qualified ``owner/repo:name``, which already names the tap, so
     repeating it would be noise.
     """
+    # The extractive answer is built from catalogue descriptions, and a model
+    # reply quotes them — tap text either way, so every line is sanitised.
     for line in reply.text.splitlines():
-        out.info(line)
+        out.info(out.plain(line))
     if show_sources and reply.skills:
         out.info("")
         out.info(out.role("sources · ranked by %s" % reply.engine, "muted"))
-        for n, cite in enumerate(chat_engine.citations(reply.skills), 1):
+        for n, cite in enumerate(out.plain_fields(
+                chat_engine.citations(reply.skills)), 1):
             tail = "" if cite["ref"] != cite["name"] else "  (%s)" % cite["tap"]
             out.info(out.role("  %d. %s  %s%s"
                               % (n, cite["ref"], cite["kind"], tail), "muted"))
@@ -1519,4 +1564,4 @@ def _chat_session(args) -> int:
         _print_reply(reply, not args.no_sources)
         history.append(chat_engine.Turn(question, reply.text, reply.skills))
         for follow in chat_engine.suggest_followups(reply.skills, with_ai=have_ai)[:2]:
-            out.info(out.role("  try: %s" % follow, "muted"))
+            out.info(out.role("  try: %s" % out.plain(follow), "muted"))

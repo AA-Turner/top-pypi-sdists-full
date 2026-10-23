@@ -1923,7 +1923,9 @@ def _apply_display_filters(
     filtered.pop("ai_security_stats", None)
     filtered.pop("provenance_summary", None)
 
-    return filtered
+    from skylos.reporting.advice_policy import refresh_listing_summary
+
+    return refresh_listing_summary(filtered, preserve_assessment=preserve_grade)
 
 
 def _normalize_selected_rules(selectors) -> list[str]:
@@ -2014,7 +2016,9 @@ def _apply_rule_selection(result: dict, selectors) -> dict:
     filtered.pop("assessment", None)
     summary.pop("assessment_scope", None)
     summary.pop("assessment_includes_filtered_findings", None)
-    return filtered
+    from skylos.reporting.advice_policy import refresh_listing_summary
+
+    return refresh_listing_summary(filtered)
 
 
 def _apply_selected_rule_analysis_flags(args) -> None:
@@ -2076,6 +2080,7 @@ def render_pretty_results(
     root_path=None,
     limit=None,
     expand_advice=False,
+    all_advice=False,
 ):
     from skylos.ui.terminal_report import render_pretty_results as render_impl
 
@@ -2085,6 +2090,7 @@ def render_pretty_results(
         root_path=root_path,
         limit=limit,
         **({"expand_advice": True} if expand_advice else {}),
+        **({"all_advice": True} if all_advice else {}),
     )
 
 
@@ -2096,6 +2102,7 @@ def _write_rich_report_output(
     root_path=None,
     limit=None,
     expand_advice=False,
+    all_advice=False,
 ):
     buffer = StringIO()
     file_console = Console(
@@ -2111,6 +2118,7 @@ def _write_rich_report_output(
         limit=limit,
         copy_badge=False,
         **({"expand_advice": True} if expand_advice else {}),
+        **({"all_advice": True} if all_advice else {}),
     )
     if not write_text_no_symlink(output_file, buffer.getvalue(), encoding="utf-8"):
         raise OSError(f"could not safely write output file: {output_file}")
@@ -2123,6 +2131,7 @@ def _write_pretty_report_output(
     root_path=None,
     limit=None,
     expand_advice=False,
+    all_advice=False,
 ):
     buffer = StringIO()
     file_console = Console(
@@ -2136,6 +2145,7 @@ def _write_pretty_report_output(
         root_path=root_path,
         limit=limit,
         **({"expand_advice": True} if expand_advice else {}),
+        **({"all_advice": True} if all_advice else {}),
     )
     if not write_text_no_symlink(output_file, buffer.getvalue(), encoding="utf-8"):
         raise OSError(f"could not safely write output file: {output_file}")
@@ -2378,10 +2388,10 @@ def _run_sbom_command(argv):
     return run_sbom_command(argv)
 
 
-def _run_badge_command(_argv):
+def _run_badge_command(argv):
     from skylos.commands.badge_cmd import run_badge_command
 
-    return run_badge_command()
+    return run_badge_command(argv)
 
 
 def _run_whitelist_command(argv):
@@ -2478,6 +2488,12 @@ def _run_review_command(argv):
     from skylos.commands.review_cmd import run_review_command
 
     return run_review_command(argv, console_factory=Console)
+
+
+def _run_explain_command(argv):
+    from skylos.commands.security_explain import run_explain_command
+
+    return run_explain_command(argv, console_factory=Console)
 
 
 def _attach_upload_project_context(result: dict, project_root: pathlib.Path) -> None:
@@ -4210,6 +4226,10 @@ def _build_agent_parser():
 
     add_agent_replay_parser(agent_sub)
 
+    from skylos.commands.agent_recap_cmd import add_agent_recap_parser
+
+    add_agent_recap_parser(agent_sub)
+
     from skylos.commands.install_hooks_cmd import add_install_hooks_parser
 
     add_install_hooks_parser(agent_sub)
@@ -4481,6 +4501,11 @@ def main() -> None:
             from skylos.commands.warm_cache_cmd import run_warm_cache_command
 
             sys.exit(run_warm_cache_command(agent_args))
+
+        if cmd == "recap":
+            from skylos.commands.agent_recap_cmd import run_agent_recap_command
+
+            sys.exit(run_agent_recap_command(agent_args))
 
         if cmd == "replay":
             from skylos.commands.agent_replay_cmd import run_agent_replay_command
@@ -4926,6 +4951,10 @@ def main() -> None:
                             "grep_verify": False,
                             "progress_callback": _update_precommit_progress,
                         }
+                        analysis_options["all_advice"] = bool(
+                            getattr(agent_args, "all_advice", False)
+                            or getattr(agent_args, "select", None)
+                        )
                         if include_review_proofs:
                             analysis_options["include_review_proofs"] = True
                         if include_review_context:

@@ -10,6 +10,7 @@ Alarms and Time zone objects does not have any class as for now.  Those are typi
 Users of the library should not need to construct any of those objects.  To add new content to the calendar, use ``calendar.add_event``, ``calendar.add_todo`` or ``calendar.add_journal``.  Those methods will return a CalendarObjectResource.  To update an existing object, use ``event.save()``.
 """
 
+import enum
 import logging
 import re
 import sys
@@ -46,7 +47,7 @@ from .davobject import DAVObject
 from .elements import cdav, dav
 from .lib import error, vcal
 from .lib.error import errmsg
-from .lib.python_utilities import to_normal_str, to_unicode, to_wire
+from .lib.python_utilities import WireBytes, to_normal_str, to_unicode, to_wire
 from .lib.url import URL
 
 log = logging.getLogger("caldav")
@@ -54,6 +55,17 @@ log = logging.getLogger("caldav")
 ## Which tag save() and delete(if_match=True) send as precondition.
 ## https://github.com/python-caldav/caldav/issues/762
 Precondition = Literal["auto", "etag"]
+## The "*" header save(no_overwrite=True) or save(no_create=True) sends
+Wildcard = Literal["if-none-match", "if-match"]
+
+
+class _NotGiven(enum.Enum):
+    ## save(raw_data=...) tells "not given" from an explicit None, which
+    ## is what raw_data of an object that was never read holds
+    NOT_GIVEN = 0
+
+
+RawData = bytes | bytearray | memoryview
 
 
 def _quote_uid(uid: str, features: Any = None) -> str:
@@ -118,6 +130,8 @@ class CalendarObjectResource(DAVObject):
     _vobject_instance = None
     _icalendar_instance = None
     _data = None
+    ## bytes from a GET, the str as parsed from a REPORT (encoded on read)
+    _raw_data: bytes | str | None = None
 
     # New state management (issue #613)
     _state: DataState | None = None
@@ -131,6 +145,45 @@ class CalendarObjectResource(DAVObject):
     @property
     def etag(self) -> str | None:
         return self.props.get(dav.GetEtag.tag)
+
+    @property
+    def raw_data(self) -> bytes | None:
+        """The calendar data exactly as the server last sent it, or None.
+
+        A read-only snapshot, taken before ``vcal.fix()`` or any other
+        normalisation, by ``load()`` and by objects built from a
+        ``search()``, ``multiget()``, ``get_object_by_uid()`` or sync
+        REPORT.  Editing the object does not change it, so after an edit
+        it is what was read, not what ``data`` holds now.  It is None for
+        an object built locally or by ``copy()`` - including the
+        occurrences ``search(expand=True)`` splits out - and cleared by a
+        successful ``save()``: what the server stores then is only known
+        after a new load.  Where a search filters or expands an object in
+        place (``post_filter``, ``split_expanded=False``, server-side
+        expansion), it still holds what the server sent, which after a
+        server-side expansion is the expanded text, not the stored
+        resource: load() the object before copying it elsewhere.
+
+        After a GET (``load()``) it is the response body byte for byte
+        (once any Content-Encoding is undone).  From a REPORT it is the
+        text of the ``calendar-data`` element, encoded as UTF-8: the XML
+        parser has decoded entities such as ``&amp;`` and turned line
+        breaks into LF, unless the server escaped the CR as ``&#13;``.
+        See https://github.com/python-caldav/caldav/issues/763
+        """
+        if isinstance(self._raw_data, str):
+            return self._raw_data.encode("utf-8")
+        return self._raw_data
+
+    def _keep_raw_data(self, raw: Any) -> Self:
+        """Remember ``raw`` (bytes, or text from a REPORT) as raw_data.
+
+        REPORT text is kept as the str the XML parser made, so a search
+        does not hold a second, encoded copy of every object's data."""
+        if isinstance(raw, (bytes, bytearray)):
+            raw = bytes(raw)
+        self._raw_data = raw if isinstance(raw, (bytes, str)) and raw else None
+        return self
 
     @property
     def id(self) -> str | None:
@@ -977,6 +1030,7 @@ class CalendarObjectResource(DAVObject):
             if r.status and r.status == 404:
                 raise error.error_from_response(error.NotFoundError, r)
             self.data = r.raw  # type: ignore
+            self._keep_raw_data(getattr(r, "_raw_body", None))
         except error.NotFoundError:
             # Only attempt fallbacks if the object was previously loaded
             # (has a UID), indicating the server may have changed the URL.
@@ -996,6 +1050,7 @@ class CalendarObjectResource(DAVObject):
                         if obj:
                             self.url = obj.url
                             self.data = obj.data
+                            self._raw_data = obj._raw_data
                             if hasattr(obj, "props"):
                                 self.props.update(obj.props)
                             return self
@@ -1027,6 +1082,7 @@ class CalendarObjectResource(DAVObject):
             if r.status and r.status == 404:
                 raise error.error_from_response(error.NotFoundError, r)
             self.data = r.raw  # type: ignore
+            self._keep_raw_data(getattr(r, "_raw_body", None))
         except error.NotFoundError:
             uid = self.id
             if uid:
@@ -1043,6 +1099,7 @@ class CalendarObjectResource(DAVObject):
                         if obj:
                             self.url = obj.url
                             self.data = obj.data
+                            self._raw_data = obj._raw_data
                             if hasattr(obj, "props"):
                                 self.props.update(obj.props)
                             return self
@@ -1086,7 +1143,9 @@ class CalendarObjectResource(DAVObject):
             ## As of 2025-05-20, this code section is used by
             ## TestForServerECloud::testCreateOverwriteDeleteEvent
             raise error.NotFoundError(self.url)
-        _url, self.data, tags = url_data
+        _url, data, tags = url_data
+        self.data = data
+        self._keep_raw_data(data)
         self.props.update(tags)
         error.assert_(self.data)
         error.assert_(next(items, None) is None)
@@ -1140,28 +1199,36 @@ class CalendarObjectResource(DAVObject):
         self.url = URL.objectify(path)
 
     def _put(
-        self, retry_on_failure=True, precondition: Precondition = "auto"
+        self,
+        retry_on_failure=True,
+        precondition: Precondition = "auto",
+        wildcard: Wildcard | None = None,
     ) -> "None | Coroutine[Any, Any, None]":
         ## TODO: quite much overlapping with _async_put, should consolidate
         ## TODO: this is low-level http-communication - shouldn't it be in the davclient file rather than in calendarobjectresource.py?
-        ## SECURITY TODO: we should probably have a check here to verify that no such object exists already
-        headers = self._precondition_headers(precondition) | ICALH
+        headers = self._put_headers(precondition, wildcard)
         if self.is_async_client:
-            return self._async_put(headers, retry_on_failure, precondition)
+            return self._async_put(headers, retry_on_failure, precondition, wildcard)
         try:
             r = self.client.put(self.url, self.data, headers)
         except error.AuthorizationError as e:
-            self._raise_uid_conflict(e)
+            self._raise_uid_conflict(e, wildcard is not None)
             raise
-        return self._post_put(r, retry_on_failure, precondition)
+        return self._post_put(r, retry_on_failure, precondition, wildcard)
 
-    async def _async_put(self, headers, retry_on_failure=True, precondition: Precondition = "auto"):
+    async def _async_put(
+        self,
+        headers,
+        retry_on_failure=True,
+        precondition: Precondition = "auto",
+        wildcard: Wildcard | None = None,
+    ):
         try:
             r = await self.client.put(str(self.url), str(self.data), headers | ICALH)
         except error.AuthorizationError as e:
-            self._raise_uid_conflict(e)
+            self._raise_uid_conflict(e, wildcard is not None)
             raise
-        result = self._post_put(r, retry_on_failure, precondition)
+        result = self._post_put(r, retry_on_failure, precondition, wildcard)
         if result is not None:
             # _post_put returned a retry coroutine (self._put(False) for async client)
             await result
@@ -1193,6 +1260,19 @@ class CalendarObjectResource(DAVObject):
             self.props[cdav.ScheduleTag.tag] = headers["Schedule-Tag"]
         else:
             self.props.pop(cdav.ScheduleTag.tag, None)
+
+    def _put_headers(self, precondition: Precondition, wildcard: Wildcard | None) -> dict[str, str]:
+        """Headers for the PUT of a save().
+
+        With a ``wildcard`` (see ``_save_plan()``) only that header is
+        sent, with the value ``*``.  For ``If-None-Match: *``
+        (``save(no_overwrite=True)``, RFC 9110 section 13.1.2) an
+        If-Match for a cached version would contradict it; ``If-Match: *``
+        (``no_create``, section 13.1.1) is only planned where no version
+        is cached."""
+        if wildcard:
+            return {wildcard: "*"} | ICALH
+        return self._precondition_headers(precondition) | ICALH
 
     @staticmethod
     def _check_precondition(precondition: Precondition) -> None:
@@ -1270,26 +1350,60 @@ class CalendarObjectResource(DAVObject):
             headers = {"if-match": if_match}
         return self._delete(headers)
 
+    def cancel(self, **kwargs: Any) -> "Self | Coroutine[Any, Any, Self]":
+        """Mark the object as cancelled (``STATUS:CANCELLED``) and save it.
+
+        On a single occurrence, as from ``search(..., expand=True)``, it
+        cancels that occurrence only: it becomes an override in its
+        series, which stays in the calendar.  This is for an occurrence
+        that was planned but will not take place.  On a whole series,
+        the overrides of it are cancelled too.  ``kwargs`` are passed to
+        :meth:`save`, and its return value is returned - for an
+        occurrence, that is the series it was saved into.  See
+        https://github.com/python-caldav/caldav/issues/598
+        """
+        for component in self.icalendar_instance.subcomponents:
+            if isinstance(component, icalendar.Timezone):
+                continue
+            component.pop("STATUS", None)
+            component.add("STATUS", "CANCELLED")
+        return self.save(**kwargs)
+
     @staticmethod
-    def _raise_uid_conflict(e: error.DAVError) -> None:
+    def _raise_uid_conflict(e: error.DAVError, consistency: bool = False) -> None:
         """Raise UidConflictError if ``e`` names a UID precondition.
 
         Where ``e`` is what earlier versions raised (AuthorizationError for
         Cyrus' 403, which the client raises before ``_post_put`` sees it, or
         an ETag/Schedule-Tag mismatch), the UidConflictError is that too,
-        so existing handlers keep catching it (issue #756)."""
+        so existing handlers keep catching it (issue #756).  With
+        ``consistency`` - a ``save(no_overwrite=True)`` or
+        ``save(no_create=True)`` that sent a wildcard instead of searching
+        for the UID - it is a ConsistencyError, which is what the search
+        raised."""
         if error.UID_CONFLICT_PRECONDITIONS.intersection(e.preconditions):
-            cls = error.UID_CONFLICT_ERRORS.get(type(e), error.UidConflictError)
-            raise cls(e.url, e.reason, preconditions=e.preconditions, body=e.body) from e
+            if consistency:
+                cls = error.UID_CONFLICT_CONSISTENCY_ERRORS.get(
+                    type(e), error.UidConflictConsistencyError
+                )
+            else:
+                cls = error.UID_CONFLICT_ERRORS.get(type(e), error.UidConflictError)
+            raise cls(
+                e.url, e.reason, preconditions=e.preconditions, body=e.body, status=e.status
+            ) from e
 
     def _post_put(
-        self, r, retry_on_failure, precondition: Precondition = "auto"
+        self,
+        r,
+        retry_on_failure,
+        precondition: Precondition = "auto",
+        wildcard: Wildcard | None = None,
     ) -> "None | Coroutine[Any, Any, None]":
         if r.status >= 400:
             ## The UID is taken (RFC 4791 section 5.3.2.1): not something a
             ## retry would fix (issue #756).  A 412 on a conditional save
             ## used to raise the mismatch error, so it still is one.
-            headers = self._precondition_headers(precondition)
+            headers = {} if wildcard else self._precondition_headers(precondition)
             cls = error.PutError
             if r.status == 412 and headers:
                 cls = (
@@ -1297,7 +1411,22 @@ class CalendarObjectResource(DAVObject):
                     if "if-schedule-tag-match" in headers
                     else error.ETagMismatchError
                 )
-            self._raise_uid_conflict(error.error_from_response(cls, r))
+            self._raise_uid_conflict(error.error_from_response(cls, r), wildcard is not None)
+        if r.status == 412 and wildcard == "if-none-match":
+            ## If-None-Match: * failed - there is an object at this URL
+            raise error.error_from_response(
+                error.ConsistencyError,
+                r,
+                f"no_overwrite flag was set, but object already exists at {self.url} "
+                f"({error.errmsg(r)})",
+            )
+        if r.status == 412 and wildcard == "if-match":
+            ## If-Match: * failed - there is no object at this URL
+            raise error.error_from_response(
+                error.ConsistencyError,
+                r,
+                f"no_create flag was set, but there is no object at {self.url} ({error.errmsg(r)})",
+            )
         if r.status == 412:
             headers = self._precondition_headers(precondition)
             if headers:
@@ -1305,7 +1434,12 @@ class CalendarObjectResource(DAVObject):
             raise error.error_from_response(error.PutError, r)
         elif r.status == 302:
             self.url = URL.objectify(r.headers.get("location"))
-        elif r.status not in (204, 201):
+        elif r.status not in (200, 201, 204):
+            ## No retry with a wildcard: an object this very PUT may have
+            ## stored (a 5xx after writing) would refuse If-None-Match: *,
+            ## and the failure is reported as it was for If-Match: * too.
+            if wildcard:
+                retry_on_failure = False
             if retry_on_failure:
                 try:
                     import vobject  # noqa: F401
@@ -1315,27 +1449,96 @@ class CalendarObjectResource(DAVObject):
                 ## Accessing vobject_instance may "clean" the object.
                 ## See https://github.com/python-caldav/caldav/issues/43
                 self.get_vobject_instance()
-                return self._put(False, precondition)
+                return self._put(False, precondition, wildcard)
             else:
                 raise error.error_from_response(error.PutError, r)
         self._update_tag_props(r)
+        ## The server has new data now; raw_data is only what was read
+        self._raw_data = None
         return None
 
+    def _put_raw(
+        self, body: bytes, precondition: Precondition = "auto", wildcard: Wildcard | None = None
+    ) -> "None | Coroutine[Any, Any, None]":
+        """PUT ``body`` unchanged, for ``save(raw_data=...)``.
+
+        Unlike ``_put()``, a failure is not retried with a cleaned-up
+        copy of the data: the caller asked for exactly these bytes."""
+        if self.url is None:
+            if not self.id:
+                raise ValueError(
+                    "save(raw_data=...): the data has no UID and the object no URL - "
+                    "set the URL, as a UID cannot be added without changing the bytes"
+                )
+            self.url = self._generate_url()
+        headers = self._put_headers(precondition, wildcard)
+        body = WireBytes(body)
+        if self.is_async_client:
+            return self._async_put_raw(body, headers, precondition, wildcard)
+        try:
+            r = self.client.put(str(self.url), body, headers)
+        except error.AuthorizationError as e:
+            self._raise_uid_conflict(e, wildcard is not None)
+            raise
+        return self._post_put(r, False, precondition, wildcard)
+
+    async def _async_put_raw(
+        self, body: bytes, headers, precondition: Precondition, wildcard: Wildcard | None = None
+    ) -> None:
+        try:
+            r = await self.client.put(str(self.url), body, headers)
+        except error.AuthorizationError as e:
+            self._raise_uid_conflict(e, wildcard is not None)
+            raise
+        self._post_put(r, False, precondition, wildcard)
+
+    @staticmethod
+    def _check_raw_data(raw_data: Any) -> bytes | None:
+        if raw_data is _NotGiven.NOT_GIVEN:
+            return None
+        if raw_data is None:
+            ## Most likely target.save(raw_data=source.raw_data) with a
+            ## source that was not read from the server: a plain save()
+            ## here would store something else than asked for
+            raise ValueError(
+                "save(raw_data=None): no bytes given (raw_data is None for an object not "
+                "read from the server, a copy, or after save()) - leave raw_data out for a "
+                "normal save"
+            )
+        if not isinstance(raw_data, (bytes, bytearray, memoryview)):
+            raise TypeError(f"save(raw_data=...) takes bytes, not {type(raw_data).__name__}")
+        raw_data = bytes(raw_data)
+        if not raw_data:
+            raise ValueError("save(raw_data=b''): no calendar data to send")
+        try:
+            raw_data.decode("utf-8")
+        except UnicodeDecodeError as e:
+            raise ValueError(f"save(raw_data=...) needs UTF-8 encoded calendar data: {e}") from e
+        return raw_data
+
     def _create(
-        self, id=None, path=None, retry_on_failure=True, precondition: Precondition = "auto"
+        self,
+        id=None,
+        path=None,
+        retry_on_failure=True,
+        precondition: Precondition = "auto",
+        wildcard: Wildcard | None = None,
     ) -> "None | Coroutine[Any, Any, None]":
         ## TODO: Find a better method name
         self._find_id_path(id=id, path=path)
         if self.is_async_client:
-            return self._async_create(retry_on_failure, precondition)
-        self._put(retry_on_failure, precondition)
+            return self._async_create(retry_on_failure, precondition, wildcard)
+        self._put(retry_on_failure, precondition, wildcard)
         return None
 
     async def _async_create(
-        self, retry_on_failure=True, precondition: Precondition = "auto"
+        self,
+        retry_on_failure=True,
+        precondition: Precondition = "auto",
+        wildcard: Wildcard | None = None,
     ) -> None:
         """Async implementation of _create."""
-        await self._put(retry_on_failure, precondition)
+        await self._put(retry_on_failure, precondition, wildcard)
 
     def _generate_url(self):
         ## See https://github.com/python-caldav/caldav/issues/143 for the rationale behind double-quoting slashes
@@ -1461,11 +1664,16 @@ class CalendarObjectResource(DAVObject):
         only_this_recurrence: bool | None = True,
         all_recurrences: bool = False,
         precondition: Precondition = "auto",
+        raw_data: RawData | None | _NotGiven = _NotGiven.NOT_GIVEN,
     ) -> "Self | Coroutine[Any, Any, Self]":
         """Save the object, can be used for creation and update.
 
         no_overwrite and no_create will check if the object exists.
-        Those two are mutually exclusive.  Some servers don't support
+        Those two are mutually exclusive.  Where the server handles it,
+        the PUT carries ``If-None-Match: *`` or ``If-Match: *`` so the
+        server enforces the flag in the same request, otherwise the UID
+        is searched for first; either way a violation raises
+        ``ConsistencyError``.  Some servers don't support
         searching for an object uid without explicitly specifying what
         kind of object it should be, hence obj_type can be passed.
         obj_type is only used in conjunction with no_overwrite and
@@ -1520,16 +1728,32 @@ class CalendarObjectResource(DAVObject):
          * False: skip the merge entirely and PUT whatever is in this
            object directly to the server.
 
+        ``raw_data`` sends the given bytes as the PUT body, unchanged:
+        no ``vcal.fix()``, no re-serialisation, no line ending
+        normalisation, no SEQUENCE bump and no merging of a recurrence
+        into its master.  The bytes replace whatever the object held,
+        local edits included, and become its ``data`` (parsed, they
+        must be UTF-8) before the PUT is sent - also when it then
+        fails.  The precondition headers, ``no_overwrite`` and
+        ``no_create`` apply as usual.  Without a URL, the object's URL
+        is made from the UID in the bytes.  Use it to store what was
+        read elsewhere, e.g. ``target.save(raw_data=source.raw_data)``;
+        ``raw_data=None`` (a source never read, a copy, or one saved
+        since) raises ValueError rather than doing a normal save.
+        See :attr:`raw_data` and
+        https://github.com/python-caldav/caldav/issues/763
+
         Returns:
          * self
 
         """
 
-        # TODO: the overwrite/no-overwrite logic can be handled server-side for
-        # servers that adheres to the RFC: "If-Match: *" and "If-None-Match: *"
-
         ## Checked before anything is sent
         self._check_precondition(precondition)
+        raw_data = self._check_raw_data(raw_data)
+        if raw_data is not None:
+            ## the bytes win over any edit: the caller asked for them
+            self.data = raw_data
 
         # Early return if there's no data (no-op case)
         if not self.is_loaded():
@@ -1546,6 +1770,7 @@ class CalendarObjectResource(DAVObject):
                 only_this_recurrence=only_this_recurrence,
                 all_recurrences=all_recurrences,
                 precondition=precondition,
+                raw_data=raw_data,
             )
 
         # Helper function to get the full object by UID
@@ -1569,7 +1794,16 @@ class CalendarObjectResource(DAVObject):
                     return None
             return None
 
-        if no_overwrite or no_create:
+        ## raw bytes are never merged into a master
+        merging = raw_data is None
+        wildcard, search = self._save_plan(
+            no_overwrite,
+            no_create,
+            only_this_recurrence if merging else False,
+            all_recurrences and merging,
+            precondition,
+        )
+        if search:
             uid = self.id or self.icalendar_component.get("uid")
             existing = get_self()
             self._validate_save_constraints(existing, uid, no_overwrite, no_create)
@@ -1579,8 +1813,10 @@ class CalendarObjectResource(DAVObject):
         ## fetched via server-side expand), only_this_recurrence will silently not merge
         ## it into the parent; the caller must add RECURRENCE-ID from DTSTART first.
         if (
-            only_this_recurrence is not False or all_recurrences
-        ) and "RECURRENCE-ID" in self.icalendar_component:
+            raw_data is None
+            and (only_this_recurrence is not False or all_recurrences)
+            and "RECURRENCE-ID" in self.icalendar_component
+        ):
             from caldav.lib import error
 
             obj = get_self()
@@ -1604,10 +1840,75 @@ class CalendarObjectResource(DAVObject):
                     precondition=precondition,
                 )
 
+        if raw_data is not None:
+            self._put_raw(raw_data, precondition, wildcard)
+            return self
         self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
-        self._create(id=self.id, path=path, precondition=precondition)
+        self._create(id=self.id, path=path, precondition=precondition, wildcard=wildcard)
         return self
+
+    def _save_plan(
+        self,
+        no_overwrite: bool,
+        no_create: bool,
+        only_this_recurrence: bool | None,
+        all_recurrences: bool,
+        precondition: Precondition,
+    ) -> tuple[Wildcard | None, bool]:
+        """How save() enforces no_overwrite and no_create.
+
+        Returns (the header to send with the value ``*``, if any; whether
+        to search for the UID first).
+
+        A wildcard precondition makes the server enforce the flag in the
+        same request as the PUT, so there is no window between a check
+        and the write.  It is only sent where the server is not known to
+        get it wrong.  A recurrence instance is merged into its master,
+        which another save() then PUTs, so it always searches.
+
+        no_overwrite: If-None-Match: * (RFC 9110 section 13.1.2), unless
+        save.if-none-match says the server overwrites anyway.  It only
+        guards the URL: the search also finds the same UID under another
+        resource name, so it is left out only where the server is known
+        to refuse that (save.no-uid-conflict).
+
+        no_create: If-Match: * (section 13.1.1), unless
+        save-load.mutable.if-match-wildcard says the server gets it
+        wrong.  It replaces the search.  Not where a strong ETag or a
+        Schedule-Tag is cached: that precondition is sent as before
+        (stricter than ``*``, and two If-Match headers cannot be sent),
+        and the search is kept, since a 412 to it cannot tell a deleted
+        object (ConsistencyError) from a changed one (ETagMismatchError).
+
+        Both flags at once cannot hold; the search refuses either way.
+        """
+        if not (no_overwrite or no_create):
+            return None, False
+        if no_overwrite and no_create:
+            return None, True
+        features = self.client.features if self.client is not None else None
+
+        def supported(feature: str) -> bool:
+            return features is not None and features.is_supported(feature)
+
+        merges_recurrence = bool(
+            (only_this_recurrence is not False or all_recurrences)
+            and "RECURRENCE-ID" in self.icalendar_component
+        )
+        if no_overwrite:
+            if not (features is None or supported("save.if-none-match")):
+                return None, True
+            return "if-none-match", merges_recurrence or not supported("save.no-uid-conflict")
+        if self._precondition_headers(precondition) or not (
+            features is None or supported("save-load.mutable.if-match-wildcard")
+        ):
+            return None, True
+        if not (self.id or self.icalendar_component.get("uid")):
+            from caldav.lib import error
+
+            raise error.ConsistencyError("no_create flag was set, but no ID given")
+        return "if-match", merges_recurrence
 
     def _validate_save_constraints(self, existing, uid, no_overwrite, no_create):
         """Raise ConsistencyError if no_overwrite/no_create constraints are violated."""
@@ -1616,6 +1917,13 @@ class CalendarObjectResource(DAVObject):
         if not uid and no_create:
             raise error.ConsistencyError("no_create flag was set, but no ID given")
         if no_overwrite and existing:
+            ## The same UID under another URL is what the server's
+            ## CALDAV:no-uid-conflict precondition would refuse (issue #806)
+            target = self.url or (self._generate_url() if uid else None)
+            if existing.url and target and existing.url != target:
+                raise error.UidConflictConsistencyError(
+                    "no_overwrite flag was set, but another object holds the UID"
+                )
             raise error.ConsistencyError("no_overwrite flag was set, but object already exists")
         if no_create and not existing:
             raise error.ConsistencyError("no_create flag was set, but object does not exist")
@@ -1712,6 +2020,7 @@ class CalendarObjectResource(DAVObject):
         only_this_recurrence: bool | None = True,
         all_recurrences: bool = False,
         precondition: Precondition = "auto",
+        raw_data: bytes | None = None,
     ) -> Self:
         """Async implementation of save() for async clients."""
         from caldav.lib import error
@@ -1731,14 +2040,25 @@ class CalendarObjectResource(DAVObject):
                     return None
             return None
 
-        if no_overwrite or no_create:
+        ## raw bytes are never merged into a master
+        merging = raw_data is None
+        wildcard, search = self._save_plan(
+            no_overwrite,
+            no_create,
+            only_this_recurrence if merging else False,
+            all_recurrences and merging,
+            precondition,
+        )
+        if search:
             uid = self.id or self.icalendar_component.get("uid")
             existing = await get_self()
             self._validate_save_constraints(existing, uid, no_overwrite, no_create)
 
         if (
-            only_this_recurrence is not False or all_recurrences
-        ) and "RECURRENCE-ID" in self.icalendar_component:
+            raw_data is None
+            and (only_this_recurrence is not False or all_recurrences)
+            and "RECURRENCE-ID" in self.icalendar_component
+        ):
             obj = await get_self()
             if obj is None:
                 if only_this_recurrence is True:
@@ -1760,9 +2080,12 @@ class CalendarObjectResource(DAVObject):
                     precondition=precondition,
                 )
 
+        if raw_data is not None:
+            await self._put_raw(raw_data, precondition, wildcard)
+            return self
         self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
-        await self._create(id=self.id, path=path, precondition=precondition)
+        await self._create(id=self.id, path=path, precondition=precondition, wildcard=wildcard)
         return self
 
     def is_loaded(self):
@@ -2347,6 +2670,10 @@ class Todo(CalendarObjectResource):
         if hasattr(dtstart, "astimezone"):
             dtstart = dtstart.astimezone(timezone.utc)
         if not ts:
+            ts = dtstart
+        elif isinstance(ts, datetime) and isinstance(dtstart, datetime) and ts < dtstart:
+            ## Completed before DTSTART (case 1A): the occurrence at
+            ## DTSTART is the one done, so look past it (issue #782)
             ts = dtstart
         ## Counting is taken care of other places
         if no_count and "COUNT" in rrule:

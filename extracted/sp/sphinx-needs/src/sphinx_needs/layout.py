@@ -30,7 +30,6 @@ from sphinx_needs.data import NeedsCoreFields, SphinxNeedsData
 from sphinx_needs.debug import measure_time
 from sphinx_needs.logging import log_warning
 from sphinx_needs.need_item import NeedItem
-from sphinx_needs.nodes import Need
 from sphinx_needs.string_links import (
     compiled_string_links,
     split_string_link_value,
@@ -43,7 +42,7 @@ LOGGER = getLogger(__name__)
 
 @measure_time("build_need_repr")
 def build_need_repr(
-    node: Need,
+    node: nodes.Element,
     data: NeedItem,
     app: Sphinx,
     *,
@@ -100,7 +99,7 @@ class LayoutHandler:
         self,
         app: Sphinx,
         need: NeedItem,
-        node: Need,
+        node: nodes.Element,
         *,
         layout: str | None = None,
         style: str | None = None,
@@ -446,6 +445,12 @@ class LayoutHandler:
                                     df.name, ", ".join(self.functions.keys())
                                 )
                             )
+                        if None in args or None in kwargs.values():
+                            # a placeholder names a field the need leaves unset: the
+                            # element is left out, as image("field:...") leaves out its
+                            # image (#2303). No argument is None otherwise: the parsed
+                            # arguments are literals, and None is not one of them
+                            continue
                         result = func(*args, **kwargs)
 
                         if result:
@@ -458,15 +463,32 @@ class LayoutHandler:
                 return_nodes.append(node_line)
         return return_nodes
 
-    def _replace_place_holder(self, data: str) -> str:
+    def _replace_place_holder(self, data: str) -> str | None:
+        """Replace each ``{{field}}`` in a layout function's argument with the need's value.
+
+        A value is written as its text, a list as its items' text joined with ``", "``,
+        as ``meta`` shows them (#2303).
+
+        :param data: The argument, as written in the layout.
+        :return: The argument with its placeholders replaced, or ``None`` if one of them
+            names a field the need leaves unset (``None``) or empty (``""``, ``[]``).
+        :raises SphinxNeedLayoutException: If a placeholder names no field of the need.
+        """
         replace_items = re.findall(r"{{(.*)}}", data)
         for item in replace_items:
             if item not in self.need:
                 raise SphinxNeedLayoutException(item)
+            value = self.need[item]
+            if value is None or value == "" or value == []:
+                return None
+            if isinstance(value, list):
+                text = ", ".join(str(element) for element in value)
+            else:
+                text = str(value)
             # To escape { we need to use 2 of them.
             # So {{ becomes {{{{
             replace_string = f"{{{{{item}}}}}"
-            data = data.replace(replace_string, self.need[item])
+            data = data.replace(replace_string, text)
         return data
 
     def meta(
@@ -1100,6 +1122,8 @@ class LayoutHandler:
         :return: need-table node
         """
         common_more_cols = 0
+        side_left_morerows = 0
+        side_right_morerows = 0
 
         if side_left:
             if side_left == "full":
@@ -1162,6 +1186,11 @@ class LayoutHandler:
         content_entry.insert(0, self.node.children)
         content_row += content_entry
 
+        # Construct table
+        self.node_tbody += head_row
+        self.node_tbody += meta_row
+        self.node_tbody += content_row
+
         # FOOTER row
         if footer:
             footer_row = nodes.row(classes=["need", "footer"])
@@ -1170,12 +1199,6 @@ class LayoutHandler:
             )
             footer_entry += self.get_section("footer")
             footer_row += footer_entry
-
-        # Construct table
-        self.node_tbody += head_row
-        self.node_tbody += meta_row
-        self.node_tbody += content_row
-        if footer:
             self.node_tbody += footer_row
         node_tgroup += self.node_tbody
 
@@ -1292,16 +1315,15 @@ class LayoutHandler:
             side_entry += self.get_section("side")
             content_row += side_entry
 
+        # Construct table
+        self.node_tbody += content_row
+
         # FOOTER row
         if footer:
             footer_row = nodes.row(classes=["footer"])
             footer_entry = nodes.entry(classes=["footer"])
             footer_entry += self.get_section("footer")
             footer_row += footer_entry
-
-        # Construct table
-        self.node_tbody += content_row
-        if footer:
             self.node_tbody += footer_row
         node_tgroup += self.node_tbody
 

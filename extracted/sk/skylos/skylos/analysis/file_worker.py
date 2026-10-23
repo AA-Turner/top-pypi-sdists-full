@@ -51,6 +51,7 @@ class _WorkerOptions:
     enable_quality_rules: bool
     enable_danger_rules: bool
     project_root: str | Path | None
+    credential_source_locations: tuple | list
     visitor_class: type
     test_aware_visitor_class: type
     framework_aware_visitor_class: type
@@ -176,18 +177,39 @@ def _masked_tree(tree: ast.AST, file, cfg) -> tuple[ast.AST, int]:
 
 
 def _quality_findings(
-    file, prepared: _PreparedPython, cfg, options: _WorkerOptions
-) -> list:
+    file, prepared: _PreparedPython, cfg, options: _WorkerOptions, *, annotation_coverage=None
+) -> tuple[list, dict | None]:
     if not options.full_scan or not options.enable_quality_rules:
-        return []
-    findings = scan_python_quality(prepared.tree, prepared.source, file, cfg)
+        return [], None
+    credential_kwargs = {}
+    if options.credential_source_locations:
+        credential_kwargs["credential_source_locations"] = (
+            options.credential_source_locations
+        )
+    try:
+        findings = scan_python_quality(
+            prepared.tree,
+            prepared.source,
+            file,
+            cfg,
+            project_root=options.project_root,
+            annotation_coverage=annotation_coverage,
+            **credential_kwargs,
+        )
+    except Exception as error:
+        # A quality rule failure must not discard the file's security,
+        # secret and dead-code results; report the incomplete quality scan.
+        logger.debug("Quality analysis failed for %s", file, exc_info=True)
+        if annotation_coverage is not None:
+            annotation_coverage.clear()
+        return [], analysis_error_payload(file, error, kind="quality_scan_error")
     if Path(file).suffix == ".pyi":
         findings = [
             finding
             for finding in findings
             if finding.get("rule_id") not in {"SKY-L026", "SKY-L033"}
         ]
-    return findings
+    return findings, None
 
 
 def _danger_findings(
@@ -358,12 +380,11 @@ def _clone_fragments(
     ):
         return []
     try:
-        clone_tree = None if prepared.masked else prepared.tree
         return extract_fragments(
             Path(file),
             prepared.source,
             options.clone_cfg,
-            tree=clone_tree,
+            project_root=options.project_root,
         )
     except Exception:
         logger.debug("Clone fragment extraction failed for %s", file, exc_info=True)
@@ -377,7 +398,8 @@ def _success_result(
     visitors: _VisitorResults,
     artifacts: _Artifacts,
     *,
-    analysis_error: dict | None = None,
+    analysis_error: dict | list[dict] | None = None,
+    annotation_coverage=None,
 ) -> tuple:
     visitor = visitors.visitor
     return (
@@ -409,6 +431,7 @@ def _success_result(
         analysis_error,
         prepared.ignore_rules_by_line,
         bool(getattr(visitor, "has_explicit_all", False)),
+        annotation_coverage or {},
     )
 
 
@@ -454,6 +477,7 @@ def _error_result(file, cfg, error, options: _WorkerOptions) -> tuple:
         ),
         {},
         False,
+        {},
     )
 
 
@@ -485,8 +509,13 @@ def _prepare_python(file, mod, cfg, source: str) -> _PreparedPython:
 
 def _process_python_file(file, mod, cfg, source, options: _WorkerOptions) -> tuple:
     prepared = _prepare_python(file, mod, cfg, source)
-    quality = _quality_findings(file, prepared, cfg, options)
-    danger, analysis_error = _danger_findings(file, prepared, options)
+    annotation_coverage = {}
+    quality, quality_error = _quality_findings(
+        file, prepared, cfg, options, annotation_coverage=annotation_coverage
+    )
+    danger, danger_error = _danger_findings(file, prepared, options)
+    errors = [error for error in (quality_error, danger_error) if error]
+    analysis_error = errors[0] if len(errors) == 1 else errors or None
     custom = _custom_findings(prepared.tree, file, options.extra_visitors)
     quality, danger, suppressed = _apply_inline_ignores(
         quality,
@@ -522,6 +551,7 @@ def _process_python_file(file, mod, cfg, source, options: _WorkerOptions) -> tup
         visitors,
         artifacts,
         analysis_error=analysis_error,
+        annotation_coverage=annotation_coverage,
     )
 
 
@@ -553,6 +583,7 @@ def process_file(
     config_file: str | Path | None = None,
     *,
     project_root: str | Path | None = None,
+    credential_source_locations: tuple | list = (),
     visitor_class: type = Visitor,
     test_aware_visitor_class: type = TestAwareVisitor,
     framework_aware_visitor_class: type = FrameworkAwareVisitor,
@@ -568,6 +599,7 @@ def process_file(
         enable_quality_rules=enable_quality_rules,
         enable_danger_rules=enable_danger_rules,
         project_root=project_root,
+        credential_source_locations=credential_source_locations,
         visitor_class=visitor_class,
         test_aware_visitor_class=test_aware_visitor_class,
         framework_aware_visitor_class=framework_aware_visitor_class,

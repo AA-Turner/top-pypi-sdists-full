@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.9.15"
+version = "0.9.21"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -120,12 +120,7 @@ include = [
     "tests_smoke",
     "tests",
 ]
-exclude = [
-    "tests/data/",
-    "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_commands",
-    "tests/test_unit/test_cdf_tk/test_utils",
-]
+exclude = []
 
 [tool.ty.environment]
 python-version = "3.14"
@@ -134,6 +129,16 @@ extra-paths = ["typings"]
 
 [tool.ty.rules]
 invalid-mutable-override = "ignore"
+
+[[tool.ty.overrides]]
+include = [
+    "tests/data/**/functions/**",
+    "tests/data/**/streamlit/**",
+]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
 
 [tool.ruff]
 line-length = 120

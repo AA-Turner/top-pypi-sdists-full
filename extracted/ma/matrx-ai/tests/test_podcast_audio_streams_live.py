@@ -25,6 +25,7 @@ import asyncio
 from typing import Any
 
 import pytest
+from matrx_ai.testing.holders import install_named_runner
 from matrx_connect.context.app_context import (
     AppContext,
     clear_app_context,
@@ -149,7 +150,7 @@ def test_both_audio_paths_ask_for_live_audio(monkeypatch, host_count: int, names
         calls.append(kwargs)
         return AgentRunResult(success=False, error="stopped before the paid call")
 
-    monkeypatch.setattr(podcast, "_run_mandated", paid_call)
+    install_named_runner(monkeypatch, paid_call)
     request = podcast.PodcastRequest(
         show_id="route-report",
         input_data_type=list(podcast.InputDataType)[0],

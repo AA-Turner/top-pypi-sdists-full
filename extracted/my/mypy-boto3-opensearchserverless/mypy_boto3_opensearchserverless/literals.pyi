@@ -29,8 +29,17 @@ __all__ = (
     "DeletionProtectionType",
     "IamIdentityCenterGroupAttributeType",
     "IamIdentityCenterUserAttributeType",
+    "IngestionAlertCodeType",
+    "IngestionFailureCodeType",
+    "IngestionJobStatusType",
+    "IngestionStateType",
+    "IngestionStreamStatusType",
+    "InitialScanType",
     "LifecyclePolicyTypeType",
+    "ListIngestionJobsPaginatorName",
+    "ListIngestionStreamsPaginatorName",
     "OpenSearchServiceServerlessServiceName",
+    "PaginatorName",
     "RegionName",
     "ResourceServiceName",
     "ResourceTypeType",
@@ -52,7 +61,40 @@ CollectionTypeType = Literal["SEARCH", "TIMESERIES", "VECTORSEARCH"]
 DeletionProtectionType = Literal["DISABLED", "ENABLED"]
 IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]
+IngestionAlertCodeType = Literal[
+    "DESTINATION_ACCESS_DENIED",
+    "DESTINATION_RESOURCE_NOT_FOUND",
+    "INTERNAL_SERVER_ERROR",
+    "SOURCE_ACCESS_DENIED",
+    "SOURCE_RESOURCE_NOT_FOUND",
+]
+IngestionFailureCodeType = Literal[
+    "DESTINATION_ACCESS_DENIED",
+    "DESTINATION_RESOURCE_NOT_FOUND",
+    "INTERNAL_SERVER_ERROR",
+    "SOURCE_ACCESS_DENIED",
+    "SOURCE_RESOURCE_NOT_FOUND",
+]
+IngestionJobStatusType = Literal[
+    "ACTIVE",
+    "CANCELLED",
+    "CANCELLING",
+    "CANCEL_FAILED",
+    "COMPLETED",
+    "CREATE_FAILED",
+    "CREATING",
+    "FAILED",
+]
+IngestionStateType = Literal[
+    "FAILED", "INGESTION_COMPLETE", "INGESTION_IN_PROGRESS", "SCANNING", "STARTING", "STOPPED"
+]
+IngestionStreamStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING"
+]
+InitialScanType = Literal["DISABLED", "ENABLED"]
 LifecyclePolicyTypeType = Literal["retention"]
+ListIngestionJobsPaginatorName = Literal["list_ingestion_jobs"]
+ListIngestionStreamsPaginatorName = Literal["list_ingestion_streams"]
 ResourceTypeType = Literal["index"]
 SecurityConfigTypeType = Literal["iamfederation", "iamidentitycenter", "saml"]
 SecurityPolicyTypeType = Literal["encryption", "network"]
@@ -64,8 +106,11 @@ OpenSearchServiceServerlessServiceName = Literal["opensearchserverless"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -138,6 +183,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -165,6 +211,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -210,12 +257,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -240,6 +287,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -254,8 +302,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -282,6 +328,9 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -334,6 +383,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -349,10 +399,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -370,6 +420,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -413,6 +464,8 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -434,7 +487,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -455,6 +507,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -463,7 +516,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -490,6 +542,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_ingestion_jobs", "list_ingestion_streams"]
 RegionName = Literal[
     "ap-east-1",
     "ap-northeast-1",

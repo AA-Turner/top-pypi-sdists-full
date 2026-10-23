@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -31,6 +39,7 @@ from .asset import (
     _extract_asset_attrs,
     _populate_asset_attrs,
 )
+from .cognos_related import RelatedCognosColumn, RelatedCognosFile, RelatedCognosFolder
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
@@ -47,14 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cognos_related import RelatedCognosColumn, RelatedCognosFile, RelatedCognosFolder
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -265,9 +266,7 @@ class CognosFile(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/file/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -334,6 +333,37 @@ class CognosFile(Asset):
         if self.guid is not UNSET:
             return RelatedCognosFile(guid=self.guid)
         return RelatedCognosFile(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        cognos_id: str,
+    ) -> "CognosFile":
+        validate_required_fields(
+            ["name", "connection_qualified_name", "cognos_id"],
+            [name, connection_qualified_name, cognos_id],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/file/{cognos_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            cognos_id=cognos_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CognosFile":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CognosFile":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -661,6 +691,7 @@ def _cognos_file_to_nested(cognos_file: CognosFile) -> CognosFileNested:
         is_incomplete=cognos_file.is_incomplete,
         provenance_type=cognos_file.provenance_type,
         home_id=cognos_file.home_id,
+        delete_handler=cognos_file.delete_handler,
         depth=cognos_file.depth,
         immediate_upstream=cognos_file.immediate_upstream,
         immediate_downstream=cognos_file.immediate_downstream,
@@ -707,6 +738,7 @@ def _cognos_file_from_nested(nested: CognosFileNested) -> CognosFile:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

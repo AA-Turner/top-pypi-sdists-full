@@ -125,6 +125,21 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+#: The liveness probe reads cookies for this URL: a browser-process round trip
+#: that touches no page and no network (``.invalid`` never resolves).
+_LIVENESS_PROBE_URL = "https://liveness.invalid/"
+
+
+def _on_relaunched_page(request: M.CommandRequest) -> M.CommandRequest:
+    """A relaunched browser has new pages: the retry targets the active one."""
+    return request.model_copy(update={"page_id": None}) if request.page_id else request
+
+
+def _short_error(exc: BaseException) -> str:
+    text = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
+    return f"{type(exc).__name__}: {text}"[:200] if text else type(exc).__name__
+
+
 #: The X window class of the agent's Chrome on a Cloud Computer desktop. The
 #: window manager maximizes it inside the work area (above the taskbar) and the
 #: desktop's Chrome launcher focuses it instead of starting a second Chrome on
@@ -537,6 +552,29 @@ class _HumanEpisode:
         self.origins: set[str] = set()
 
 
+class _AgentTab:
+    """One agent's tab in the person's one Chrome (TAB PER AGENT, 2026-10-22).
+
+    ``page_id`` is the tab the agent drives; it is re-resolved on every command,
+    so a tab a person closed (or a relaunch replaced) is reopened at
+    ``last_url``. ``lock`` keeps ONE agent's commands in order while different
+    agents run side by side; ``session`` is the agent's own BrowserSession, so
+    the imported actions resolve to its tab and never to another agent's.
+    """
+
+    __slots__ = ("agent_ref", "page_id", "last_url", "lock", "session_id", "session", "last_used", "busy")
+
+    def __init__(self, agent_ref: str, session_id: str) -> None:
+        self.agent_ref = agent_ref
+        self.page_id: str | None = None
+        self.last_url: str | None = None
+        self.lock = asyncio.Lock()
+        self.session_id = session_id
+        self.session: BrowserSession | None = None
+        self.last_used = time.monotonic()
+        self.busy = 0
+
+
 def _serialized_control(method):
     async def wrapped(self, *args, **kwargs):  # noqa: ANN002, ANN003
         async with self._control_gate:
@@ -639,6 +677,13 @@ class BrowserWorker:
         #: A person closed the agent's Chrome on the desktop: it stays closed
         #: until the agent's next command (or the desktop Chrome icon) opens it.
         self._person_closed = False
+        #: LIVENESS TRUTH (2026-10-22): the probe deadline the control plane
+        #: last sent on a heartbeat (knob
+        #: ``cloud_browser.worker_liveness.probe_timeout_ms``); None until then.
+        self._liveness_timeout_s: float | None = None
+        #: Set when a dead browser's ONE relaunch failed: the run is over and
+        #: every reply says so (heartbeat ``browser_state="down"``).
+        self._browser_down_reason: str | None = None
         #: The agent's tabs (URLs in order, active index) after its last command.
         #: A reopened desktop Chrome shows exactly these, the active one in front.
         self._agent_tabs: tuple[list[str], int] | None = None
@@ -658,6 +703,17 @@ class BrowserWorker:
         #: ended: only the run stops, the person's desktop stays.
         self._keep_process_on_ended_run = False
         self._command_lock = asyncio.Lock()
+        #: TAB PER AGENT (2026-10-22): agent_ref → its tab. Commands that carry
+        #: an ``agent_ref`` take ``_command_lock`` only to settle the browser and
+        #: the tab, then run under their own agent's lock, so two agents never
+        #: drive each other's tab and never wait on each other's page loads.
+        self._agent_owned: OrderedDict[str, _AgentTab] = OrderedDict()
+        #: Agent commands running right now outside ``_command_lock``.
+        self._agent_inflight = 0
+        #: The agent whose tab is in front (the one a person sees on Take control).
+        self._focused_agent_ref: str | None = None
+        #: Agents that gave up their tab at the limit: where to reopen it.
+        self._evicted_agent_urls: OrderedDict[str, str] = OrderedDict()
         #: What the command plane is doing RIGHT NOW. Read by the command
         #: ceiling so a ``command_deadline_exceeded`` names the stage it
         #: died in (``humanize_type``, ``wait_for_visible``,
@@ -682,6 +738,10 @@ class BrowserWorker:
         # and by ``shutdown``, and replaced when a bootstrap arrives with a
         # different ticket.
         self._egress_adapter: Any = None
+        #: The paid / caller proxy's byte meter (``_ensure_proxy_meter``).
+        self._proxy_meter: Any = None
+        self._proxy_meter_key: tuple[str, str | None, str | None] | None = None
+        self._proxy_bytes_closed = 0
         self._egress_ticket: str | None = None
         #: The plain name of the computer the run is leaving through, for the
         #: control plane's announcement. None = ordinary datacenter egress.
@@ -1009,6 +1069,10 @@ class BrowserWorker:
         self._lease_expires_at = None
         self._session_mgr = BrowserSessionManager()
         self._session = None
+        self._agent_owned.clear()
+        self._evicted_agent_urls.clear()
+        self._agent_inflight = 0
+        self._focused_agent_ref = None
         self._pages.clear()
         self._dialogs.clear()
         self._downloads.clear()
@@ -1429,6 +1493,50 @@ class BrowserWorker:
         )
         return str(adapter.proxy_url)
 
+    async def _ensure_proxy_meter(self, policy: M.LaunchPolicy) -> str:
+        """Start (or reuse) the byte-counting loopback in front of ``policy.proxy``.
+
+        ``playwright_proxy`` stays the ONE parser of a proxy URL's credentials
+        (Playwright strips ``user:password@`` without moving it); explicit policy
+        credentials still win. A failure to start is a LAUNCH failure — never a
+        silent launch on the datacenter address the site just refused.
+        """
+        parsed: dict[str, str] = playwright_proxy(policy.proxy or "")
+        username = parsed.get("username")
+        password = parsed.get("password")
+        if policy.proxy_username is not None and policy.proxy_password is not None:
+            username, password = policy.proxy_username, policy.proxy_password
+        key = (parsed["server"], username, password)
+        if self._proxy_meter is not None and self._proxy_meter_key == key:
+            return self._proxy_meter.proxy_url
+        await self._close_proxy_meter()
+        from matrx_scraper.upstream_proxy_meter import MeteredUpstreamProxy
+
+        meter = await MeteredUpstreamProxy.start(parsed["server"], username, password)
+        self._proxy_meter = meter
+        self._proxy_meter_key = key
+        return meter.proxy_url
+
+    @property
+    def proxy_bytes(self) -> int | None:
+        """Bytes Chrome sent and received through the remote proxy since this
+        worker started one (cumulative across relaunches); None = no proxy."""
+        if self._proxy_meter is None and not self._proxy_bytes_closed:
+            return None
+        live = self._proxy_meter.bytes_total if self._proxy_meter is not None else 0
+        return self._proxy_bytes_closed + live
+
+    async def _close_proxy_meter(self) -> None:
+        meter, self._proxy_meter = self._proxy_meter, None
+        self._proxy_meter_key = None
+        if meter is None:
+            return
+        self._proxy_bytes_closed += meter.bytes_total
+        try:
+            await meter.close()
+        except Exception:
+            logger.exception("metered proxy did not close cleanly")
+
     async def _close_egress_adapter(self) -> None:
         adapter, self._egress_adapter = self._egress_adapter, None
         self._egress_ticket = None
@@ -1533,15 +1641,22 @@ class BrowserWorker:
         if egress_proxy_url is not None:
             launch_kwargs["proxy"] = {"server": egress_proxy_url}
         elif policy.proxy:
-            # ``playwright_proxy`` is the ONE translation: Playwright strips a
-            # URL's ``user:password@`` from ``server`` WITHOUT moving it into
-            # username/password, so a credentialed proxy URL silently launched
-            # unauthenticated here. Explicit policy credentials still win.
-            proxy: dict[str, str] = playwright_proxy(policy.proxy)
-            if policy.proxy_username is not None and policy.proxy_password is not None:
-                proxy["username"] = policy.proxy_username
-                proxy["password"] = policy.proxy_password
-            launch_kwargs["proxy"] = proxy
+            # A remote proxy (the paid second exit, or a caller's own) is reached
+            # through a loopback METER so the bytes it carries are counted and
+            # reported on every heartbeat (``HeartbeatResponse.proxy_bytes``):
+            # a paid proxy bills by traffic and the platform meters it to points
+            # (common-docs/projects/cloud-computer/PLAN.md rulings 6 + 12). Only
+            # Chrome is launched through it; the machine's shell keeps its own exit.
+            # A socks proxy is not HTTP-shaped and is handed to Chrome as before
+            # (unmetered: the paid exit is always http).
+            direct: dict[str, str] = playwright_proxy(policy.proxy)
+            if direct["server"].startswith("http://"):
+                launch_kwargs["proxy"] = {"server": await self._ensure_proxy_meter(policy)}
+            else:
+                if policy.proxy_username is not None and policy.proxy_password is not None:
+                    direct["username"] = policy.proxy_username
+                    direct["password"] = policy.proxy_password
+                launch_kwargs["proxy"] = direct
         logger.info(
             "Cloud Browser launch identity: binary=%s timezone=%s locale=%s webgl=%s humanize=%s headless=%s",
             identity.binary_kind,
@@ -1845,6 +1960,11 @@ class BrowserWorker:
             self._closed_reason = "access_revoked"
             self._controller = self._controller.model_copy(update={"human_input_enabled": False})
 
+        browser_state: str | None = None
+        if request.liveness_probe_timeout_ms is not None and request.access_still_valid:
+            self._liveness_timeout_s = request.liveness_probe_timeout_ms / 1000
+            browser_state = await self._heartbeat_liveness()
+
         rotate = None
         if request.rotate_callback_token:
             rotate = uuid.uuid4().hex
@@ -1861,7 +1981,165 @@ class BrowserWorker:
             page_count=sum(1 for tp in self._pages.values() if tp.closed_at is None),
             pending_events=len(self._event_buffer),
             checkpoint_recommended=False,
+            browser_state=browser_state,  # type: ignore[arg-type]
+            browser_down_reason=self._browser_down_reason if browser_state == "down" else None,
+            proxy_bytes=self.proxy_bytes,
         )
+
+    # ── liveness truth: a renewed lease means a browser that really answers ──
+
+    async def _heartbeat_liveness(self) -> str | None:
+        """What the browser is really doing, proven, before the lease is renewed.
+
+        The 2026-10-22 zombie: a Cloud Computer's Chromium was gone ("Target
+        page, context or browser has been closed", no pages) but every lease
+        renewal still answered ok, so the run stayed "running" and its viewer
+        reconnected to an empty stream for good. A dead browser is relaunched
+        ONCE on the same profile; if that fails the answer is ``down`` with the
+        reason, and the control plane ends the run as failed. None = no claim
+        (a command or checkpoint owns the browser right now, or nothing runs).
+        """
+        if self._browser_down_reason is not None:
+            return "down"
+        if self._person_closed:
+            return "closed"
+        if (
+            self._last_launch is None
+            or self._closing_intentionally
+            or self._terminating
+            or self._checkpoint_in_progress
+            or self._controller.state in ("provisioning", "stopping", "stopped")
+            or self._command_lock.locked()
+            or self._agent_inflight > 0
+        ):
+            return None
+        async with self._command_lock:
+            alive, why = await self._browser_alive(self._liveness_timeout_s)
+            if alive:
+                return "running"
+            return "relaunched" if await self._relaunch_dead_browser(why) else "down"
+
+    async def _browser_alive(self, timeout_s: float | None) -> tuple[bool, str]:
+        """Does THIS worker's Chromium answer? ``(alive, why_not)``.
+
+        Asks the browser process itself (a cookie read), never a page: a page
+        busy with a heavy script is not a dead browser. A browser with no page
+        left gets one opened, so the run always has something to drive and show.
+        """
+        context = self._context
+        if context is None:
+            return False, "the browser is not open"
+        try:
+            browser = getattr(context, "browser", None)
+            if browser is not None and not browser.is_connected():
+                return False, "the browser process is gone"
+        except Exception:  # noqa: BLE001 — the cookie read below decides
+            pass
+        try:
+            probe = context.cookies(_LIVENESS_PROBE_URL)
+            if timeout_s:
+                await asyncio.wait_for(probe, timeout_s)
+            else:
+                await probe
+        except TimeoutError:
+            return False, f"the browser did not answer within {timeout_s:g}s"
+        except Exception as exc:  # noqa: BLE001 — any failure here IS the answer
+            return False, f"the browser is gone ({_short_error(exc)})"
+        if not any(tp.closed_at is None for tp in self._pages.values()):
+            try:
+                opening = context.new_page()
+                page = await (asyncio.wait_for(opening, timeout_s) if timeout_s else opening)
+            except Exception as exc:  # noqa: BLE001
+                return False, f"the browser has no page and could not open one ({_short_error(exc)})"
+            if not any(tp.page is page for tp in self._pages.values()):
+                self._register_page(page, opener_page_id=None, kind="page", opened_by="agent")
+            self._reconcile_active()
+        return True, ""
+
+    async def _relaunch_dead_browser(self, why: str) -> bool:
+        """ONE relaunch of a dead browser on the same profile. The caller holds
+        the command lock. ``False`` leaves the worker honestly down: health
+        ``browser_crashed``, queue closed, ``_browser_down_reason`` set."""
+        launch = self._last_launch
+        logger.error("the browser is dead (%s); relaunching it once on the same profile", why)
+        self._emit("browser_crashed", detail_code="relaunching")
+        self._closing_intentionally = True
+        try:
+            if self._context is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(
+                        self._context.close(), M.BOOTSTRAP_PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS
+                    )
+            if self._pw is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(
+                        self._pw.stop(), M.BOOTSTRAP_PARTIAL_LAUNCH_CLEANUP_TIMEOUT_SECONDS
+                    )
+        finally:
+            self._context = None
+            self._pw = None
+        for tp in self._pages.values():
+            if tp.closed_at is None:
+                tp.closed_at = _now()
+        self._bump_inventory()
+        try:
+            if launch is None:
+                raise RuntimeError("the launch settings of this run are gone")
+            await end_leftover_chrome(self._user_data_dir)
+            mark_profile_exited_cleanly(self._user_data_dir)
+            await asyncio.wait_for(self._launch_context(*launch), M.BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS)
+            alive, after = await self._browser_alive(self._liveness_timeout_s)
+            if not alive:
+                raise RuntimeError(after)
+        except Exception as exc:  # noqa: BLE001 — a failed relaunch is the answer
+            self._closing_intentionally = False
+            self._browser_down_reason = (
+                f"The browser stopped ({why}) and could not be restarted: {_short_error(exc)}"
+            )[:500]
+            self.health = "browser_crashed"
+            self.queue_state = "closed"
+            self._closed_reason = "browser_crashed"
+            logger.exception("the dead browser could not be relaunched; this run is down")
+            return False
+        self._person_closed = False
+        self.health = "healthy"
+        if self.queue_state == "closed" and self._closed_reason == "browser_crashed":
+            self.queue_state = "open"
+        logger.warning("the browser was relaunched on the same profile after: %s", why)
+        return True
+
+    async def _execute_command_reviving(
+        self, request: M.CommandRequest
+    ) -> tuple[Any, str | None, str, Any]:
+        """A command on a dead browser relaunches it ONCE and retries ONCE,
+        instead of answering "Target page, context or browser has been closed"."""
+        if self._browser_down_reason is not None:
+            raise WorkerProtocolError("browser_crashed", message=self._browser_down_reason)
+        if self._last_launch is not None and not self._person_closed:
+            alive, why = await self._browser_alive(self._liveness_timeout_s)
+            if not alive:
+                if not await self._relaunch_dead_browser(why):
+                    raise WorkerProtocolError("browser_crashed", message=self._browser_down_reason)
+                return await self._execute_command(_on_relaunched_page(request))
+        try:
+            outcome = await self._execute_command(request)
+        except WorkerProtocolError:
+            raise
+        except Exception:
+            if self._last_launch is None:
+                raise
+            alive, why = await self._browser_alive(self._liveness_timeout_s)
+            if alive:
+                raise
+        else:
+            if outcome[2] == "ok" or self._last_launch is None:
+                return outcome
+            alive, why = await self._browser_alive(self._liveness_timeout_s)
+            if alive:
+                return outcome
+        if not await self._relaunch_dead_browser(why):
+            raise WorkerProtocolError("browser_crashed", message=self._browser_down_reason)
+        return await self._execute_command(_on_relaunched_page(request))
 
     # ── operation 5.3: command ──────────────────────────────────────────────
 
@@ -1893,12 +2171,17 @@ class BrowserWorker:
             # command is servable; without it one humanised 1078-character
             # ``type_text`` held the lock for 149 s (the client gives up at 65).
             async with asyncio.timeout(M.COMMAND_TOTAL_TIMEOUT_SECONDS):
-                async with self._command_lock:
-                    await self.ensure_desktop_browser()
-                    result, active_id, result_class, human_required = await self._execute_command(
-                        request
+                if request.agent_ref:
+                    result, active_id, result_class, human_required = (
+                        await self._run_agent_command(request)
                     )
-                    self._remember_agent_tabs()
+                else:
+                    async with self._command_lock:
+                        await self.ensure_desktop_browser()
+                        result, active_id, result_class, human_required = (
+                            await self._execute_command_reviving(request)
+                        )
+                        self._remember_agent_tabs()
         except TimeoutError:
             stage = self._command_stage
             self._command_stage = "idle"
@@ -1943,9 +2226,291 @@ class BrowserWorker:
         self._admit_sequenced(request, resp)
         return resp
 
+    # ── TAB PER AGENT (2026-10-22) ──────────────────────────────────────────
+    # Several agents share one person's Chrome (same profile, same sign-ins).
+    # Each agent (``CommandRequest.agent_ref``) owns one tab; its commands go to
+    # that tab only, run under that agent's own lock, and run side by side with
+    # other agents' commands. ``_command_lock`` is held only to settle the
+    # browser (reopen / liveness / relaunch) and to bind the tab — never across
+    # a page action. A tab a person closed is reopened at the agent's last URL on
+    # its next command; closing a tab ends only that agent's page.
+
+    def _agent_entry(self, agent_ref: str, limit: int | None) -> _AgentTab:
+        """The agent's tab record, created on its first command. Past ``limit``
+        the agent idle longest gives up its tab (it gets a fresh one, at its
+        last URL, on its next command); when every agent is mid-command the
+        newcomer is refused, retryable."""
+        entry = self._agent_owned.get(agent_ref)
+        if entry is not None:
+            self._agent_owned.move_to_end(agent_ref)
+            return entry
+        if limit is not None and len(self._agent_owned) >= limit:
+            idle = [e for e in self._agent_owned.values() if e.busy == 0 and not e.lock.locked()]
+            if not idle:
+                raise WorkerProtocolError(
+                    "agent_tab_limit_reached",
+                    message=f"all {limit} agent tabs on this browser are busy; retry shortly",
+                )
+            evicted = min(idle, key=lambda e: e.last_used)
+            self._forget_agent(evicted, close_tab=True)
+        entry = _AgentTab(agent_ref, f"{self.run_id}#agent:{agent_ref}")
+        entry.last_url = self._evicted_agent_urls.pop(agent_ref, None)
+        self._agent_owned[agent_ref] = entry
+        return entry
+
+    def _forget_agent(self, entry: _AgentTab, *, close_tab: bool) -> None:
+        self._agent_owned.pop(entry.agent_ref, None)
+        self._session_mgr._sessions.pop(entry.session_id, None)  # noqa: SLF001 - our own registration
+        if self._focused_agent_ref == entry.agent_ref:
+            self._focused_agent_ref = None
+        tp = self._pages.get(entry.page_id) if entry.page_id else None
+        if close_tab and entry.last_url:
+            # Evicted at the limit, not finished: it comes back at its page.
+            self._evicted_agent_urls[entry.agent_ref] = entry.last_url
+            while len(self._evicted_agent_urls) > 100:
+                self._evicted_agent_urls.popitem(last=False)
+        if close_tab and tp is not None and tp.closed_at is None:
+            page = tp.page
+            asyncio.get_event_loop().create_task(page.close(), name="cloud-browser-agent-tab-evict")
+
+    def _agent_owner_of(self, page_id: str) -> str | None:
+        for entry in self._agent_owned.values():
+            if entry.page_id == page_id:
+                return entry.agent_ref
+        return None
+
+    def _live(self, page_id: str | None) -> _TrackedPage | None:
+        tp = self._pages.get(page_id) if page_id else None
+        if tp is None or tp.closed_at is not None:
+            return None
+        if getattr(tp.page, "is_closed", lambda: False)():
+            return None
+        return tp
+
+    async def _bind_agent_tab(self, entry: _AgentTab) -> _TrackedPage:
+        """The agent's live tab: its own, else an unowned tab already showing its
+        last URL (a desktop reopen restores every agent tab), else a new tab
+        opened at its last URL. The caller holds ``_command_lock``."""
+        tp = self._live(entry.page_id)
+        if tp is None:
+            tp = self._adopt_unowned_tab(entry)
+        if tp is None:
+            if self._context is None:
+                raise WorkerProtocolError("browser_crashed", message="the browser is not open")
+            page = await self._context.new_page()
+            tp = next((t for t in self._pages.values() if t.page is page), None)
+            if tp is None:
+                tp = self._register_page(page, opener_page_id=None, kind="page", opened_by="agent")
+            else:
+                tp.kind, tp.opened_by, tp.opener_page_id = "page", "agent", None
+            if entry.last_url and not _blank_url(entry.last_url):
+                try:
+                    await page.goto(entry.last_url, wait_until="commit")
+                except Exception:
+                    logger.warning("an agent's tab did not reopen at its last page", exc_info=True)
+        entry.page_id = tp.page_id
+        if entry.session is None:
+            entry.session = BrowserSession(
+                session_id=entry.session_id,
+                pw=self._pw,
+                browser=self._context,
+                context=self._context,
+                page=tp.page,
+            )
+        entry.session.page = tp.page
+        entry.session.context = self._context
+        entry.session.browser = self._context
+        self._session_mgr._sessions[entry.session_id] = entry.session  # noqa: SLF001
+        return tp
+
+    def _adopt_unowned_tab(self, entry: _AgentTab) -> _TrackedPage | None:
+        owned = {e.page_id for e in self._agent_owned.values() if e is not entry and e.page_id}
+        candidates = [
+            tp
+            for tp in self._pages.values()
+            if tp.page_id not in owned and self._live(tp.page_id) is not None
+        ]
+        if entry.last_url:
+            for tp in candidates:
+                if (getattr(tp.page, "url", "") or "") == entry.last_url:
+                    return tp
+        if entry.last_url is None and not owned:
+            # The FIRST agent on a browser takes the tab already open (the one
+            # the person sees), exactly as the whole-run behavior did.
+            active = self._live(self._active_page_id)
+            if active is not None and active.page_id not in owned:
+                return active
+        if entry.last_url is None:
+            # A blank tab nobody owns is a free tab, never a reason to open another.
+            for tp in candidates:
+                if _blank_url(getattr(tp.page, "url", "")) or (
+                    getattr(tp.page, "url", "") or ""
+                ).startswith(DESKTOP_START_PAGE):
+                    return tp
+        return None
+
+    async def _focus_agent(self, entry: _AgentTab, tp: _TrackedPage) -> None:
+        """The commanding agent's tab is the active one and in front, so the
+        viewer (and a person who takes control) sees the agent at work."""
+        self._active_page_id = tp.page_id
+        tp.last_focused_at = _now()
+        if self._focused_agent_ref != entry.agent_ref:
+            self._focused_agent_ref = entry.agent_ref
+            with contextlib.suppress(Exception):
+                await tp.page.bring_to_front()
+
+    async def _settle_for_agent(self, entry: _AgentTab) -> tuple[_TrackedPage, Any]:
+        """Under ``_command_lock``: an open, answering browser and the agent's tab."""
+        async with self._command_lock:
+            await self.ensure_desktop_browser()
+            if self._browser_down_reason is not None:
+                raise WorkerProtocolError("browser_crashed", message=self._browser_down_reason)
+            if self._last_launch is not None and not self._person_closed:
+                alive, why = await self._browser_alive(self._liveness_timeout_s)
+                if not alive and not await self._relaunch_dead_browser(why):
+                    raise WorkerProtocolError("browser_crashed", message=self._browser_down_reason)
+            tp = await self._bind_agent_tab(entry)
+            await self._focus_agent(entry, tp)
+            return tp, self._context
+
+    async def _agent_attempt(
+        self, request: M.CommandRequest, entry: _AgentTab
+    ) -> tuple[tuple[Any, str | None, str, Any] | None, Exception | None]:
+        entry.busy += 1
+        self._agent_inflight += 1
+        try:
+            return await self._execute_command(request, agent=entry), None
+        except WorkerProtocolError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — the revive check below decides
+            return None, exc
+        finally:
+            entry.busy -= 1
+            self._agent_inflight -= 1
+
+    async def _run_agent_command(
+        self, request: M.CommandRequest
+    ) -> tuple[Any, str | None, str, Any]:
+        """One agent's command on its own tab. A browser that died under it is
+        relaunched ONCE (the same rule as ``_execute_command_reviving``) and the
+        command retried ONCE on the agent's tab, reopened at its last URL."""
+        assert request.agent_ref is not None
+        entry = self._agent_entry(request.agent_ref, request.agent_tab_limit)
+        async with entry.lock:
+            entry.last_used = time.monotonic()
+            _tp, context = await self._settle_for_agent(entry)
+            outcome, failure = await self._agent_attempt(request, entry)
+            if failure is not None or (outcome is not None and outcome[2] != "ok"):
+                if self._last_launch is not None:
+                    async with self._command_lock:
+                        retry = self._context is not context
+                        if not retry:
+                            alive, why = await self._browser_alive(self._liveness_timeout_s)
+                            if not alive:
+                                if not await self._relaunch_dead_browser(why):
+                                    raise WorkerProtocolError(
+                                        "browser_crashed", message=self._browser_down_reason
+                                    )
+                                retry = True
+                        if retry:
+                            await self._focus_agent(entry, await self._bind_agent_tab(entry))
+                    if retry:
+                        outcome, failure = await self._agent_attempt(
+                            _on_relaunched_page(request), entry
+                        )
+            if failure is not None:
+                raise failure
+            assert outcome is not None
+            tp = self._live(entry.page_id)
+            url = (getattr(tp.page, "url", "") or "") if tp is not None else ""
+            if url and not _blank_url(url):
+                entry.last_url = url
+            entry.last_used = time.monotonic()
+            self._remember_agent_tabs()
+            return outcome
+
+    async def _execute_agent_tab_command(
+        self, request: M.CommandRequest, entry: _AgentTab
+    ) -> tuple[Any, str | None, str, Any]:
+        """``_execute_command`` for one agent: its tab, its session, never another's."""
+        cmd = request.command
+        name = cmd.command
+        tp = self._live(entry.page_id)
+        if request.page_id and request.page_id != entry.page_id:
+            # The agent named another tab (a popup its page opened): allowed
+            # unless another agent owns it.
+            named = self._live(request.page_id)
+            owner = self._agent_owner_of(request.page_id)
+            if owner is not None and owner != entry.agent_ref:
+                raise WorkerProtocolError(
+                    "page_owned_by_other_agent", message="that tab belongs to another agent"
+                )
+            if named is None and name != "navigate":
+                raise WorkerProtocolError("unknown_page", message="page_id names no live page")
+            tp = named or tp
+        if tp is None:
+            raise WorkerProtocolError("unknown_page", message="the agent's tab is not open")
+        if name == "activate_page":
+            owner = self._agent_owner_of(cmd.target_page_id)
+            if owner is not None and owner != entry.agent_ref:
+                raise WorkerProtocolError(
+                    "page_owned_by_other_agent", message="that tab belongs to another agent"
+                )
+            result = await self._cmd_activate_page(cmd)
+            entry.page_id = result.active_page_id
+            self._focused_agent_ref = entry.agent_ref
+            if entry.session is not None:
+                entry.session.page = self._pages[entry.page_id].page
+            return result, entry.page_id, "ok", None
+        if name == "close_page":
+            target = cmd.target_page_id or entry.page_id
+            owner = self._agent_owner_of(target) if target else None
+            if owner is not None and owner != entry.agent_ref:
+                raise WorkerProtocolError(
+                    "page_owned_by_other_agent", message="that tab belongs to another agent"
+                )
+            if target == entry.page_id and len([p for p in self._pages.values() if p.closed_at is None]) <= 1:
+                # Never close the person's last tab (that closes their Chrome):
+                # the agent lets go of it and it stays open for them.
+                self._forget_agent(entry, close_tab=False)
+                return (
+                    C.ClosePageResult(
+                        success=True,
+                        session_id=self.run_id,
+                        closed=False,
+                        active_page_id=self._active_page_id or "",
+                    ),
+                    self._active_page_id,
+                    "ok",
+                    None,
+                )
+            result = await self._cmd_close_page(cmd.model_copy(update={"target_page_id": target}))
+            if target == entry.page_id:
+                self._forget_agent(entry, close_tab=False)
+            return result, result.active_page_id, "ok", None
+        if name == "handle_dialog":
+            return await self._cmd_handle_dialog(cmd), tp.page_id, "ok", None
+        if name == "wait_for_download":
+            return await self._cmd_wait_for_download(cmd), tp.page_id, "ok", None
+        session = entry.session
+        if session is not None:
+            session.page = tp.page
+        tp.last_focused_at = _now()
+        return await self._run_page_command(request, session, entry.session_id, tp.page_id)
+
+    def _agent_page_for_capture(self, agent_ref: str | None) -> str | None:
+        entry = self._agent_owned.get(agent_ref) if agent_ref else None
+        if entry is None:
+            return None
+        tp = self._live(entry.page_id)
+        return tp.page_id if tp is not None else None
+
     def _guard_command_admission(self, origin: str) -> None:
         st = self._controller.state
-        if self.queue_state == "closed":
+        if self.queue_state == "closed" and not (
+            # A crashed browser not yet relaunched: the command relaunches it.
+            self._closed_reason == "browser_crashed" and self._browser_down_reason is None
+        ):
             reason = self._closed_reason or "worker_shutting_down"
             raise WorkerProtocolError(reason)  # type: ignore[arg-type]
         if st in ("stopping", "stopped"):
@@ -1970,7 +2535,9 @@ class BrowserWorker:
             return
         raise WorkerProtocolError("not_bootstrapped")
 
-    async def _execute_command(self, request: M.CommandRequest) -> tuple[Any, str | None, str, Any]:
+    async def _execute_command(
+        self, request: M.CommandRequest, agent: _AgentTab | None = None
+    ) -> tuple[Any, str | None, str, Any]:
         cmd = request.command
         name = cmd.command
         self._command_stage = f"resolve_page:{name}"
@@ -1978,6 +2545,9 @@ class BrowserWorker:
             raise WorkerProtocolError(
                 "command_not_supported", message="unknown command discriminator"
             )
+
+        if agent is not None:
+            return await self._execute_agent_tab_command(request, agent)
 
         # Resolve the target page.
         target_id = request.page_id or self._active_page_id
@@ -1995,9 +2565,6 @@ class BrowserWorker:
             self._session.page = tp.page  # point the imported actions at this page
             tp.last_focused_at = _now()
 
-        mgr = self._session_mgr
-        rid = self.run_id
-
         # Page-management commands handled locally.
         if name == "activate_page":
             return await self._cmd_activate_page(cmd), self._active_page_id, "ok", None
@@ -2007,6 +2574,19 @@ class BrowserWorker:
             return await self._cmd_handle_dialog(cmd), self._active_page_id, "ok", None
         if name == "wait_for_download":
             return await self._cmd_wait_for_download(cmd), self._active_page_id, "ok", None
+        return await self._run_page_command(request, self._session, self.run_id, "")
+
+    async def _run_page_command(
+        self,
+        request: M.CommandRequest,
+        session: BrowserSession | None,
+        rid: str,
+        page_id: str,
+    ) -> tuple[Any, str | None, str, Any]:
+        """Run one page action on ``session`` (the run's, or one agent's own)."""
+        cmd = request.command
+        name = cmd.command
+        mgr = self._session_mgr
 
         # D5: navigate must not carry session-identity parameters on a persistent run.
         if name == "navigate" and (
@@ -2033,7 +2613,7 @@ class BrowserWorker:
         result_class = self._classify_result(result)
         if self._episode is not None and name == "navigate":
             self._episode.navigation_count += 1
-            org = origin_of(getattr(self._session.page, "url", "") if self._session else None)
+            org = origin_of(getattr(session.page, "url", "") if session else None)
             if org:
                 self._episode.origins.add(org)
         human_required = None
@@ -2041,7 +2621,7 @@ class BrowserWorker:
             (name in {"navigate", "click"} or (name == "type_text" and cmd.press_enter))
             and self.run_mode == "handoff_capable"
             and result_class == "ok"
-            and self._session is not None
+            and session is not None
         ):
             try:
                 # A click can synchronously replace the page's form, but the
@@ -2049,7 +2629,7 @@ class BrowserWorker:
                 # document snapshot reaches our next locator query.  Cross one
                 # rendered frame before classifying an authentication surface;
                 # this is a state boundary, not a blind timeout.
-                await self._session.page.evaluate("() => new Promise(requestAnimationFrame)")
+                await session.page.evaluate("() => new Promise(requestAnimationFrame)")
                 # A numeric input or a name merely containing ``code`` is not
                 # authentication evidence. Those broad selectors classified
                 # ordinary ZIP/postal-code fields as MFA and permanently
@@ -2057,7 +2637,7 @@ class BrowserWorker:
                 # intentionally conservative: only visible fields carrying an
                 # explicit browser OTP contract or a known exact MFA identity
                 # may cross the human-control boundary.
-                mfa_fields = self._session.page.locator(
+                mfa_fields = session.page.locator(
                     "#mfacode, input[autocomplete='one-time-code'], "
                     "input[name='otp' i], input[name='otp_code' i], "
                     "input[name='otpCode' i], input[name='verification_code' i], "
@@ -2066,8 +2646,8 @@ class BrowserWorker:
                     "input[id='otp_code' i], input[id='verification_code' i], "
                     "input[id='mfa_code' i]"
                 )
-                password_fields = self._session.page.locator("input[type='password']")
-                captcha_markers = self._session.page.locator(
+                password_fields = session.page.locator("input[type='password']")
+                captcha_markers = session.page.locator(
                     ".g-recaptcha, .h-captcha, [data-sitekey], "
                     "iframe[src*='recaptcha'], iframe[src*='hcaptcha'], "
                     "iframe[src*='turnstile'], #cf-challenge-running, #challenge-form"
@@ -2094,9 +2674,9 @@ class BrowserWorker:
                     human_required = M.HumanRequiredSignal(
                         reason="captcha_required",
                         detected_by="heuristic",
-                        safe_origin=origin_of(self._session.page.url) or "",
+                        safe_origin=origin_of(session.page.url) or "",
                         safe_instructions="Complete the anti-bot check in the private browser window.",
-                        page_id=self._active_page_id or "",
+                        page_id=page_id or self._active_page_id or "",
                         detected_at=_now(),
                         adapter_version=WORKER_VERSION,
                     )
@@ -2104,9 +2684,9 @@ class BrowserWorker:
                     human_required = M.HumanRequiredSignal(
                         reason="mfa_required",
                         detected_by="heuristic",
-                        safe_origin=origin_of(self._session.page.url) or "",
+                        safe_origin=origin_of(session.page.url) or "",
                         safe_instructions="Complete the verification step in the private browser window.",
-                        page_id=self._active_page_id or "",
+                        page_id=page_id or self._active_page_id or "",
                         detected_at=_now(),
                         adapter_version=WORKER_VERSION,
                     )
@@ -2114,15 +2694,15 @@ class BrowserWorker:
                     human_required = M.HumanRequiredSignal(
                         reason="credentials_missing",
                         detected_by="heuristic",
-                        safe_origin=origin_of(self._session.page.url) or "",
+                        safe_origin=origin_of(session.page.url) or "",
                         safe_instructions="Enter the sign-in information in the private browser window.",
-                        page_id=self._active_page_id or "",
+                        page_id=page_id or self._active_page_id or "",
                         detected_at=_now(),
                         adapter_version=WORKER_VERSION,
                     )
             except Exception:
                 logger.exception("login-form detection failed")
-        return result, self._active_page_id, result_class, human_required
+        return result, page_id or self._active_page_id, result_class, human_required
 
     async def _run_action(self, name: str, cmd: Any, rid: str, mgr: BrowserSessionManager) -> Any:
         # CB-013: pointer and key events shaped like a person's, per run policy.
@@ -2442,7 +3022,11 @@ class BrowserWorker:
             self._admit_sequenced(request, resp)
             return resp
 
-        target_id = request.page_id or self._active_page_id
+        target_id = (
+            request.page_id
+            or self._agent_page_for_capture(request.agent_ref)
+            or self._active_page_id
+        )
         tp = self._pages.get(target_id) if target_id else None
         if tp is None or tp.closed_at is not None:
             return self._error_reply(
@@ -2630,6 +3214,11 @@ class BrowserWorker:
                     to_state=from_state,
                 )
             self._episode = _HumanEpisode(request.handoff_id or uuid.uuid4().hex)
+            # TAB PER AGENT: the person sees every tab, the active agent's in front.
+            focused = self._live(self._active_page_id)
+            if focused is not None:
+                with contextlib.suppress(Exception):
+                    await focused.page.bring_to_front()
             self._controller = self._controller.model_copy(
                 update={
                     "state": "human_control",
@@ -3105,6 +3694,7 @@ class BrowserWorker:
             logger.exception("Chromium did not close cleanly during termination")
         try:
             await self._close_egress_adapter()
+            await self._close_proxy_meter()
         except Exception:
             logger.exception("egress adapter did not close during termination")
         if self._lock is not None:
@@ -3220,6 +3810,7 @@ class BrowserWorker:
             self._lease_expires_at = None
             try:
                 await self._close_egress_adapter()
+                await self._close_proxy_meter()
             except Exception:
                 logger.exception("egress adapter did not close for a released run")
 
@@ -3285,6 +3876,7 @@ class BrowserWorker:
         # ``_kill_context``; the person's computer must stop carrying this run's
         # streams the moment the run is over, on EVERY exit.
         await self._close_egress_adapter()
+        await self._close_proxy_meter()
 
         return M.ShutdownResponse(
             **self._reply_kwargs(),
@@ -3313,6 +3905,7 @@ class BrowserWorker:
         self._context = None
         self._pw = None
         await self._close_egress_adapter()
+        await self._close_proxy_meter()
 
     # ── events ──────────────────────────────────────────────────────────────
 

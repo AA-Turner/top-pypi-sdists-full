@@ -107,6 +107,31 @@ enum NodeValidators<F: Json> {
     },
 }
 
+impl<F: Json> NodeValidators<F> {
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
+    fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
+        match self {
+            NodeValidators::Keyword(kvs) => match &kvs.validators {
+                KeywordList::One(entry) => entry.validator.is_valid(instance, ctx),
+                KeywordList::Many(entries) => {
+                    for entry in entries {
+                        if !entry.validator.is_valid(instance, ctx) {
+                            return false;
+                        }
+                    }
+                    true
+                }
+            },
+            NodeValidators::Array { validators } => validators
+                .iter()
+                .all(|entry| entry.validator.is_valid(instance, ctx)),
+            NodeValidators::Boolean { validator: Some(_) } => false,
+            NodeValidators::Boolean { validator: None } => true,
+        }
+    }
+}
+
 impl<F: Json> fmt::Debug for NodeValidators<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -123,7 +148,10 @@ struct KeywordValidators<F: Json> {
     unmatched_keywords: Option<Arc<Value>>,
     // We should probably use AHashMap here but it breaks a bunch of tests which assume
     // validators are in a particular order
-    validators: Vec<KeywordValidatorEntry<F>>,
+    validators: KeywordList<F>,
+    /// Per-validator data only error and evaluation paths read, kept apart so `is_valid` walks
+    /// densely packed validators.
+    metadata: Vec<KeywordMetadata>,
     absorbed: Option<AbsorbedUnits>,
 }
 
@@ -135,10 +163,28 @@ struct AbsorbedUnits {
     counts_at: usize,
 }
 
-struct KeywordValidatorEntry<F: Json> {
+/// Validators in priority order. A lone validator is stored inline, sparing `is_valid` a hop to the heap.
+enum KeywordList<F: Json> {
+    One(KeywordValidator<F>),
+    Many(Box<[KeywordValidator<F>]>),
+}
+
+impl<F: Json> KeywordList<F> {
+    fn as_slice(&self) -> &[KeywordValidator<F>] {
+        match self {
+            KeywordList::One(entry) => std::slice::from_ref(entry),
+            KeywordList::Many(entries) => entries,
+        }
+    }
+}
+
+struct KeywordValidator<F: Json> {
     validator: BoxedValidator<F>,
     /// Asserts on the instance itself, so `is_valid` may run ahead of `validate`.
     is_leaf: bool,
+}
+
+struct KeywordMetadata {
     location: Location,
     absolute_location: Option<Arc<Uri<String>>>,
     formatted_schema_location: OnceLock<Arc<str>>,
@@ -152,13 +198,13 @@ type EntryParts<'a, F> = (
     &'a BoxedValidator<F>,
 );
 
-impl<F: Json> KeywordValidatorEntry<F> {
-    fn parts(&self) -> EntryParts<'_, F> {
+impl KeywordMetadata {
+    fn parts<'a, F: Json>(&'a self, validator: &'a BoxedValidator<F>) -> EntryParts<'a, F> {
         (
             &self.location,
             self.absolute_location.as_ref(),
             &self.formatted_schema_location,
-            &self.validator,
+            validator,
         )
     }
 }
@@ -249,9 +295,14 @@ impl<F: Json> Validate<F> for PendingSchemaNode<F> {
         let result = if let Some(cached) = ctx.get_cached_result(node_id, container_identity) {
             cached
         } else {
-            let computed = target.materialize().is_valid(instance, ctx);
-            // Cache result for recursive schemas
-            ctx.cache_result(node_id, container_identity, computed);
+            let visit = ctx.start_ref_visit();
+            // Only the validators run; the location and absolute path stay unshared.
+            let inner = target
+                .inner
+                .upgrade()
+                .expect("pending schema target dropped");
+            let computed = inner.validators.is_valid(instance, ctx);
+            ctx.cache_result(node_id, container_identity, computed, visit);
             computed
         };
         ctx.exit(node_id, identity);
@@ -391,26 +442,34 @@ impl<F: Json> SchemaNode<F> {
 
         let location = ctx.location().clone();
         let absolute_path = ctx.absolute_location(&location);
-        let validators = validators
+        let (metadata, mut validators): (Vec<_>, Vec<_>) = validators
             .into_iter()
             .map(|(keyword, validator)| {
                 let location = ctx.location().join(&keyword);
                 let absolute_location = ctx.absolute_location(&location);
-                let is_leaf = crate::keywords::keyword_is_leaf(&keyword);
-                KeywordValidatorEntry {
-                    validator,
-                    is_leaf,
+                let metadata = KeywordMetadata {
                     location,
                     absolute_location,
                     formatted_schema_location: OnceLock::new(),
-                }
+                };
+                let validator = KeywordValidator {
+                    validator,
+                    is_leaf: crate::keywords::keyword_is_leaf(&keyword),
+                };
+                (metadata, validator)
             })
-            .collect();
+            .unzip();
+        let validators = if validators.len() == 1 {
+            KeywordList::One(validators.pop().expect("one validator"))
+        } else {
+            KeywordList::Many(validators.into_boxed_slice())
+        };
         SchemaNode {
             inner: Arc::new(SchemaNodeInner {
                 validators: NodeValidators::Keyword(KeywordValidators {
                     unmatched_keywords,
                     validators,
+                    metadata,
                     absorbed,
                 }),
                 formatted_schema_location: OnceLock::new(),
@@ -460,7 +519,7 @@ impl<F: Json> SchemaNode<F> {
                 }
             }
             NodeValidators::Keyword(kvals) => {
-                NodeValidatorsIter::KeywordValidators(kvals.validators.iter())
+                NodeValidatorsIter::KeywordValidators(kvals.validators.as_slice().iter())
             }
             NodeValidators::Array { validators } => {
                 NodeValidatorsIter::ArrayValidators(validators.iter())
@@ -581,7 +640,8 @@ impl<F: Json> SchemaNode<F> {
         location: &LazyLocation,
         instance_loc: &Location,
         tracker: Option<&RefTracker>,
-        validators: &[KeywordValidatorEntry<F>],
+        validators: &[KeywordValidator<F>],
+        metadata: &[KeywordMetadata],
         absorbed: &AbsorbedUnits,
         annotations: Option<Annotations>,
         ctx: &mut ValidationContext,
@@ -593,12 +653,16 @@ impl<F: Json> SchemaNode<F> {
             keywords.evaluate_type::<F>(instance, count.is_some(), instance_loc, tracker, ctx);
         children.push(&mut ctx.arena, node);
         let (before, after) = validators.split_at(absorbed.counts_at);
+        let (metadata_before, metadata_after) = metadata.split_at(absorbed.counts_at);
         Self::push_subschemas(
             instance,
             location,
             instance_loc,
             tracker,
-            before.iter().map(KeywordValidatorEntry::parts),
+            metadata_before
+                .iter()
+                .zip(before)
+                .map(|(m, v)| m.parts(&v.validator)),
             &mut children,
             ctx,
         );
@@ -608,7 +672,10 @@ impl<F: Json> SchemaNode<F> {
             location,
             instance_loc,
             tracker,
-            after.iter().map(KeywordValidatorEntry::parts),
+            metadata_after
+                .iter()
+                .zip(after)
+                .map(|(m, v)| m.parts(&v.validator)),
             &mut children,
             ctx,
         );
@@ -723,6 +790,18 @@ fn stamp_absolute_location(errors: &mut [ValidationError<'_>], uri: Option<&Arc<
 }
 
 impl<F: Json> SchemaNode<F> {
+    /// The node's only validator, for loops that run the node on many values.
+    #[inline]
+    pub(crate) fn single_validator(&self) -> Option<&dyn Validate<F>> {
+        match &self.inner.validators {
+            NodeValidators::Keyword(KeywordValidators {
+                validators: KeywordList::One(entry),
+                ..
+            }) => Some(&*entry.validator),
+            _ => None,
+        }
+    }
+
     #[cold]
     #[inline(never)]
     fn false_schema_error<'i>(
@@ -744,25 +823,7 @@ impl<F: Json> SchemaNode<F> {
 impl<F: Json> Validate<F> for SchemaNode<F> {
     #[inline]
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
-        match &self.inner.validators {
-            // Single validator fast path
-            NodeValidators::Keyword(kvs) if kvs.validators.len() == 1 => {
-                kvs.validators[0].validator.is_valid(instance, ctx)
-            }
-            NodeValidators::Keyword(kvs) => {
-                for entry in &kvs.validators {
-                    if !entry.validator.is_valid(instance, ctx) {
-                        return false;
-                    }
-                }
-                true
-            }
-            NodeValidators::Array { validators } => validators
-                .iter()
-                .all(|entry| entry.validator.is_valid(instance, ctx)),
-            NodeValidators::Boolean { validator: Some(_) } => false,
-            NodeValidators::Boolean { validator: None } => true,
-        }
+        self.inner.validators.is_valid(instance, ctx)
     }
 
     #[allow(clippy::inline_always)]
@@ -775,8 +836,12 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         match &self.inner.validators {
-            NodeValidators::Keyword(kvs) if kvs.validators.len() == 1 => {
-                let entry = &kvs.validators[0];
+            NodeValidators::Keyword(
+                kvs @ KeywordValidators {
+                    validators: KeywordList::One(entry),
+                    ..
+                },
+            ) => {
                 // A passing keyword costs its `is_valid`; only a failing one builds an error.
                 if entry.is_leaf && entry.validator.is_valid(instance, ctx) {
                     return Ok(());
@@ -785,11 +850,11 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                     .validator
                     .validate(instance, location, tracker, ctx)
                     .map_err(|e| {
-                        e.with_absolute_keyword_location(entry.absolute_location.clone())
+                        e.with_absolute_keyword_location(kvs.metadata[0].absolute_location.clone())
                     });
             }
             NodeValidators::Keyword(kvs) => {
-                for entry in &kvs.validators {
+                for (entry, metadata) in kvs.validators.as_slice().iter().zip(&kvs.metadata) {
                     if entry.is_leaf && entry.validator.is_valid(instance, ctx) {
                         continue;
                     }
@@ -797,7 +862,7 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                         .validator
                         .validate(instance, location, tracker, ctx)
                         .map_err(|e| {
-                            e.with_absolute_keyword_location(entry.absolute_location.clone())
+                            e.with_absolute_keyword_location(metadata.absolute_location.clone())
                         })?;
                 }
             }
@@ -831,7 +896,7 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
     ) {
         match &self.inner.validators {
             NodeValidators::Keyword(kvs) => {
-                for entry in &kvs.validators {
+                for (entry, metadata) in kvs.validators.as_slice().iter().zip(&kvs.metadata) {
                     if entry.is_leaf && entry.validator.is_valid(instance, ctx) {
                         continue;
                     }
@@ -839,7 +904,10 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                     entry
                         .validator
                         .collect_errors(instance, location, tracker, ctx, errors);
-                    stamp_absolute_location(&mut errors[start..], entry.absolute_location.as_ref());
+                    stamp_absolute_location(
+                        &mut errors[start..],
+                        metadata.absolute_location.as_ref(),
+                    );
                 }
             }
             NodeValidators::Boolean {
@@ -927,8 +995,10 @@ impl<F: Json> SchemaNode<F> {
                 let KeywordValidators {
                     ref unmatched_keywords,
                     ref validators,
+                    ref metadata,
                     ref absorbed,
                 } = *kvals;
+                let validators = validators.as_slice();
                 let annotations: Option<Annotations> = unmatched_keywords
                     .as_ref()
                     .map(|v| Annotations::from_arc(Arc::clone(v)));
@@ -939,6 +1009,7 @@ impl<F: Json> SchemaNode<F> {
                         instance_loc,
                         tracker,
                         validators,
+                        metadata,
                         absorbed,
                         annotations,
                         ctx,
@@ -949,7 +1020,10 @@ impl<F: Json> SchemaNode<F> {
                         location,
                         instance_loc,
                         tracker,
-                        validators.iter().map(KeywordValidatorEntry::parts),
+                        metadata
+                            .iter()
+                            .zip(validators)
+                            .map(|(m, v)| m.parts(&v.validator)),
                         annotations,
                         ctx,
                     )
@@ -962,7 +1036,7 @@ impl<F: Json> SchemaNode<F> {
 enum NodeValidatorsIter<'a, F: Json> {
     NoValidator,
     BooleanValidators(std::iter::Once<&'a BoxedValidator<F>>),
-    KeywordValidators(std::slice::Iter<'a, KeywordValidatorEntry<F>>),
+    KeywordValidators(std::slice::Iter<'a, KeywordValidator<F>>),
     ArrayValidators(std::slice::Iter<'a, ArrayValidatorEntry<F>>),
 }
 

@@ -49,13 +49,12 @@ The two are not interchangeable, and neither is a fallback for the other:
 
 from __future__ import annotations
 
-import re
 import shlex
 import subprocess
 from dataclasses import asdict, dataclass, fields, replace
 from enum import Enum
 
-from click import style, unstyle
+from click import style
 
 from ._deprecated import warn_deprecated_usage
 from .color import forced_color
@@ -66,6 +65,7 @@ from .execution import args_cleanup, format_cli_prompt, run_cli
 # compatibility surface: a name this module stops using goes with it, and importers
 # follow it to its new home.
 from .layout import RULE_COLOR, cell_width, center_in_rule, fit_columns, number_lines
+from .output import is_stdout
 from .screenshot_html import render_html
 from .screenshot_presets import (
     CaptureBackground,
@@ -75,18 +75,20 @@ from .screenshot_presets import (
     resolve_palette,
 )
 from .screenshot_svg import (
+    AUTO_HOLD,
     DEFAULT_BORDER_WIDTH,
     DEFAULT_RADIUS,
     DEFAULT_WATERMARK,
-    EMPHASIS_RATIO,
     NO_PAINT,
     OPAQUE,
     WATERMARK_INK,
-    blend,
+    _check_pause,
+    _not_a_hold,
     cursor_cell,
+    emphasis_paint,
     render_svg,
 )
-from .styling import _hex_to_rgb
+from .styling import _ANSI_SGR_RE, _hex_to_rgb
 from .theme import BUILTIN_THEMES
 
 TYPE_CHECKING = False
@@ -163,15 +165,6 @@ missing entry: the mapping is read through {meth}`dict.get`, and
 {data}`~click_extra.theme.BUILTIN_THEMES` is empty when a trimmed install drops
 `themes.toml`.
 """
-
-STDOUT_PATH = "-"
-"""Destination naming the terminal rather than a file.
-
-The convention every command-line tool reading or writing a stream already
-follows, and the one destination that states no extension, so it is what
-{func}`format_from_path` reads as {attr}`CaptureFormat.ANSI`.
-"""
-
 
 CAPTURE_BORDERS: dict[CaptureBackground, str] = {
     CaptureBackground.DARK: "rgba(255,255,255,0.35)",
@@ -387,6 +380,30 @@ capture is drawn for no terminal in particular.
 """
 
 
+def capture_environment(
+    background: CaptureBackground,
+    columns: TColumns,
+) -> dict[str, str | None]:
+    """The environment a capture states to the command it runs.
+
+    The overrides {func}`~click_extra.envvar.env_copy` lays over the inherited
+    environment, which is how {func}`~click_extra.execution.run_cli` takes them:
+    the chrome's {data}`CAPTURE_TERMINAL_HINTS`, every
+    {data}`CAPTURE_HIDDEN_TERMINAL_VARS` entry mapped to `None` so it is removed
+    rather than set, and the width the command wraps to.
+
+    :param background: chrome the capture is headed for.
+    :param columns: terminal width, in characters, pinned through `COLUMNS`.
+        {data}`AUTO_COLUMNS` pins nothing.
+    :return: the overrides, by variable name.
+    """
+    overrides: dict[str, str | None] = dict(CAPTURE_TERMINAL_HINTS[background])
+    overrides.update(dict.fromkeys(CAPTURE_HIDDEN_TERMINAL_VARS))
+    if columns != AUTO_COLUMNS:
+        overrides["COLUMNS"] = str(columns)
+    return overrides
+
+
 AUTO_CURSOR: Literal["auto"] = "auto"
 """Cursor shape asking for the one the terminal preset decides.
 
@@ -467,12 +484,60 @@ there, and the rule shimmers. One dot per cell has nothing to merge with.
 DEFAULT_TRUNCATION: str = AUTO_TRUNCATION
 """Marker standing in for the lines {func}`trim_lines` cut away."""
 
-_SGR_RE = re.compile(r"\x1b\[[0-9;]*m")
-"""One SGR escape sequence, the kind that changes how the text after it looks.
 
-Matched so {func}`emphasize_ansi` can restate a band after each one: a full
-reset closes the band along with the ink it was closing.
-"""
+def parse_columns(value: str) -> TColumns:
+    """Read a width written as text into a number, or into {data}`AUTO_COLUMNS`.
+
+    The one reading of a `columns` option every entry point shares: the
+    `--columns` of the capture commands and the `:screenshot-columns:` of the
+    documentation directive. Each wraps the error in the exception its framework
+    reports.
+
+    :param value: the text, an integer or the word {data}`AUTO_COLUMNS`.
+    :return: the width, in characters, or {data}`AUTO_COLUMNS`.
+    :raises ValueError: when the text is neither, or names a width under
+        {data}`MIN_COLUMNS`.
+    """
+    if value.strip().lower() == AUTO_COLUMNS:
+        return AUTO_COLUMNS
+    try:
+        width = int(value)
+    except ValueError:
+        raise ValueError(
+            f"{value!r} is neither an integer nor {AUTO_COLUMNS!r}."
+        ) from None
+    if width < MIN_COLUMNS:
+        raise ValueError(f"{width} is narrower than the {MIN_COLUMNS}-column floor.")
+    return width
+
+
+def parse_pause(value: str) -> float:
+    """Read a pause written as text into seconds, zero included.
+
+    :param value: the text.
+    :return: the pause, in seconds.
+    :raises ValueError: when the text is not a number, or is negative.
+    """
+    return _check_pause(float(value))
+
+
+def parse_hold(value: str) -> THold:
+    """Read a hold written as text into seconds, or into `auto`.
+
+    {data}`~click_extra.screenshot_svg.AUTO_HOLD` scales the pause to the final
+    frame's own line count, see {func}`~click_extra.screenshot_svg.auto_hold`.
+
+    :param value: the text, a number of seconds or the word `auto`.
+    :return: the hold.
+    :raises ValueError: when the text is neither, or names a negative pause.
+    """
+    if value.strip().lower() == AUTO_HOLD:
+        return AUTO_HOLD
+    try:
+        hold = float(value)
+    except ValueError:
+        raise ValueError(_not_a_hold(value)) from None
+    return _check_pause(hold)
 
 
 def auto_columns(pictures: Sequence[str], cursor: Cursor | None = None) -> int:
@@ -530,16 +595,36 @@ def append_prompt(
         draws. `None` keeps this platform's.
     :return: the same text, closed by a prompt.
     """
-    with forced_color():
-        sigil = format_cli_prompt(
-            (),
-            theme=PROMPT_THEMES[background],
-            prompt=None if preset is None else preset.prompt,
-        )
+    sigil = _styled_prompt((), background, preset)
     # A screen closing on a newline already carries the empty row the prompt
     # belongs on: filling it costs nothing, where appending would leave a blank
     # row between the output and the shell.
     return f"{text}{sigil}" if text.endswith("\n") else f"{text}\n{sigil}"
+
+
+def _styled_prompt(
+    displayed: Sequence[str],
+    background: CaptureBackground,
+    preset: TerminalPreset | None,
+) -> str:
+    """Draw a prompt line the way a capture of `background` shows it.
+
+    Colors forced, since the line is headed for a picture rather than for the
+    terminal running this; the theme picked for the chrome, see
+    {data}`PROMPT_THEMES`; and the sigil the pictured terminal's shell draws.
+
+    :param displayed: the command line after the sigil. Empty draws the sigil
+        alone, which is the shell waiting.
+    :param background: chrome the capture is headed for.
+    :param preset: terminal being pictured, or `None` for this platform's.
+    :return: the styled line.
+    """
+    with forced_color():
+        return format_cli_prompt(
+            displayed,
+            theme=PROMPT_THEMES[background],
+            prompt=None if preset is None else preset.prompt,
+        )
 
 
 def capture_output(
@@ -577,14 +662,10 @@ def capture_output(
     :param timeout: seconds before the command is killed. `None` waits forever.
     :return: the completed process, whose `stdout` holds the captured text.
     """
-    extra_env: dict[str, str | None] = dict(CAPTURE_TERMINAL_HINTS[background])
-    extra_env.update(dict.fromkeys(CAPTURE_HIDDEN_TERMINAL_VARS))
-    if columns != AUTO_COLUMNS:
-        extra_env["COLUMNS"] = str(columns)
     with forced_color():
         return run_cli(
             args,
-            extra_env=extra_env,
+            extra_env=capture_environment(background, columns),
             timeout=timeout,
             merge_stderr=merge_stderr,
         )
@@ -667,18 +748,34 @@ def emphasize_ansi(
         return text
     wanted = set(lines)
     rows = text.split("\n")
-    width = max((cell_width(unstyle(row)) for row in rows), default=0)
+    # Escapes occupy no cell, so a styled row measures as its glyphs do.
+    widths = [cell_width(row) for row in rows]
+    width = max(widths, default=0)
     red, green, blue = _hex_to_rgb(paint)
     band = f"\x1b[48;2;{red};{green};{blue}m"
     painted = []
-    for number, row in enumerate(rows, 1):
+    for number, (row, measured) in enumerate(zip(rows, widths), 1):
         if number not in wanted:
             painted.append(row)
             continue
-        filled = row + " " * max(0, width - cell_width(unstyle(row)))
-        restated = _SGR_RE.sub(lambda match: f"{match.group(0)}{band}", filled)
+        filled = row + " " * (width - measured)
+        restated = _ANSI_SGR_RE.sub(lambda match: f"{match.group(0)}{band}", filled)
         painted.append(f"{band}{restated}\x1b[49m")
     return "\n".join(painted)
+
+
+_SVG_ONLY_CHROME = frozenset({
+    "buttons",
+    "buttons_color",
+    "titlebar",
+    "collapse_titlebar",
+})
+"""The window decorations {func}`render` hands to the SVG renderer alone.
+
+An HTML capture reflows with the page embedding it, so it carries the text and
+its colors, not a window drawn around them: see
+{func}`~click_extra.screenshot_html.render_html`.
+"""
 
 
 def render(
@@ -777,11 +874,7 @@ def render(
         # a terminal reads is the stream a capture was carried in all along.
         # Only the emphasis survives, being the one mark that lives in the rows
         # rather than around them.
-        return emphasize_ansi(
-            text,
-            emphasize,
-            blend(palette.background, palette.foreground, EMPHASIS_RATIO),
-        )
+        return emphasize_ansi(text, emphasize, emphasis_paint(palette))
     if format is CaptureFormat.HTML:
         if frames is not None:
             # An HTML capture is a `<pre>` of selectable text, which has no
@@ -794,7 +887,13 @@ def render(
             background=background,
             preset=preset,
             palette=palette,
-            **frame,
+            # The window decorations are drawn by the SVG alone: HTML reflows
+            # with the page embedding it.
+            **{
+                key: value
+                for key, value in frame.items()
+                if key not in _SVG_ONLY_CHROME
+            },
         )
     return render_svg(
         text,
@@ -844,12 +943,7 @@ def prompt_line(
     displayed = args_cleanup(args) if prompt is None else tuple(shlex.split(prompt))
     if not displayed:
         return ""
-    with forced_color():
-        return format_cli_prompt(
-            displayed,
-            theme=PROMPT_THEMES[background],
-            prompt=None if preset is None else preset.prompt,
-        )
+    return _styled_prompt(displayed, background, preset)
 
 
 def capture(
@@ -958,15 +1052,18 @@ def capture(
 def format_from_path(path: Path) -> CaptureFormat:
     """Pick the capture format a file name asks for.
 
-    {data}`STDOUT_PATH` names the terminal, whose format is the escape sequences
-    themselves. It is answered here rather than at the call site so the one
-    question "what does this destination want?" has one answer.
+    A bare {data}`~click_extra.output.STDOUT_SENTINEL` names the terminal, whose
+    format is the escape
+    sequences themselves, see {func}`~click_extra.output.is_stdout`. A file
+    *named* `-` in some directory is a file like any other, and answers by its
+    extension, which it has none of. It is answered here rather than at the call
+    site so the one question "what does this destination want?" has one answer.
 
     :param path: where the capture is to be written.
     :return: the {class}`CaptureFormat` its extension names.
     :raises ValueError: when the extension names no format.
     """
-    if path.name == STDOUT_PATH:
+    if is_stdout(path):
         return CaptureFormat.ANSI
     suffix = path.suffix.lower().lstrip(".")
     # `.htm` is the same document under the older extension.
@@ -979,3 +1076,15 @@ def format_from_path(path: Path) -> CaptureFormat:
         raise ValueError(
             f"Cannot tell the capture format of {path.name!r}: name it {known}."
         ) from None
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve deprecated `screenshot` symbols via the PEP 562 `__getattr__` hook.
+
+    `STDOUT_PATH` is {data}`~click_extra.output.STDOUT_SENTINEL`, the one
+    destination every `--output` option reads as the terminal. Fires only for
+    names not defined in this module. See {mod}`click_extra._deprecated`.
+    """
+    from ._deprecated import resolve_deprecated
+
+    return resolve_deprecated(__name__, name)

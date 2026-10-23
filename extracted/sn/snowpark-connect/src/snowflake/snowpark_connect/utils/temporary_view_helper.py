@@ -448,6 +448,14 @@ def store_temporary_view_as_dataframe(
             # reading TABLE(view) still sees rows in the intended order.
             sort_exprs=input_container.sort_exprs,
         )
+        stored_names = input_container.column_map.get_snowpark_columns()
+        if len(stored_names) == len(snowpark_columns):
+            input_df_container.column_map.carry_sort_identity(
+                {
+                    new: (input_container.column_map, old)
+                    for new, old in zip(snowpark_columns, stored_names)
+                }
+            )
     else:
         # just use the current container
         input_df_container = input_container

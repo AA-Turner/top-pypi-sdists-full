@@ -100,6 +100,11 @@ class ServiceHome:
         """ensure() and wait until the service answers; its status."""
         outcome = client.ensure()
         status = wait_for(self.status, timeout)
+        if not status and outcome == client.Ensured.RUNNING and not self.service_processes():
+            # What answered was a service on its way out (its idle exit): the
+            # next ensure starts one.
+            outcome = client.ensure()
+            status = wait_for(self.status, timeout)
         assert status, (
             f"no service answered within {timeout}s (ensure: {outcome}; service processes: "
             f"{self.service_processes()}; starts: {self._starts()}); log:\n{self.log()}"
@@ -171,7 +176,6 @@ class ServiceHome:
 def service_home(monkeypatch: pytest.MonkeyPatch):
     home = Path(tempfile.mkdtemp(prefix="ps-", dir="/tmp"))
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.delenv("PROBE_SERVICE", raising=False)
     # Fast lifecycle by default; a test that measures the real defaults unsets these.
     monkeypatch.setenv("PROBE_SERVICE_DISCOVERY_S", "0")
     monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "30")

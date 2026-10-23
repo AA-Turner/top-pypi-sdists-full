@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: http-sf
-Version: 1.4.0
+Version: 1.5.0
 Summary: Parse and serialise HTTP Structured Fields
 Author-email: Mark Nottingham <mnot@mnot.net>
 License-Expression: MIT
@@ -10,7 +10,7 @@ Classifier: Development Status :: 4 - Beta
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENCE.md
-Requires-Dist: typing_extensions
+Requires-Dist: typing_extensions>=4.6
 Provides-Extra: dev
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: black; extra == "dev"
@@ -41,7 +41,7 @@ Textual HTTP headers can be parsed by calling `parse`; the return value is a dat
 {'foo': (True, {'a': 1}), 'bar': (True, {'b': 2})}
 ~~~
 
-`parse()` takes a bytes-like object as the first argument. If you want to parse a string, please `.encode()` it first.
+`parse()` takes a bytes-like object as the first argument; it's annotated as `Buffer`, so anything that supports the buffer protocol works (`bytes`, `bytearray`, `memoryview`, `mmap`, `array.array`, and so on). Anything other than `bytes` is copied to `bytes` first. Other types, including `str`, raise a `TypeError`; if you want to parse a string, please `.encode()` it first.
 
 #### Indicating Top-Level Type
 
@@ -55,20 +55,22 @@ Note that if you use `name`, a `KeyError` will be raised if the type associated 
 
 #### Error Handling
 
-When parsing fails, a `StructuredFieldError` (a subclass of `ValueError`) is raised. This exception has attributes that can be used to debugging the error:
+When parsing fails, a `StructuredFieldError` (a subclass of `ValueError`) is raised. Its string form includes the position and context when they are known, and it has attributes that can be used to debug the error:
 
-* `position`: The character offset in the input bytes where the error was detected.
-* `offending_char`: The character at the position where the error was detected.
+* `position`: The character offset in the input bytes where the error was detected. In most cases this is the first byte the parser rejected (for example, the `.` in the Date `@1.5`, or the fourth digit after the `.` in the Decimal `1.23456`, even though the specification only checks the length of a fraction after reading the whole number), or the end of the input if it ended too soon. An error that can only be found once a whole value has been read, and can't be pinned to one byte (for example, a Date that is out of range), is reported at the end of that value.
+* `offending_char`: The byte (as an `int`) at `position`, or `None` if `position` is at the end of the input.
 * `context`: If the error occurred within a Dictionary or Parameter value, the key name.
 
 ~~~ python
 >>> from http_sf import parse, StructuredFieldError
 >>> try:
-...     parse(b"foo; bar", tltype="item")
+...     parse(b"foo;", tltype="item")
 ... except StructuredFieldError as e:
-...     print(f"Error at {e.position}: {e}")
+...     print(e)
+...     print(e.position)
 ...
-Error at 8: Parameter value definition expected
+Trailing delimiter at position 4
+4
 ~~~
 
 #### Duplicate Keys
@@ -92,15 +94,20 @@ In the returned data, Dictionaries are represented as Python dictionaries; Lists
 Bare types are represented using the following Python types:
 
 * Integers: `int`
-* Decimals: `float`
+* Decimals: `decimal.Decimal` (`ser()` accepts `float` as well)
 * Strings: `str`
 * Tokens: `http_sf.Token` (a `UserString`)
 * Byte Sequences: `bytes`
 * Booleans: `bool`
 * Dates: `datetime.datetime` (parsed values are timezone-aware, in UTC; values to be serialised must be timezone-aware too, or `ser()` raises `ValueError`)
+  * Python's `datetime` can only represent years 1 to 9999, so `parse()` raises `StructuredFieldError` for Date values outside `@-62135596800` (0001-01-01T00:00:00Z) to `@253402300799` (9999-12-31T23:59:59Z), even though RFC 9651 allows the full Integer range.
 * Display Strings: `http_sf.DisplayString` (a `UserString`)
 
 Inner Lists are represented as lists as well.
+
+`ser()` also accepts subclasses of `int`, `str`, `float` and `bytes` (`IntEnum` and `str` Enum members, `numpy.float64`, and so on). It serialises the underlying value and ignores any overrides, such as `__str__` or `__float__`.
+
+Parameter and Dictionary keys must be `str`; `ser()` raises `TypeError` for any other type, and `ValueError` for a `str` that isn't a valid key. Subclasses are serialised by their underlying value, as above.
 
 ### Parameters
 
@@ -180,8 +187,11 @@ or:
 
 ~~~ bash
 > python3 -m http_sf -i "foo;&bar=baz"
-FAIL: Key does not begin with lcalpha or * at: &bar=baz
+VALUE: foo;&bar=baz
+FAIL: Key does not begin with lcalpha or * at position 4
 ~~~
+
+(On failure, the input and the error are written to standard error, and the exit status is 1.)
 
 Alternatively, you can pass the field name with the `-n` option, provided that it is a compatible retrofit field:
 

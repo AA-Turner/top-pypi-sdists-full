@@ -39,7 +39,7 @@ import unicodedata
 import warnings
 from io import BytesIO, StringIO
 from pathlib import Path
-from unittest import skipIf
+from unittest import mock, skipIf
 from wsgiref.simple_server import make_server
 
 from dulwich import porcelain
@@ -49,6 +49,8 @@ from dulwich.commit_graph import read_commit_graph
 from dulwich.diff_tree import TreeChange, tree_changes
 from dulwich.errors import CommitError, NoIndexPresent, WorkingTreeModifiedError
 from dulwich.index import (
+    FLAG_VALID,
+    ConflictedIndexEntry,
     Index,
     IndexEntry,
     InvalidPathError,
@@ -1907,6 +1909,23 @@ class AddTests(PorcelainTestCase):
             f.write("BAR")
         porcelain.add(self.repo.path, paths=[fullpath])
         self.assertIn(b"foo", self.repo.open_index())
+
+    def test_add_file_skips_unstaged_scan(self) -> None:
+        tracked = os.path.join(self.repo.path, "tracked")
+        with open(tracked, "w") as f:
+            f.write("old")
+        porcelain.add(self.repo.path, paths=[tracked])
+        with open(tracked, "w") as f:
+            f.write("new")
+        fullpath = os.path.join(self.repo.path, "foo")
+        with open(fullpath, "w") as f:
+            f.write("BAR")
+        with mock.patch(
+            "dulwich.porcelain.get_unstaged_changes",
+            side_effect=AssertionError("unexpected scan of unstaged changes"),
+        ):
+            added, ignored = porcelain.add(self.repo.path, paths=[fullpath])
+        self.assertEqual((["foo"], set()), (added, ignored))
 
     def test_add_ignored(self) -> None:
         with open(os.path.join(self.repo.path, ".gitignore"), "w") as f:
@@ -4510,6 +4529,37 @@ class ResetTests(PorcelainTestCase):
         with open(fullpath) as f:
             self.assertEqual(f.read(), "MODIFIED")
 
+    def test_mixed_reset_keeps_flags_of_unchanged_entries(self) -> None:
+        for name in ["same", "changed"]:
+            with open(os.path.join(self.repo.path, name), "w") as f:
+                f.write("one")
+        porcelain.add(self.repo.path, paths=["same", "changed"])
+        first_sha = porcelain.commit(
+            self.repo.path,
+            message=b"First commit",
+            committer=b"Jane <jane@example.com>",
+            author=b"John <john@example.com>",
+        )
+        with open(os.path.join(self.repo.path, "changed"), "w") as f:
+            f.write("two")
+        porcelain.add(self.repo.path, paths=["changed"])
+        porcelain.commit(
+            self.repo.path,
+            message=b"Second commit",
+            committer=b"Jane <jane@example.com>",
+            author=b"John <john@example.com>",
+        )
+        index = self.repo.open_index()
+        index[b"same"].flags |= FLAG_VALID
+        index[b"changed"].flags |= FLAG_VALID
+        index.write()
+
+        porcelain.reset(self.repo, "mixed", first_sha)
+
+        index = self.repo.open_index()
+        self.assertEqual(FLAG_VALID, index[b"same"].flags)
+        self.assertEqual(0, index[b"changed"].flags)
+
     def test_mixed_reset_preserves_case_differing_entries(self) -> None:
         # Build a commit whose tree holds two blobs whose paths only differ
         # by case. Real git creates these in a case-insensitive repo via
@@ -4609,6 +4659,106 @@ class ResetTests(PorcelainTestCase):
         # Check that working tree is unchanged
         with open(fullpath) as f:
             self.assertEqual(f.read(), "STAGED")
+
+    def _commit_file(self, name: str, contents: bytes, message: bytes) -> bytes:
+        with open(os.path.join(self.repo.path, name), "wb") as f:
+            f.write(contents)
+        porcelain.add(self.repo, [name])
+        return porcelain.commit(
+            self.repo,
+            message=message,
+            author=b"Test <test@example.com>",
+            committer=b"Test <test@example.com>",
+        )
+
+    def _conflicted_merge(self) -> tuple[bytes, bytes]:
+        """Leave the repository in the middle of a conflicted merge.
+
+        Returns: tuple with the base commit and the commit at HEAD
+        """
+        if importlib.util.find_spec("merge3") is None:
+            raise DependencyMissing("merge3")
+
+        base = self._commit_file("file.txt", b"base\n", b"base")
+        porcelain.branch_create(self.repo, "feature")
+        self._commit_file("file.txt", b"master change\n", b"master change")
+        self._commit_file("other.txt", b"other\n", b"add other")
+        porcelain.checkout(self.repo, "feature")
+        feature_tip = self._commit_file("file.txt", b"feature change\n", b"feature")
+        _, conflicts = porcelain.merge(
+            self.repo,
+            "master",
+            author=b"Test <test@example.com>",
+            committer=b"Test <test@example.com>",
+        )
+        self.assertEqual([b"file.txt"], conflicts)
+        self.assertIsInstance(self.repo.open_index()[b"file.txt"], ConflictedIndexEntry)
+        self.assertTrue(
+            os.path.exists(os.path.join(self.repo.controldir(), "MERGE_HEAD"))
+        )
+        return base, feature_tip
+
+    def _assert_no_merge_state(self) -> None:
+        for name in ("MERGE_HEAD", "MERGE_MSG", "MERGE_MODE", "AUTO_MERGE"):
+            self.assertFalse(
+                os.path.exists(os.path.join(self.repo.controldir(), name)), name
+            )
+
+    def test_hard_unmerged(self) -> None:
+        _, feature_tip = self._conflicted_merge()
+        with open(os.path.join(self.repo.controldir(), "MERGE_MODE"), "wb") as f:
+            f.write(b"no-ff")
+
+        porcelain.reset(self.repo, "hard", feature_tip)
+
+        self.assertEqual(feature_tip, self.repo.head())
+        index = self.repo.open_index()
+        self.assertFalse(index.has_conflicts())
+        self.assertEqual([b"file.txt"], list(index))
+        with open(os.path.join(self.repo.path, "file.txt"), "rb") as f:
+            self.assertEqual(b"feature change\n", f.read())
+        self.assertFalse(os.path.exists(os.path.join(self.repo.path, "other.txt")))
+        self._assert_no_merge_state()
+
+    def test_hard_unmerged_path_absent_from_target(self) -> None:
+        base, _ = self._conflicted_merge()
+        blob = Blob.from_string(b"unrelated\n")
+        tree = Tree()
+        tree[b"unrelated.txt"] = (0o100644, blob.id)
+        target = make_commit(tree=tree.id, parents=[base])
+        for obj in (blob, tree, target):
+            self.repo.object_store.add_object(obj)
+
+        porcelain.reset(self.repo, "hard", target.id)
+
+        self.assertEqual([b"unrelated.txt"], list(self.repo.open_index()))
+        self.assertFalse(os.path.exists(os.path.join(self.repo.path, "file.txt")))
+        self._assert_no_merge_state()
+
+    def test_mixed_unmerged(self) -> None:
+        _, feature_tip = self._conflicted_merge()
+
+        porcelain.reset(self.repo, "mixed", feature_tip)
+
+        index = self.repo.open_index()
+        self.assertFalse(index.has_conflicts())
+        self.assertEqual(
+            self.repo[feature_tip].tree, index.commit(self.repo.object_store)
+        )
+        self._assert_no_merge_state()
+
+    def test_soft_unmerged(self) -> None:
+        _, feature_tip = self._conflicted_merge()
+        head = self.repo.head()
+
+        self.assertRaises(
+            porcelain.Error, porcelain.reset, self.repo, "soft", feature_tip
+        )
+
+        self.assertEqual(head, self.repo.head())
+        self.assertTrue(
+            os.path.exists(os.path.join(self.repo.controldir(), "MERGE_HEAD"))
+        )
 
 
 class ResetFileTests(PorcelainTestCase):
@@ -5497,6 +5647,29 @@ class CheckoutTests(PorcelainTestCase):
         target_repo.close()
         remote_repo.close()
 
+    def _setup_file_becoming_dir(self) -> str:
+        porcelain.checkout(self.repo, b"uni")
+        os.mkdir(os.path.join(self.repo.path, "plain"))
+        _commit_file_with_content(self.repo, "plain/inner", "inner\n")
+        porcelain.checkout(self.repo, b"master")
+        _sha, plain_path = _commit_file_with_content(self.repo, "plain", "plain\n")
+        with open(plain_path, "w") as f:
+            f.write("locally modified\n")
+        return plain_path
+
+    def test_checkout_modified_file_becoming_dir_refused(self) -> None:
+        plain_path = self._setup_file_becoming_dir()
+        with self.assertRaises(porcelain.CheckoutError):
+            porcelain.checkout(self.repo, b"uni")
+        with open(plain_path) as f:
+            self.assertEqual("locally modified\n", f.read())
+
+    def test_checkout_force_modified_file_becoming_dir(self) -> None:
+        plain_path = self._setup_file_becoming_dir()
+        porcelain.checkout(self.repo, b"uni", force=True)
+        with open(os.path.join(plain_path, "inner")) as f:
+            self.assertEqual("inner\n", f.read())
+
 
 class RestoreTests(PorcelainTestCase):
     """Tests for the restore command."""
@@ -5579,6 +5752,17 @@ class RestoreTests(PorcelainTestCase):
         # Verify nothing is staged
         status = list(porcelain.status(self.repo))
         self.assertEqual([{"add": [], "delete": [], "modify": []}, [], []], status)
+
+    def test_restore_both_keeps_flags_of_unchanged_entry(self) -> None:
+        index = self.repo.open_index()
+        index[b"foo"].flags |= FLAG_VALID
+        index.write()
+        with open(self._foo_path, "w") as f:
+            f.write("worktree\n")
+
+        porcelain.restore(self.repo, paths=["foo"], staged=True, worktree=True)
+
+        self.assertEqual(FLAG_VALID, self.repo.open_index()[b"foo"].flags)
 
     def test_restore_nonexistent_path(self) -> None:
         with self.assertRaises(porcelain.CheckoutError):
@@ -5724,6 +5908,94 @@ class SwitchTests(PorcelainTestCase):
         # Switching to a commit SHA without --detach should fail
         with self.assertRaises(porcelain.CheckoutError):
             porcelain.switch(self.repo, self._sha.decode())
+
+
+class CheckoutLineEndingTests(PorcelainTestCase):
+    """Checkout over files subject to line ending conversion (issue #2466)."""
+
+    def _commit(self, files: dict[str, bytes], message: bytes) -> None:
+        for name, contents in files.items():
+            with open(os.path.join(self.repo.path, name), "wb") as f:
+                f.write(contents)
+        porcelain.add(self.repo, paths=[os.path.join(self.repo.path, n) for n in files])
+        porcelain.commit(
+            self.repo,
+            message=message,
+            author=b"Test <test@example.com>",
+            committer=b"Test <test@example.com>",
+        )
+
+    def _check_checkout_with_on_disk(self, on_disk: bytes) -> None:
+        self._commit(
+            {".gitattributes": b"*.bat text eol=crlf\n", "run.bat": b"echo base\n"},
+            b"base",
+        )
+        porcelain.branch_create(self.repo, "feature")
+        self._commit({"run.bat": on_disk}, b"change run.bat")
+        self.assertEqual(
+            [{"add": [], "delete": [], "modify": []}, [], []],
+            list(porcelain.status(self.repo)),
+        )
+        porcelain.checkout(self.repo, "feature")
+        with open(os.path.join(self.repo.path, "run.bat"), "rb") as f:
+            self.assertEqual(b"echo base\r\n", f.read())
+
+    def test_crlf_on_disk(self) -> None:
+        self._check_checkout_with_on_disk(b"echo changed\r\n")
+
+    def test_lf_on_disk(self) -> None:
+        self._check_checkout_with_on_disk(b"echo changed\n")
+
+    def test_modified_file_still_refused(self) -> None:
+        self._commit(
+            {".gitattributes": b"*.bat text eol=crlf\n", "run.bat": b"echo base\n"},
+            b"base",
+        )
+        porcelain.branch_create(self.repo, "feature")
+        self._commit({"run.bat": b"echo changed\r\n"}, b"change run.bat")
+        with open(os.path.join(self.repo.path, "run.bat"), "wb") as f:
+            f.write(b"echo local\r\n")
+        with self.assertRaises(porcelain.CheckoutError):
+            porcelain.checkout(self.repo, "feature")
+
+    def _commit_attributes_added(self) -> tuple[bytes, bytes]:
+        self._commit({"README": b"base\n"}, b"base")
+        base = self.repo.head()
+        self._commit(
+            {".gitattributes": b"f text eol=crlf\n", "f": b"one\r\ntwo\r\n"},
+            b"attributes and file",
+        )
+        return base, self.repo.head()
+
+    def _read(self, name: str) -> bytes:
+        with open(os.path.join(self.repo.path, name), "rb") as f:
+            return f.read()
+
+    def test_checkout_uses_target_attributes(self) -> None:
+        base, target = self._commit_attributes_added()
+        porcelain.branch_create(self.repo, "with-attrs", target)
+        porcelain.reset(self.repo, mode="hard", treeish=base)
+        self.assertFalse(os.path.exists(os.path.join(self.repo.path, "f")))
+        porcelain.checkout(self.repo, "with-attrs")
+        self.assertEqual(b"one\r\ntwo\r\n", self._read("f"))
+
+    def test_reset_hard_uses_target_attributes(self) -> None:
+        base, target = self._commit_attributes_added()
+        porcelain.reset(self.repo, mode="hard", treeish=base)
+        porcelain.reset(self.repo, mode="hard", treeish=target)
+        self.assertEqual(b"one\r\ntwo\r\n", self._read("f"))
+
+    def test_reset_hard_ignores_replaced_worktree_attributes(self) -> None:
+        self._commit({".gitattributes": b"run.bat -text\n", "README": b"x\n"}, b"old")
+        old = self.repo.head()
+        self._commit(
+            {".gitattributes": b"run.bat text eol=crlf\n", "run.bat": b"echo hi\n"},
+            b"new",
+        )
+        new = self.repo.head()
+        porcelain.reset(self.repo, mode="hard", treeish=old)
+        porcelain.reset(self.repo, mode="hard", treeish=new)
+        self.assertEqual(b"echo hi\r\n", self._read("run.bat"))
 
 
 class GeneralCheckoutTests(PorcelainTestCase):
@@ -7294,6 +7566,9 @@ class PullTests(PorcelainTestCase):
         with open(target_file, "w") as f:
             f.write("local modifications")
 
+        with Repo(self.target_path) as r:
+            old_head = r.head()
+
         # Pull should fail because of uncommitted changes
         with self.assertRaises(WorkingTreeModifiedError) as cm:
             porcelain.pull(
@@ -7310,6 +7585,54 @@ class PullTests(PorcelainTestCase):
         # Verify the file still has local modifications
         with open(target_file) as f:
             self.assertEqual(f.read(), "local modifications")
+
+        # HEAD and the index are left alone
+        with Repo(self.target_path) as r:
+            self.assertEqual(old_head, r.head())
+        status = porcelain.status(self.target_path)
+        self.assertEqual({"add": [], "delete": [], "modify": []}, status.staged)
+        self.assertEqual([b"testfile.txt"], status.unstaged)
+
+    def test_pull_protects_modified_files_updates_remote_refs(self) -> None:
+        test_file = os.path.join(self.repo.path, "testfile.txt")
+        with open(test_file, "w") as f:
+            f.write("original content")
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"Add test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+        porcelain.pull(self.target_path, outstream=BytesIO(), errstream=BytesIO())
+
+        with open(test_file, "w") as f:
+            f.write("updated content")
+        porcelain.add(repo=self.repo.path, paths=[test_file])
+        new_tip = porcelain.commit(
+            repo=self.repo.path,
+            message=b"Update test file",
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+        with open(os.path.join(self.target_path, "testfile.txt"), "w") as f:
+            f.write("local modifications")
+        with Repo(self.target_path) as r:
+            old_head = r.head()
+
+        self.assertRaises(
+            WorkingTreeModifiedError,
+            porcelain.pull,
+            self.target_path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        # Like git, the fetch still updates the remote-tracking refs
+        with Repo(self.target_path) as r:
+            self.assertEqual(old_head, r.head())
+            self.assertEqual(new_tip, r.refs[b"refs/remotes/origin/master"])
 
     def test_pull_force_overwrites_modified_files(self) -> None:
         """Test that pull with force=True overwrites uncommitted changes."""
@@ -7431,6 +7754,210 @@ class PullTests(PorcelainTestCase):
         # Check the HEAD is updated too
         with Repo(self.target_path) as r:
             self.assertEqual(r[b"HEAD"].id, self.repo[b"HEAD"].id)
+
+    def _commit_file(self, repo_path: str, name: str) -> bytes:
+        with open(os.path.join(repo_path, name), "w") as f:
+            f.write(name)
+        porcelain.add(repo=repo_path, paths=[os.path.join(repo_path, name)])
+        return porcelain.commit(
+            repo=repo_path,
+            message=name.encode(),
+            author=b"test <email>",
+            committer=b"test <email>",
+        )
+
+    def test_tracking_refspec_fast_forward(self) -> None:
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master:refs/remotes/origin/master",
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+        with Repo(self.target_path) as r:
+            self.assertEqual(self.repo.head(), r.refs[b"refs/heads/master"])
+            self.assertEqual(self.repo.head(), r.refs[b"refs/remotes/origin/master"])
+
+    def test_tracking_refspec_local_ahead(self) -> None:
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+        local = self._commit_file(self.target_path, "local.txt")
+
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master:refs/remotes/origin/master",
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(local, r.refs[b"refs/heads/master"])
+        self.assertTrue(os.path.exists(os.path.join(self.target_path, "local.txt")))
+
+    def test_tracking_refspec_diverged(self) -> None:
+        local = self._commit_file(self.target_path, "local.txt")
+        remote = self._commit_file(self.repo.path, "remote.txt")
+
+        self.assertRaises(
+            porcelain.DivergedBranches,
+            porcelain.pull,
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master:refs/remotes/origin/master",
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(local, r.refs[b"refs/heads/master"])
+            self.assertEqual(remote, r.refs[b"refs/remotes/origin/master"])
+        self.assertTrue(os.path.exists(os.path.join(self.target_path, "local.txt")))
+        self.assertFalse(os.path.exists(os.path.join(self.target_path, "remote.txt")))
+
+    def test_current_branch_refspec_fast_forward(self) -> None:
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master:refs/heads/master",
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+        with Repo(self.target_path) as r:
+            self.assertEqual(self.repo.head(), r.refs[b"refs/heads/master"])
+
+    def test_current_branch_refspec_local_ahead(self) -> None:
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+        local = self._commit_file(self.target_path, "local.txt")
+
+        self.assertRaises(
+            porcelain.DivergedBranches,
+            porcelain.pull,
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/master:refs/heads/master",
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(local, r.refs[b"refs/heads/master"])
+
+    def test_current_branch_refspec_forced(self) -> None:
+        self._commit_file(self.target_path, "local.txt")
+
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"+refs/heads/master:refs/heads/master",
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(self.repo.head(), r.refs[b"refs/heads/master"])
+        self.assertFalse(os.path.exists(os.path.join(self.target_path, "local.txt")))
+
+    def _setup_feature_branch(self) -> bytes:
+        """Create feature in both repos, with the remote one a commit ahead."""
+        with Repo(self.target_path) as r:
+            r.refs[b"refs/heads/feature"] = r.head()
+        porcelain.branch_create(self.repo, "feature")
+        porcelain.checkout(self.repo, "feature")
+        feature = self._commit_file(self.repo.path, "feature.txt")
+        porcelain.checkout(self.repo, "master")
+        return feature
+
+    def test_other_branch_refspec(self) -> None:
+        feature = self._setup_feature_branch()
+
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/feature:refs/heads/feature",
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(feature, r.refs[b"refs/heads/feature"])
+            self.assertEqual(feature, r.refs[b"refs/heads/master"])
+        self.assertTrue(os.path.exists(os.path.join(self.target_path, "feature.txt")))
+
+    def test_other_branch_refspec_current_diverged(self) -> None:
+        feature = self._setup_feature_branch()
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+        local = self._commit_file(self.target_path, "local.txt")
+
+        self.assertRaises(
+            porcelain.DivergedBranches,
+            porcelain.pull,
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/feature:refs/heads/feature",
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(feature, r.refs[b"refs/heads/feature"])
+            self.assertEqual(local, r.refs[b"refs/heads/master"])
+        self.assertFalse(os.path.exists(os.path.join(self.target_path, "feature.txt")))
+
+    def test_refspec_without_destination(self) -> None:
+        self.repo.refs[b"refs/heads/feature"] = self.repo.head()
+
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            b"refs/heads/feature",
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(self.repo.head(), r.refs[b"refs/heads/master"])
+            self.assertNotIn(b"refs/heads/feature", r.refs)
+
+    def test_local_ahead_ff_only(self) -> None:
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+        local = self._commit_file(self.target_path, "local.txt")
+
+        porcelain.pull(
+            self.target_path,
+            self.repo.path,
+            ff_only=True,
+            outstream=BytesIO(),
+            errstream=BytesIO(),
+        )
+
+        with Repo(self.target_path) as r:
+            self.assertEqual(local, r.refs[b"refs/heads/master"])
 
 
 class StatusTests(PorcelainTestCase):
@@ -8356,6 +8883,55 @@ class StatusTests(PorcelainTestCase):
             ),
         )
 
+    def test_get_untracked_paths_from_subdir(self) -> None:
+        sub = os.path.join(self.repo.path, "sub")
+        os.makedirs(os.path.join(sub, "tracked_dir"))
+        os.makedirs(os.path.join(sub, "untracked_dir"))
+        for name in [
+            "tracked",
+            "untracked",
+            os.path.join("tracked_dir", "tracked"),
+            os.path.join("tracked_dir", "untracked"),
+            os.path.join("untracked_dir", "untracked"),
+        ]:
+            with open(os.path.join(sub, name), "w") as f:
+                f.write("content\n")
+        porcelain.add(
+            self.repo.path,
+            paths=[
+                os.path.join(sub, "tracked"),
+                os.path.join(sub, "tracked_dir", "tracked"),
+            ],
+        )
+
+        self.assertEqual(
+            {
+                "untracked",
+                os.path.join("tracked_dir", "untracked"),
+                os.path.join("untracked_dir", "untracked"),
+            },
+            set(
+                porcelain.get_untracked_paths(
+                    sub, self.repo.path, self.repo.open_index()
+                )
+            ),
+        )
+        self.assertEqual(
+            {
+                "untracked",
+                os.path.join("tracked_dir", "untracked"),
+                os.path.join("untracked_dir", ""),
+            },
+            set(
+                porcelain.get_untracked_paths(
+                    sub,
+                    self.repo.path,
+                    self.repo.open_index(),
+                    untracked_files="normal",
+                )
+            ),
+        )
+
     def test_get_untracked_paths_invalid_untracked_files(self) -> None:
         with self.assertRaises(ValueError):
             list(
@@ -8470,6 +9046,57 @@ class StatusTests(PorcelainTestCase):
             )
             self.assertNotIn(nfd_name, untracked_with)
             self.assertNotIn(nfc_name, untracked_with)
+
+    def test_get_untracked_paths_precompose_unicode_frompath(self) -> None:
+        config = self.repo.get_config()
+        config.set((b"core",), b"precomposeunicode", False)
+        config.write_to_path()
+
+        nfc_name = unicodedata.normalize("NFC", "täst")
+        nfd_name = unicodedata.normalize("NFD", "täst")
+        nfc_dir = os.path.join(self.repo.path, nfc_name)
+        os.makedirs(os.path.join(nfc_dir, "untracked_dir"))
+        for name in [
+            "tracked",
+            "untracked",
+            os.path.join("untracked_dir", "untracked"),
+        ]:
+            with open(os.path.join(nfc_dir, name), "w") as f:
+                f.write("content\n")
+        porcelain.add(self.repo.path, paths=[os.path.join(nfc_dir, "tracked")])
+
+        # Simulate a filesystem that hands back the decomposed form.
+        nfd_dir = os.path.join(self.repo.path, nfd_name)
+        try:
+            os.rename(nfc_dir, nfd_dir)
+        except OSError:
+            self.skipTest("filesystem normalizes unicode names")
+        if not os.path.exists(nfd_dir) or os.path.exists(nfc_dir):
+            self.skipTest("filesystem normalizes unicode names")
+
+        self.assertEqual(
+            {"untracked", os.path.join("untracked_dir", "untracked")},
+            set(
+                porcelain.get_untracked_paths(
+                    nfd_dir,
+                    self.repo.path,
+                    self.repo.open_index(),
+                    precompose_unicode=True,
+                )
+            ),
+        )
+        self.assertEqual(
+            {"untracked", os.path.join("untracked_dir", "")},
+            set(
+                porcelain.get_untracked_paths(
+                    nfd_dir,
+                    self.repo.path,
+                    self.repo.open_index(),
+                    untracked_files="normal",
+                    precompose_unicode=True,
+                )
+            ),
+        )
 
     def test_status_precompose_unicode_config(self) -> None:
         """Test that status reads core.precomposeunicode from config."""
@@ -10571,6 +11198,109 @@ class SparseCheckoutTests(PorcelainTestCase):
         with open(sc_file) as f:
             lines = f.read().strip().split()
             self.assertIn("src/foo*.py", lines)
+
+    def _make_branch_without(self, branch, old_path, new_path=None):
+        """Create a branch removing old_path (or renaming it to new_path)."""
+        default_branch = porcelain.active_branch(self.repo)
+        porcelain.checkout(self.repo, "HEAD", new_branch=branch)
+        porcelain.remove(self.repo, [old_path])
+        if new_path is not None:
+            self._write_file(new_path, "x\n")
+            add(self.repo_path, paths=[new_path])
+        commit(self.repo_path, message=b"Change " + old_path.encode("utf-8"))
+        porcelain.checkout(self.repo, default_branch)
+
+    def test_checkout_removes_index_entry_of_excluded_deleted_file(self):
+        # https://github.com/jelmer/dulwich/issues/2485
+        self._commit_file("keep.txt", "keep\n")
+        self._commit_file("excluded/x.txt", "x\n")
+        self._make_branch_without("without-excluded", "excluded/x.txt")
+
+        self.sparse_checkout(self.repo, ["/keep.txt"], force=True)
+        porcelain.checkout(self.repo, "without-excluded", force=True)
+
+        self.assertEqual([b"keep.txt"], sorted(self.repo.open_index()))
+        self.assertEqual(
+            {"add": [], "delete": [], "modify": []},
+            porcelain.status(self.repo).staged,
+        )
+
+    def test_checkout_case_only_rename_of_excluded_file(self):
+        self._commit_file("keep.txt", "keep\n")
+        self._commit_file("ex/Foo.txt", "x\n")
+        self._make_branch_without("renamed", "ex/Foo.txt", "ex/foo.txt")
+
+        config = self.repo.get_config()
+        config.set((b"core",), b"ignorecase", True)
+        config.write_to_path()
+        self.sparse_checkout(self.repo, ["/keep.txt"], force=True)
+        porcelain.checkout(self.repo, "renamed", force=True)
+
+        self.assertEqual([b"ex/foo.txt", b"keep.txt"], sorted(self.repo.open_index()))
+
+    def test_sparse_checkout_enables_core_sparse_checkout(self):
+        self._commit_file("keep.txt", "keep\n")
+        self.sparse_checkout(self.repo, ["/keep.txt"])
+
+        config = self.repo.get_config()
+        self.assertTrue(config.get_boolean((b"core",), b"sparseCheckout"))
+        self.assertFalse(config.get_boolean((b"core",), b"sparseCheckoutCone"))
+
+    def test_status_ignores_excluded_paths(self):
+        self._commit_file("keep.txt", "keep\n")
+        self._commit_file("excluded/x.txt", "x\n")
+        self.sparse_checkout(self.repo, ["/keep.txt"], force=True)
+
+        self.assertEqual([], porcelain.status(self.repo).unstaged)
+
+    def test_reset_hard_keeps_excluded_paths_out_of_worktree(self):
+        # https://github.com/jelmer/dulwich/issues/2472
+        self._commit_file("included/a.txt", "a\n")
+        self._commit_file("excluded/b.txt", "b\n")
+        self.sparse_checkout(self.repo, ["/included/"], force=True)
+        self._commit_file("included/a.txt", "a changed\n")
+        os.remove(os.path.join(self.repo_path, "included", "a.txt"))
+
+        porcelain.reset(self.repo, "hard", b"HEAD")
+
+        self.assertEqual({os.path.join("included", "a.txt")}, self._list_wtree_files())
+        index = self.repo.open_index()
+        self.assertEqual(
+            {b"excluded/b.txt": True, b"included/a.txt": False},
+            {path: entry.skip_worktree for path, entry in index.items()},
+        )
+        status = porcelain.status(self.repo)
+        self.assertEqual({"add": [], "delete": [], "modify": []}, status.staged)
+        self.assertEqual([], status.unstaged)
+
+    def test_checkout_keeps_added_excluded_paths_out_of_worktree(self):
+        self._commit_file("keep.txt", "keep\n")
+        self._commit_file("excluded/x.txt", "x\n")
+        self._make_branch_without("renamed", "excluded/x.txt", "excluded/y.txt")
+        self.sparse_checkout(self.repo, ["/keep.txt"], force=True)
+
+        porcelain.checkout(self.repo, "renamed")
+
+        self.assertEqual({"keep.txt"}, self._list_wtree_files())
+        index = self.repo.open_index()
+        self.assertEqual(
+            {b"excluded/y.txt": True, b"keep.txt": False},
+            {path: entry.skip_worktree for path, entry in index.items()},
+        )
+        status = porcelain.status(self.repo)
+        self.assertEqual({"add": [], "delete": [], "modify": []}, status.staged)
+        self.assertEqual([], status.unstaged)
+
+    def test_sparse_checkout_honours_core_ignorecase(self):
+        self._commit_file("docs/readme.md", "docs\n")
+        self._commit_file("lib/code.py", "code\n")
+        config = self.repo.get_config()
+        config.set((b"core",), b"ignorecase", True)
+        config.write_to_path()
+
+        self.sparse_checkout(self.repo, ["/DOCS/"])
+
+        self.assertEqual({os.path.join("docs", "readme.md")}, self._list_wtree_files())
 
 
 class ConeModeTests(PorcelainTestCase):

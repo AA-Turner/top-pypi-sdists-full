@@ -35,6 +35,9 @@ _is_evaluating_join_condition = ContextVar(
     "_is_evaluating_join_condition", default=("default", False, [], [])
 )
 _is_processing_order_by = ContextVar[bool]("_is_processing_order_by", default=False)
+_is_order_by_child_resolution_skipped = ContextVar[bool](
+    "_is_order_by_child_resolution_skipped", default=False
+)
 _is_processing_aliased_relation = ContextVar[bool](
     "_is_processing_aliased_relation", default=False
 )
@@ -186,6 +189,43 @@ def clean_request_external_tables() -> None:
     _request_external_tables.set([])
 
 
+# Temp tables made by window-chain materialization in this ExecutePlan. They are
+# dropped when the request ends.
+_request_window_chain_tables = ContextVar[list[str]](
+    "_request_window_chain_tables", default=[]
+)
+# Window-chain materialization only runs while an ExecutePlan maps a root
+# relation or a write, never for views or AnalyzePlan.
+_window_chain_materialization_allowed = ContextVar[bool](
+    "_window_chain_materialization_allowed", default=False
+)
+
+
+def add_request_window_chain_table(name: str) -> None:
+    _request_window_chain_tables.set(_request_window_chain_tables.get() + [name])
+
+
+def get_request_window_chain_tables() -> list[str]:
+    return _request_window_chain_tables.get()
+
+
+def clean_request_window_chain_tables() -> None:
+    _request_window_chain_tables.set([])
+
+
+def is_window_chain_materialization_allowed() -> bool:
+    return _window_chain_materialization_allowed.get()
+
+
+@contextmanager
+def window_chain_materialization_allowed() -> Iterator[None]:
+    token = _window_chain_materialization_allowed.set(True)
+    try:
+        yield
+    finally:
+        _window_chain_materialization_allowed.reset(token)
+
+
 # Context variable to track current grouping columns for grouping_id() function
 _current_grouping_columns: ContextVar[list[str]] = ContextVar(
     "_current_grouping_columns",
@@ -224,6 +264,60 @@ def register_lca_alias(name: str, typed_col: TypedColumn) -> None:
 
 def resolve_lca_alias(name: str) -> Optional[TypedColumn]:
     return _lca_alias_map.get().get(_normalize(name))
+
+
+@dataclass
+class PivotFirstLastState:
+    """Pivot aggregate mapping state for Spark's ResolvePivot first/last rewrite.
+
+    force_all is set for the second mapping pass when any aggregate result type
+    is outside PivotFirst (Analyzer.scala forall); every first/last in the
+    pivot then ignores nulls. saw_first_last records whether that pass is needed.
+    """
+
+    force_all: bool = False
+    saw_first_last: bool = False
+
+
+# Set while pivot aggregate expressions are being mapped. Group-by first/last
+# must not see it. Reset with the token so a nested plan cannot leak it.
+_pivot_first_last_state: ContextVar[Optional[PivotFirstLastState]] = ContextVar(
+    "_pivot_first_last_state",
+    default=None,
+)
+
+
+@contextmanager
+def pivot_first_last_rewrite(
+    active: bool = True,
+) -> Iterator[Optional[PivotFirstLastState]]:
+    """Mark aggregate-expression mapping as inside a pivot, when active.
+
+    When not active, clear the mark, so the aggregate of a subquery nested in
+    a pivot aggregate maps its own first/last as outside a pivot.
+    """
+    state = PivotFirstLastState() if active else None
+    token = _pivot_first_last_state.set(state)
+    try:
+        yield state
+    finally:
+        _pivot_first_last_state.reset(token)
+
+
+def pivot_rewrites_first_last() -> bool:
+    return _pivot_first_last_state.get() is not None
+
+
+def pivot_forces_all_first_last() -> bool:
+    state = _pivot_first_last_state.get()
+    return state is not None and state.force_all
+
+
+def note_pivot_first_last() -> None:
+    """Record that a first/last was mapped inside the current pivot."""
+    state = _pivot_first_last_state.get()
+    if state is not None:
+        state.saw_first_last = True
 
 
 def set_current_grouping_columns(columns: list[str]) -> None:
@@ -401,6 +495,27 @@ def get_is_processing_order_by() -> bool:
     Gets the value of _is_processing_order_by for the current context, defaults to False.
     """
     return _is_processing_order_by.get()
+
+
+def get_is_order_by_child_resolution_skipped() -> bool:
+    return _is_order_by_child_resolution_skipped.get()
+
+
+@contextmanager
+def skip_order_by_child_resolution() -> Iterator[None]:
+    """Resolve an ORDER BY name in one DataFrame's output, without its child plan.
+
+    A plan-id column reference such as ``df["b"]`` is bound to that DataFrame.
+    Spark resolves it against that plan's output only: one attribute repeated
+    (``select("*", "b")``) still resolves, but a name that only the child plan
+    could disambiguate raises AMBIGUOUS_REFERENCE.
+    """
+    prev = _is_order_by_child_resolution_skipped.get()
+    try:
+        _is_order_by_child_resolution_skipped.set(True)
+        yield
+    finally:
+        _is_order_by_child_resolution_skipped.set(prev)
 
 
 @contextmanager
@@ -622,7 +737,12 @@ def _get_current_registration_db() -> str | None:
 
         session = Session.get_active_session()
         if session is not None:
-            schema = session.get_current_schema()
+            from snowflake.snowpark_connect.utils.scos_query_tag import (
+                scos_internal_query_tag,
+            )
+
+            with scos_internal_query_tag():
+                schema = session.get_current_schema()
             if schema:
                 return _normalize(schema.strip('"'))
     except Exception:
@@ -778,6 +898,11 @@ def get_sql_aggregate_function_count() -> int:
     return _sql_aggregate_function_count.get()
 
 
+def set_sql_aggregate_function_count(count: int) -> None:
+    """Restore the aggregate counter after a discarded mapping pass."""
+    _sql_aggregate_function_count.set(count)
+
+
 def set_sql_args(
     named: dict[str, expressions_proto.Expression],
     pos: dict[int, expressions_proto.Expression],
@@ -874,6 +999,8 @@ def clear_context_data() -> None:
     _alias_map.set({})
 
     _request_external_tables.set([])
+    _request_window_chain_tables.set([])
+    _window_chain_materialization_allowed.set(False)
     _view_process_context.set([])
     _next_sql_plan_id.set(_STARTING_SQL_PLAN_ID)
     _sql_plan_scope_stack.set([_SqlScopeFrame()])
@@ -888,6 +1015,7 @@ def clear_context_data() -> None:
     _execute_root_plan_id.set(None)
     _current_plan_id.set(None)
     _should_skip_file_read_cache_result.set(False)
+    _pivot_first_last_state.set(None)
 
     # Reset CLD ContextVars so state from a previous RPC handled by the same
     # worker thread (sync gRPC server) does not leak into this request.

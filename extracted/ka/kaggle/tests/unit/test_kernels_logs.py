@@ -3,8 +3,10 @@ import unittest
 from unittest.mock import patch, MagicMock, call
 import io
 import json
+import os
 import tempfile
 import sys
+import builtins
 
 sys.path.insert(0, "../..")
 
@@ -53,6 +55,7 @@ class TestKernelsLogs(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
         mock_get.return_value = MagicMock(content=b"png")
         self.api.download_needed = MagicMock(return_value=True)  # type: ignore[method-assign]
+        self.api.download_file = MagicMock()  # type: ignore[method-assign]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
@@ -62,7 +65,7 @@ class TestKernelsLogs(unittest.TestCase):
         self.assertEqual(token, "")
         self.assertEqual(len(outfiles), 1)
         self.assertTrue(outfiles[0].endswith("result.png"))
-        mock_get.assert_called_once_with("https://example.com/result.png", stream=True)
+        mock_get.assert_called_once_with("https://example.com/result.png", stream=True, timeout=300)
         self.assertEqual(mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_count, 2)
         second_request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args_list[1][0][0]
         self.assertEqual(second_request.page_token, "page-2")
@@ -83,6 +86,7 @@ class TestKernelsLogs(unittest.TestCase):
         mock_client.return_value.__exit__ = MagicMock(return_value=False)
         mock_get.return_value = MagicMock(content=b"csv")
         self.api.download_needed = MagicMock(return_value=True)  # type: ignore[method-assign]
+        self.api.download_file = MagicMock()  # type: ignore[method-assign]
 
         with tempfile.TemporaryDirectory() as temp_dir:
             outfiles, token = self.api.kernels_output(
@@ -96,6 +100,38 @@ class TestKernelsLogs(unittest.TestCase):
         request = mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.call_args[0][0]
         self.assertEqual(request.page_token, "page-2")
         self.assertEqual(request.page_size, 50)
+
+    @patch("kaggle.api.kaggle_api_extended.requests.get")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_kernels_output_failed_download_is_not_written(self, mock_client, mock_get):
+        """Test a failed file download raises instead of saving the error body."""
+        import requests as _requests
+
+        response = MagicMock()
+        response.files = [MagicMock(file_name="submission.csv", url="https://example.com/submission.csv")]
+        response.next_page_token = ""
+        response.log = None
+
+        mock_kaggle = MagicMock()
+        mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.return_value = response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        error_body = b"<Error><Code>AccessDenied</Code></Error>"
+        failed = MagicMock(status_code=403, content=error_body, headers={"Content-Length": str(len(error_body))})
+        failed.raise_for_status.side_effect = _requests.exceptions.HTTPError("403 Client Error", response=failed)
+        mock_get.return_value = failed
+
+        captured = io.StringIO()
+        sys.stdout = captured
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                with self.assertRaises(_requests.exceptions.HTTPError):
+                    self.api.kernels_output("owner/kernel-slug", temp_dir, quiet=False)
+                self.assertFalse(os.path.exists(os.path.join(temp_dir, "submission.csv")))
+        finally:
+            sys.stdout = sys.__stdout__
+        self.assertNotIn("Output file downloaded", captured.getvalue())
 
     @patch.object(KaggleApi, "kernels_output")
     def test_kernels_output_cli_passes_page_size(self, mock_output):
@@ -498,6 +534,38 @@ class TestKernelsLogs(unittest.TestCase):
 
         self.assertIn("giving up", captured_err.getvalue())
         self.assertEqual(mock_stream.call_count, 5)
+
+    @patch("kaggle.api.kaggle_api_extended.requests.get")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_kernels_output_writes_non_ascii_log(self, mock_client, mock_get):
+        """Test the kernel log is written as UTF-8 regardless of locale encoding."""
+        log_text = "Installing packages\n\u2588\u2588\u2588\u2588 100%\n\u25b6 done\n"
+
+        response = MagicMock()
+        response.files = []
+        response.next_page_token = ""
+        response.log = log_text
+
+        mock_kaggle = MagicMock()
+        mock_kaggle.kernels.kernels_api_client.list_kernel_session_output.return_value = response
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        real_open = builtins.open
+
+        def _windows_open(file, mode="r", *args, **kwargs):
+            if "b" not in mode and kwargs.get("encoding") is None:
+                kwargs["encoding"] = "cp1252"
+            return real_open(file, mode, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with patch("builtins.open", _windows_open):
+                outfiles, _ = self.api.kernels_output("owner/kernel-slug", temp_dir, quiet=True)
+
+            self.assertEqual(len(outfiles), 1)
+            self.assertTrue(outfiles[0].endswith("kernel-slug.log"))
+            with real_open(outfiles[0], encoding="utf-8") as f:
+                self.assertEqual(f.read(), log_text)
 
 
 if __name__ == "__main__":

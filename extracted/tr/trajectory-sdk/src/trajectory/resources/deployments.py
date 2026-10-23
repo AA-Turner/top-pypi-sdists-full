@@ -3,24 +3,26 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any, Literal
+from typing import Any, Iterable, Literal, Mapping, overload
 
 import httpx2
 
 from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
+from trajectory._streaming import Stream
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
+from trajectory.types.chat_completion_params import ChatCompletionParams, ChatMessageParam
 from trajectory.types.deployments.deployment import Deployment
 from trajectory.types.deployments.deployments_create_params import (
   DeploymentsCreateParams,
   ModelEndpointConfigParam,
 )
-from trajectory.types.deployments.deployments_create_slug_params import DeploymentsCreateSlugParams
 from trajectory.types.deployments.deployments_promote_params import DeploymentsPromoteParams
 from trajectory.types.deployments_summary import DeploymentsSummary
-from trajectory.types.model_slug import ModelSlug
+from trajectory.types.inference.chat_completion_chunk import ChatCompletionChunk
+from trajectory.types.inference.chat_completion_response import ChatCompletionResponse
 from trajectory.types.promote_response import PromoteResponse
 from trajectory.types.start_deploy_response import StartDeployResponse
 from trajectory.types.undeploy_response import UndeployResponse
@@ -83,10 +85,9 @@ class Deployments(APIResource):
     self,
     *,
     checkpoint_id: str,
-    model_slug: str,
+    test_model_slug: str,
     idempotency_key: str | Omit = omit,
     agent_id: str | None | Omit = omit,
-    role: Literal["production", "test"] | Omit = omit,
     model_endpoint_config: ModelEndpointConfigParam | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
@@ -96,15 +97,14 @@ class Deployments(APIResource):
     """Serve a committed checkpoint through Model Endpoint.
 
     Args:
-      idempotency_key: Optional. Without a key the API generates one, so a retried submission creates a
-        second resource. A blank or over-long key is rejected. Reuse this key when
-        retrying a submission; the SDK generates one per call and reuses it across
-        automatic retries.
+      idempotency_key: Optional. Without a key, repeated submissions are treated as separate actions. A
+        blank or over-long key is rejected. Reuse this key when retrying a submission; the
+        SDK generates one per call and reuses it across automatic retries.
 
-      agent_id: Owning agent; inferred from the checkpoint or serving name when omitted.
+      agent_id: Owning agent; inferred from the checkpoint when omitted.
 
-      model_endpoint_config: Generation and tokenizer settings for the deployment. Defaults to the
-        configuration persisted for the originating Training Service run.
+      model_endpoint_config: Model and tokenizer identity for the deployment; defaults to the originating
+        Training Service run. Sampling overrides and training limits are cleared.
 
       extra_headers: Send extra headers
 
@@ -120,9 +120,8 @@ class Deployments(APIResource):
       body=maybe_transform(
         {
           "checkpoint_id": checkpoint_id,
-          "model_slug": model_slug,
+          "test_model_slug": test_model_slug,
           "agent_id": agent_id,
-          "role": role,
           "model_endpoint_config": model_endpoint_config,
         },
         DeploymentsCreateParams,
@@ -140,47 +139,6 @@ class Deployments(APIResource):
         extra_body=extra_body,
         timeout=timeout,
         idempotency_header=("Idempotency-Key" if isinstance(idempotency_key, Omit) else None),
-      ),
-    )
-
-  def create_slug(
-    self,
-    *,
-    name: str,
-    extra_headers: Headers | None = None,
-    extra_query: dict[str, Any] | None = None,
-    extra_body: dict[str, Any] | None = None,
-    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> ModelSlug:
-    """Create Model Slug
-
-    Args:
-      name: Slug name. Leading/trailing whitespace is trimmed and the stored name is
-        lowercased. Must be a single token (no whitespace). Allowed characters: letters,
-        numbers, '-' and '_'. Max length: 32.
-
-      extra_headers: Send extra headers
-
-      extra_query: Add additional query parameters to the request
-
-      extra_body: Add additional JSON properties to the request
-
-      timeout: Override the client-level default timeout for this request, in seconds
-    """
-    return self._post(
-      "/api/v1/models/slugs",
-      cast_to=ModelSlug,
-      body=maybe_transform(
-        {
-          "name": name,
-        },
-        DeploymentsCreateSlugParams,
-      ),
-      options=make_request_options(
-        extra_headers=extra_headers,
-        extra_query=extra_query,
-        extra_body=extra_body,
-        timeout=timeout,
       ),
     )
 
@@ -219,6 +177,58 @@ class Deployments(APIResource):
         extra_query=extra_query,
         extra_body=extra_body,
         timeout=timeout,
+      ),
+    )
+
+  def retry(
+    self,
+    deployment_id: str,
+    *,
+    idempotency_key: str | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> StartDeployResponse:
+    """Retry a failed or cancelled deployment in place after cleanup. Keeps its deployment ID,
+    test model slug, checkpoint, and saved configuration.
+
+    Args:
+      idempotency_key: Optional. Without a key, repeated submissions are treated as separate actions. A
+        blank or over-long key is rejected. Reuse this key when retrying a submission; the
+        SDK generates one per call and reuses it across automatic retries.
+
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(deployment_id, str) and not deployment_id:
+      raise ValueError(
+        f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}"
+      )
+    return self._post(
+      path_template(
+        "/api/v1/deploy/{deployment_id}/retry",
+        deployment_id=deployment_id,
+      ),
+      cast_to=StartDeployResponse,
+      options=make_request_options(
+        headers={
+          "Idempotency-Key": serialize_header(idempotency_key),
+        },
+        extra_headers=(
+          {"Idempotency-Key": omit, **(extra_headers or {})}
+          if idempotency_key is None
+          else extra_headers
+        ),
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+        idempotency_header=("Idempotency-Key" if isinstance(idempotency_key, Omit) else None),
       ),
     )
 
@@ -264,7 +274,7 @@ class Deployments(APIResource):
     self,
     deployment_id: str,
     *,
-    body: DeploymentsPromoteParams | None | Omit = omit,
+    expected_deployment_id: str | None,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -273,6 +283,8 @@ class Deployments(APIResource):
     """Make a deployed deployment the active target for its slug.
 
     Args:
+      expected_deployment_id: Expected current production target; null for initial promotion.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -291,8 +303,11 @@ class Deployments(APIResource):
         deployment_id=deployment_id,
       ),
       cast_to=PromoteResponse,
-      body=(
-        None if isinstance(body, Omit) else maybe_transform(body, DeploymentsPromoteParams | None)
+      body=maybe_transform(
+        {
+          "expected_deployment_id": expected_deployment_id,
+        },
+        DeploymentsPromoteParams,
       ),
       options=make_request_options(
         extra_headers=extra_headers,
@@ -370,15 +385,138 @@ class Deployments(APIResource):
       ),
     )
 
+  @overload
+  def create_chat_completion(
+    self,
+    deployment_id: str,
+    *,
+    x_trajectory_id: str,
+    model: str,
+    messages: Iterable[ChatMessageParam | Mapping[str, Any]],
+    stream: Literal[False] | None | Omit = omit,
+    disable_thinking: bool | None | Omit = omit,
+    temperature: float | None | Omit = omit,
+    max_tokens: int | None | Omit = omit,
+    top_p: float | None | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> ChatCompletionResponse: ...
+
+  @overload
+  def create_chat_completion(
+    self,
+    deployment_id: str,
+    *,
+    x_trajectory_id: str,
+    model: str,
+    messages: Iterable[ChatMessageParam | Mapping[str, Any]],
+    stream: Literal[True],
+    disable_thinking: bool | None | Omit = omit,
+    temperature: float | None | Omit = omit,
+    max_tokens: int | None | Omit = omit,
+    top_p: float | None | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> Stream[ChatCompletionChunk]: ...
+
+  @overload
+  def create_chat_completion(
+    self,
+    deployment_id: str,
+    *,
+    x_trajectory_id: str,
+    model: str,
+    messages: Iterable[ChatMessageParam | Mapping[str, Any]],
+    stream: bool,
+    disable_thinking: bool | None | Omit = omit,
+    temperature: float | None | Omit = omit,
+    max_tokens: int | None | Omit = omit,
+    top_p: float | None | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> ChatCompletionResponse | Stream[ChatCompletionChunk]: ...
+
+  def create_chat_completion(
+    self,
+    deployment_id: str,
+    *,
+    x_trajectory_id: str,
+    model: str,
+    messages: Iterable[ChatMessageParam | Mapping[str, Any]],
+    stream: bool | None | Omit = omit,
+    disable_thinking: bool | None | Omit = omit,
+    temperature: float | None | Omit = omit,
+    max_tokens: int | None | Omit = omit,
+    top_p: float | None | Omit = omit,
+    extra_headers: Headers | None = None,
+    extra_query: dict[str, Any] | None = None,
+    extra_body: dict[str, Any] | None = None,
+    timeout: float | httpx2.Timeout | None | NotGiven = not_given,
+  ) -> ChatCompletionResponse | Stream[ChatCompletionChunk]:
+    """Test this exact deployment without changing the slug's production target.
+
+    Args:
+      max_tokens: Maximum generated tokens, including reasoning tokens when emitted.
+
+      extra_headers: Send extra headers
+
+      extra_query: Add additional query parameters to the request
+
+      extra_body: Add additional JSON properties to the request
+
+      timeout: Override the client-level default timeout for this request, in seconds
+    """
+    if isinstance(deployment_id, str) and not deployment_id:
+      raise ValueError(
+        f"Expected a non-empty value for `deployment_id` but received {deployment_id!r}"
+      )
+    return self._post(
+      path_template(
+        "/api/v1/deploy/{deployment_id}/chat/completions",
+        deployment_id=deployment_id,
+      ),
+      cast_to=ChatCompletionResponse,
+      stream=stream is True,
+      stream_cls=Stream[ChatCompletionChunk],
+      body=maybe_transform(
+        {
+          "model": model,
+          "messages": messages,
+          "stream": stream,
+          "disable_thinking": disable_thinking,
+          "temperature": temperature,
+          "max_tokens": max_tokens,
+          "top_p": top_p,
+        },
+        ChatCompletionParams,
+      ),
+      options=make_request_options(
+        headers={
+          "X-Trajectory-Id": serialize_header(x_trajectory_id),
+        },
+        extra_headers=extra_headers,
+        extra_query=extra_query,
+        extra_body=extra_body,
+        timeout=timeout,
+      ),
+    )
+
 
 class DeploymentsWithRawResponse:
   def __init__(self, resource: Deployments) -> None:
     self._resource = resource
     self.list = to_raw_response_wrapper(resource.list)
     self.create = to_raw_response_wrapper(resource.create)
-    self.create_slug = to_raw_response_wrapper(resource.create_slug)
     self.retrieve = to_raw_response_wrapper(resource.retrieve)
+    self.retry = to_raw_response_wrapper(resource.retry)
     self.delete = to_raw_response_wrapper(resource.delete)
     self.promote = to_raw_response_wrapper(resource.promote)
     self.unpromote = to_raw_response_wrapper(resource.unpromote)
     self.summarize = to_raw_response_wrapper(resource.summarize)
+    self.create_chat_completion = to_raw_response_wrapper(resource.create_chat_completion)

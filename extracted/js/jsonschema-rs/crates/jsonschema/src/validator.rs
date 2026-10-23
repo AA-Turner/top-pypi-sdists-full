@@ -72,6 +72,8 @@ pub struct ValidationContext {
     marking: Vec<(usize, NodeIdentity)>,
     /// Lazy-initialized cache for recursive schema validation.
     is_valid_cache: Option<AHashMap<(usize, NodeIdentity), bool>>,
+    /// Visits to `$ref` targets so far; a visit's share of it decides whether its result is cached.
+    ref_visits: u32,
     /// Lazy-initialized cache for ECMA regex transformation results during format "regex" validation.
     ecma_regex_cache: Option<AHashMap<String, bool>>,
     evaluation_path_cache: Option<Box<EvaluationPathCache>>,
@@ -100,6 +102,12 @@ fn in_context<T>(
     result
 }
 
+/// A `$ref` target's result is only cached when validating it visited this many targets.
+///
+/// Cheaper results cost less to recompute than to store, and a subtree that is validated again and
+/// again reaches the threshold within a few levels, so repeated work stays bounded.
+const MEMO_MIN_VISITS: u32 = 16;
+
 /// Evaluation paths are only cached once this many have been built.
 ///
 /// Small evaluations show little path reuse, so below this threshold the map costs more than it saves.
@@ -118,9 +126,37 @@ impl ValidationContext {
         subject: &str,
         site: impl FnOnce() -> MatchSite,
     ) -> bool {
+        if self.matches.is_some() {
+            return self.is_match_under_assumptions(regex, subject, site);
+        }
         match regex.is_match(subject) {
             Ok(matches) => matches,
             Err(error) => self.unfinished_match(subject, error, site),
+        }
+    }
+
+    /// [`Self::is_match`] once a run met an unfinished match: a match a run could not finish
+    /// skips the engine, which would only fail again.
+    #[cold]
+    fn is_match_under_assumptions<R: RegexEngine>(
+        &mut self,
+        regex: &R,
+        subject: &str,
+        site: impl FnOnce() -> MatchSite,
+    ) -> bool {
+        let matches = self
+            .matches
+            .as_mut()
+            .expect("the caller checked for assumptions");
+        if let Some(pattern) = regex
+            .pattern()
+            .filter(|pattern| matches.is_unfinished(pattern, subject))
+        {
+            return matches.resolve_unfinished(pattern, subject, site);
+        }
+        match regex.is_match(subject) {
+            Ok(matches) => matches,
+            Err(error) => matches.resolve(subject, error, site),
         }
     }
 
@@ -217,6 +253,14 @@ impl ValidationContext {
         cache.get(&(node_id, identity?)).copied()
     }
 
+    /// Counts a visit to a `$ref` target; the returned mark goes to `cache_result`.
+    #[inline]
+    pub(crate) fn start_ref_visit(&mut self) -> u32 {
+        let mark = self.ref_visits;
+        self.ref_visits = mark.wrapping_add(1);
+        mark
+    }
+
     /// Containers only: the cache outlives them, and only they promise an identity no later node
     /// reuses.
     #[inline]
@@ -225,10 +269,14 @@ impl ValidationContext {
         node_id: usize,
         identity: Option<NodeIdentity>,
         result: bool,
+        visit: u32,
     ) {
         let Some(identity) = identity else {
             return;
         };
+        if self.ref_visits.wrapping_sub(visit) < MEMO_MIN_VISITS {
+            return;
+        }
         self.is_valid_cache
             .get_or_insert_with(AHashMap::new)
             .insert((node_id, identity), result);

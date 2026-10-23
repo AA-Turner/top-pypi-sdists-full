@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from copy import copy, deepcopy
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Literal, TypedDict, TypeVar, cast
+from typing import Any, Literal, TypedDict, TypeVar
 
 from docutils import nodes
 from docutils.parsers import Parser
@@ -29,7 +29,6 @@ from sphinx_needs.data import (
 from sphinx_needs.derive import typed_empty
 from sphinx_needs.directives.needuml import Needuml, NeedumlException
 from sphinx_needs.exceptions import InvalidNeedException, NeedsInvalidFilter
-from sphinx_needs.exchange import map_legacy_keys
 from sphinx_needs.filter_common import (
     PredicateContextData,
     apply_default_predicate,
@@ -59,13 +58,16 @@ from sphinx_needs.needs_schema import (
     LinkSchema,
     LinksFunctionArray,
     LinksLiteralValue,
+    TypeFieldsSchema,
 )
 from sphinx_needs.nodes import Need
 from sphinx_needs.roles.need_part import find_parts, update_need_with_parts
+from sphinx_needs.services.config.github import GITHUB_FIELDS
 from sphinx_needs.utils import jinja_parse
 from sphinx_needs.variant_data import VariantDataParsed
 from sphinx_needs.variants import VariantFunctionParsed
 from sphinx_needs.views import NeedsView
+from ub_needs_exchange import map_legacy_keys
 
 logger = get_logger(__name__)
 
@@ -188,10 +190,13 @@ def generate_need(
         else None
     )
 
+    # the fields of a need of this type, as the type declares them
+    schema = needs_schema.for_type(need_type)
+
     # validate kwargs
     allowed_kwargs = {
-        *needs_schema.iter_link_field_names(),
-        *needs_schema.iter_extra_field_names(),
+        *schema.iter_link_field_names(),
+        *schema.iter_extra_field_names(),
     }
     unknown_kwargs = set(kwargs) - allowed_kwargs
     if unknown_kwargs:
@@ -247,7 +252,7 @@ def generate_need(
     }
     core_converted: dict[str, FieldLiteralValue | FieldFunctionArray | None] = {}
     for _name, _raw in _raw_core.items():
-        _fs = needs_schema.get_core_field(_name)
+        _fs = schema.get_core_field(_name)
         assert _fs is not None, f"{_name} field schema does not exist"
         try:
             core_converted[_name] = (
@@ -276,20 +281,35 @@ def generate_need(
 
     # a need from outside keeps the values of its derived fields, as data; any other
     # need takes the rule's value, and what an author wrote in a derived field is
-    # ignored
+    # ignored. A field declared on need types alone is absent on the needs of every
+    # other type, from outside or not: a value given for it is ignored, and reported
+    # unless it is what the need holds anyway (a needs.json carries every field, the
+    # empty ones too)
     extras_no_defaults: dict[str, FieldLiteralValue | FieldFunctionArray | None] = {}
     #: the fields an author cannot set: their value is final, no default applies
-    closed: set[str] = set()
-    for extra_field in needs_schema.iter_extra_fields():
+    final: set[str] = set()
+    for extra_field in schema.iter_extra_fields():
+        # a derived field the type does not declare is absent: no data from outside
+        authored = not extra_field.derived or not schema.declares(extra_field.name)
         if not extra_field.directive_option and (
-            not from_outside or kwargs.get(extra_field.name) is None
+            authored or not from_outside or kwargs.get(extra_field.name) is None
         ):
-            if not from_outside:
-                _refuse_authored(extra_field, kwargs, location, need_type)
-            extras_no_defaults[extra_field.name] = _closed_field_value(
+            if not from_outside or (
+                authored
+                and kwargs.get(extra_field.name) != extra_field.off_type_value()
+            ):
+                _refuse_authored(
+                    extra_field,
+                    kwargs,
+                    location,
+                    need_type,
+                    need_id,
+                    declared=schema.declares(extra_field.name),
+                )
+            extras_no_defaults[extra_field.name] = _unauthored_value(
                 extra_field, need_type
             )
-            closed.add(extra_field.name)
+            final.add(extra_field.name)
         elif extra_field.name not in kwargs:
             extras_no_defaults[extra_field.name] = None
         else:
@@ -308,12 +328,23 @@ def generate_need(
                 ) from err
 
     links_no_defaults: dict[str, LinksLiteralValue | LinksFunctionArray | None] = {}
-    for link_field in needs_schema.iter_link_fields():
+    for link_field in schema.iter_link_fields():
+        # a derived link type the type does not declare is absent: no data from outside
+        authored = not link_field.derived or not schema.declares(link_field.name)
         if not link_field.directive_option and (
-            not from_outside or kwargs.get(link_field.name) is None
+            authored or not from_outside or kwargs.get(link_field.name) is None
         ):
-            if not from_outside:
-                _refuse_authored(link_field, kwargs, location, need_type)
+            if not from_outside or (
+                authored and kwargs.get(link_field.name) != link_field.off_type_value()
+            ):
+                _refuse_authored(
+                    link_field,
+                    kwargs,
+                    location,
+                    need_type,
+                    need_id,
+                    declared=schema.declares(link_field.name),
+                )
             links_no_defaults[link_field.name] = LinksLiteralValue(
                 link_field.off_type_value()
                 if link_field.derived and link_field.rule_for(need_type) is None
@@ -377,28 +408,26 @@ def generate_need(
             continue
         if core_converted[_name] is None:
             core_converted[_name] = _get_field_default(
-                needs_schema.get_core_field(_name), **context
+                schema.get_core_field(_name), **context
             )
 
     extras = {
-        k: _get_field_default(needs_schema.get_extra_field(k), **context)
-        if v is None and k not in closed
+        k: _get_field_default(schema.get_extra_field(k), **context)
+        if v is None and k not in final
         else v
         for k, v in extras_no_defaults.items()
     }
     links = {
-        k: _get_links_default(needs_schema.get_link_field(k), **context)
-        if v is None
-        else v
+        k: _get_links_default(schema.get_link_field(k), **context) if v is None else v
         for k, v in links_no_defaults.items()
     }
-    _copy_links(links, needs_schema)
+    _copy_links(links, schema)
 
     # Unwrap core fields: extract concrete values and dynamic functions
     dynamic_fields: dict[str, FieldFunctionArray | LinksFunctionArray] = {}
     core_values: dict[str, Any] = {}
     for _name in _raw_core:
-        _fs = needs_schema.get_core_field(_name)
+        _fs = schema.get_core_field(_name)
         assert _fs is not None
         core_values[_name], _func = _unwrap_field_value(_fs, core_converted[_name])
         if _func is not None:
@@ -456,7 +485,7 @@ def generate_need(
 
     extras_pre: dict[str, AllowedTypes | None] = {}
     for k, v in extras.items():
-        extra_schema = needs_schema.get_extra_field(k)
+        extra_schema = schema.get_extra_field(k)
         if extra_schema is None:
             raise InvalidNeedException(
                 "invalid_field_value",
@@ -494,6 +523,8 @@ def generate_need(
             content=content_info,
             parts=parts_objects,
             dynamic_fields=dynamic_fields,
+            # one set for every need type, the schema's own (derived_names)
+            derived=schema.derived_names,
             _validate=False,
         )
     except ValueError as err:
@@ -554,18 +585,32 @@ def _refuse_authored(
     kwargs: Mapping[str, Any],
     location: tuple[str | None, int | None] | None,
     need_type: str,
+    need_id: str,
+    *,
+    declared: bool = True,
 ) -> None:
-    """Report a value given for a field an author cannot set: a derived one.
+    """Report a value given for a field an author cannot set: a derived one, or one
+    declared on need types alone that the need's type does not declare (``declared``
+    false; derived or not, as it is absent on the type).
 
     The value, a literal or a ``[[…]]``, ``<<…>>`` or ``<{…}>``, is ignored; also on a
-    need of a type the field has no rule for, which holds the field's default.
+    need of a type a derived field has no rule for, which holds the field's default.
     """
     if (value := kwargs.get(field_schema.name)) is None:
         return
     what = "Link type" if isinstance(field_schema, LinkSchema) else "Field"
-    if not field_schema.derived:
-        rule = "derived"
-    elif (type_rule := field_schema.rule_for(need_type)) is not None:
+    if not declared or not field_schema.derived:
+        # every global declaration an author cannot set is derived: this is the
+        # declaration of a need type that does not declare the field
+        log_warning(
+            logger,
+            f"{what} {field_schema.name!r} is not declared on need type {need_type!r} "
+            f"and cannot be set in need {need_id!r}; the value {value!r} is ignored",
+            "undeclared_for_type",
+            location,
+        )
+        return
+    if (type_rule := field_schema.rule_for(need_type)) is not None:
         rule = f"derived ({type_rule.describe()})"
     else:
         rule = f"derived (with no rule on need type {need_type!r})"
@@ -578,7 +623,7 @@ def _refuse_authored(
     )
 
 
-def _closed_field_value(
+def _unauthored_value(
     field_schema: FieldSchema, need_type: str
 ) -> FieldLiteralValue | None:
     """The value of a field an author cannot set, at the need's creation.
@@ -917,12 +962,21 @@ def _need_record_params(
     params = dict(record)
     map_legacy_keys(params)
     # Remove unknown keys, as they may be defined in the source system, but not in this
-    # project, and the keys that are computed rather than read
-    known, omitted = _import_key_sets(needs_schema, reader=reader)
+    # project, and the keys that are computed rather than read; the keys of the
+    # record's need type (a type that is not a string is refused later)
+    need_type = params.get("type")
+    known, omitted = _import_key_sets(
+        needs_schema.for_type(need_type if isinstance(need_type, str) else None),
+        reader=reader,
+    )
     unknown: set[str] = set()
     for key in list(params):
         if key not in known:
-            unknown.add(key)
+            # every needs.json written before the GitHub services were registered only
+            # when configured carries their fields on each need, null (or "" in older
+            # files) where no service made it: an empty one is no data to lose
+            if not (key in GITHUB_FIELDS and params[key] in (None, "")):
+                unknown.add(key)
             del params[key]
         elif key in omitted:
             del params[key]
@@ -1549,25 +1603,23 @@ def _make_hashed_id(
 
 def _copy_links(
     links: dict[str, LinksLiteralValue | LinksFunctionArray | None],
-    schema: FieldsSchema,
+    schema: TypeFieldsSchema,
 ) -> None:
-    """Implement 'copy' logic for links.
+    """Implement 'copy' logic for links, on the schema of the need's type.
 
-    Nothing is copied into a derived ``links``: it holds what its rule computes.
+    The link types copied are :meth:`~.FieldsSchema.copying_link_types`: nothing is
+    copied into a derived ``links``, which holds what its rule computes, nor from a
+    derived link type, whose ``copy`` is refused at load.
     """
     if "links" not in links:
         return  # should not happen, but be defensive
-    if (target := schema.get_link_field("links")) is not None and target.derived:
-        return
     copy_links: list[
         NeedLink | DynamicFunctionParsed | VariantFunctionParsed | VariantDataParsed
     ] = []
-    for link_field in schema.iter_link_fields():
-        # a derived link type copies nothing (it is reported at load)
-        if link_field.copy and link_field.name != "links" and not link_field.derived:
-            other = links[link_field.name]
-            if isinstance(other, LinksLiteralValue | LinksFunctionArray):
-                copy_links.extend(other.value)
+    for name in schema.copying_link_types():
+        other = links[name]
+        if isinstance(other, LinksLiteralValue | LinksFunctionArray):
+            copy_links.extend(other.value)
     if any(
         isinstance(
             li, DynamicFunctionParsed | VariantFunctionParsed | VariantDataParsed
@@ -1581,7 +1633,7 @@ def _copy_links(
                 tuple(links["links"].value) + tuple(copy_links)
             )
     else:
-        copy_links_literal = cast(list[NeedLink], copy_links)
+        copy_links_literal = [li for li in copy_links if isinstance(li, NeedLink)]
         if links["links"] is None:
             links["links"] = LinksLiteralValue(copy_links_literal)
         elif isinstance(links["links"], LinksLiteralValue):

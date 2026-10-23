@@ -16,6 +16,7 @@ import threading
 import time
 from typing import Any
 
+from caldav.config import get_test_setting
 from caldav.lib.http_sync import requests
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ class EmbeddedServer:
     Priority
     --------
     Both embedded servers default to priority **10**, which beats docker (20)
-    and external / configured servers (30).  Override via ``priority: <int>``
+    and external / configured servers (30).  Override via ``test_priority: <int>``
     in the config dict or by setting ``_default_priority`` on the subclass.
     """
 
@@ -58,7 +59,7 @@ class EmbeddedServer:
 
     @property
     def priority(self) -> int:
-        return int(self.config.get("priority", self._default_priority))
+        return int(get_test_setting(self.config, "test_priority", self._default_priority))
 
     @property
     def username(self) -> str | None:
@@ -235,6 +236,9 @@ class XandikosServer(EmbeddedServer):
             self.thread.join(timeout=5)
             self.thread = None
 
+        if self.xapp_loop and not self.xapp_loop.is_running():
+            self.xapp_loop.close()
+
         if self.serverdir:
             self.serverdir.__exit__(None, None, None)
             self.serverdir = None
@@ -310,6 +314,7 @@ class RadicaleServer(EmbeddedServer):
         configuration = radicale.config.load("")
         configuration.update(
             {
+                "server": {"hosts": f"{self.host}:{self.port}"},
                 "storage": {"filesystem_folder": self.serverdir.name},
                 "auth": {"type": "none"},
             }
@@ -339,11 +344,14 @@ class RadicaleServer(EmbeddedServer):
         if self.shutdown_socket:
             self.shutdown_socket.close()
             self.shutdown_socket = None
-            self.shutdown_socket_out = None
 
         if self.thread:
             self.thread.join(timeout=5)
             self.thread = None
+
+        if self.shutdown_socket_out:
+            self.shutdown_socket_out.close()
+            self.shutdown_socket_out = None
 
         if self.serverdir:
             self.serverdir.__exit__(None, None, None)

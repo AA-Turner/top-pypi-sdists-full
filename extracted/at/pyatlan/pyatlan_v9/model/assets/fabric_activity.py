@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +43,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .fabric_related import RelatedFabricActivity, RelatedFabricDataPipeline
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,14 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .fabric_related import RelatedFabricActivity, RelatedFabricDataPipeline
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -287,10 +288,6 @@ class FabricActivity(Asset):
                 errors.append("connection_qualified_name is required for creation")
             if self.fabric_data_pipeline is UNSET:
                 errors.append("fabric_data_pipeline is required for creation")
-            if self.fabric_data_pipeline_qualified_name is UNSET:
-                errors.append(
-                    "fabric_data_pipeline_qualified_name is required for creation"
-                )
         if errors:
             raise ValueError(f"FabricActivity validation failed: {errors}")
 
@@ -322,6 +319,45 @@ class FabricActivity(Asset):
         if self.guid is not UNSET:
             return RelatedFabricActivity(guid=self.guid)
         return RelatedFabricActivity(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        data_pipeline_qualified_name: str,
+    ) -> "FabricActivity":
+        validate_required_fields(
+            ["name", "data_pipeline_qualified_name"],
+            [name, data_pipeline_qualified_name],
+        )
+        fields = data_pipeline_qualified_name.split("/")
+        if len(fields) != 5:
+            raise ValueError(
+                f"Invalid data_pipeline_qualified_name: "
+                f"{data_pipeline_qualified_name}. "
+                "Expected format: "
+                "default/fabric/<epoch>/<workspace_id>/<data_pipeline_id>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{data_pipeline_qualified_name}/{name}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            asset_space_qualified_name="/".join(fields[:4]),
+            fabric_data_pipeline=RelatedFabricDataPipeline(
+                qualified_name=data_pipeline_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "FabricActivity":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "FabricActivity":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -637,6 +673,7 @@ def _fabric_activity_to_nested(fabric_activity: FabricActivity) -> FabricActivit
         is_incomplete=fabric_activity.is_incomplete,
         provenance_type=fabric_activity.provenance_type,
         home_id=fabric_activity.home_id,
+        delete_handler=fabric_activity.delete_handler,
         depth=fabric_activity.depth,
         immediate_upstream=fabric_activity.immediate_upstream,
         immediate_downstream=fabric_activity.immediate_downstream,
@@ -685,6 +722,7 @@ def _fabric_activity_from_nested(nested: FabricActivityNested) -> FabricActivity
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

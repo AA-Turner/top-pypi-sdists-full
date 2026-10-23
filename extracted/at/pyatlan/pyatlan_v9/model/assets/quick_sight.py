@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -41,19 +48,12 @@ from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
+from .quick_sight_related import RelatedQuickSight
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .quick_sight_related import RelatedQuickSight
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -576,6 +576,7 @@ def _quick_sight_to_nested(quick_sight: QuickSight) -> QuickSightNested:
         is_incomplete=quick_sight.is_incomplete,
         provenance_type=quick_sight.provenance_type,
         home_id=quick_sight.home_id,
+        delete_handler=quick_sight.delete_handler,
         depth=quick_sight.depth,
         immediate_upstream=quick_sight.immediate_upstream,
         immediate_downstream=quick_sight.immediate_downstream,
@@ -622,6 +623,7 @@ def _quick_sight_from_nested(nested: QuickSightNested) -> QuickSight:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

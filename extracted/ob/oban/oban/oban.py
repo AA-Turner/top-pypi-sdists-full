@@ -14,16 +14,17 @@ from typing import Any, Self
 
 from psycopg_pool import AsyncConnectionPool
 
-from ._leader import Leader
-from ._lifeline import Lifeline
-from ._metrics import Metrics
-from ._notifier import Notifier, PostgresNotifier
+from ._extensions import use_ext
+from ._leader import build_leader
+from ._lifeline import build_lifeline
+from ._metrics import build_metrics
+from ._notifier import build_notifier
 from ._producer import Producer, QueueInfo
-from ._pruner import Pruner
+from ._pruner import build_pruner
 from ._query import ConnectionLike, Query
-from ._refresher import Refresher
-from ._scheduler import Scheduler
-from ._stager import Stager
+from ._refresher import build_refresher
+from ._scheduler import build_scheduler
+from ._stager import build_stager
 from .job import Job
 
 QueueConfig = int | dict[str, Any]
@@ -47,12 +48,13 @@ class Oban:
         metrics: dict[str, Any] | bool | None = None,
         name: str | None = None,
         node: str | None = None,
-        notifier: Notifier | None = None,
+        notifier: dict[str, Any] | None = None,
         prefix: str | None = None,
         pruner: dict[str, Any] | None = None,
         queues: dict[str, QueueConfig] | None = None,
         refresher: dict[str, Any] | None = None,
         scheduler: dict[str, Any] | None = None,
+        shutdown_grace_period: float | None = 15.0,
         stager: dict[str, Any] | None = None,
     ) -> None:
         """Initialize an Oban instance.
@@ -73,13 +75,17 @@ class Oban:
             name: Name for this instance in the registry (default: "oban")
             node: Node identifier for this instance, which must be unique per running
                 instance (default: hostname and process id, e.g. "web-1.4021")
-            notifier: Notifier instance for pub/sub (default: PostgresNotifier with default config)
+            notifier: Notifier config options: type (default: "postgres"), plus options for
+                      that type. Pass {"type": "postgres", "beat_interval": 15.0} to tune the
+                      default PostgreSQL notifier.
             prefix: PostgreSQL schema where Oban tables are located (default: "public")
             pruner: Pruning config options: max_age in seconds (default: 86_400.0, 1 day),
                     interval (default: 60.0), limit (default: 20_000).
             queues: Queue names mapped to worker limits (default: {})
             refresher: Refresher config options: interval (default: 15.0), max_age (default: 60.0)
             scheduler: Scheduler config options: timezone (default: "UTC")
+            shutdown_grace_period: Seconds to wait for running jobs when stopping before shutdown,
+                                   or None to wait indefinitely (default: 15.0)
             stager: Stager config options: interval (default: 1.0), limit (default: 20_000)
         """
         lifeline = lifeline or {}
@@ -96,10 +102,11 @@ class Oban:
         self._name = name or "Oban"
         self._node = node or _default_node()
         self._prefix = prefix or "public"
+        self._shutdown_grace_period = shutdown_grace_period
         self._query = Query(pool, self._prefix)
 
-        self._notifier = notifier or PostgresNotifier(
-            query=self._query, prefix=self._prefix
+        self._notifier = use_ext(
+            "notifier.build", build_notifier, notifier or {}, self._query
         )
 
         self._producers = {
@@ -110,54 +117,77 @@ class Oban:
                 node=self._node,
                 notifier=self._notifier,
                 queue=queue,
+                shutdown_grace_period=self._shutdown_grace_period,
                 **self._parse_queue_config(queue, config),
             )
             for queue, config in queues.items()
         }
 
-        self._leader = Leader(
-            query=self._query,
-            node=self._node,
+        self._leader = use_ext(
+            "leader.build",
+            build_leader,
+            {"enabled": leadership},
             name=self._name,
-            enabled=leadership,
+            node=self._node,
             notifier=self._notifier,
+            query=self._query,
         )
 
-        self._stager = Stager(
-            query=self._query,
+        self._stager = use_ext(
+            "stager.build",
+            build_stager,
+            stager,
             notifier=self._notifier,
             producers=self._producers,
-            **stager,
+            query=self._query,
         )
 
-        self._lifeline = Lifeline(leader=self._leader, query=self._query, **lifeline)
-        self._pruner = Pruner(leader=self._leader, query=self._query, **pruner)
+        self._lifeline = use_ext(
+            "lifeline.build",
+            build_lifeline,
+            lifeline,
+            leader=self._leader,
+            query=self._query,
+        )
 
-        self._refresher = Refresher(
+        self._pruner = use_ext(
+            "pruner.build",
+            build_pruner,
+            pruner,
+            leader=self._leader,
+            query=self._query,
+        )
+
+        self._refresher = use_ext(
+            "refresher.build",
+            build_refresher,
+            refresher,
             leader=self._leader,
             producers=self._producers,
             query=self._query,
-            **refresher,
         )
 
-        self._scheduler = Scheduler(
+        self._scheduler = use_ext(
+            "scheduler.build",
+            build_scheduler,
+            scheduler,
             leader=self._leader,
             notifier=self._notifier,
             query=self._query,
-            **scheduler,
         )
 
         self._metrics = None
         if metrics:
-            metrics_config = {} if metrics is True else metrics
-            self._metrics = Metrics(
+            self._metrics = use_ext(
+                "metrics.build",
+                build_metrics,
+                {} if metrics is True else metrics,
                 leader=self._leader,
                 name=self._name,
                 node=self._node,
                 notifier=self._notifier,
                 producers=self._producers,
                 query=self._query,
-                **metrics_config,
             )
 
         self._signal_token = None
@@ -731,9 +761,9 @@ class Oban:
             ...     "meta": {**j.meta, "processed_at": datetime.now()}
             ... })
 
-            Use schedule_in for convenient scheduling:
+            Use scheduled_in for convenient scheduling:
 
-            >>> await oban.update_job(job, {"schedule_in": 300})  # 5 minutes from now
+            >>> await oban.update_job(job, {"scheduled_in": 300})  # 5 minutes from now
         """
         result = await self.update_many_jobs([job], changes)
 
@@ -1007,7 +1037,8 @@ class Oban:
         """
         if not node or node == self._node:
             await self._start_queue_local(queue=queue, limit=limit, paused=paused)
-        else:
+
+        if node != self._node:
             ident = self._scope_signal(node)
 
             await self._notifier.notify(
@@ -1033,6 +1064,7 @@ class Oban:
             name=self._name,
             node=self._node,
             notifier=self._notifier,
+            shutdown_grace_period=self._shutdown_grace_period,
             **params,
         )
 
@@ -1060,7 +1092,8 @@ class Oban:
         """
         if not node or node == self._node:
             await self._stop_queue_local(queue)
-        else:
+
+        if node != self._node:
             ident = self._scope_signal(node)
 
             await self._notifier.notify(

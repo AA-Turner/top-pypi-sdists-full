@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import collections
 import enum
-from typing import Any
+from typing import Any, cast
 
 import altair as alt
 import numpy as np
@@ -220,8 +220,9 @@ class MFA(pca.PCA, collections.UserDict[Any, Any]):
         # output is consistent with the partial outputs (#242). ``feature_names_in_`` keeps the
         # active columns in Z order and ``column_coordinates_`` lists active rows then
         # supplementary rows, so concatenating the two reproduces the row order exactly.
+        active_columns = cast(list[tuple[Any, Any]], self.feature_names_in_)
         self._column_index_ = pd.MultiIndex.from_tuples(
-            [tuple(c) for c in self.feature_names_in_] + [tuple(c) for c in sup_columns],
+            active_columns + [tuple(c) for c in sup_columns],
             names=["group", "variable"],
         )
         self.column_coordinates_.index = self._column_index_
@@ -372,14 +373,6 @@ class MFA(pca.PCA, collections.UserDict[Any, Any]):
         result.columns.name = "component"
         return result
 
-    @utils.check_is_dataframe_input
-    @utils.check_is_fitted
-    def column_coordinates(self, X):
-        raise NotImplementedError(
-            "MFA.column_coordinates is not implemented yet; use the column_coordinates_ "
-            "attribute for the global-PCA column loadings."
-        )
-
     @override
     @utils.check_is_dataframe_input
     @utils.check_is_fitted
@@ -390,7 +383,7 @@ class MFA(pca.PCA, collections.UserDict[Any, Any]):
     @utils.check_is_dataframe_input
     @utils.check_is_fitted
     def row_standard_coordinates(self, X):
-        return self.row_coordinates(X).div(self.eigenvalues_, axis="columns")
+        return self.row_coordinates(X).div(self.eigenvalues_**0.5, axis="columns")
 
     @override
     @utils.check_is_dataframe_input

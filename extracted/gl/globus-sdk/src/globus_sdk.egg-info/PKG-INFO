@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: globus-sdk
-Version: 4.9.1
+Version: 4.10.0
 Summary: Globus SDK for Python
 Author-email: Globus Team <support@globus.org>
 License: Apache-2.0
@@ -20,6 +20,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests<3.0.0,>=2.19.1
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: pyjwt[crypto]<3.0.0,>=2.0.0
 Requires-Dist: cryptography!=3.4.0,>=3.3.1
 Requires-Dist: typing_extensions>=4.0; python_version < "3.11"

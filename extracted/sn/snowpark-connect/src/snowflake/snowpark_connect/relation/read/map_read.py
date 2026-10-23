@@ -53,6 +53,7 @@ from snowflake.snowpark_connect.relation.read.path_anchoring import (
     PathClassification,
     classify_source_path,
     consume_recursive_file_lookup,
+    expand_glob_braces,
     inject_anchor_pattern,
     split_glob_scan_prefix,
 )
@@ -271,7 +272,17 @@ def map_read(
             raise exception
 
     if get_should_skip_file_read_cache_result():
-        # SNOW-3262791: If the result of this read will be persisted by saveAsTable, do not cache the result.
+        # SNOW-3262791: If the result of this read will be persisted by saveAsTable, do not
+        # cache the result.
+        #
+        # Deliberately ``without_materialization()`` and NOT ``never_materialize()``. This
+        # guard is *request-scoped* -- ``should_skip_file_read_cache_result`` is a
+        # ContextVar the write path sets for the duration of one request -- but the
+        # container it marks is memoized in ``df_cache_map`` and outlives that request. A
+        # permanent prohibition would therefore leak out of the write: a later explicit
+        # ``df.cache()`` on the same read could never materialize, so a corrupt-record-only
+        # projection would still hit the raw-file guard the cache exists to escape, and the
+        # persist request would be consumed having done nothing (SNOW-4231637).
         result = result.without_materialization()
 
     if should_skip_read_cache_for_pruning():
@@ -606,7 +617,7 @@ def _read_file(
     # NSS-only by design — the COPY path groups multi-stage reads per stage and unions them.
     nss_glob_patterns_by_path: dict[str, str] = {}
     nss_read_needs_glob_patterns = False
-    if read_format in ("csv", "json"):
+    if read_format in ("csv", "json", "xml"):
         from snowflake.snowpark_connect.config import is_nss_enabled
         from snowflake.snowpark_connect.nss.nss_scan_options import (
             conjoin_patterns,
@@ -857,6 +868,7 @@ def _read_file(
                 paths,
                 XmlReaderConfig(options),
                 is_recursive=is_recursive,
+                glob_patterns=nss_glob_patterns_by_path,
             ).without_materialization()
         case _:
             exception = SnowparkConnectNotImplementedError(
@@ -904,11 +916,25 @@ def _glob_expanded_local_files(source_glob: str, *, recursive: bool) -> list[str
     ``recursiveFileLookup`` depth pruning applies to directory reads, not glob
     paths -- the glob metacharacters already bound which files match (see
     ``compute_non_recursive_pattern`` docstring on file/glob kinds).
+
+    Python's ``glob`` has no ``{a,b}`` alternation, so braces are expanded
+    first and each concrete pattern is globbed separately; an alternative that
+    matches nothing simply contributes no files, as in Hadoop's globber. The
+    unexpanded pattern is globbed too, for SCOS backward compatibility, so that
+    names containing literal braces (e.g. a ``{run}/`` directory) keep matching
+    as before. Spark would not match these: Hadoop treats ``{run}`` as a
+    one-alternative group and looks for ``run/``.
     """
     _ = recursive
     local_glob = convert_file_prefix_path(source_glob)
+    patterns = dict.fromkeys([local_glob, *expand_glob_braces(local_glob)])
     return sorted(
-        path for path in glob.glob(local_glob, recursive=True) if os.path.isfile(path)
+        {
+            path
+            for pattern in patterns
+            for path in glob.glob(pattern, recursive=True)
+            if os.path.isfile(path)
+        }
     )
 
 

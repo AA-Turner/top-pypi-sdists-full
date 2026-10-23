@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import enum
 import functools
 import os
@@ -30,6 +32,7 @@ UNQUOTED_CASE_INSENSITIVE = compile("^([_A-Za-z]+[_A-Za-z0-9$]*)$")
 # https://docs.snowflake.com/en/sql-reference/identifiers-syntax.html
 SNOWFLAKE_UNQUOTED_ID_PATTERN = r"([a-zA-Z_][\w\$]{0,255})"
 SNOWFLAKE_QUOTED_ID_PATTERN = '("([^"]|""){1,255}")'
+SNOWFLAKE_QUOTED_ID_RE = compile(f"^{SNOWFLAKE_QUOTED_ID_PATTERN}$")
 SNOWFLAKE_ID_PATTERN = f"({SNOWFLAKE_UNQUOTED_ID_PATTERN}|{SNOWFLAKE_QUOTED_ID_PATTERN})"
 SNOWFLAKE_OBJECT_RE_PATTERN = compile(
     f"^(({SNOWFLAKE_ID_PATTERN}\\.){{0,2}}|({SNOWFLAKE_ID_PATTERN}\\.\\.)){SNOWFLAKE_ID_PATTERN}$"
@@ -127,6 +130,24 @@ def quote_name(name: str, keep_case: bool = False) -> str:
         return DOUBLE_QUOTE + escape_quotes(name.upper()) + DOUBLE_QUOTE
     else:
         return DOUBLE_QUOTE + escape_quotes(name) + DOUBLE_QUOTE
+
+
+def is_valid_identifier(potential_identifier: str) -> bool:
+    """Check that a spelling would be accepted by the SQL parser as an identifier.
+
+    Parameters
+    ----------
+    name : str
+        Identifier spelling, either quoted or unquoted.
+
+    Returns
+    -------
+    bool: True if the identifier is valid, False otherwise.
+    """
+    return (
+        SNOWFLAKE_QUOTED_ID_RE.match(potential_identifier) is not None
+        or UNQUOTED_CASE_INSENSITIVE.match(potential_identifier) is not None
+    )
 
 
 def normalize_and_unquote_name(name: str) -> str:
@@ -279,7 +300,7 @@ def get_local_file_path(file: str) -> str:
 
 
 def get_file(
-    root: "Root", stage_location: str, target_directory: str, *, parallel: int = 10, pattern: Optional[str] = None
+    root: Root, stage_location: str, target_directory: str, *, parallel: int = 10, pattern: Optional[str] = None
 ) -> None:
     options: dict[str, Union[int, str]] = {"parallel": parallel}
     if pattern is not None:
@@ -311,7 +332,7 @@ def get_file(
 
 
 def put_file(
-    root: "Root",
+    root: Root,
     local_file_name: str,
     stage_location: str,
     *,
@@ -350,21 +371,3 @@ def put_file(
                 + f"OVERWRITE = {overwrite};"
             )
             cur.fetchall()  # Make sure no errors were raised
-
-
-class StrEnum(str, enum.Enum):
-    """String-valued :class:`enum.Enum` members that behave like :class:`str`.
-
-    Notes
-    -----
-    Mirrors :class:`enum.StrEnum` from the standard library (Python 3.11 and later) for
-    environments on older interpreters.
-    """
-
-    def __str__(self) -> str:
-        """Return the member's string value."""
-        return self.value
-
-    def __repr__(self) -> str:
-        """Return the member's string value (same as :meth:`__str__`)."""
-        return self.value

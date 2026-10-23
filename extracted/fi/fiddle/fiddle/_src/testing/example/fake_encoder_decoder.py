@@ -78,16 +78,15 @@ class ModelWrapper:
 
 
 @auto_config.auto_config
-def fixture():
+def fixture(kernel_init: str = "uniform()"):
   dtype = "float32"
-  kernel_init = "uniform()"
   bias_init = "zeros()"
   shared_token_embedder = TokenEmbedder(dtype)
   return FakeEncoderDecoder(
       encoder=FakeEncoder(
           embedders={
               "tokens": shared_token_embedder,
-              "position": None
+              "position": None,  # pyrefly: ignore[bad-assignment]
           },
           attention=Attention(dtype, kernel_init, bias_init),
           mlp=Mlp(dtype, False, ["embed", "num_heads", "head_dim"]),
@@ -95,7 +94,9 @@ def fixture():
       decoder=FakeDecoder(
           embedders={"tokens": shared_token_embedder},
           self_attention=Attention(dtype, kernel_init, bias_init),
-          encoder_decoder_attention=CrossAttention(dtype, kernel_init,
-                                                   bias_init),
+          encoder_decoder_attention=CrossAttention(
+              dtype, kernel_init, bias_init
+          ),
           mlp=Mlp(dtype, False, ["num_heads", "head_dim", "embed"]),
-      ))
+      ),
+  )

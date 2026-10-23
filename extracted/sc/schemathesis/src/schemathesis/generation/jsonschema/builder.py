@@ -97,9 +97,8 @@ def _build(
 ) -> SearchStrategy[JsonValue]:
     # The canonical form answers to the schema and draft alone, so a differing alphabet or format map reuses it.
     canonical_key = (schema_key, draft) if schema_key is not None else None
-    cached_form = canonical_form_cache.get(canonical_key) if canonical_key is not None else MISSING
     canonical_schema: jsonschema_rs.CanonicalSchema
-    if cached_form is not MISSING:
+    if canonical_key is not None and (cached_form := canonical_form_cache.get(canonical_key)) is not MISSING:
         canonical_schema = cached_form
     else:
         with _reported():

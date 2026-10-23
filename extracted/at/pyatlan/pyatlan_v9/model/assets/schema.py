@@ -20,6 +20,18 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import (
+    init_guid,
+    resolve_database_parent,
+    validate_required_fields,
+)
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -53,7 +65,10 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .sap_related import RelatedSapDatasphereReplicationFlow
+from .sap_related import (
+    RelatedSapDatasphereDataProduct,
+    RelatedSapDatasphereReplicationFlow,
+)
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .snowflake_related import (
     RelatedSnowflakeAIModelContext,
@@ -71,14 +86,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
 from .sql_related import (
     RelatedCalculationView,
     RelatedDatabase,
@@ -178,6 +185,7 @@ class Schema(Asset):
     LINKS: ClassVar[Any] = None
     README: ClassVar[Any] = None
     SAP_DATASPHERE_REPLICATION_FLOWS: ClassVar[Any] = None
+    SAP_DATASPHERE_DATA_PRODUCTS: ClassVar[Any] = None
     CALCULATION_VIEWS: ClassVar[Any] = None
     FUNCTIONS: ClassVar[Any] = None
     MATERIALISED_VIEWS: ClassVar[Any] = None
@@ -449,6 +457,11 @@ class Schema(Asset):
     ] = UNSET
     """SAP Datasphere replication flows that create tables within this schema (Datasphere space)."""
 
+    sap_datasphere_data_products: Union[
+        List[RelatedSapDatasphereDataProduct], None, UnsetType
+    ] = UNSET
+    """SAP Datasphere data products that expose objects from this schema (Datasphere space)."""
+
     calculation_views: Union[List[RelatedCalculationView], None, UnsetType] = UNSET
     """Calculation views that exist within this schema."""
 
@@ -575,12 +588,6 @@ class Schema(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.database is UNSET:
-                errors.append("database is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"Schema validation failed: {errors}")
 
@@ -619,12 +626,18 @@ class Schema(Asset):
         cls,
         *,
         name: str,
-        database_qualified_name: str,
+        database_qualified_name: str | None = None,
         database_name: str | None = None,
         connection_qualified_name: str | None = None,
     ) -> "Schema":
         """
         Create a new Schema asset with auto-derived fields.
+
+        Without ``connection_qualified_name``, ``database_qualified_name`` must have the standard
+        4 segments (default/connector/connection_id/database) and the other parents are derived
+        from it. With ``connection_qualified_name``, a database of any depth is accepted, and
+        ``database_qualified_name`` may be omitted for a schema directly under the connection
+        (qualifiedName ``{connection_qualified_name}/{name}``).
 
         Args:
             name: Simple name of the schema
@@ -638,35 +651,27 @@ class Schema(Asset):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        validate_required_fields(
-            ["name", "database_qualified_name"], [name, database_qualified_name]
-        )
-
-        # Validate database_qualified_name format: default/connector/connection_id/database
-        fields = database_qualified_name.split("/")
-        if len(fields) != 4:
-            raise ValueError(
-                f"Invalid database_qualified_name: {database_qualified_name}. "
-                "Expected format: default/connector/connection_id/database"
+        validate_required_fields(["name"], [name])
+        if database_qualified_name is None and connection_qualified_name is None:
+            raise ValueError("database_qualified_name is required")
+        connection_qn, connector_name, db_name, db_qualified_name = (
+            resolve_database_parent(
+                database_qualified_name=database_qualified_name,
+                database_name=database_name,
+                connection_qualified_name=connection_qualified_name,
             )
-
-        # Derive other fields from database_qualified_name
-        connector_name = fields[1]
-        connection_qn = (
-            connection_qualified_name or f"{fields[0]}/{fields[1]}/{fields[2]}"
         )
-        db_name = database_name or fields[3]
-        qualified_name = f"{database_qualified_name}/{name}"
-
-        return cls(
+        sch = cls(
             name=name,
-            qualified_name=qualified_name,
-            database_name=db_name,
-            database_qualified_name=database_qualified_name,
+            qualified_name=f"{db_qualified_name or connection_qn}/{name}",
             connector_name=connector_name,
             connection_qualified_name=connection_qn,
-            database=RelatedDatabase(qualified_name=database_qualified_name),
         )
+        if db_qualified_name is not None:
+            sch.database_name = db_name
+            sch.database_qualified_name = db_qualified_name
+            sch.database = RelatedDatabase(qualified_name=db_qualified_name)
+        return sch
 
     @classmethod
     def updater(cls, *, qualified_name: str, name: str) -> "Schema":
@@ -1011,6 +1016,11 @@ class SchemaRelationshipAttributes(AssetRelationshipAttributes):
     ] = UNSET
     """SAP Datasphere replication flows that create tables within this schema (Datasphere space)."""
 
+    sap_datasphere_data_products: Union[
+        List[RelatedSapDatasphereDataProduct], None, UnsetType
+    ] = UNSET
+    """SAP Datasphere data products that expose objects from this schema (Datasphere space)."""
+
     calculation_views: Union[List[RelatedCalculationView], None, UnsetType] = UNSET
     """Calculation views that exist within this schema."""
 
@@ -1155,6 +1165,7 @@ _SCHEMA_REL_FIELDS: List[str] = [
     "links",
     "readme",
     "sap_datasphere_replication_flows",
+    "sap_datasphere_data_products",
     "calculation_views",
     "functions",
     "materialised_views",
@@ -1315,6 +1326,7 @@ def _schema__to_nested(schema_: Schema) -> SchemaNested:
         is_incomplete=schema_.is_incomplete,
         provenance_type=schema_.provenance_type,
         home_id=schema_.home_id,
+        delete_handler=schema_.delete_handler,
         depth=schema_.depth,
         immediate_upstream=schema_.immediate_upstream,
         immediate_downstream=schema_.immediate_downstream,
@@ -1359,6 +1371,7 @@ def _schema__from_nested(nested: SchemaNested) -> Schema:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -1516,6 +1529,7 @@ Schema.FILES = RelationField("files")
 Schema.LINKS = RelationField("links")
 Schema.README = RelationField("readme")
 Schema.SAP_DATASPHERE_REPLICATION_FLOWS = RelationField("sapDatasphereReplicationFlows")
+Schema.SAP_DATASPHERE_DATA_PRODUCTS = RelationField("sapDatasphereDataProducts")
 Schema.CALCULATION_VIEWS = RelationField("calculationViews")
 Schema.FUNCTIONS = RelationField("functions")
 Schema.MATERIALISED_VIEWS = RelationField("materialisedViews")

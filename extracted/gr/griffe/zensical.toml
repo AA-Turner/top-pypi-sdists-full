@@ -252,6 +252,7 @@ permalink = "¤"
 generic = true
 [project.markdown_extensions.pymdownx.betterem]
 smart_enable = "all"
+[project.markdown_extensions.pymdownx.blocks.tab]
 [project.markdown_extensions.pymdownx.caret]
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.pymdownx.emoji]
@@ -316,6 +317,8 @@ docstring_section_style = "list"
 extensions = [
   "griffe_inherited_docstrings",
   "unpack_typeddict",
+  # YORE: Bump 3: Remove line.
+  "scripts/griffe_exts.py",
 ]
 filters = "public"
 heading_level = 2

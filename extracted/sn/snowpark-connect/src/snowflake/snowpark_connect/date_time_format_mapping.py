@@ -435,6 +435,60 @@ def _has_optional_section(spark_format: str) -> bool:
     return False
 
 
+# Pattern letters for zone and offset fields. A LocalDateTime (TIMESTAMP_NTZ)
+# has none of them.
+_ZONE_OFFSET_PATTERN_LETTERS = frozenset("VvzOXxZ")
+
+
+def strip_optional_section_brackets(
+    spark_format: str, *, for_timestamp_ntz: bool = False
+) -> str:
+    """Resolve java.time optional sections the way formatting (not parsing) does.
+
+    java.time prints an optional section when every field it uses is available,
+    and otherwise prints nothing for the whole section. For a timestamp with a
+    zone every field is available, so each section is printed without its
+    ``[``/``]``.
+
+    With ``for_timestamp_ntz`` the value is a LocalDateTime, which has no zone or
+    offset field. A section that uses a zone or offset letter directly is then
+    dropped, including its other fields (``[.SSSXXX]`` prints nothing). A nested
+    section is resolved on its own first, so ``[.SSS[XXX]]`` prints ``.SSS``.
+    Zone letters outside any optional section are kept. Quoted literals are
+    copied unchanged, brackets included.
+    """
+    # One entry per open section: [text so far, uses a zone/offset letter].
+    sections: list[list] = [["", False]]
+    i, n = 0, len(spark_format)
+    while i < n:
+        ch = spark_format[i]
+        if ch == "'":
+            _, end = _parse_java_quoted_literal(spark_format, i)
+            sections[-1][0] += spark_format[i:end]
+            i = end
+            continue
+        if ch == "[":
+            sections.append(["", False])
+        elif ch == "]":
+            if len(sections) > 1:
+                _close_optional_section(sections, for_timestamp_ntz)
+        else:
+            sections[-1][0] += ch
+            if len(sections) > 1 and ch in _ZONE_OFFSET_PATTERN_LETTERS:
+                sections[-1][1] = True
+        i += 1
+    # java.time closes sections left open at the end of the pattern.
+    while len(sections) > 1:
+        _close_optional_section(sections, for_timestamp_ntz)
+    return sections[0][0]
+
+
+def _close_optional_section(sections: list[list], for_timestamp_ntz: bool) -> None:
+    text, uses_zone = sections.pop()
+    if not (for_timestamp_ntz and uses_zone):
+        sections[-1][0] += text
+
+
 def spark_legacy_parse_has_bracket_literals(spark_format: str) -> bool:
     """True when LEGACY SimpleDateFormat would treat unquoted ``[``/``]`` as
     literals rather than java.time optional sections.

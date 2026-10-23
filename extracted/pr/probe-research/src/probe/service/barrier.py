@@ -19,6 +19,17 @@ then updates; every CLI start and every daemon worker start looks for it:
 `<service dir>/update.barrier` = `{"pid", "start_time", "token", "created_at"}`,
 0600, written atomically. Fixed under `$HOME` like everything of the service's.
 
+A caller with a deadline of its own (a hook: Claude Code and Codex kill it at
+its entry's timeout) says so in DEADLINE_ENV, and waits only until then (plan
+D12): a hook that gives up busy beats a hook killed mid-run.
+
+`workers.hold` (same record) comes first, while the service asks the daemon
+workers to stop at a safe point before an update (plan D7): it stops NEW
+`probe daemon worker` starts only (they exit WORKER_BUSY_EXIT_CODE, which the
+tap's supervisor answers with a later respawn), so a worker restarted by its
+supervisor meanwhile does not start on the code about to be replaced, while
+every other `probe` command, the stopping workers' own included, runs on.
+
 Stdlib only, and nothing but `paths` at import: `probe._entry` imports this
 before the CLI on every `probe` command (a training loop's `probe log`
 included), so the common path costs one import of two small modules and one
@@ -50,12 +61,23 @@ BUSY_EXIT_CODE = 75
 #: (`tests/test_service_updater.py` keeps the two equal.)
 WORKER_BUSY_EXIT_CODE = 5
 MESSAGE = "Probe is updating itself on this machine; try again in a moment"
+#: An absolute deadline (epoch seconds) a caller must finish by: the hook
+#: dispatcher sets it to its own (`hooks/dispatch.py`). The barrier waits at
+#: most until DEADLINE_MARGIN_S before it.
+DEADLINE_ENV = "PROBE_HOOK_DEADLINE"
+DEADLINE_MARGIN_S = 0.5
+#: A deadline this far past was inherited by a process the hook left behind.
+STALE_DEADLINE_S = 60.0
+HOLD_NAME = "workers.hold"
+#: A hold older than this is stale: the service waits for workers at most
+#: `updater.WORKER_STOP_S`, then updates (minutes), then lets go.
+HOLD_MAX_AGE_S = 45 * 60
 
 
-def read() -> dict | None:
+def read(path=None) -> dict | None:
     """The barrier's record, or None when there is none (or it cannot be read)."""
     try:
-        data = json.loads(paths.barrier_path().read_text(encoding="utf-8"))
+        data = json.loads((path or paths.barrier_path()).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     return data if isinstance(data, dict) else None
@@ -82,17 +104,44 @@ def _blocks(data: dict | None, now: float) -> bool:
     return procid.alive(pid, start) is not False
 
 
+def budget(default: float | None = None) -> float:
+    """How long this process may wait: `default` (WAIT_S), cut to what
+    DEADLINE_ENV leaves (less DEADLINE_MARGIN_S), never below 0. Never raises."""
+    default = WAIT_S if default is None else default
+    raw = os.environ.get(DEADLINE_ENV)
+    if not raw:
+        return default
+    try:
+        left = float(raw) - time.time() - DEADLINE_MARGIN_S
+    except ValueError:
+        return default
+    if left != left or left < -STALE_DEADLINE_S:
+        # NaN, or long past: a process that outlived the hook that started it
+        # (a detached job inherits the variable) waits as any command does.
+        return default
+    return max(0.0, min(default, left))
+
+
 def wait(timeout: float | None = None) -> bool:
     """True once no barrier stops this process (at once on the common path);
-    False when one still does after `timeout` (default WAIT_S). Never raises."""
-    try:
-        os.stat(paths.barrier_path())
-    except OSError:
+    False when one still does after `timeout` (default: WAIT_S, cut to the
+    caller's deadline). Never raises."""
+    # This machine's barrier, and the one a service from before the machine key
+    # raises (`paths.legacy_barrier_path`): during the update that brings this
+    # code, that older service is the one replacing the files.
+    present = []
+    for path in (paths.barrier_path(), paths.legacy_barrier_path()):
+        try:
+            os.stat(path)
+        except OSError:
+            continue
+        present.append(path)
+    if not present:
         return True
-    deadline = time.monotonic() + (WAIT_S if timeout is None else timeout)
+    deadline = time.monotonic() + (budget() if timeout is None else timeout)
     while True:
         try:
-            if not _blocks(read(), time.time()):
+            if not any(_blocks(read(path), time.time()) for path in present):
                 return True
         except Exception:  # noqa: BLE001 -- a broken barrier must not stop every command
             return True
@@ -106,10 +155,13 @@ def raise_barrier(token: str, pid: int | None = None) -> None:
     it lasts as long as. The update names its child once that runs, so a
     service stopped mid-update leaves the barrier up until `uv tool upgrade`
     is done. Raises OSError."""
+    _write(paths.barrier_path(), token, pid)
+
+
+def _write(target, token: str, pid: int | None) -> None:
     from . import procid
 
     pid = os.getpid() if pid is None else pid
-    target = paths.barrier_path()
     paths.private_dir(target.parent)
     record = {
         "pid": pid,
@@ -134,3 +186,44 @@ def lower(token: str) -> None:
         return
     with contextlib.suppress(OSError):
         paths.barrier_path().unlink()
+
+
+def hold_path():
+    return paths.service_dir() / HOLD_NAME
+
+
+def hold_workers(token: str) -> None:
+    """Stop new daemon worker starts while the service stops the running ones
+    (plan D7); lasts as long as this process. Raises OSError."""
+    _write(hold_path(), token, None)
+
+
+def release_workers(token: str) -> None:
+    """Remove the hold if it is still `token`'s. Never raises."""
+    try:
+        data = json.loads(hold_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = None
+    if isinstance(data, dict) and data.get("token") != token:
+        return
+    with contextlib.suppress(OSError):
+        hold_path().unlink()
+
+
+def workers_held() -> bool:
+    """Is a `probe daemon worker` start to come back later? One stat when not.
+    Stale (its owner gone, or older than HOLD_MAX_AGE_S) or unreadable: no.
+    Never raises."""
+    try:
+        os.stat(hold_path())
+    except OSError:
+        return False
+    try:
+        data = json.loads(hold_path().read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or time.time() - float(data.get("created_at", 0)) > HOLD_MAX_AGE_S:
+            return False
+        from . import procid
+
+        return procid.alive(int(data.get("pid", 0)), str(data.get("start_time") or "")) is not False
+    except Exception:  # noqa: BLE001 -- a broken hold must not stop every worker
+        return False

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: http-message-signatures
-Version: 2.1.0
+Version: 2.2.0
 Summary: An implementation of the IETF HTTP Message Signatures draft standard
 Project-URL: Homepage, https://github.com/pyauth/http-message-signatures
 Author: Andrey Kislyuk
@@ -26,6 +26,8 @@ Requires-Python: >=3.10
 Requires-Dist: cryptography>=36.0.2
 Requires-Dist: http-sf>=1.4.0
 Provides-Extra: docs
+Requires-Dist: furo; extra == 'docs'
+Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx>=7; extra == 'docs'
 Provides-Extra: tests
 Requires-Dist: build; extra == 'tests'
@@ -149,11 +151,12 @@ Pass ``prepared.signature_base`` to the signing algorithm as bytes, without base
 component list and signed metadata. Do not rebuild either value yourself. The selected algorithm applies to the remote
 signer even when ``include_alg=False``; omitting the parameter does not negotiate an algorithm.
 
-Remote clients differ in their accepted input and output formats. Configure the algorithm as specified in
+External signing services differ in their accepted input and output formats. When calling a signing service, configure
+its signing operation according to
 `RFC 9421 section 3.3 <https://www.rfc-editor.org/rfc/rfc9421.html#section-3.3>`_. Ed25519 signs the base without prehashing.
-For RSA and ECDSA, a client that accepts raw messages must perform the specified hashing; a client that accepts a digest
-must receive that digest and be configured to avoid hashing it a second time. The RSA-PSS profile uses SHA-512,
-MGF1 with SHA-512, and a 64-byte salt.
+For RSA and ECDSA, an API that accepts raw messages must perform the specified hashing. If the API accepts a digest,
+hash the signature base before calling it and select a mode that does not hash the digest again. The RSA-PSS profile
+uses SHA-512, MGF1 with SHA-512, and a 64-byte salt.
 
 ``apply()`` expects raw signature bytes and performs the Structured Field base64 encoding. Decode base64 responses
 from a service before calling it. ECDSA P-256 clients often return DER, while RFC 9421 requires a 64-byte concatenation
@@ -177,6 +180,72 @@ Creation and expiration times are set during preparation and are not refreshed b
 when choosing expiration times; an expired result will still be rejected by a verifier. To add the result alongside
 existing signatures, pass ``append_if_signature_exists=True`` to ``apply()``. Duplicate labels or malformed existing
 signature headers are rejected. By default it replaces existing signature headers, just like ``sign()``.
+
+Structured Field serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the ``sf`` component parameter to cover a whole header field using Structured Fields serialization::
+
+    signer.sign(request, key_id="my-key", covered_component_ids=('"priority";sf',))
+
+For example, ``Priority: u=03,   i=?1`` produces this signature-base line::
+
+    "priority";sf: u=3, i
+
+The field's Item, List, or Dictionary type is selected by its name using ``http_sf``'s registry.
+Both endpoints must use matching type definitions. The registry may omit otherwise standardized fields;
+an unknown type or a value invalid for its registered type raises ``HTTPMessageSignaturesException`` during
+signing, or ``InvalidSignature`` during verification. The library does not infer types from field values.
+Headers covered without ``sf`` use the ordinary HTTP field normalization rules and do not require a registry entry.
+
+The registry also contains retrofit mappings for legacy headers whose parsing rules can differ from Structured
+Fields. For example, this header::
+
+    Cache-Control: max-age=3600
+
+can be changed to::
+
+    Cache-Control: max-age=0, max-age=3600
+
+Both produce the same signed component because Structured Fields Dictionary parsing keeps the last duplicate::
+
+    "cache-control";sf: max-age=3600
+
+However, `RFC 9111 section 4.2.1 <https://www.rfc-editor.org/rfc/rfc9111.html#section-4.2.1>`_ says duplicate
+freshness directives should use the first occurrence or make the response stale. The change can therefore alter
+caching behavior without invalidating a signature that covers ``"cache-control";sf``. The
+`retrofit draft <https://httpwg.org/http-extensions/draft-ietf-httpbis-retrofit.html#section-2.1>`_ acknowledges
+this difference in duplicate handling.
+
+Omit ``;sf`` when the application's or other HTTP consumers' interpretation differs from Structured Fields
+semantics, or compatibility is unknown. For example, use ``covered_component_ids=("cache-control",)`` to keep
+both duplicate directives in the signed value; adding one then changes the signature base. Use ``;sf`` for fields
+defined as Structured Fields, or legacy fields only when compatible interpretation is enforced. Applications
+must still validate header values: successful signature verification does not establish their semantic validity.
+
+Repeated field lines are combined before parsing. In a response signature, ``'"priority";req;sf'`` uses
+the associated request's field. Dictionary-member selection with ``key`` continues to work without a registry
+entry and may include the redundant ``sf`` flag. The ``tr`` parameter remains unsupported.
+
+Binary wrapping and Set-Cookie
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``covered_component_ids=('"set-cookie";bs',)`` to cover each field line as a separate Structured Field
+Byte Sequence, following `RFC 9421 section 2.1.3 <https://www.rfc-editor.org/rfc/rfc9421.html#section-2.1.3>`_.
+The ``bs`` flag works with any header field, including request fields selected with ``req``. It cannot be
+combined with ``sf`` or ``key``. Leading and trailing spaces and tabs are trimmed and obsolete line folding is
+removed before encoding each line. Header strings represent the original field bytes decoded as Latin-1.
+
+When Set-Cookie is covered and multiple field lines are present, ``sign()`` and ``prepare()`` automatically
+add ``bs``. Verification rejects signatures that cover multiple Set-Cookie lines without ``bs``. Uncovered
+Set-Cookie fields remain outside this check, and a single field line can still be covered without ``bs``.
+This preserves field boundaries that comma joining would erase, as discussed in
+`RFC 9421 section 7.5.6 <https://www.rfc-editor.org/rfc/rfc9421.html#section-7.5.6>`_.
+
+For binary wrapping, ``headers.items()`` must expose each original field line separately and in order.
+The library cannot recover boundaries from values already combined by an HTTP client. A comma inside one
+Set-Cookie value, such as an Expires date, does not indicate multiple field lines. Cookie syntax and other
+application-level content validation remain the caller's responsibility.
 
 URL components
 ~~~~~~~~~~~~~~
@@ -261,7 +330,7 @@ Please report bugs, issues, feature requests, etc. on `GitHub <https://github.co
 
 License
 -------
-Copyright 2017-2024, Andrey Kislyuk and http-message-signatures contributors. Licensed under the terms of the
+Copyright 2022-2026, Andrey Kislyuk and http-message-signatures contributors. Licensed under the terms of the
 `Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0>`_. Distribution of attribution information,
 LICENSE and NOTICE files with source copies of this package and derivative works is **REQUIRED** as specified by the
 Apache License.

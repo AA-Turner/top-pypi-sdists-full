@@ -21,7 +21,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from ..launchers import remove_launcher, write_launcher
+from ..launchers import helper_command, remove_launcher, write_launcher
 from . import terraformrc
 
 logger = logging.getLogger(__name__)
@@ -180,30 +180,15 @@ class TerraformInstaller:
     Usage::
 
         installer = TerraformInstaller()
-        actions = installer.install(helper_args=["--org", "acme"])
+        actions = installer.install(helper_args=["-w", "acme"])
         for action in actions:
             print(action)
     """
 
     LAUNCHER_NAME = "terraform-credentials-cloudsmith"
-    TARGET_CMD = "cloudsmith credential-helper terraform"
 
     name = "terraform"
     summary = "Terraform credentials helper for Cloudsmith registries"
-
-    @classmethod
-    def _resolve_target_cmd(cls) -> str:
-        """Return the command the launcher forwards to.
-
-        A pip/source install resolves the bare ``cloudsmith`` command via
-        ``PATH``. A frozen standalone binary (PyInstaller) is not guaranteed to
-        be on ``PATH`` under that name, so point the launcher at the absolute
-        executable instead. The path is quoted so a directory containing spaces
-        still execs correctly.
-        """
-        if getattr(sys, "frozen", False):
-            return f'"{sys.executable}" credential-helper terraform'
-        return cls.TARGET_CMD
 
     def _resolve_plugin_dir(self, bin_dir: str | None) -> Path:
         """Return the directory to install the launcher into.
@@ -314,8 +299,8 @@ class TerraformInstaller:
             Defaults to ``~/.terraform.d/plugins``.
         helper_args:
             Values for the block's ``args`` list, forwarded to the CLI on every
-            invocation — e.g. ``("--org", "acme", "-P", "ci")`` to pin the
-            organisation and profile without environment variables.
+            invocation — e.g. ``("-w", "acme", "-P", "ci")`` to pin the
+            Workspace and profile without environment variables.
         dry_run:
             When ``True``, compute and return planned actions without writing.
 
@@ -369,7 +354,7 @@ class TerraformInstaller:
             written = self._install_exe_launcher(target_dir)
         else:
             written = write_launcher(
-                target_dir, self.LAUNCHER_NAME, self._resolve_target_cmd()
+                target_dir, self.LAUNCHER_NAME, helper_command(self.name)
             )
         actions.append(f"wrote launcher {written}")
 

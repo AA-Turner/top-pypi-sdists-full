@@ -17,7 +17,7 @@ from schemathesis.config._error import ConfigError
 from schemathesis.config._fuzz import FuzzConfig
 from schemathesis.config._generation import GenerationConfig
 from schemathesis.config._health_check import HealthCheck
-from schemathesis.config._operations import OperationConfig, OperationsConfig, _parse_request_retries
+from schemathesis.config._operations import OperationConfig, OperationsConfig, parse_request_retries
 from schemathesis.config._output import OutputConfig
 from schemathesis.config._parameters import load_parameters
 from schemathesis.config._phases import PhasesConfig
@@ -70,7 +70,7 @@ class ProjectConfig(DiffBase):
     workers: int
     continue_on_failure: bool | None
     tls_verify: bool | str | None
-    rate_limit: Limiter | None
+    rate_limit: Limiter | Literal["auto"] | None
     max_redirects: int | None
     max_stream_events: int | None
     request_timeout: float | int | None
@@ -173,10 +173,12 @@ class ProjectConfig(DiffBase):
         self.proxy = proxy
         self.continue_on_failure = continue_on_failure
         self.tls_verify = tls_verify
-        if rate_limit is not None and rate_limit != "auto":
-            self.rate_limit = build_limiter(rate_limit)
+        if rate_limit is None:
+            self.rate_limit = None
+        elif rate_limit == "auto":
+            self.rate_limit = "auto"
         else:
-            self.rate_limit = rate_limit
+            self.rate_limit = build_limiter(rate_limit)
         self._rate_limit = rate_limit
         self.max_redirects = max_redirects
         self.max_stream_events = max_stream_events
@@ -232,7 +234,7 @@ class ProjectConfig(DiffBase):
             max_redirects=data.get("max-redirects"),
             max_stream_events=data.get("max-stream-events"),
             request_timeout=data.get("request-timeout"),
-            request_retries=_parse_request_retries(data.get("request-retries")),
+            request_retries=parse_request_retries(data.get("request-retries")),
             request_cert=resolve(data.get("request-cert")),
             request_cert_key=resolve(data.get("request-cert-key")),
             parameters=load_parameters(data, dictionaries=dictionaries),
@@ -313,7 +315,7 @@ class ProjectConfig(DiffBase):
             if rate_limit != "auto":
                 self.rate_limit = build_limiter(rate_limit)
             else:
-                self.rate_limit = rate_limit
+                self.rate_limit = "auto"
             self._mark_source_keys(("rate_limit",))
 
         self._apply(

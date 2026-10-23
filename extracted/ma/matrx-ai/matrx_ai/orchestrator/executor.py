@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import time
 import traceback
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
@@ -63,7 +64,7 @@ from matrx_ai.orchestrator.loop_guard import LoopHealth, evaluate_loop_health
 from matrx_ai.orchestrator.mandate_carrier import (
     MANDATE_BYPASS_METADATA_KEY,
     MANDATE_KEY_METADATA_KEY,
-    mandate_carrier_passthrough,
+    HolderCarrier,
     note_mandate_carrier,
 )
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
@@ -486,19 +487,20 @@ def _request_metadata(
     return resolved
 
 
-@mandate_carrier_passthrough(
-    "the funnel itself: the Holder that owns the call arrives as its mandate_key argument or "
-    "its metadata, from the caller, and is forwarded unchanged when a held call re-enters."
-)
+#: Set while a held call's funnel re-entry runs, so the re-entry takes the plain path and
+#: the outer call notes the held run's ids exactly once (:func:`execute_ai_request`).
+_HELD_RUN_NOTED: ContextVar[bool] = ContextVar("held_run_noted", default=False)
+
+
 async def execute_ai_request(
     config: UnifiedConfig,
     max_iterations: int = 100,
     max_retries_per_iteration: int = 2,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     *,
     conversation_id: str | None = None,
     store: bool | None = None,
-    mandate_key: str | None = None,
+    mandate_key: HolderCarrier[str | None] = None,
 ) -> CompletedRequest:
     """The single entry point for all AI execution.
 
@@ -583,36 +585,46 @@ async def execute_ai_request(
     # HeldCall so its completion records the run under the mandate key.
     from matrx_ai.mandates import held_call_id_of, note_held_run
 
-    if conversation_id is None and held_call_id_of(metadata):
-        held_store = store
-        if held_store is None:
-            held_store = bool(ctx.store) or bool(getattr(ctx, "is_internal_agent", False))
-        own_conversation_id = str(uuid4())
-        # The link points at a conversation that exists: a context that just
-        # BECAME a system run (``run_held_call``, ``llm_stream_*(system_run=)``)
-        # holds a freshly minted id with no row yet — its parent is the real one.
-        surrounding = (
-            ctx.parent_conversation_id
-            if getattr(ctx, "system_run", False) or not _is_valid_uuid_str(ctx.conversation_id)
-            # Never a workflow step's minted invocation id — no row backs it.
-            else ctx.conversation_id_for_lineage
-        )
-        # A held code call is internal machinery, never a conversation in the
-        # person's history: stamp the existing ``subagent`` type (chat.conversation_lane
-        # → 'subagent') unless the surrounding run already declared a more specific
-        # non-standard type (workflow, scheduled, ...).
-        held_type = getattr(ctx, "conversation_type", None) or "standard"
-        if held_type == "standard":
-            # "subagent" means "has a parent conversation"; a root held call is ``auto``.
-            held_type = "subagent" if surrounding else "auto"
-        token = set_app_context(
-            ctx.with_overrides(
-                conversation_id=own_conversation_id,
-                parent_conversation_id=surrounding,
-                conversation_type=held_type,
-                store=held_store,
+    if held_call_id_of(metadata) and not _HELD_RUN_NOTED.get():
+        token = None
+        if conversation_id is not None:
+            # A held call that names its OWN conversation (a judge reads its measured cost by that
+            # id) runs as that conversation, and its ids still go back to the HeldCall — without
+            # them its completion recorded a detached run row with no request and no conversation,
+            # and the request it really ran as never carried the run's columns (live 2026-10-22).
+            own_conversation_id = conversation_id
+            held_store = store
+        else:
+            held_store = store
+            if held_store is None:
+                held_store = bool(ctx.store) or bool(getattr(ctx, "is_internal_agent", False))
+            own_conversation_id = str(uuid4())
+            # The link points at a conversation that exists: a context that just
+            # BECAME a system run (``run_held_call``, ``llm_stream_*(system_run=)``)
+            # holds a freshly minted id with no row yet — its parent is the real one.
+            surrounding = (
+                ctx.parent_conversation_id
+                if getattr(ctx, "system_run", False) or not _is_valid_uuid_str(ctx.conversation_id)
+                # Never a workflow step's minted invocation id — no row backs it.
+                else ctx.conversation_id_for_lineage
             )
-        )
+            # A held code call is internal machinery, never a conversation in the
+            # person's history: stamp the existing ``subagent`` type (chat.conversation_lane
+            # → 'subagent') unless the surrounding run already declared a more specific
+            # non-standard type (workflow, scheduled, ...).
+            held_type = getattr(ctx, "conversation_type", None) or "standard"
+            if held_type == "standard":
+                # "subagent" means "has a parent conversation"; a root held call is ``auto``.
+                held_type = "subagent" if surrounding else "auto"
+            token = set_app_context(
+                ctx.with_overrides(
+                    conversation_id=own_conversation_id,
+                    parent_conversation_id=surrounding,
+                    conversation_type=held_type,
+                    store=held_store,
+                )
+            )
+        noted = _HELD_RUN_NOTED.set(True)
         try:
             # The Holder rides the metadata into the re-entry (the same stamp the
             # request metadata carries), so the carrier is data, not an argument.
@@ -625,12 +637,14 @@ async def execute_ai_request(
                 store=held_store,
             )
         finally:
-            clear_app_context(token)
+            _HELD_RUN_NOTED.reset(noted)
+            if token is not None:
+                clear_app_context(token)
         note_held_run(
             metadata,
             conversation_id=own_conversation_id,
             request_id=getattr(getattr(completed, "request", None), "request_id", None),
-            stored=held_store,
+            stored=bool(ctx.store) if held_store is None else bool(held_store),
         )
         return completed
 
@@ -1665,10 +1679,18 @@ async def _flush_assistant_message_mid_loop(
                         )
                     )
                 else:
-                    user_content = validate_message_content(user_storage.get("content", []))
+                    from matrx_ai.persistence.sealed import keep_inline_media_on_server
+
+                    user_content = validate_message_content(
+                        await keep_inline_media_on_server(user_storage.get("content", [])) or []
+                    )
                 pristine_user_content = user_storage.get("user_content")
                 if pristine_user_content is not None:
-                    pristine_user_content = validate_message_content(pristine_user_content)
+                    from matrx_ai.persistence.sealed import keep_inline_media_on_server
+
+                    pristine_user_content = validate_message_content(
+                        await keep_inline_media_on_server(pristine_user_content) or []
+                    )
                 # This mid-loop flush bypasses persist_completed_request, so it
                 # must itself lift the per-turn call-record keys (model_context /
                 # tools_on_call) out of the stamped metadata into their columns —
@@ -2933,6 +2955,8 @@ def _record_billed_usage_on_failure(
         if provider_attempt is not None:
             billed.metadata["provider_attempt"] = provider_attempt
         billed.metadata["attempt_outcome"] = "failed"
+        # Own-key stamping happens at the dispatch seam (UnifiedAIClient._dispatch_admitted),
+        # in the task that resolved the key — never here, where the key source may be stale.
         current_request.add_usage(billed)
         try:
             from matrx_ai.orchestrator.cost_budget import record_tree_cost
@@ -3000,13 +3024,13 @@ async def _finalize_and_persist(
 
     # Mandate-candidate runs expose what containment decided on EVERY exit
     # (completed, failed, stopped): the executor lane records these on the pair.
-    from matrx_ai.tools.candidate_containment import candidate_outcome
-
     # A sub-agent run (forked by another agent or a tool) is resumed by its CALLER,
     # never by a person typing "continue" in its conversation — so a limit stop
     # settles terminal-with-reason there, not "paused" (requests.py
     # PERSON_RESUMES_STATUSES). Stamped from the forked context's own lineage.
     from matrx_connect.context.app_context import try_get_app_context as _try_get_ctx
+
+    from matrx_ai.tools.candidate_containment import candidate_outcome
 
     _finalize_ctx = _try_get_ctx()
     if (
@@ -3228,6 +3252,12 @@ async def _finalize_and_persist(
 
 
 HISTORY_SHIFTED_KIND = "persisted_history_shifted"
+
+
+def _is_compaction_summary(message: Any) -> bool:
+    """A compaction / condense summary row (``metadata.compaction_summary``) — never the person's words."""
+    metadata = message.get("metadata") if isinstance(message, dict) else getattr(message, "metadata", None)
+    return isinstance(metadata, dict) and metadata.get("compaction_summary") is not None
 
 
 async def _scream_if_history_shifted(
@@ -3960,6 +3990,10 @@ def _schedule_labeling_if_new(exec_ctx: Any, config: UnifiedConfig) -> None:
         # Only label on the first turn — if there are already more than a couple
         # of messages (user + assistant from a prior turn), this is a continuation.
         if len(raw_messages) > 3:
+            return
+        # A condensed history is never a first turn — and its summary row (stored as ``user`` for
+        # provider alternation, ``metadata.compaction_summary``) is never the person's words.
+        if any(_is_compaction_summary(m) for m in raw_messages):
             return
 
         if isinstance(raw_messages, MessageList):
@@ -5259,6 +5293,13 @@ async def _execute_until_complete_inner(
     state.persist_from_position = first_new_input_position(
         current_request.config.messages, trigger_position
     )
+    # A CONFIDENTIAL (sealed) turn 2+ carries the client's whole transcript before
+    # the trigger; its structure rows were written by the turns that produced it.
+    from matrx_ai.context.app_context import try_get_app_context as _sealed_ctx_of
+    from matrx_ai.persistence.sealed import writes_sealed_structure
+
+    if writes_sealed_structure(_sealed_ctx_of()):
+        state.persist_from_position = max(trigger_position, 0)
     # Initialize the commit high-water-mark just below the first new input message so the first
     # per-turn barrier writes the authored block and the trigger onward. (Persistence contract.)
     state.committed_position = state.persist_from_position - 1
@@ -6028,6 +6069,7 @@ async def _execute_until_complete_inner(
                         tool_names=_cache_prefix_tool_names(current_request.config),
                         raw_usage=api_response.usage.raw_usage or {},
                         prefix_frozen=_cache_prefix_is_frozen(current_request.config),
+                        marks_withheld=getattr(current_request.config, "prompt_cache_marks", None) == "none",
                     )
 
                 # Fold this call's cost into the tree-wide dollar budget. Parent

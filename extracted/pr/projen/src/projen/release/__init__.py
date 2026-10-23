@@ -1514,6 +1514,8 @@ class MavenPublishOptions(CommonPublishOptions):
         "npm_token_secret": "npmTokenSecret",
         "registry": "registry",
         "trusted_publishing": "trustedPublishing",
+        "verify_published": "verifyPublished",
+        "verify_published_timeout_seconds": "verifyPublishedTimeoutSeconds",
     },
 )
 class NpmPublishOptions(CommonPublishOptions):
@@ -1529,6 +1531,8 @@ class NpmPublishOptions(CommonPublishOptions):
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
         trusted_publishing: typing.Optional[builtins.bool] = None,
+        verify_published: typing.Optional[builtins.bool] = None,
+        verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) Options for npm release.
 
@@ -1541,6 +1545,8 @@ class NpmPublishOptions(CommonPublishOptions):
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
         :param trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically. When used, ``npmTokenSecret`` will be ignored. Default: - false
+        :param verify_published: (experimental) Wait until the published package version is available from the registry before the publish job completes. The registry may not serve a version right after it was published (e.g. npmjs scans packages first). Enable this when packages that depend on the published package are released right after. Default: false
+        :param verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. The publish job fails if it is not available in time. Requires ``verifyPublished`` to be enabled. Default: 3600
 
         :stability: experimental
         '''
@@ -1559,6 +1565,8 @@ class NpmPublishOptions(CommonPublishOptions):
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
             check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
+            check_type(argname="argument verify_published", value=verify_published, expected_type=type_hints["verify_published"])
+            check_type(argname="argument verify_published_timeout_seconds", value=verify_published_timeout_seconds, expected_type=type_hints["verify_published_timeout_seconds"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if github_environment is not None:
             self._values["github_environment"] = github_environment
@@ -1578,6 +1586,10 @@ class NpmPublishOptions(CommonPublishOptions):
             self._values["registry"] = registry
         if trusted_publishing is not None:
             self._values["trusted_publishing"] = trusted_publishing
+        if verify_published is not None:
+            self._values["verify_published"] = verify_published
+        if verify_published_timeout_seconds is not None:
+            self._values["verify_published_timeout_seconds"] = verify_published_timeout_seconds
 
     @builtins.property
     def github_environment(self) -> typing.Optional[builtins.str]:
@@ -1712,6 +1724,35 @@ class NpmPublishOptions(CommonPublishOptions):
         '''
         result = self._values.get("trusted_publishing")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def verify_published(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Wait until the published package version is available from the registry before the publish job completes.
+
+        The registry may not serve a version right after it was published (e.g. npmjs scans packages first).
+        Enable this when packages that depend on the published package are released right after.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("verify_published")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def verify_published_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) How long to wait, in seconds, for the published package version to be available.
+
+        The publish job fails if it is not available in time.
+
+        Requires ``verifyPublished`` to be enabled.
+
+        :default: 3600
+
+        :stability: experimental
+        '''
+        result = self._values.get("verify_published_timeout_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2197,6 +2238,8 @@ class Publisher(
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
         trusted_publishing: typing.Optional[builtins.bool] = None,
+        verify_published: typing.Optional[builtins.bool] = None,
+        verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2209,6 +2252,8 @@ class Publisher(
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use for publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
         :param trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Requires npm CLI version 11.5.1 or later, this is NOT ensured automatically. When used, ``npmTokenSecret`` will be ignored. Default: - false
+        :param verify_published: (experimental) Wait until the published package version is available from the registry before the publish job completes. The registry may not serve a version right after it was published (e.g. npmjs scans packages first). Enable this when packages that depend on the published package are released right after. Default: false
+        :param verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. The publish job fails if it is not available in time. Requires ``verifyPublished`` to be enabled. Default: 3600
         :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
@@ -2222,6 +2267,8 @@ class Publisher(
             npm_token_secret=npm_token_secret,
             registry=registry,
             trusted_publishing=trusted_publishing,
+            verify_published=verify_published,
+            verify_published_timeout_seconds=verify_published_timeout_seconds,
             github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
@@ -4775,6 +4822,8 @@ def _typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d2
     npm_token_secret: typing.Optional[builtins.str] = None,
     registry: typing.Optional[builtins.str] = None,
     trusted_publishing: typing.Optional[builtins.bool] = None,
+    verify_published: typing.Optional[builtins.bool] = None,
+    verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

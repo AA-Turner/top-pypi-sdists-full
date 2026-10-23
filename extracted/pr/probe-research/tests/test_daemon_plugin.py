@@ -146,6 +146,8 @@ def test_the_guard_and_session_start_run_in_the_daemon_profile():
         ("PreToolUse", "^(Write|Edit|MultiEdit|NotebookEdit)$", "tracking_guard.py"),
         # The switch: a typed `/probe on|read|off` and the Skill tool (Richard 2026-09-29).
         ("UserPromptSubmit", None, "tracking_guard.py"),
+        # The same switch for a skill typed in Kimi Code, which fires only TurnStarted.
+        ("TurnStarted", None, "tracking_guard.py"),
         ("PostToolUse", "^(Bash|Skill|SlashCommand)$|probe[-_]research", "tracking_guard.py"),
         # The audit reminder, silent unless the session is inline (daemon-team-note-audit).
         ("UserPromptSubmit", None, "note_audit.py"),
@@ -163,11 +165,14 @@ def test_what_the_daemon_profile_keeps_and_drops():
                              "reads_hook.py"},
         "SessionStart": {"session-start.sh", "statusline_refresh.py", "approvals_hook.py"},
         "PreCompact": {"session-start.sh"},
-        "PreToolUse": {"tracking_guard.py", "approvals_hook.py", "papers_hook.py"},
+        # root_skills_sync.py: a Skill call in a session open across an update
+        # reads the installed plugin's skill text (its copies refreshed first).
+        "PreToolUse": {"tracking_guard.py", "approvals_hook.py", "papers_hook.py", "root_skills_sync.py"},
         "PostToolUse": {"telemetry.py", "tracking_guard.py", "statusline_refresh.py", "approvals_hook.py",
                         "reads_hook.py"},
         "SessionEnd": {"telemetry.py", "team-note-sync.sh"},
         "Stop": {"statusline_notify.py", "team-note-sync.sh"},
+        "TurnStarted": {"tracking_guard.py"},
     }
 
 

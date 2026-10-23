@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import sys
 from contextlib import suppress
 from pathlib import Path
 from typing import cast
@@ -16,6 +16,7 @@ from ..core import (
     complete,
     config,
     gitutil,
+    installedview,
     integrity,
     journal,
     lockfile,
@@ -120,14 +121,16 @@ def _tap_all(urls: list[str], jobs: int | None,
             out.info(out.role("%s already tapped" % name, "muted"))
             continue
         if not res.get("ok"):
-            out.warn("could not tap %s: %s" % (name, res.get("error", "")))
+            out.warn("could not tap %s: %s" % (name, res.get("error", "")),
+                     stream=sys.stderr)
             rc = 1
             continue
         tap = res["tap"]
         try:
             entries = catalog.rebuild_tap(tap)
         except BoostError as err:
-            out.warn("could not index %s: %s" % (name, err.message))
+            out.warn("could not index %s: %s" % (name, err.message),
+                     stream=sys.stderr)
             rc = 1
             continue
         journal.log("tap", tap.name)
@@ -186,6 +189,18 @@ def cmd_tap(argv) -> int:
                         "%d)" % (registry.DEFAULT_TAP_JOBS,
                                  registry.MAX_TAP_JOBS))
     args = p.parse_args(argv)
+    if not args.catalog:
+        # Each of these only narrows --catalog. Ignoring them elsewhere let
+        # `tap --limit 2 --defaults` clone every default registry.
+        stray = [flag for flag, val in (("--type", args.type),
+                                        ("--category", args.category),
+                                        ("--limit", args.limit),
+                                        ("--include-lists", args.include_lists))
+                 if val]
+        if stray:
+            p.error("%s only filter%s --catalog; pass --catalog or drop %s"
+                    % ("/".join(stray), "" if len(stray) > 1 else "s",
+                       "them" if len(stray) > 1 else "it"))
     if args.at and len(args.spec) != 1:
         p.error("--at pins one registry, so it needs exactly one SPEC")
     if not args.spec and not args.defaults and not args.catalog:
@@ -282,18 +297,25 @@ def _untap_one(name: str, force: bool) -> int:
     try:
         tap = registry.get(name)
     except BoostError as exc:
-        out.warn("could not untap %s: %s" % (name, exc.message))
+        out.warn("could not untap %s: %s" % (name, exc.message),
+                 stream=sys.stderr)
         return 1
-    dependent = registry.dependents(tap.name)
-    if dependent:
-        labels = [n if kind == "skill" else "%s (%s)" % (n, kind)
-                  for kind, n in dependent]
+    labels = [n if kind == "skill" else "%s (%s)" % (n, kind)
+              for kind, n in registry.dependents(tap.name)]
+    labels += ["%s (project)" % n
+               for n in registry.project_dependents(tap.name)]
+    if labels:
         out.warn("%d installed item(s) from %s: %s"
-                 % (len(dependent), tap.name, ", ".join(labels)))
+                 % (len(labels), tap.name, ", ".join(labels)))
         out.warn("installed items keep working but lose their update source")
         if not force and not out.confirm("untap %s anyway?" % tap.name):
             out.info("cancelled")
             return 1
+    if labels:
+        # The last moment its URL is known: recorded on the rows that came
+        # from it, a later tap of another repo under this name reads as the
+        # source change it is, and `boost drift` can re-tap from it.
+        store.backfill_tap_urls()
     registry.remove(tap.name)
     complete.refresh_names()
     journal.log("untap", tap.name)
@@ -437,6 +459,10 @@ def _outdated_display(r: dict, configured: frozenset[str] = frozenset()) -> str:
     if r["reason"] == staleness.SOURCE_MISSING:
         return (staleness.OUTDATED_REMOVED_UPSTREAM if r["tap"] in configured
                 else staleness.OUTDATED_SOURCE_MISSING)
+    if r["reason"] == staleness.SOURCE_CHANGED:
+        return staleness.OUTDATED_SOURCE_CHANGED
+    if r["reason"] == staleness.NOT_CLONED:
+        return staleness.OUTDATED_NOT_CLONED
     latest = r["latest"] or "?"
     if r["reason"] == staleness.CONTENT:
         return ("%s (%s)" % (latest, r["latest_commit"])
@@ -456,6 +482,34 @@ def _outdated_qualifier(r: dict) -> str:
     return " (%s)" % ", ".join(tags) if tags else ""
 
 
+def _held_tap_reason(tap_name: str, lk: dict,
+                     memo: dict[str, registry.Tap | None]) -> str | None:
+    """Why a row of a *configured* tap cannot be compared at all, else None.
+
+    The tap now naming another repository than the lock recorded is
+    source-changed — its same-named item is not this one's upstream, and
+    calling it an update is how `boost update` replaced a skill with an
+    unrelated one. A configured tap with no clone is not-cloned: `boost
+    update` clones it, which "removed upstream" told the user it could not.
+    Source-changed is checked first, because cloning would fetch the other
+    repository. An unconfigured tap returns None and is reported by the
+    caller's own source-missing path. ``memo`` caches one lookup per tap.
+    """
+    if tap_name not in memo:
+        try:
+            memo[tap_name] = registry.get(tap_name)
+        except BoostError:
+            memo[tap_name] = None
+    tap = memo[tap_name]
+    if tap is None:
+        return None
+    if registry.source_changed(lk, tap):
+        return staleness.SOURCE_CHANGED
+    if not tap.is_cloned:
+        return staleness.NOT_CLONED
+    return None
+
+
 def cmd_outdated(argv) -> int:
     """boost outdated [--json]"""
     p = cliparse.parser(
@@ -467,6 +521,7 @@ def cmd_outdated(argv) -> int:
 
     results = []
     heads = {}  # tap name -> HEAD commit ("" when unknown)
+    tap_memo: dict[str, registry.Tap | None] = {}
     # Read once and passed to every lookup: `find(name)` alone re-validates
     # every tap's cache per call, which over 308 installed skills and 460
     # taps was a third of this command.
@@ -478,7 +533,19 @@ def cmd_outdated(argv) -> int:
         tap_name = lk.get("tap", "local")
         if tap_name == "local":
             continue
-        matches = [e for e in catalog.find(name, entries=entries) if e["tap"] == tap_name]
+        held = _held_tap_reason(tap_name, lk, tap_memo)
+        if held:
+            results.append({"name": name, "kind": "skill",
+                            "installed": str(lk.get("version") or "0.0.0"),
+                            "latest": None, "reason": held,
+                            "latest_commit": None,
+                            "tap": tap_name, "pinned": bool(lk.get("pinned")),
+                            "scope": scope})
+            continue
+        # Skills only: a same-named workflow upstream is not this skill's
+        # update, and listing it as one sent `boost update` to "upgrade" it.
+        matches = [e for e in catalog.find(name, entries=entries)
+                   if e["tap"] == tap_name and e.get("kind", "skill") == "skill"]
         if not matches:
             # The tap is untapped, or dropped this entry entirely — same
             # condition the rule/workflow loop below reports honestly, so a
@@ -495,21 +562,25 @@ def cmd_outdated(argv) -> int:
         entry = cast(dict, entry)             # matches is non-empty above
         latest = str(entry.get("version") or "0.0.0")
         installed_v = str(lk.get("version") or "0.0.0")
-        head, src_sha, src_missing = "", None, False
+        head, src_sha, src_missing, exec_changed = "", None, False, False
         if not util.semver_gt(latest, installed_v):
             if tap_name not in heads:
-                try:
-                    tap = registry.get(tap_name)
-                    heads[tap_name] = (gitutil.head_commit(tap.path)
-                                       if tap.is_cloned else "")
-                except BoostError:
-                    heads[tap_name] = ""
+                # Configured and cloned: `_held_tap_reason` returned above
+                # for every other configured tap.
+                tap = tap_memo.get(tap_name)
+                heads[tap_name] = (gitutil.head_commit(tap.path)
+                                   if tap is not None else "")
             head = heads[tap_name]
             if head and head != lk.get("commit"):
                 try:
                     src_sha = store.skill_source_sha(entry)
                 except BoostError:
                     src_missing = True
+                else:
+                    exec_changed = store.source_exec_changed(
+                        entry, lk, integrity.project_skill_dir(lk, _base)
+                        if scope == scopes.SCOPE_PROJECT
+                        else store.skill_store_dir(name))
         base = {"name": name, "kind": "skill", "installed": installed_v,
                 "tap": tap_name, "pinned": bool(lk.get("pinned")),
                 "scope": scope}
@@ -520,7 +591,7 @@ def cmd_outdated(argv) -> int:
         else:
             reason = staleness.upstream_reason(
                 installed_v, latest, lk.get("commit", ""), head,
-                lk.get("sha256", ""), src_sha)
+                lk.get("sha256", ""), src_sha, exec_changed)
             if reason == staleness.VERSION:
                 results.append(base | {"latest": latest,
                                        "reason": staleness.VERSION,
@@ -543,25 +614,23 @@ def cmd_outdated(argv) -> int:
             base = {"name": name, "kind": kind, "installed": installed_v,
                     "tap": tap_name, "pinned": bool(lk.get("pinned")),
                     "scope": lk.get("scope") or scopes.SCOPE_USER}
-            try:
-                raw = (registry.get(tap_name).path / lk.get("source_file", "")
-                       ).read_text(encoding="utf-8", errors="replace")
-            except (OSError, BoostError):
+            held = _held_tap_reason(tap_name, lk, tap_memo)
+            if held:
+                results.append(base | {"latest": None, "reason": held,
+                                       "latest_commit": None})
+                continue
+            tap = tap_memo[tap_name]
+            if tap is None:
                 results.append(base | {"latest": None,
                                        "reason": staleness.SOURCE_MISSING,
                                        "latest_commit": None})
                 continue
-            if hashlib.sha256(raw.encode("utf-8")).hexdigest() == lk.get("sha256"):
+            # The one comparison `boost info` makes too, so the two cannot
+            # disagree about whether a rule or workflow has an update.
+            reason, r_latest = installedview.update_of(
+                kind, lk, tap, catalog.find(name, entries=entries))
+            if reason is None:
                 continue
-            matches = [e for e in catalog.find(name, entries=entries)
-                       if e["tap"] == tap_name
-                       and e.get("kind", "skill") == kind]
-            entry, _warning = catalog.select_lock_source(matches, lk)
-            r_latest: str | None = (str(entry.get("version"))
-                                    if entry and entry.get("version") else None)
-            reason = (staleness.VERSION
-                      if r_latest and util.semver_gt(r_latest, installed_v)
-                      else staleness.CONTENT)
             # Rules/workflows carry no tap-HEAD commit here (only a source-file
             # sha comparison), so `latest_commit` stays unset — `_outdated_display`
             # falls back to the same "(content changed)" wording skills used to
@@ -589,7 +658,11 @@ def cmd_outdated(argv) -> int:
     print()
     missing = [r for r in results if r["reason"] == staleness.SOURCE_MISSING]
     removed = sum(1 for r in missing if r["tap"] in configured)
-    out.dim(staleness.outdated_footer(len(results), len(missing), removed))
+    reasons = [r["reason"] for r in results]
+    out.dim(staleness.outdated_footer(
+        len(results), len(missing), removed,
+        source_changed=reasons.count(staleness.SOURCE_CHANGED),
+        not_cloned=reasons.count(staleness.NOT_CLONED)))
     return 0
 
 

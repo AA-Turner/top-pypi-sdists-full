@@ -52,6 +52,7 @@ from __future__ import annotations
 import functools
 import os
 import sys
+import weakref
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -69,7 +70,7 @@ from .highlight import HelpFormatter
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Sequence
+    from collections.abc import Callable, Generator, Sequence
     from types import TracebackType
     from typing import Concatenate, Final
 
@@ -125,7 +126,9 @@ _ABORT_NOTICE: ContextVar[_AbortNotice | None] = ContextVar(
 
 
 @contextmanager
-def _owning_abort_notice(command: click.Command, standalone: bool) -> Iterator[None]:
+def _owning_abort_notice(
+    command: click.Command, standalone: bool
+) -> Generator[None, None, None]:
     """Make the run of `command` in the block print its own abort notice.
 
     Only a standalone run prints one. Without standalone mode, Click raises the
@@ -139,7 +142,7 @@ def _owning_abort_notice(command: click.Command, standalone: bool) -> Iterator[N
 
 
 @contextmanager
-def _abort_notice(ctx: click.Context) -> Iterator[None]:
+def _abort_notice(ctx: click.Context) -> Generator[None, None, None]:
     """Print Click's `Aborted!` as soon as an abort leaves the block.
 
     Wraps the invocation of a command, which Click runs inside the context of
@@ -164,6 +167,60 @@ def _abort_notice(ctx: click.Context) -> Iterator[None]:
                 echo(file=sys.stderr)
             echo(_("Aborted!"), file=sys.stderr)
         raise
+
+
+_RUN_CLEANUPS: ContextVar[list[Callable[[], None]] | None] = ContextVar(
+    "_RUN_CLEANUPS", default=None
+)
+"""What the runs started within the `_scoped_run` block in progress may leave.
+
+One callable for each piece of process-wide state a run took: its hold on the
+handler of the `root` logger, the log levels it set, the color it published.
+`None` outside such a block. Written by `_queue_run_cleanup`.
+"""
+
+
+def _queue_run_cleanup(ctx: click.Context, cleanup: Callable[[], None]) -> None:
+    """Have `cleanup` called for the run of `ctx`, even when Click never closes it.
+
+    A run that fails while parsing leaves its context never entered, and therefore
+    never closed: its close callbacks do not run. Two mechanisms cover that path:
+
+    - A finalizer, called when Python collects the context. That may be late, and
+      in the middle of a later run.
+    - The `_scoped_run` block {meth}`click_extra.commands.Command.main` runs
+      within, which does not wait for a collection.
+
+    Both also call `cleanup` for a context that did close. It so has to do nothing
+    when called again, and to leave alone what a later run took over. The options
+    taking process-wide state queue their cleanup here beside the close callback
+    they register for the normal path: see `click_extra.logging` and
+    {func}`click_extra.color.publish_invocation_color`.
+    """
+    weakref.finalize(ctx, cleanup)
+    cleanups = _RUN_CLEANUPS.get()
+    if cleanups is not None:
+        cleanups.append(cleanup)
+
+
+@contextmanager
+def _scoped_run() -> Generator[None, None, None]:
+    """Give back on exit the process-wide state of the runs started within the block.
+
+    {meth}`click_extra.commands.Command.main` runs within it. A run that fails
+    while parsing so gives back the handler of the `root` logger, resets the
+    levels of its loggers and clears the color it published, without waiting for
+    a garbage collection. What the run around the block took stays: that run
+    gives it back when it ends.
+    """
+    cleanups: list[Callable[[], None]] = []
+    reset_token = _RUN_CLEANUPS.set(cleanups)
+    try:
+        yield
+    finally:
+        _RUN_CLEANUPS.reset(reset_token)
+        for cleanup in cleanups:
+            cleanup()
 
 
 class Context(cloup.Context):
@@ -354,7 +411,8 @@ colliding with current or future Click Extra entries.
 """
 
 
-class _LazyMetaDict(dict):
+# A real dict, not a UserDict: Click types `ctx._meta` as one and reads it directly.
+class _LazyMetaDict(dict):  # noqa: FURB189
     """Dict subclass that lazily resolves fields on first access.
 
     Installed as `ctx._meta` so that `ctx.meta["click_extra.<field>"]`
@@ -376,7 +434,7 @@ class _LazyMetaDict(dict):
         """Resolve a lazy key, cache the result, and return it."""
         value = getattr(self._source, self._lazy_keys[key])
         # Store as a regular entry so subsequent reads are plain dict lookups.
-        dict.__setitem__(self, key, value)
+        self[key] = value
         return value
 
     def __getitem__(self, key: str) -> Any:
@@ -389,7 +447,8 @@ class _LazyMetaDict(dict):
 
     def get(self, key: str, default: Any = None) -> Any:
         if key in self._lazy_keys:
-            if dict.__contains__(self, key):
+            # The dict's own test, since `__contains__` above claims every lazy key.
+            if dict.__contains__(self, key):  # noqa: PLC2801
                 return super().__getitem__(key)
             return self._resolve(key)
         return super().get(key, default)

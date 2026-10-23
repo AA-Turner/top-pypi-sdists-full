@@ -16,7 +16,9 @@ use sqlbuild_analysis::planner_identity::models::{GraphKey, IdentityGraph, Ident
 use sqlbuild_host::entries::models::UserCodeHost;
 
 use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
+use crate::bindings::_helpers::compiled_views::function_reads;
 use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::seed_reads;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_identity::hashing::{graph_key, model_query_hash};
 use crate::bindings::_helpers::planner_identity::metadata::{
@@ -103,14 +105,14 @@ pub(crate) fn direct_model_version_identities<'py>(
     let mut graph = IdentityGraph::default();
     for function in functions.try_iter()? {
         let function: Bound<'py, PyAny> = function?;
-        let name: String = native_field(&function, "name")?.extract()?;
+        let name: String = function_reads::name(&function)?.extract()?;
         let Some(function_hash) = function_hashes.get_item(&name)? else {
             continue;
         };
         graph.nodes.insert(
-            graph_key(&native_field(&function, "key")?)?,
+            graph_key(&function_reads::key(&function)?)?,
             IdentityNode {
-                upstream_keys: graph_keys(&native_field(&function, "deps")?)?,
+                upstream_keys: graph_keys(&function_reads::deps(&function)?)?,
                 local_hash: Some(function_hash.extract()?),
             },
         );
@@ -121,7 +123,7 @@ pub(crate) fn direct_model_version_identities<'py>(
         for seed in seeds.try_iter()? {
             let seed: Bound<'py, PyAny> = seed?;
             let (seed_hash, metadata_json): (String, String) = seed_identity(&seed)?;
-            let name: Bound<'py, PyAny> = native_field(&seed, "name")?;
+            let name: Bound<'py, PyAny> = seed_reads::name(&seed)?;
             seed_hashes.set_item(&name, &seed_hash)?;
             seed_metadata.set_item(&name, metadata_json)?;
         }
@@ -180,7 +182,7 @@ pub(crate) fn direct_model_version_identities<'py>(
         graph.nodes.insert(
             key_of(MODEL_RESOURCE, &name),
             IdentityNode {
-                upstream_keys: graph_keys(&native_field(&model, "deps")?)?,
+                upstream_keys: graph_keys(&model_reads::deps(&model)?)?,
                 local_hash: Some(local_hash),
             },
         );
@@ -210,8 +212,6 @@ pub(crate) fn direct_model_version_identities<'py>(
 }
 
 /// Planned write hashes replaced by hashes based on upstreams available this run.
-#[pyfunction]
-#[pyo3(signature = (**options))]
 pub(crate) fn with_honest_model_write_hashes<'py>(
     py: Python<'py>,
     options: Option<Bound<'py, PyDict>>,
@@ -291,7 +291,7 @@ pub(crate) fn with_honest_model_write_hashes<'py>(
         graph.nodes.insert(
             key_of(MODEL_RESOURCE, &name.extract::<String>()?),
             IdentityNode {
-                upstream_keys: graph_keys(&native_field(&model, "deps")?)?,
+                upstream_keys: graph_keys(&model_reads::deps(&model)?)?,
                 local_hash: mapping_get(&local_hashes, &name)?.extract()?,
             },
         );
@@ -395,6 +395,5 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         build_direct_model_version_identities,
         module
     )?)?;
-    module.add_function(wrap_pyfunction!(with_honest_model_write_hashes, module)?)?;
     module.add_function(wrap_pyfunction!(merge_recomputed_model_changes, module)?)
 }

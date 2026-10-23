@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,17 +52,10 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .salesforce_related import RelatedSalesforceField, RelatedSalesforceObject
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .salesforce_related import RelatedSalesforceField, RelatedSalesforceObject
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -374,6 +375,44 @@ class SalesforceField(Asset):
         if self.guid is not UNSET:
             return RelatedSalesforceField(guid=self.guid)
         return RelatedSalesforceField(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        api_name: str,
+        object_qualified_name: str,
+        connection_qualified_name: Union[str, None] = None,
+    ) -> "SalesforceField":
+        validate_required_fields(
+            ["name", "api_name", "object_qualified_name"],
+            [name, api_name, object_qualified_name],
+        )
+        fields = object_qualified_name.split("/")
+        if len(fields) < 5:
+            raise ValueError("object_qualified_name is invalid")
+        if not connection_qualified_name:
+            connection_qualified_name = "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{object_qualified_name}/{api_name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            api_name=api_name,
+            object_qualified_name=object_qualified_name,
+            organization_qualified_name="/".join(fields[:-1]),
+            object=RelatedSalesforceObject(qualified_name=object_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "SalesforceField":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "SalesforceField":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -756,6 +795,7 @@ def _salesforce_field_to_nested(
         is_incomplete=salesforce_field.is_incomplete,
         provenance_type=salesforce_field.provenance_type,
         home_id=salesforce_field.home_id,
+        delete_handler=salesforce_field.delete_handler,
         depth=salesforce_field.depth,
         immediate_upstream=salesforce_field.immediate_upstream,
         immediate_downstream=salesforce_field.immediate_downstream,
@@ -804,6 +844,7 @@ def _salesforce_field_from_nested(nested: SalesforceFieldNested) -> SalesforceFi
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

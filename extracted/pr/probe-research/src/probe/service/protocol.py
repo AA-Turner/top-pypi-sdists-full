@@ -11,6 +11,7 @@ Stdlib only: the service's start path imports nothing heavier (plan S1, Q3).
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 API_VERSION = 1
@@ -57,6 +58,30 @@ class Method:
     ACTION_CANCEL = "action.cancel"
     UPDATE_STATUS = "update.status"
     UPDATE_CHECK_NOW = "update.check_now"
+    #: A session's dispatcher asks for a warm host for its plugin folder (plan A0).
+    HOOKS_HOST = "hooks.host"
+    #: A harness with no hooks of its own (pi) has one hook event run for a
+    #: plugin folder, and gets the routes' merged output back (plan D38).
+    HOOKS_RUN = "hooks.run"
+    #: A session's dispatcher that no warm host took an event from hands the
+    #: service that event's record-keeping routes, to run once by its id
+    #: (plan D36): `hooks.queue`.
+    HOOKS_QUEUE = "hooks.queue"
+    #: The tap asks the service to record a session itself (plan A2): register
+    #: it, and run its recorder on a thread here instead of a `tap watch`.
+    SESSION_RECORD = "session.record"
+    SESSION_RECORDING = "session.recording"
+    SESSION_FINISH = "session.finish"
+    #: `probe capture off` for one agent: finish every recorder this service
+    #: runs for that harness, as `session.finish` does for one session.
+    RECORDERS_FINISH = "recorders.finish"
+    #: A `probe exec` names the run it wraps, and itself as its owner: the
+    #: updater's quiet check sees a run in flight without a lock-file scan.
+    RUN_HOLD = "run.hold"
+    RUN_RELEASE = "run.release"
+    #: A CLI whose cached release manifest is stale asks the service to
+    #: refresh it, instead of spawning a refresher of its own.
+    MANIFEST_REFRESH = "manifest.refresh"
 
 
 #: The methods this service answers. Every other name is `-32601`.
@@ -76,8 +101,21 @@ METHODS = frozenset(
         Method.ACTION_CANCEL,
         Method.UPDATE_STATUS,
         Method.UPDATE_CHECK_NOW,
+        Method.HOOKS_HOST,
+        Method.HOOKS_RUN,
+        Method.HOOKS_QUEUE,
+        Method.SESSION_RECORD,
+        Method.SESSION_RECORDING,
+        Method.SESSION_FINISH,
+        Method.RECORDERS_FINISH,
+        Method.RUN_HOLD,
+        Method.RUN_RELEASE,
+        Method.MANIFEST_REFRESH,
     }
 )
+
+#: `recorders.finish`'s `wait`, and `manifest.refresh`'s, at most (seconds).
+MAX_WAIT_S = 60.0
 
 
 class Action:
@@ -141,7 +179,8 @@ REPORT_FOR_CHECK = {
 
 
 class CheckOutcome:
-    """`update.check_now`'s `outcome`."""
+    """`update.check_now`'s `outcome`; `manifest.refresh` answers with the
+    first three (`started`, `running`, `recent`)."""
 
     STARTED = "started"  # a cycle starts now
     SCHEDULED = "scheduled"  # the service is discovering: the cycle starts when that ends
@@ -192,6 +231,8 @@ class StopReason:
     SIGNAL = "signal"
     #: An update cycle installed a new CLI: the next `ensure` starts its code.
     UPDATE = "update"
+    #: A session asked to be recorded by a newer tap than the one loaded (plan A2).
+    TAP_UPDATE = "tap_update"
 
 
 #: What a request may carry as its `context` (plan X2): the environment the
@@ -255,6 +296,81 @@ CONTEXT_ENV = frozenset(
 #: `base_url` reaches the child as this variable (`probe.sdk.config.resolve`).
 BASE_URL_ENV = "PROBE_BASE_URL"
 MAX_CONTEXT_VALUE = 4096
+
+#: `hooks.run`'s `lane`s and the hook event each one serves: `hooks/dispatch.py`
+#: LANE_EVENT, the argument each frozen hooks.json entry passes its dispatcher, and
+#: the lanes only `harness_io.py --event` runs (Kimi Code's TurnStarted); the
+#: two are held equal (tests/test_service_hooks_run.py).
+HOOK_LANES = {
+    "session-start": "SessionStart",
+    "prompt": "UserPromptSubmit",
+    "pre-compact": "PreCompact",
+    "pre-tool": "PreToolUse",
+    "post-tool": "PostToolUse",
+    "session-end": "SessionEnd",
+    "stop": "Stop",
+    "turn-started": "TurnStarted",
+}
+#: `hooks.run`'s `timeout_ms` when the caller names none: plan D28's wait, the
+#: one a dispatcher gives a warm host before it runs the event itself.
+HOOK_WAIT_MS = 300
+MAX_HOOK_WAIT_MS = 60_000
+#: `hooks.run`'s `env` (the session's environment, as a harness hands its
+#: hooks theirs): at most this many variables, each value at most this long,
+#: as a recorder's (`recorders.MAX_ENV`).
+MAX_HOOK_ENV = 200
+MAX_HOOK_ENV_VALUE = 8192
+MAX_HOOK_PATH = 4096
+#: `hooks.queue`: one queued event, as JSON, is at most this big (its payload
+#: and environment included: `hooks/dispatch.py` MAX_QUEUED_BYTES), and its id
+#: is the dispatcher's: 32 lowercase hex digits.
+MAX_HOOK_QUEUE_ITEM = 256 * 1024
+MAX_HOOK_QUEUE_ENV = 1024
+HOOK_EVENT_ID_LEN = 32
+#: `hooks.queue`'s `env` keeps only what a record-keeping route reads (the rest
+#: is dropped before it is stored: the queue is a file on disk, and an agent's
+#: environment carries every credential its session was given): these names,
+#: the harness's, Probe's, the XDG folders' and the locale's by prefix, and
+#: never a name that looks like a secret (HOOK_QUEUE_ENV_SECRET) but Probe's own
+#: API key, which the CLI already keeps on disk (0600) and `probe notes sync`
+#: may need. `hooks/dispatch.py` `queue_env` keeps the same (a test holds them).
+HOOK_QUEUE_ENV_NAMES = frozenset(
+    {
+        "HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LANGUAGE", "TZ", "TMPDIR", "TERM",
+        "PLUGIN_ROOT", "UV_TOOL_DIR", "UV_TOOL_BIN_DIR", "UV_CACHE_DIR", "PIPX_HOME",
+        "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy",
+        "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE",
+        "GIT_SSL_CAINFO",
+    }
+)
+HOOK_QUEUE_ENV_PREFIXES = ("PROBE_", "CLAUDE", "CODEX_", "KIMI_", "PI_", "XDG_", "LC_")
+HOOK_QUEUE_ENV_SECRET = ("TOKEN", "KEY", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL", "COOKIE", "AUTH")
+HOOK_QUEUE_ENV_CREDENTIAL = "PROBE_TOKEN"
+
+
+def proxy_userinfo(name: str, value: str) -> bool:
+    """Is this a proxy variable whose URL carries a user (and a password):
+    `http://user:secret@proxy:8080`, `user@proxy`? A credential, never stored."""
+    if not name.upper().endswith("_PROXY"):
+        return False
+    return "@" in value.split("://", 1)[-1].split("/", 1)[0]
+
+
+def hook_queue_env(env: dict) -> dict:
+    """The part of a queued event's environment that is kept (HOOK_QUEUE_ENV_*,
+    never a proxy URL with credentials in it)."""
+    kept = {}
+    for name, value in env.items():
+        if proxy_userinfo(name, value):
+            continue
+        if name != HOOK_QUEUE_ENV_CREDENTIAL:
+            upper = name.upper()
+            if any(word in upper for word in HOOK_QUEUE_ENV_SECRET):
+                continue
+            if name not in HOOK_QUEUE_ENV_NAMES and not name.startswith(HOOK_QUEUE_ENV_PREFIXES):
+                continue
+        kept[name] = value
+    return kept
 
 
 class Client:
@@ -331,6 +447,14 @@ class RefusedReason:
     #: `service.stop` while an update step or an action runs.
     UPDATING = "updating"
     ACTION_RUNNING = "action_running"
+    #: `action.run` from inside a coding agent's session the Probe daemon
+    #: records (its caller's process ancestry or environment says so, plan D9).
+    DAEMON_SESSION = "daemon_session"
+    #: `action.run` on a connection whose opener has exited (plan D9).
+    CALLER_GONE = "caller_gone"
+    #: `manifest.refresh` or `recorders.finish` from a caller in a sandbox:
+    #: what it asks for would run (or stop) outside it, with the context it chose.
+    SANDBOXED = "sandboxed"
 
 
 class BusyHolder:
@@ -429,6 +553,14 @@ def need_bool(params: dict, key: str, *, default: bool = False) -> bool:
     return value
 
 
+def need_wait(params: dict, key: str = "wait", *, maximum: float = MAX_WAIT_S) -> float:
+    """An optional number of seconds from 0 to `maximum` (default 0)."""
+    value = params.get(key, 0)
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= maximum:
+        raise invalid_params(f"{key} must be a number of seconds from 0 to {maximum:g}")
+    return float(value)
+
+
 def need_choice(params: dict, key: str, choices: frozenset) -> str:
     value = params.get(key)
     if value not in choices:
@@ -458,12 +590,152 @@ def need_context(params: dict, also: frozenset = frozenset()) -> dict:
         if (
             not isinstance(base_url, str)
             or len(base_url) > 2048
-            or not base_url.startswith(("https://", "http://"))
+            or not base_url.startswith("https://")
             or any(ch.isspace() for ch in base_url)
         ):
-            raise invalid_params("base_url must be an http(s) URL")
+            raise invalid_params("base_url must be an https URL")
         env[BASE_URL_ENV] = base_url
+    elif BASE_URL_ENV in env and not env[BASE_URL_ENV].startswith("https://"):
+        # The same endpoint, named through `context`: the stored token follows
+        # it (plan D10), so the same rule.
+        raise invalid_params(f"context.{BASE_URL_ENV} must be an https URL")
     return env
+
+
+#: `session.register`'s `state_dir` is at most this long.
+MAX_STATE_DIR = 1024
+
+
+def need_state_dir(params: dict) -> str | None:
+    """`session.register`'s optional `state_dir` (plan D13): the session's own
+    state folder, an absolute path. Absent or null: an older registrant."""
+    value = params.get("state_dir")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.startswith("/") or len(value) > MAX_STATE_DIR or "\0" in value:
+        raise invalid_params(f"state_dir must be an absolute path of at most {MAX_STATE_DIR} characters")
+    return value
+
+
+def _need_path(params: dict, key: str) -> str:
+    value = params.get(key)
+    if not isinstance(value, str) or not value.startswith("/") or len(value) > MAX_HOOK_PATH or "\0" in value:
+        raise invalid_params(f"{key} must be an absolute path of at most {MAX_HOOK_PATH} characters")
+    return value
+
+
+def need_hook_run(params: dict) -> dict:
+    """`hooks.run`'s params, checked: `{root, lane, event, payload (bytes),
+    env, cwd, timeout_s}`.
+
+        plugin_root  the plugin folder whose routes run (absolute)
+        lane         a HOOK_LANES key: the hooks.json entry's argument
+        payload      the event as the harness's hook reads it on stdin: a JSON
+                     object; its `hook_event_name`, when given, must be the lane's
+        env          the session's environment (at most MAX_HOOK_ENV strings)
+        cwd          the session's folder (absolute)
+        timeout_ms   how long the caller waits (default HOOK_WAIT_MS)
+    """
+    root = _need_path(params, "plugin_root")
+    lane = params.get("lane")
+    if lane not in HOOK_LANES:
+        raise invalid_params(f"lane must be one of {sorted(HOOK_LANES)}")
+    event = HOOK_LANES[lane]
+    payload = params.get("payload")
+    if not isinstance(payload, dict):
+        raise invalid_params("payload must be a JSON object")
+    named = payload.get("hook_event_name")
+    if named is not None and named != event:
+        raise invalid_params(f"payload.hook_event_name must be {event!r} on lane {lane!r}")
+    payload = {**payload, "hook_event_name": event}
+    env = params.get("env", {})
+    if (
+        not isinstance(env, dict)
+        or len(env) > MAX_HOOK_ENV
+        or not all(
+            isinstance(k, str)
+            and k
+            and len(k) <= 256
+            and "=" not in k
+            and "\0" not in k
+            and isinstance(v, str)
+            and len(v) <= MAX_HOOK_ENV_VALUE
+            and "\0" not in v
+            for k, v in env.items()
+        )
+    ):
+        raise invalid_params(
+            f"env must be an object of at most {MAX_HOOK_ENV} variables, each a string of at most "
+            f"{MAX_HOOK_ENV_VALUE} characters"
+        )
+    cwd = _need_path(params, "cwd")
+    timeout = params.get("timeout_ms", HOOK_WAIT_MS)
+    if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= MAX_HOOK_WAIT_MS:
+        raise invalid_params(f"timeout_ms must be an integer from 1 to {MAX_HOOK_WAIT_MS}")
+    return {
+        "root": root,
+        "lane": lane,
+        "event": event,
+        # ASCII, so a lone surrogate a JSON client may send stays an escape.
+        "payload": json.dumps(payload, separators=(",", ":")).encode("ascii"),
+        "env": dict(env),
+        "cwd": cwd,
+        "timeout_s": timeout / 1000.0,
+    }
+
+
+def need_hook_queue(params: dict) -> dict:
+    """`hooks.queue`'s params (and a queue file's item, the same object),
+    checked: `{id, root, lane, payload (bytes), env, cwd, at}`.
+
+        id           the event's id, 32 lowercase hex digits (the dispatcher's
+                     own): an id is run once, however often it is sent
+        plugin_root  the plugin folder whose record-keeping routes run (absolute)
+        lane         a HOOK_LANES key
+        payload      the event as the harness wrote it on the hook's stdin: a
+                     string (the dispatcher's bytes, `surrogateescape`)
+        env          the event's environment: an object of strings, of which only
+                     HOOK_QUEUE_ENV_* is kept (no credential but Probe's own)
+        cwd          the event's working folder (absolute)
+        at           when it happened (epoch seconds; optional): the queue
+                     runs events oldest first
+
+    The whole item is at most MAX_HOOK_QUEUE_ITEM bytes as JSON."""
+    event_id = params.get("id")
+    if (
+        not isinstance(event_id, str)
+        or len(event_id) != HOOK_EVENT_ID_LEN
+        or any(c not in "0123456789abcdef" for c in event_id)
+    ):
+        raise invalid_params(f"id must be {HOOK_EVENT_ID_LEN} lowercase hex digits")
+    root = _need_path(params, "plugin_root")
+    lane = params.get("lane")
+    if lane not in HOOK_LANES:
+        raise invalid_params(f"lane must be one of {sorted(HOOK_LANES)}")
+    payload = params.get("payload")
+    if not isinstance(payload, str):
+        raise invalid_params("payload must be a string: the event's JSON as the harness wrote it")
+    env = params.get("env")
+    if (
+        not isinstance(env, dict)
+        or len(env) > MAX_HOOK_QUEUE_ENV
+        or not all(
+            isinstance(k, str) and k and "=" not in k and "\0" not in k and isinstance(v, str) and "\0" not in v
+            for k, v in env.items()
+        )
+    ):
+        raise invalid_params(f"env must be an object of at most {MAX_HOOK_QUEUE_ENV} string variables")
+    cwd = _need_path(params, "cwd")
+    at = params.get("at")
+    if at is None:
+        at = time.time()
+    elif not isinstance(at, (int, float)) or isinstance(at, bool) or at != at or at in (float("inf"), float("-inf")):
+        raise invalid_params("at must be a number (epoch seconds)")
+    item = {"id": event_id, "plugin_root": root, "lane": lane, "payload": payload, "env": hook_queue_env(env),
+            "cwd": cwd, "at": float(at)}
+    if len(json.dumps(item).encode("utf-8")) > MAX_HOOK_QUEUE_ITEM:
+        raise invalid_params(f"a queued event must be at most {MAX_HOOK_QUEUE_ITEM} bytes as JSON")
+    return item
 
 
 def need_owner(params: dict) -> dict | None:

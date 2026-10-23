@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Optional, cast
 
-import httpx
-
 from ..types import experiment_assignment_params, experiment_personalization_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
@@ -17,6 +15,7 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
+from ..lib._httpx import httpx
 from .._base_client import make_request_options
 from ..types.experiment_assignment_response import ExperimentAssignmentResponse
 from ..types.experiment_personalization_response import ExperimentPersonalizationResponse

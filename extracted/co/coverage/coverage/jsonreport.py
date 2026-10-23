@@ -3,6 +3,8 @@
 
 """Json reporting for coverage.py"""
 
+# pragma: enforce 100% coverage
+
 from __future__ import annotations
 
 import datetime
@@ -11,10 +13,10 @@ import sys
 from collections.abc import Iterable
 from typing import IO, TYPE_CHECKING, Any
 
-from coverage import __version__
 from coverage.report_core import get_analysis_to_report
 from coverage.results import Analysis, AnalysisNarrower, Numbers
 from coverage.types import TLineNo, TMorfs
+from coverage.version import __version__
 
 if TYPE_CHECKING:
     from coverage import Coverage

@@ -293,7 +293,7 @@ _PROXY_FIELDS = ("name", "note", "error", "label")
 # is unconfigured or hiccups (build_detail emits `cred_presence` as `{}` there).
 _CRED_FIELDS = ("username", "password", "totp", "phone")
 _CRED_FLAT = {"username": "has_user", "password": "has_pass", "totp": "has_totp"}
-# The list route's per-account fields: the vault-backed config (#2290/#2286) and
+# The list route's per-account fields: the vault-backed config and
 # the BOUND exit (`proxy`). `bakeable` is computed by build_detail only, so it
 # stays a `show` fact: reading it here rendered "no" for every account.
 # `is_default`: the app defaults name this account for its own login_key.

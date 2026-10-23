@@ -378,7 +378,11 @@ def test_version_is_what_a_fresh_process_imports(tmp_path):
 
     core = _child(tmp_path, "core", "core", ["version"], bare=True)
     assert core.returncode == 0, core.stderr
-    assert json.loads(core.stdout) == {"cli_version": probe.__version__}
+    answer = json.loads(core.stdout)
+    assert answer["cli_version"] == probe.__version__
+    # The newest release, when the manifest says (the service asks before it
+    # stops daemon workers for an update, D7); unknown here.
+    assert set(answer) == {"cli_version", "cli_latest"}
     refused = _child(tmp_path, "core", "core", ["version"], stdin='{"x": 1}', bare=True)
     assert refused.returncode == 2
 
@@ -386,7 +390,8 @@ def test_version_is_what_a_fresh_process_imports(tmp_path):
 #: `probe status` for a person, on a fresh device: captured from origin/main
 #: (cd807ea4b) with this same environment. Its read now goes through
 #: `probe.core.reads`; what it prints did not change. The CLI's version and
-#: install method move every release, so they read `<cli>`.
+#: install method move every release, so they read `<cli>`. One line added on
+#: purpose since: the Probe service's own view (`service_calls.summary`).
 GOLDEN_STATUS = (
     "Probe CLI          <cli>\n"
     "Account            not signed in · default · http://127.0.0.1:9\n"
@@ -395,6 +400,7 @@ GOLDEN_STATUS = (
     "Automatic updates  off\n"
     "Versions           unknown\n"
     "Setup running      no\n"
+    "Probe service      not running (it starts with the next coding-agent session, or run `probe service start`)\n"
     "Coding agents      none found on this device\n"
 )
 

@@ -1,6 +1,6 @@
 [project]
 name = "dbt-bouncer"
-version = "4.2.1"
+version = "4.3.0"
 description = "Configure and enforce conventions for your dbt project."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -50,6 +50,7 @@ dbt-bouncer = "dbt_bouncer.main:app"
 
 [project.entry-points."dbt_bouncer.checks"]
 catalog = "dbt_bouncer.checks.catalog"
+info_schema = "dbt_bouncer.checks.info_schema"
 manifest = "dbt_bouncer.checks.manifest"
 run_results = "dbt_bouncer.checks.run_results"
 
@@ -78,6 +79,7 @@ dev = [
   "ruff>=0.8,<1",
   "shandy-sqlfmt[jinjafmt]>=0.7,<1",
   "tombi>=1.2,<2",
+  "tomli-w>=1.0,<2",
   "tqdm>=4,<5",
   "ty>=0.0.7"
 ]
@@ -105,7 +107,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.coverage.report]
-exclude_lines = [
+exclude_also = [
   "if TYPE_CHECKING:",
 ]
 
@@ -113,6 +115,8 @@ exclude_lines = [
 # Statement coverage alone reports a partially-taken `if`/`except` as covered,
 # which hid ~126 untaken branches across the config validator and check registry.
 branch = true
+# Store paths relative to the repo so the PR coverage comment action can map them to source.
+relative_files = true
 
 [tool.dbt-bouncer]
 dbt_artifacts_dir = "dbt_project/target"

@@ -39,10 +39,12 @@ from .paginator import (
     GetNetworkResourceCountsPaginator,
     GetNetworkResourceRelationshipsPaginator,
     GetNetworkResourcesPaginator,
+    GetNetworkRoutesPaginator,
     GetNetworkTelemetryPaginator,
     GetSitesPaginator,
     GetTransitGatewayConnectPeerAssociationsPaginator,
     GetTransitGatewayRegistrationsPaginator,
+    ListAttachmentNatConfigurationsPaginator,
     ListAttachmentRoutingPolicyAssociationsPaginator,
     ListAttachmentsPaginator,
     ListConnectPeersPaginator,
@@ -181,6 +183,8 @@ from .type_defs import (
     GetTransitGatewayRouteTableAttachmentResponseTypeDef,
     GetVpcAttachmentRequestTypeDef,
     GetVpcAttachmentResponseTypeDef,
+    ListAttachmentNatConfigurationsRequestTypeDef,
+    ListAttachmentNatConfigurationsResponseTypeDef,
     ListAttachmentRoutingPolicyAssociationsRequestTypeDef,
     ListAttachmentRoutingPolicyAssociationsResponseTypeDef,
     ListAttachmentsRequestTypeDef,
@@ -220,6 +224,8 @@ from .type_defs import (
     StartRouteAnalysisResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAttachmentNatConfigurationRequestTypeDef,
+    UpdateAttachmentNatConfigurationResponseTypeDef,
     UpdateConnectionRequestTypeDef,
     UpdateConnectionResponseTypeDef,
     UpdateCoreNetworkRequestTypeDef,
@@ -942,6 +948,16 @@ class NetworkManagerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_vpc_attachment)
         """
 
+    def list_attachment_nat_configurations(
+        self, **kwargs: Unpack[ListAttachmentNatConfigurationsRequestTypeDef]
+    ) -> ListAttachmentNatConfigurationsResponseTypeDef:
+        """
+        Returns the NAT configurations of core network attachments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_attachment_nat_configurations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#list_attachment_nat_configurations)
+        """
+
     def list_attachment_routing_policy_associations(
         self, **kwargs: Unpack[ListAttachmentRoutingPolicyAssociationsRequestTypeDef]
     ) -> ListAttachmentRoutingPolicyAssociationsResponseTypeDef:
@@ -1149,6 +1165,16 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#untag_resource)
+        """
+
+    def update_attachment_nat_configuration(
+        self, **kwargs: Unpack[UpdateAttachmentNatConfigurationRequestTypeDef]
+    ) -> UpdateAttachmentNatConfigurationResponseTypeDef:
+        """
+        Updates the NAT configuration of a core network attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/update_attachment_nat_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#update_attachment_nat_configuration)
         """
 
     def update_connection(
@@ -1372,6 +1398,17 @@ class NetworkManagerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_network_routes"]
+    ) -> GetNetworkRoutesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_network_telemetry"]
     ) -> GetNetworkTelemetryPaginator:
         """
@@ -1407,6 +1444,17 @@ class NetworkManagerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_transit_gateway_registrations"]
     ) -> GetTransitGatewayRegistrationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_attachment_nat_configurations"]
+    ) -> ListAttachmentNatConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

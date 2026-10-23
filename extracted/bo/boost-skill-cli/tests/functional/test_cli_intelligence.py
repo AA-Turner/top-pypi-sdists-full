@@ -61,6 +61,9 @@ def ai_on(sandbox, monkeypatch):
     from boost_cli.core import ai
     monkeypatch.delenv("BOOST_NO_AI", raising=False)
     monkeypatch.setattr(ai, "available", lambda: True)
+    # A backend exists, so a degraded reply is blamed on the reply rather
+    # than on PATH -- CI runners have no assistant CLI installed.
+    monkeypatch.setattr(ai, "has_cli", lambda: True)
 
     def set_replies(ask=None, ask_author=None):
         monkeypatch.setattr(ai, "ask", lambda *a, **k: ask)
@@ -1051,7 +1054,9 @@ class TestContext:
         r = boost("context", "apply")
         assert "sidelined: tdd-workflow" in r.out
         assert not link.exists()
-        assert (paths.store_dir() / "tdd-workflow").is_dir()  # store intact
+        # Held aside, out of the store Gemini CLI and Codex read directly.
+        assert not os.path.lexists(paths.store_dir() / "tdd-workflow")
+        assert (paths.held_skills_dir() / "tdd-workflow" / "SKILL.md").is_file()
         # brainstorming was never mapped, so it keeps its links
         assert (paths.home() / ".claude" / "skills" / "brainstorming").is_symlink()
 
@@ -1134,7 +1139,10 @@ class TestFocus:
         jira_link = paths.home() / ".claude" / "skills" / "jira-integration"
         assert not jira_link.exists()
         assert (paths.home() / ".claude" / "skills" / "brainstorming").is_symlink()
-        assert (paths.store_dir() / "jira-integration").is_dir()  # store intact
+        # Held aside, out of the store Gemini CLI and Codex read directly.
+        assert not os.path.lexists(paths.store_dir() / "jira-integration")
+        assert (paths.held_skills_dir() / "jira-integration" / "SKILL.md"
+                ).is_file()
 
         r = boost("focus", "--status")
         assert "focus: brainstorming" in r.out
@@ -1187,17 +1195,89 @@ class TestFocus:
         assert not (skills / "tdd-workflow").exists()
         assert lockfile.get_skill("tdd-workflow")["sidelined_by"] == "context"
 
+    def test_focusing_a_context_sidelined_skill_puts_it_back_at_clear(
+            self, boost, tapped, tmp_path, monkeypatch):
+        from boost_cli.core import lockfile
+
+        for n in ("brainstorming", "commit-messages", "tdd-workflow"):
+            boost("install", n, "--no-deps")
+        repo = _git_repo(tmp_path / "repo")
+        monkeypatch.chdir(repo)
+        boost("context", "map", "feature/*", "tdd-workflow")
+        boost("context", "enable")
+        assert lockfile.get_skill("tdd-workflow")["sidelined_by"] == "context"
+        boost("focus", "tdd-workflow")
+        state = json.loads((paths.state_dir() / "focus.json").read_text(
+            encoding="utf-8"))
+        assert state["prior"] == {"tdd-workflow": "context"}
+        skills = paths.home() / ".claude" / "skills"
+        assert (skills / "tdd-workflow").is_symlink()
+        # A re-focus keeps the record: tdd-workflow is a focus sideline now.
+        boost("focus", "brainstorming")
+        assert json.loads((paths.state_dir() / "focus.json").read_text(
+            encoding="utf-8"))["prior"] == {"tdd-workflow": "context"}
+        r = boost("focus", "--clear")
+        assert "focus cleared — 2 skill(s) restored" in r.out
+        assert ("sidelined again, as before the focus: tdd-workflow"
+                in flat(r.out))
+        assert not os.path.lexists(skills / "tdd-workflow")
+        assert (skills / "commit-messages").is_symlink()
+        assert lockfile.get_skill("tdd-workflow")["sidelined_by"] == "context"
+
+    def test_a_disabled_context_is_not_put_back(
+            self, boost, tapped, tmp_path, monkeypatch):
+        from boost_cli.core import lockfile
+
+        for n in ("brainstorming", "tdd-workflow"):
+            boost("install", n, "--no-deps")
+        repo = _git_repo(tmp_path / "repo")
+        monkeypatch.chdir(repo)
+        boost("context", "map", "feature/*", "tdd-workflow")
+        boost("context", "enable")
+        boost("focus", "tdd-workflow")
+        boost("context", "disable")
+        r = json.loads(boost("focus", "--clear", "--json").out)
+        assert r == {"active": [], "restored": 1, "residelined": [],
+                     "had_session": True}
+        assert "sidelined_by" not in lockfile.get_skill("tdd-workflow")
+        assert (paths.home() / ".claude" / "skills" / "tdd-workflow"
+                ).is_symlink()
+
+    def test_status_names_a_focused_skill_a_profile_set_aside(
+            self, boost, tapped):
+        boost("install", "tdd-workflow", "--no-deps")
+        boost("profile", "save", "onlytdd")
+        boost("install", "brainstorming", "--no-deps")
+        boost("focus", "brainstorming")
+        boost("profile", "use", "onlytdd")
+        r = boost("focus", "--status")
+        assert "focus: brainstorming" in r.out
+        assert ("brainstorming is not linked — sidelined by `boost profile` "
+                "since the focus began") in flat(r.out)
+        data = json.loads(boost("focus", "--json").out)
+        assert data["displaced"] == {
+            "brainstorming": "sidelined by `boost profile`"}
+
+    def test_an_intact_focus_has_nothing_displaced(self, boost, tapped):
+        boost("install", "brainstorming")
+        boost("focus", "brainstorming")
+        r = boost("focus", "--status")
+        assert "not linked" not in r.out + r.err
+        assert json.loads(boost("focus", "--json").out)["displaced"] == {}
+
     def test_focus_set_and_clear_json(self, boost, tapped):
         boost("install", "brainstorming")
         boost("install", "jira-integration", "--no-deps")
         r = json.loads(boost("focus", "brainstorming", "--json").out)
         assert r == {"active": ["brainstorming"], "sidelined": 1}
         r = json.loads(boost("focus", "--clear", "--json").out)
-        assert r == {"active": [], "restored": 1, "had_session": True}
+        assert r == {"active": [], "restored": 1, "residelined": [],
+                     "had_session": True}
 
     def test_clear_with_no_session_json(self, boost, installed):
         r = json.loads(boost("focus", "--clear", "--json").out)
-        assert r == {"active": [], "restored": 0, "had_session": False}
+        assert r == {"active": [], "restored": 0, "residelined": [],
+                     "had_session": False}
 
     def test_unknown_skill(self, boost, installed):
         r = boost("focus", "nope", expect=1)
@@ -1356,3 +1436,94 @@ class TestKindDeclines:
         r = boost("context", "apply")
         assert "mapped but not installed" not in r.out
         assert "house (rule)" in r.out
+
+
+# ------------------------------------------- AI-authored names and bad replies
+
+WRONG_NAME = ("---\nname: something-else\ndescription: AI wrote it\n"
+              "version: 1.0.0\n---\n\n# Body\n\n- An AI rule.\n")
+JUNK = "{not json [[ garbage"
+JUNK_NOTE = ("AI reply was not usable (no SKILL.md frontmatter) — see "
+             "~/.boost/logs/boost.log — using the heuristic fallback")
+
+
+class TestAuthoredName:
+    """The model is asked for a name and does not always write it; the file
+    must carry the name the user asked for, whatever the reply said."""
+
+    def _history(self, tmp_path):
+        f = tmp_path / "h.jsonl"
+        f.write_text("\n".join(
+            [_history_line("please write docstrings for every function")] * 3),
+            encoding="utf-8")
+        return f
+
+    def test_distill_writes_the_requested_name(self, boost, tapped, tmp_path,
+                                               monkeypatch, ai_on):
+        monkeypatch.chdir(tmp_path)
+        ai_on(ask_author=WRONG_NAME)
+        r = boost("distill", "brainstorming", "tdd-workflow",
+                  "--name", "merged-one")
+        text = (tmp_path / "merged-one" / "SKILL.md").read_text(encoding="utf-8")
+        assert text.startswith("---\nname: merged-one\ndescription: AI wrote it\n")
+        assert "- An AI rule." in text
+        assert FALLBACK not in flat(r.err)
+
+    def test_infer_output_carries_the_requested_name(self, boost, sandbox,
+                                                     py_project, tmp_path,
+                                                     ai_on):
+        ai_on(ask_author=WRONG_NAME)
+        out_file = tmp_path / "inf" / "SKILL.md"
+        boost("infer", "--path", py_project, "--name", "my-conv", "-o", out_file)
+        meta, body = frontmatter.parse(out_file.read_text(encoding="utf-8"))
+        assert meta["name"] == "my-conv"
+        assert "- An AI rule." in body
+
+    def test_infer_refuses_a_name_with_nothing_to_slug(self, boost, sandbox,
+                                                       py_project):
+        r = boost("infer", "--path", py_project, "--name", "!!!", expect=1)
+        assert "skill name has no letters or digits: '!!!'" in r.err
+
+    def test_absorb_prints_the_absorbed_name(self, boost, sandbox, tmp_path,
+                                             ai_on):
+        ai_on(ask_author=WRONG_NAME)
+        r = boost("absorb", "--history", self._history(tmp_path))
+        assert "name: absorbed-patterns\n" in r.out
+        assert "something-else" not in r.out
+        assert "- An AI rule." in r.out
+
+    def test_evolve_apply_keeps_the_installed_name(self, boost, installed,
+                                                   ai_on):
+        ai_on(ask_author=WRONG_NAME.replace("1.0.0", "1.4.1"))
+        r = boost("evolve", "brainstorming", "--apply", "--feedback", "terser")
+        assert "evolved brainstorming → v1.4.1" in r.out
+        text = (paths.store_dir() / "brainstorming" / "SKILL.md").read_text(
+            encoding="utf-8")
+        assert frontmatter.parse(text)[0]["name"] == "brainstorming"
+        assert "- An AI rule." in text
+
+    def test_distill_junk_reply_says_why(self, boost, tapped, tmp_path,
+                                         monkeypatch, ai_on):
+        monkeypatch.chdir(tmp_path)
+        ai_on(ask_author=JUNK)
+        r = boost("distill", "brainstorming", "tdd-workflow", "--name", "m3")
+        assert JUNK_NOTE in flat(r.err)
+        assert "AI unavailable" not in flat(r.err)
+        assert (tmp_path / "m3" / "SKILL.md").is_file()
+
+    def test_infer_junk_reply_says_why(self, boost, sandbox, py_project, ai_on):
+        ai_on(ask_author=JUNK)
+        r = boost("infer", "--path", py_project)
+        assert JUNK_NOTE in flat(r.err)
+        assert r.out.startswith("---\nname: project-conventions\n")
+
+    def test_absorb_junk_reply_says_why(self, boost, sandbox, tmp_path, ai_on):
+        ai_on(ask_author=JUNK)
+        r = boost("absorb", "--history", self._history(tmp_path))
+        assert JUNK_NOTE in flat(r.err)
+
+    def test_evolve_junk_reply_says_why(self, boost, installed, ai_on):
+        ai_on(ask_author=JUNK)
+        r = boost("evolve", "brainstorming", "--feedback", "be terser")
+        assert JUNK_NOTE in flat(r.err)
+        assert "+- be terser." in r.out

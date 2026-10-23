@@ -14,25 +14,15 @@ pytest.importorskip("tinker")
 
 from tinker import types
 
-from together.lib.beta import rl
-from together.post_training import Sample, LossConfig, tinker as tinker_compat
-from together.lib.post_training import _request_types
+from together.post_training import Sample, LossConfig, tinker as tinker_compat, _request_types
+from together.post_training.tinker import _service, _teardown
 from tests.unit._post_training_tinker import (
     _noop,
     _ignore,
     _session_mock,
     _model_resources_mock,
 )
-from together.lib.post_training.tinker import _service, _teardown
-from together.lib.post_training.clients.session import SessionClient
-
-
-def test_legacy_tinker_import_reexports_the_implementation() -> None:
-    import together.lib.beta.rl.tinker as legacy
-    import together.post_training.tinker as tinker
-
-    assert legacy.ServiceClient is tinker.ServiceClient
-    assert legacy.types is tinker.types
+from together.post_training.clients.session import SessionClient
 
 
 def test_module_reexports_types_without_genuine_clients() -> None:
@@ -50,9 +40,11 @@ def test_module_reexports_types_without_genuine_clients() -> None:
 def test_request_types_are_reexported() -> None:
     """The package re-export must resolve to the handwritten request types, not to a
     regenerated types.post_training symbol of the same name."""
+    import together.post_training as post_training
+
     assert Sample is _request_types.Sample
     assert LossConfig is _request_types.LossConfig
-    assert {"Sample", "LossConfig"} <= set(rl.__all__)
+    assert {"Sample", "LossConfig"} <= set(post_training.__all__)
 
 
 def test_create_lora_training_client_warns_on_reproducibility_kwargs(

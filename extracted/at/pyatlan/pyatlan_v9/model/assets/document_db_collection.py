@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -42,6 +50,7 @@ from .dbt_related import (
     RelatedDbtSource,
     RelatedDbtTest,
 )
+from .document_db_related import RelatedDocumentDBCollection, RelatedDocumentDBDatabase
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -66,15 +75,6 @@ from .sql_related import (
     RelatedTable,
     RelatedTablePartition,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .document_db_related import RelatedDocumentDBCollection, RelatedDocumentDBDatabase
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -677,10 +677,6 @@ class DocumentDBCollection(Asset):
                 errors.append("connection_qualified_name is required for creation")
             if self.document_db_database is UNSET:
                 errors.append("document_db_database is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"DocumentDBCollection validation failed: {errors}")
 
@@ -1563,6 +1559,7 @@ def _document_db_collection_to_nested(
         is_incomplete=document_db_collection.is_incomplete,
         provenance_type=document_db_collection.provenance_type,
         home_id=document_db_collection.home_id,
+        delete_handler=document_db_collection.delete_handler,
         depth=document_db_collection.depth,
         immediate_upstream=document_db_collection.immediate_upstream,
         immediate_downstream=document_db_collection.immediate_downstream,
@@ -1613,6 +1610,7 @@ def _document_db_collection_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

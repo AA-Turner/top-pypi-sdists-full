@@ -651,7 +651,7 @@ def create_app() -> FastAPI:
             from matrx_orm import call_function
 
             rows = await call_function(
-                PACKAGE_DB_NAME, "public", "get_user_organizations", ctx.user_id, mode="rows"
+                PACKAGE_DB_NAME, "iam", "get_user_organizations", ctx.user_id, mode="rows"
             )
             ids = {str(row["id"]) for row in rows or []}
             org = next(iter(ids)) if len(ids) == 1 else None

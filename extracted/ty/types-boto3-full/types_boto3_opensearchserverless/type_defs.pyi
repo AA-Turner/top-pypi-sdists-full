@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping, Sequence
-from typing import Any
+from datetime import datetime
+from typing import Any, Union
 
 from .literals import (
     AutoscalingStatusType,
@@ -27,6 +28,12 @@ from .literals import (
     DeletionProtectionType,
     IamIdentityCenterGroupAttributeType,
     IamIdentityCenterUserAttributeType,
+    IngestionAlertCodeType,
+    IngestionFailureCodeType,
+    IngestionJobStatusType,
+    IngestionStateType,
+    IngestionStreamStatusType,
+    InitialScanType,
     SecurityConfigTypeType,
     SecurityPolicyTypeType,
     ServerlessGenerationType,
@@ -55,6 +62,8 @@ __all__ = (
     "BatchGetLifecyclePolicyResponseTypeDef",
     "BatchGetVpcEndpointRequestTypeDef",
     "BatchGetVpcEndpointResponseTypeDef",
+    "CancelIngestionJobRequestTypeDef",
+    "CancelIngestionJobResponseTypeDef",
     "CapacityDetailsTypeDef",
     "CapacityLimitsTypeDef",
     "CollectionDetailTypeDef",
@@ -75,6 +84,10 @@ __all__ = (
     "CreateCollectionResponseTypeDef",
     "CreateIamIdentityCenterConfigOptionsTypeDef",
     "CreateIndexRequestTypeDef",
+    "CreateIngestionJobRequestTypeDef",
+    "CreateIngestionJobResponseTypeDef",
+    "CreateIngestionStreamRequestTypeDef",
+    "CreateIngestionStreamResponseTypeDef",
     "CreateLifecyclePolicyRequestTypeDef",
     "CreateLifecyclePolicyResponseTypeDef",
     "CreateSecurityConfigRequestTypeDef",
@@ -91,6 +104,8 @@ __all__ = (
     "DeleteCollectionRequestTypeDef",
     "DeleteCollectionResponseTypeDef",
     "DeleteIndexRequestTypeDef",
+    "DeleteIngestionStreamRequestTypeDef",
+    "DeleteIngestionStreamResponseTypeDef",
     "DeleteLifecyclePolicyRequestTypeDef",
     "DeleteSecurityConfigRequestTypeDef",
     "DeleteSecurityPolicyRequestTypeDef",
@@ -106,6 +121,10 @@ __all__ = (
     "GetAccountSettingsResponseTypeDef",
     "GetIndexRequestTypeDef",
     "GetIndexResponseTypeDef",
+    "GetIngestionJobRequestTypeDef",
+    "GetIngestionJobResponseTypeDef",
+    "GetIngestionStreamRequestTypeDef",
+    "GetIngestionStreamResponseTypeDef",
     "GetPoliciesStatsResponseTypeDef",
     "GetSecurityConfigRequestTypeDef",
     "GetSecurityConfigResponseTypeDef",
@@ -113,6 +132,20 @@ __all__ = (
     "GetSecurityPolicyResponseTypeDef",
     "IamFederationConfigOptionsTypeDef",
     "IamIdentityCenterConfigOptionsTypeDef",
+    "IngestionAlertTypeDef",
+    "IngestionFailureReasonTypeDef",
+    "IngestionJobDetailTypeDef",
+    "IngestionJobS3SourceTypeDef",
+    "IngestionJobSourceTypeDef",
+    "IngestionJobSummaryTypeDef",
+    "IngestionStatisticsTypeDef",
+    "IngestionStreamDetailTypeDef",
+    "IngestionStreamS3SourceOutputTypeDef",
+    "IngestionStreamS3SourceTypeDef",
+    "IngestionStreamSourceOutputTypeDef",
+    "IngestionStreamSourceTypeDef",
+    "IngestionStreamSourceUnionTypeDef",
+    "IngestionStreamSummaryTypeDef",
     "LifecyclePolicyDetailTypeDef",
     "LifecyclePolicyErrorDetailTypeDef",
     "LifecyclePolicyIdentifierTypeDef",
@@ -125,6 +158,12 @@ __all__ = (
     "ListCollectionGroupsResponseTypeDef",
     "ListCollectionsRequestTypeDef",
     "ListCollectionsResponseTypeDef",
+    "ListIngestionJobsRequestPaginateTypeDef",
+    "ListIngestionJobsRequestTypeDef",
+    "ListIngestionJobsResponseTypeDef",
+    "ListIngestionStreamsRequestPaginateTypeDef",
+    "ListIngestionStreamsRequestTypeDef",
+    "ListIngestionStreamsResponseTypeDef",
     "ListLifecyclePoliciesRequestTypeDef",
     "ListLifecyclePoliciesResponseTypeDef",
     "ListSecurityConfigsRequestTypeDef",
@@ -135,7 +174,9 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "ListVpcEndpointsRequestTypeDef",
     "ListVpcEndpointsResponseTypeDef",
+    "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "S3StatisticsTypeDef",
     "SamlConfigOptionsTypeDef",
     "SecurityConfigDetailTypeDef",
     "SecurityConfigStatsTypeDef",
@@ -143,6 +184,7 @@ __all__ = (
     "SecurityPolicyDetailTypeDef",
     "SecurityPolicyStatsTypeDef",
     "SecurityPolicySummaryTypeDef",
+    "StreamBucketConfigTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "UntagResourceRequestTypeDef",
@@ -322,6 +364,11 @@ VpcEndpointErrorDetailTypeDef = TypedDict(
     },
 )
 
+class CancelIngestionJobRequestTypeDef(TypedDict):
+    collectionId: str
+    ingestionJobId: str
+    clientToken: NotRequired[str]
+
 class CapacityDetailsTypeDef(TypedDict):
     capacityInOcu: NotRequired[float]
     autoscalingStatus: NotRequired[AutoscalingStatusType]
@@ -485,6 +532,12 @@ DeleteIndexRequestTypeDef = TypedDict(
         "indexName": str,
     },
 )
+
+class DeleteIngestionStreamRequestTypeDef(TypedDict):
+    collectionId: str
+    ingestionStreamId: str
+    clientToken: NotRequired[str]
+
 DeleteLifecyclePolicyRequestTypeDef = TypedDict(
     "DeleteLifecyclePolicyRequestTypeDef",
     {
@@ -538,6 +591,14 @@ GetIndexRequestTypeDef = TypedDict(
     },
 )
 
+class GetIngestionJobRequestTypeDef(TypedDict):
+    collectionId: str
+    ingestionJobId: str
+
+class GetIngestionStreamRequestTypeDef(TypedDict):
+    collectionId: str
+    ingestionStreamId: str
+
 class LifecyclePolicyStatsTypeDef(TypedDict):
     RetentionPolicyCount: NotRequired[int]
 
@@ -570,6 +631,47 @@ class IamIdentityCenterConfigOptionsTypeDef(TypedDict):
     userAttribute: NotRequired[IamIdentityCenterUserAttributeType]
     groupAttribute: NotRequired[IamIdentityCenterGroupAttributeType]
 
+class IngestionAlertTypeDef(TypedDict):
+    code: NotRequired[IngestionAlertCodeType]
+    message: NotRequired[str]
+
+class IngestionFailureReasonTypeDef(TypedDict):
+    code: NotRequired[IngestionFailureCodeType]
+    message: NotRequired[str]
+
+class IngestionJobS3SourceTypeDef(TypedDict):
+    bucket: NotRequired[str]
+    bucketOwnerAccountId: NotRequired[str]
+    keyPrefix: NotRequired[str]
+
+class IngestionJobSummaryTypeDef(TypedDict):
+    ingestionJobId: NotRequired[str]
+    arn: NotRequired[str]
+    ingestionJobName: NotRequired[str]
+    indexName: NotRequired[str]
+    status: NotRequired[IngestionJobStatusType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+class S3StatisticsTypeDef(TypedDict):
+    objectsDiscovered: NotRequired[int]
+    objectsIngested: NotRequired[int]
+    objectsFailed: NotRequired[int]
+
+class StreamBucketConfigTypeDef(TypedDict):
+    bucket: str
+    bucketOwnerAccountId: NotRequired[str]
+    initialScan: NotRequired[InitialScanType]
+
+class IngestionStreamSummaryTypeDef(TypedDict):
+    ingestionStreamId: NotRequired[str]
+    arn: NotRequired[str]
+    ingestionStreamName: NotRequired[str]
+    indexName: NotRequired[str]
+    status: NotRequired[IngestionStreamStatusType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
 LifecyclePolicySummaryTypeDef = TypedDict(
     "LifecyclePolicySummaryTypeDef",
     {
@@ -592,6 +694,21 @@ ListAccessPoliciesRequestTypeDef = TypedDict(
 )
 
 class ListCollectionGroupsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class ListIngestionJobsRequestTypeDef(TypedDict):
+    collectionId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+class ListIngestionStreamsRequestTypeDef(TypedDict):
+    collectionId: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
@@ -738,8 +855,22 @@ class AccountSettingsDetailTypeDef(TypedDict):
 class UpdateAccountSettingsRequestTypeDef(TypedDict):
     capacityLimits: NotRequired[CapacityLimitsTypeDef]
 
+class CancelIngestionJobResponseTypeDef(TypedDict):
+    ingestionJobId: str
+    collectionId: str
+    ingestionJobName: str
+    status: IngestionJobStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateAccessPolicyResponseTypeDef(TypedDict):
     accessPolicyDetail: AccessPolicyDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteIngestionStreamResponseTypeDef(TypedDict):
+    ingestionStreamId: str
+    collectionId: str
+    ingestionStreamName: str
+    status: IngestionStreamStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAccessPolicyResponseTypeDef(TypedDict):
@@ -842,20 +973,11 @@ UpdateCollectionDetailTypeDef = TypedDict(
         "type": NotRequired[CollectionTypeType],
         "description": NotRequired[str],
         "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "kmsKeyArn": NotRequired[str],
         "arn": NotRequired[str],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
         "deletionProtection": NotRequired[DeletionProtectionType],
-    },
-)
-UpdateCollectionRequestTypeDef = TypedDict(
-    "UpdateCollectionRequestTypeDef",
-    {
-        "id": str,
-        "description": NotRequired[str],
-        "vectorOptions": NotRequired[VectorOptionsTypeDef],
-        "deletionProtection": NotRequired[DeletionProtectionType],
-        "clientToken": NotRequired[str],
     },
 )
 
@@ -950,6 +1072,17 @@ CreateCollectionRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
     },
 )
+UpdateCollectionRequestTypeDef = TypedDict(
+    "UpdateCollectionRequestTypeDef",
+    {
+        "id": str,
+        "description": NotRequired[str],
+        "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "deletionProtection": NotRequired[DeletionProtectionType],
+        "encryptionConfig": NotRequired[EncryptionConfigTypeDef],
+        "clientToken": NotRequired[str],
+    },
+)
 CreateSecurityConfigRequestTypeDef = TypedDict(
     "CreateSecurityConfigRequestTypeDef",
     {
@@ -1010,10 +1143,42 @@ SecurityConfigDetailTypeDef = TypedDict(
     },
 )
 
+class IngestionJobSourceTypeDef(TypedDict):
+    s3: IngestionJobS3SourceTypeDef
+
+class ListIngestionJobsResponseTypeDef(TypedDict):
+    ingestionJobSummaries: list[IngestionJobSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class IngestionStatisticsTypeDef(TypedDict):
+    s3: NotRequired[S3StatisticsTypeDef]
+
+class IngestionStreamS3SourceOutputTypeDef(TypedDict):
+    sqsArn: str
+    buckets: NotRequired[list[StreamBucketConfigTypeDef]]
+
+class IngestionStreamS3SourceTypeDef(TypedDict):
+    sqsArn: str
+    buckets: NotRequired[Sequence[StreamBucketConfigTypeDef]]
+
+class ListIngestionStreamsResponseTypeDef(TypedDict):
+    ingestionStreamSummaries: list[IngestionStreamSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListLifecyclePoliciesResponseTypeDef(TypedDict):
     lifecyclePolicySummaries: list[LifecyclePolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ListIngestionJobsRequestPaginateTypeDef(TypedDict):
+    collectionId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListIngestionStreamsRequestPaginateTypeDef(TypedDict):
+    collectionId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSecurityConfigsResponseTypeDef(TypedDict):
     securityConfigSummaries: list[SecurityConfigSummaryTypeDef]
@@ -1115,7 +1280,87 @@ class UpdateSecurityConfigResponseTypeDef(TypedDict):
     securityConfigDetail: SecurityConfigDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateIngestionJobRequestTypeDef(TypedDict):
+    collectionId: str
+    ingestionJobName: str
+    indexName: str
+    source: IngestionJobSourceTypeDef
+    failureIndexName: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    clientToken: NotRequired[str]
+
+class IngestionJobDetailTypeDef(TypedDict):
+    ingestionJobId: NotRequired[str]
+    arn: NotRequired[str]
+    collectionId: NotRequired[str]
+    ingestionJobName: NotRequired[str]
+    indexName: NotRequired[str]
+    failureIndexName: NotRequired[str]
+    source: NotRequired[IngestionJobSourceTypeDef]
+    status: NotRequired[IngestionJobStatusType]
+    state: NotRequired[IngestionStateType]
+    statistics: NotRequired[IngestionStatisticsTypeDef]
+    revision: NotRequired[int]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    failureReasons: NotRequired[list[IngestionFailureReasonTypeDef]]
+    activeAlerts: NotRequired[list[IngestionAlertTypeDef]]
+
+class IngestionStreamSourceOutputTypeDef(TypedDict):
+    s3: IngestionStreamS3SourceOutputTypeDef
+
+class IngestionStreamSourceTypeDef(TypedDict):
+    s3: IngestionStreamS3SourceTypeDef
+
 class BatchGetCollectionGroupResponseTypeDef(TypedDict):
     collectionGroupDetails: list[CollectionGroupDetailTypeDef]
     collectionGroupErrorDetails: list[CollectionGroupErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateIngestionJobResponseTypeDef(TypedDict):
+    ingestionJobDetail: IngestionJobDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetIngestionJobResponseTypeDef(TypedDict):
+    ingestionJobDetail: IngestionJobDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class IngestionStreamDetailTypeDef(TypedDict):
+    ingestionStreamId: NotRequired[str]
+    arn: NotRequired[str]
+    collectionId: NotRequired[str]
+    ingestionStreamName: NotRequired[str]
+    indexName: NotRequired[str]
+    failureIndexName: NotRequired[str]
+    source: NotRequired[IngestionStreamSourceOutputTypeDef]
+    roleArn: NotRequired[str]
+    status: NotRequired[IngestionStreamStatusType]
+    state: NotRequired[IngestionStateType]
+    statistics: NotRequired[IngestionStatisticsTypeDef]
+    revision: NotRequired[int]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    failureReasons: NotRequired[list[IngestionFailureReasonTypeDef]]
+    activeAlerts: NotRequired[list[IngestionAlertTypeDef]]
+
+IngestionStreamSourceUnionTypeDef = Union[
+    IngestionStreamSourceTypeDef, IngestionStreamSourceOutputTypeDef
+]
+
+class CreateIngestionStreamResponseTypeDef(TypedDict):
+    ingestionStreamDetail: IngestionStreamDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetIngestionStreamResponseTypeDef(TypedDict):
+    ingestionStreamDetail: IngestionStreamDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateIngestionStreamRequestTypeDef(TypedDict):
+    collectionId: str
+    ingestionStreamName: str
+    indexName: str
+    source: IngestionStreamSourceUnionTypeDef
+    roleArn: str
+    failureIndexName: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    clientToken: NotRequired[str]

@@ -10,8 +10,17 @@ daemon readers `probe doctor` prints, and `wizard_lock` for a run in progress.
 
 DEFAULT: LOCAL ONLY. The config, the agents' own install records and marker
 files: no network call and no subprocess (no `claude plugin list`, no `codex
-plugin list`, no `ps`), so the app can ask on every focus. `--refresh` adds what the menu
-asks, all of it inside ONE budget of `--timeout` seconds from the start
+plugin list`, no `ps`), so the app can ask on every focus. TWO exceptions.
+`codex_hooks`: where Probe's Codex plugins are installed and a Codex binary is
+on PATH, Codex itself is asked which of Probe's hooks it will run (`codex
+app-server`, ~0.2-0.6s, never more than 2s), at most once per 10 minutes, again
+after a Probe plugin update or a change to Codex's config, the answer kept on
+disk between (`probe.cli.codex_hooks.status_snapshot`). Nothing else Probe has
+can see a hook Codex silently skips. `service`: the Probe service, which owns
+this machine's local Probe work, is asked what it holds, over its Unix socket
+on this machine (never the network), within 1 s in all, and never started:
+with no service socket file there (none runs), no socket is opened at all.
+`--refresh` adds what the menu asks, all of it inside ONE budget of `--timeout` seconds from the start
 (`claude_cli.bounded`): the agents' own CLIs -- every agent's `plugin list` at
 once, Codex's `mcp list`, `--version`, pi's `--help` -- a hung binary asked
 once and killed with its process group; the server's one `POST
@@ -69,6 +78,36 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
         "recent_errors": [str]
       },
       "wizard_running": bool | null,
+      "codex_hooks": {
+        "state": str,
+        "untrusted": [str],
+        "checked_at": int | null,
+        "unheard_session": str | null
+      },
+      "service": {
+        "reach": str,
+        "running": bool | null,
+        "error": str | null,
+        "version": str | null,
+        "pid": int | null,
+        "state": str | null,
+        "started_at": float | null,
+        "sessions": [{"sid": str, "harness": str, "mode": str, "alive": bool}],
+        "recorders": [{"sid": str, "alive": bool, "last": str, "failures": int}],
+        "hook_hosts": [{"root": str, "pid": int}],
+        "runs": [{"run": str, "pid": int, "since": float}],
+        "update": {
+          "enabled": bool | null,
+          "in_progress": bool | null,
+          "step": str | null,
+          "last_check": float | null,
+          "last_ok": bool | null,
+          "next_check": float | null,
+          "deferred_reason": str | null,
+          "deferred_at": float | null,
+          "deferred_since": float | null
+        }
+      },
       "checks": {"device_state": CHECK, "mcp_token": CHECK},
       "errors": [{"field": str, "message": str}]
     }
@@ -110,6 +149,34 @@ What the values mean:
   or null when it could not be read.
 - `wizard_running`: a `probe wizard` (terminal or app) holds the run lock now;
   null when that could not be told.
+- `codex_hooks`: whether Codex runs Probe's hooks. Codex trusts each hook by a
+  hash of its entry and silently skips one it has not approved, so a Probe
+  update that changes an entry switches it off until the person types /hooks in
+  Codex and approves it. `state`: `HooksState` (approved | needs_approval |
+  unknown | none): `none` when no Probe plugin is installed in Codex (or none
+  is enabled), `unknown` when Codex could not be asked and no session says
+  otherwise. `untrusted`: the hook keys Codex named as waiting for approval
+  (`<plugin>@<marketplace>:hooks/hooks.json:<event>:<group>:<index>`), empty
+  when it was not asked. `checked_at`: when Codex answered (epoch seconds; the
+  answer may be up to 10 minutes old), null when it was not asked.
+  `unheard_session`: the newest Codex session that expected Probe's hooks and
+  never ran them (from the hooks' own heartbeat files), else null. Codex's
+  answer decides `state`; without one, an `unheard_session` means
+  needs_approval.
+- `service`: what this machine's Probe service says (`service.status` and
+  `session.list`). `reach`: `service_calls.Reach` (answered | not_running |
+  refused | unreachable | unsupported); `running` is true when it answered,
+  false when none runs (it starts with the next coding-agent session, or
+  `probe service start`), null when that could not be told (`error` says
+  why). `state`: discovering | running | grace. `sessions`: every session it
+  has registered, with its Probe `mode` (daemon | inline | off) and whether it
+  is `alive`. `recorders`: the sessions it records itself (`last`: how its
+  recorder last ended, `failures`: restarts after a failure). `hook_hosts`: its
+  warm hook hosts, one per plugin folder. `runs`: the runs a `probe exec` holds
+  (the updater does not update under them). `update`: its updater -- a cycle
+  `in_progress` (its `step`), the last check and whether it was ok, the next
+  one, and the reason the last cycle was deferred (`deferred_reason`, since
+  `deferred_since`). Everything but `reach` is null or empty unless it answered.
 - `checks.device_state.state`: answered | unsupported (the server predates the
   call; the account was asked the old way) | unreachable; null without --refresh.
   `checks.mcp_token.state`: ok | rejected | unreachable | no_token; null
@@ -555,9 +622,12 @@ def _snapshot(budget: _Budget | None) -> dict:
     if autoupdate_error is not None:
         errors.append(_error("auto_update", autoupdate_error))
 
-    server = token = None
+    server = token = hooks = None
     plugin_lists: dict[str, concurrent.futures.Future] = {}
     if refresh:
+        # Codex's own answer about Probe's hooks, when it is due (`codex_hooks`
+        # in the SCHEMA), inside the same budget.
+        hooks = _start(_codex_hooks)
         # Everything that waits starts now and is read after the agents: the
         # server's call, the token check, and every agent's plugin list at once.
         unasked = None if config_readable else f"not asked: {_CONFIG_UNREADABLE}"
@@ -634,6 +704,15 @@ def _snapshot(budget: _Budget | None) -> dict:
     running = wizard_lock.running()
     if running is None:
         errors.append(_error("wizard_running", f"could not probe {wizard_lock.lock_path()}"))
+    if hooks is None:
+        codex = _codex_hooks()
+    else:
+        codex, late = _wait(hooks, budget, grace=_KILL_GRACE_S)
+        if codex is None:
+            from probe.cli import codex_hooks
+
+            codex = codex_hooks.blank_snapshot(codex_hooks.HooksState.UNKNOWN)
+            errors.append(_error("codex_hooks", late or "no answer"))
     try:
         context = current_context_name()
     except Exception:  # noqa: BLE001 - the reader falls back to the default
@@ -666,9 +745,25 @@ def _snapshot(budget: _Budget | None) -> dict:
         "versions": _versions(first),
         "daemon": _daemon(first, config_readable=config_readable),
         "wizard_running": running,
+        "codex_hooks": codex,
+        "service": _service(),
         "checks": checks,
         "errors": errors,
     }
+
+
+def _service() -> dict:
+    """`service` (SCHEMA): the Probe service's own answer, bounded, never started."""
+    from probe.cli import service_calls
+
+    return service_calls.view()
+
+
+def _codex_hooks() -> dict:
+    """`codex_hooks` (SCHEMA): asks Codex at most once per its cache's TTL."""
+    from probe.cli import codex_hooks
+
+    return codex_hooks.status_snapshot()
 
 
 def _cli_version() -> str:
@@ -698,6 +793,10 @@ def human_lines(state: dict) -> list[str]:
         f"Versions           {state['versions']['status']}",
         f"Setup running      {word(state['wizard_running'])}",
     ]
+    if "service" in state:
+        from probe.cli import service_calls
+
+        lines.append(f"Probe service      {service_calls.summary(state['service'])}")
     found = [row for row in state["agents"] if row["installed"]]
     for row in found:
         lines.append(
@@ -707,5 +806,10 @@ def human_lines(state: dict) -> list[str]:
         )
     if not found:
         lines.append("Coding agents      none found on this device")
+    from probe.cli import codex_hooks
+
+    hooks = codex_hooks.status_line(state.get("codex_hooks"))
+    if hooks:
+        lines.append(f"Codex hooks        {hooks}")
     lines.extend(f"! {error['field']}: {error['message']}" for error in state["errors"])
     return lines

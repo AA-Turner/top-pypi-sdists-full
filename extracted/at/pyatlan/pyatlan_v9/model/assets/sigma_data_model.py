@@ -14,9 +14,18 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -44,16 +53,9 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
+from .sigma_related import RelatedSigmaDataModel, RelatedSigmaDataModelColumn
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .sigma_related import RelatedSigmaDataModel, RelatedSigmaDataModelColumn
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -278,6 +280,8 @@ class SigmaDataModel(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/dataModels/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this SigmaDataModel instance.
@@ -302,6 +306,11 @@ class SigmaDataModel(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"SigmaDataModel validation failed: {errors}")
 
@@ -333,6 +342,47 @@ class SigmaDataModel(Asset):
         if self.guid is not UNSET:
             return RelatedSigmaDataModel(guid=self.guid)
         return RelatedSigmaDataModel(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        data_model_id: str,
+    ) -> "SigmaDataModel":
+        validate_required_fields(
+            ["name", "connection_qualified_name", "data_model_id"],
+            [name, connection_qualified_name, data_model_id],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/dataModels/{data_model_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            asset_source_id=data_model_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "SigmaDataModel":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "SigmaDataModel":
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "SigmaDataModel":
+        return cls.updater(**kwargs)
+
+    def trim_to_required(self) -> "SigmaDataModel":
+        return SigmaDataModel.updater(
+            qualified_name=self.qualified_name, name=self.name
+        )
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -694,6 +744,7 @@ def _sigma_data_model_to_nested(
         is_incomplete=sigma_data_model.is_incomplete,
         provenance_type=sigma_data_model.provenance_type,
         home_id=sigma_data_model.home_id,
+        delete_handler=sigma_data_model.delete_handler,
         depth=sigma_data_model.depth,
         immediate_upstream=sigma_data_model.immediate_upstream,
         immediate_downstream=sigma_data_model.immediate_downstream,
@@ -742,6 +793,7 @@ def _sigma_data_model_from_nested(nested: SigmaDataModelNested) -> SigmaDataMode
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -1,0 +1,5 @@
+---
+features:
+  - |
+    Add ``dimod.lp.dump()`` and ``dimod.lp.dumps()`` functions to encode constrained
+    quadratic models as LP files.

@@ -15,6 +15,7 @@ import json
 import os
 import signal
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -270,9 +271,10 @@ def test_the_child_gets_the_request_context_and_no_launcher_credentials(service_
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_launcher_secret")
     monkeypatch.setenv("PROBE_CONFIG_PATH", "/launcher/config.json")
     core.plan("session_default", steps=[])
+    app_config = _signed_in(service_home.home / "app" / "config.json", "https://probe.example.test")
     service_home.start()
     with service_home.connect() as conn:
-        context = {"PROBE_CONFIG_PATH": "/app/config.json", "CLAUDE_CONFIG_DIR": "/app/claude"}
+        context = {"PROBE_CONFIG_PATH": str(app_config), "CLAUDE_CONFIG_DIR": "/app/claude"}
         action_id = _run(conn, "session_default", {"state": "off"}, context=context,
                          base_url="https://probe.example.test")["action_id"]
         _wait_done(conn, action_id)
@@ -280,12 +282,12 @@ def test_the_child_gets_the_request_context_and_no_launcher_credentials(service_
             _run(conn, "session_default", {"state": "off"}, crid="r2", context={"PROBE_TOKEN": "x"})
         assert raised.value.code == ErrorCode.INVALID_PARAMS
     (call,) = core.calls("session_default")
-    assert call["env"]["PROBE_CONFIG_PATH"] == "/app/config.json"
+    assert call["env"]["PROBE_CONFIG_PATH"] == str(app_config)
     assert call["env"]["CLAUDE_CONFIG_DIR"] == "/app/claude"
     assert call["env"]["PROBE_BASE_URL"] == "https://probe.example.test"
     assert call["env"]["PROBE_TOKEN"] is None
     journal = (paths.actions_dir() / f"{action_id}.jsonl").read_text()
-    assert "/app/config.json" not in journal  # a context value can carry a password: never journaled
+    assert "/app/claude" not in journal  # a context value can carry a password: never journaled
 
 
 def test_an_update_action_is_a_person_s_unless_it_says_otherwise(service_home, core):
@@ -302,6 +304,7 @@ def test_an_update_action_is_a_person_s_unless_it_says_otherwise(service_home, c
 
 def test_only_explicit_desktop_actions_pass_human_provenance_and_privacy_context(service_home, core):
     core.plan("update", steps=[])
+    _signed_in(service_home.home / ".config" / "probe" / "config.json", "https://private.example")
     service_home.start()
     with service_home.connect() as conn:
         _wait_done(conn, _run(conn, "update", {}, crid="desktop", origin="desktop",
@@ -315,6 +318,51 @@ def test_only_explicit_desktop_actions_pass_human_provenance_and_privacy_context
     assert desktop["env"]["PROBE_TELEMETRY"] == "off"
     assert desktop["env"]["PROBE_BASE_URL"] == "https://private.example"
     assert robot["env"]["PROBE_DESKTOP_HUMAN"] == "0"
+
+
+def _signed_in(path: Path, *base_urls: str) -> Path:
+    """A CLI config (v2) whose contexts name `base_urls`."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    contexts = {f"c{i}": {"base_url": url, "token": "probe_pat_x"} for i, url in enumerate(base_urls)}
+    path.write_text(json.dumps({"version": 2, "current_context": "c0", "contexts": contexts}))
+    return path
+
+
+@pytest.mark.parametrize(
+    ("where", "url", "allowed"),
+    [
+        ("base_url", "https://self.example/", True),  # the current context's, a trailing slash aside
+        ("context", "https://self.example", True),
+        ("base_url", "https://other.example", False),  # another context's: its token is not the one sent
+        ("base_url", "https://api.research.prbe.ai", False),  # the hosted API, while signed in elsewhere
+        ("base_url", "https://elsewhere.example", False),  # https, but never signed in to
+        ("context", "https://elsewhere.example", False),
+        ("base_url", "http://self.example", False),  # never plain http
+        ("context", "http://self.example", False),
+    ],
+)
+def test_a_child_runs_only_with_an_endpoint_the_config_knows(service_home, core, where, url, allowed):
+    """The current context's stored token follows PROBE_BASE_URL (plan D10)."""
+    core.plan("logout", steps=[])
+    _signed_in(service_home.home / ".config" / "probe" / "config.json", "https://self.example", "https://other.example")
+    service_home.start()
+    extra = {"base_url": url} if where == "base_url" else {"context": {"PROBE_BASE_URL": url}}
+    with service_home.connect() as conn:
+        if allowed:
+            _wait_done(conn, _run(conn, "logout", {}, **extra)["action_id"])
+        else:
+            with pytest.raises(client.ServiceError) as raised:
+                _run(conn, "logout", {}, **extra)
+            assert raised.value.code == ErrorCode.INVALID_PARAMS
+    assert len(core.calls("logout")) == (1 if allowed else 0)
+
+
+def test_the_hosted_api_is_known_without_a_config(service_home, core):
+    core.plan("logout", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        _wait_done(conn, _run(conn, "logout", {}, base_url="https://api.research.prbe.ai")["action_id"])
+    assert len(core.calls("logout")) == 1
 
 
 def test_a_retry_while_the_action_runs_gets_the_same_action(service_home, core):
@@ -456,3 +504,148 @@ def test_an_agent_s_session_reaches_the_child_and_its_refusal_holds(service_home
         applied = _wait_done(conn, _run(conn, "session_default", {"state": "off"}, crid="app")["action_id"], 60.0)
     assert refused["done"]["exit_code"] == 2 and refused["done"]["ok"] is False
     assert applied["done"]["exit_code"] == 0, applied
+
+
+# -- who is calling (plan D9) ---------------------------------------------------
+
+
+def _register_me(conn, sid: str, mode: str) -> None:
+    """Register a session whose agent is THIS process: every connection this
+    test opens comes from inside it."""
+    owner = client.owner_of(os.getpid())
+    assert owner, "cannot read this process's start time"
+    conn.call(
+        Method.SESSION_REGISTER,
+        {"sid": sid, "harness": "claude_code", "mode": mode, "owner": owner, "generation": 1},
+    )
+
+
+def test_an_action_from_inside_a_daemon_recorded_session_is_refused(service_home, core, monkeypatch):
+    """The caller names no session (no context): its process ancestry does."""
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    core.plan("recorder", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        _register_me(conn, "s-recorded", "daemon")
+        with pytest.raises(client.ServiceError) as raised:
+            _run(conn, "recorder", {"who_records": "agent"})
+    assert raised.value.code == ErrorCode.REFUSED
+    assert raised.value.data["reason"] == "daemon_session"
+    assert core.calls("recorder") == []
+    assert not list(paths.actions_dir().glob("*.jsonl")) if paths.actions_dir().exists() else True
+
+
+def test_an_action_from_inside_an_inline_session_names_it_to_the_child(service_home, core, monkeypatch):
+    """Not refused here, but the child learns the session it runs inside, so
+    `probe.core.run` refuses what it refuses there (`probe session default`)."""
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    core.plan("session_default", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        _register_me(conn, "s-inline", "inline")
+        _wait_done(conn, _run(conn, "session_default", {"state": "off"})["action_id"])
+    (call,) = core.calls("session_default")
+    assert call["env"]["CLAUDE_CODE_SESSION_ID"] == "s-inline"
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="a peer's environment is read on Linux only")
+def test_a_detached_job_that_kept_the_session_s_environment_is_refused(service_home, core):
+    """nohup/setsid/tmux leave the agent's process tree, not its environment."""
+    import subprocess
+
+    core.plan("logout", steps=[])
+    service_home.start()
+    agent = subprocess.Popen(["sleep", "60"])
+    try:
+        owner = wait_for(lambda: client.owner_of(agent.pid), 2.0)
+        with service_home.connect() as conn:
+            conn.call(
+                Method.SESSION_REGISTER,
+                {"sid": "s-away", "harness": "claude_code", "mode": "daemon", "owner": owner, "generation": 1},
+            )
+        script = (
+            "import json, sys\n"
+            "from probe.service import client\n"
+            "from probe.service.protocol import Client, Method\n"
+            "conn = client.Connection.open()\n"
+            "conn.hello(Client.CLI, '0')\n"
+            "try:\n"
+            "    conn.call(Method.ACTION_RUN, {'action': 'logout', 'params': {}, 'client_request_id': 'away'})\n"
+            "    print('ran')\n"
+            "except client.ServiceError as exc:\n"
+            "    print(json.dumps(exc.data))\n"
+        )
+        env = {**os.environ, "CLAUDE_CODE_SESSION_ID": "s-away"}
+        done = subprocess.run(
+            [sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=30, start_new_session=True
+        )
+        assert done.returncode == 0, done.stderr
+        assert json.loads(done.stdout)["reason"] == "daemon_session"
+        assert core.calls("logout") == []
+    finally:
+        agent.kill()
+        agent.wait(timeout=5)
+
+
+def test_an_action_child_gets_the_login_shell_s_path(service_home, core, monkeypatch):
+    """An agent installed with nvm or volta is on the login PATH only (D14)."""
+    shell = service_home.home / "bin" / "fake-login-shell"
+    shell.parent.mkdir(parents=True, exist_ok=True)
+    shell.write_text('#!/bin/sh\nexport PATH=/opt/volta/bin:$PATH\nexport HTTPS_PROXY=http://p.example\nexec /bin/sh -c "$2"\n')
+    shell.chmod(0o755)
+    monkeypatch.setenv("SHELL", str(shell))
+    core.plan("logout", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        _wait_done(conn, _run(conn, "logout", {})["action_id"])
+    (call,) = core.calls("logout")
+    assert call["env"]["PATH"].split(":")[0] == "/opt/volta/bin"
+    assert call["env"]["HTTPS_PROXY"] is None  # an action's settings are its request's context
+
+
+@pytest.mark.parametrize("special", ["/dev/zero", "fifo"])
+def test_a_config_path_that_is_not_a_file_never_hangs_the_service(service_home, core, tmp_path, special):
+    """A request names the config the endpoint check reads (`context.PROBE_CONFIG_PATH`)."""
+    if special == "fifo":
+        special = str(tmp_path / "config.fifo")
+        os.mkfifo(special)
+    core.plan("logout", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        started = time.monotonic()
+        with pytest.raises(client.ServiceError) as raised:
+            _run(conn, "logout", {}, context={"PROBE_CONFIG_PATH": special}, base_url="https://self.example")
+        assert time.monotonic() - started < 2.0
+        assert raised.value.code == ErrorCode.INVALID_PARAMS
+        assert conn.call(Method.STATUS)["pid"]  # still serving
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="the kernel names a socket's opener on Linux and macOS; the test forks")
+def test_a_connection_whose_opener_exited_changes_nothing(service_home, core):
+    """A process connects, hands the connection to a child (which keeps the
+    session's environment) and exits: who calls can no longer be checked."""
+    core.plan("logout", steps=[])
+    service_home.start()
+    script = (
+        "import json, os, sys, time\n"
+        "from probe.service import client\n"
+        "from probe.service.protocol import Client, Method\n"
+        "conn = client.Connection.open()\n"
+        "conn.hello(Client.CLI, '0')\n"
+        "if os.fork():\n"
+        "    os._exit(0)\n"
+        "time.sleep(0.5)\n"
+        "try:\n"
+        "    conn.call(Method.ACTION_RUN, {'action': 'logout', 'params': {}, 'client_request_id': 'orphan'})\n"
+        "    print('ran')\n"
+        "except client.ServiceError as exc:\n"
+        "    print(json.dumps(exc.data))\n"
+        "sys.stdout.flush()\n"
+    )
+    out = tempfile.NamedTemporaryFile("w+", delete=False)
+    import subprocess
+
+    subprocess.run([sys.executable, "-c", script], stdout=out, timeout=30)
+    assert wait_for(lambda: Path(out.name).read_text().strip(), 10.0)
+    assert json.loads(Path(out.name).read_text())["reason"] == "caller_gone"
+    assert core.calls("logout") == []

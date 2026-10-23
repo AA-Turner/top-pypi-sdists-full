@@ -1,6 +1,9 @@
 //! Planner scope assembly using native graph and selector operations.
 
 use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
+use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::source_reads;
 use crate::bindings::_helpers::graph::keys::KeyCache;
 use crate::bindings::_helpers::graph::project_graph::NativeProjectGraph;
 use crate::bindings::_helpers::graph::views::lineage_graph_names;
@@ -16,7 +19,7 @@ use crate::bindings::_helpers::records::construct::{new_record, new_record_with}
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::mapping_items;
 use crate::bindings::_helpers::records::ids::RecordId;
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python, pyfunction};
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::PyDictMethods;
 use pyo3::types::{PyDict, PyFrozenSet, PyTuple};
 use sqlbuild_analysis::planner_scope::constants::SOURCE;
@@ -25,18 +28,16 @@ use sqlbuild_analysis::planner_scope::main::{
 };
 use std::collections::HashSet;
 
-#[pyfunction]
-#[pyo3(signature = (*, selected_keys, upstream_deps, project))]
 pub(crate) fn managed_source_upstream_keys<'py>(
     selected_keys: &Bound<'py, PyAny>,
     upstream_deps: &Bound<'py, PyAny>,
     project: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyFrozenSet>> {
     let mut managed: HashSet<String> = HashSet::new();
-    for source in native_field(project, "sources")?.try_iter()? {
+    for source in project_reads::sources(project)?.try_iter()? {
         let source = source?;
-        if !native_field(&native_field(&source, "source_entry")?, "loader")?.is_none() {
-            managed.insert(native_field(&source, "name")?.extract()?);
+        if !native_field(&source_reads::source_entry(&source)?, "loader")?.is_none() {
+            managed.insert(source_reads::name(&source)?.extract()?);
         }
     }
     let selected = managed_sources(&keys(selected_keys)?, &edges(upstream_deps)?, &managed);
@@ -46,8 +47,6 @@ pub(crate) fn managed_source_upstream_keys<'py>(
     )
 }
 
-#[pyfunction]
-#[pyo3(signature = (**options))]
 pub(crate) fn build_planner_scope<'py>(
     py: Python<'py>,
     options: Option<Bound<'py, PyDict>>,
@@ -119,9 +118,9 @@ pub(crate) fn build_planner_scope<'py>(
     let origins = build_execution_edge_origins(&project)?.into_any();
     let order = topologically_order_keys(&upstream, Some(origins))?.into_any();
     let models = PyDict::new(py);
-    for model in native_field(&project, "models")?.try_iter()? {
+    for model in project_reads::models(&project)?.try_iter()? {
         let model = model?;
-        models.set_item(native_field(&model, "name")?, model)?;
+        models.set_item(model_reads::name_object(&model)?, model)?;
     }
     let mut reads = args.value("python_read_source_names")?;
     if reads.is_none() {

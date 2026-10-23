@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflow, RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -45,13 +52,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .spark_related import RelatedSpark, RelatedSparkJob
 
 # =============================================================================
@@ -605,6 +605,7 @@ def _spark_to_nested(spark: Spark) -> SparkNested:
         is_incomplete=spark.is_incomplete,
         provenance_type=spark.provenance_type,
         home_id=spark.home_id,
+        delete_handler=spark.delete_handler,
         depth=spark.depth,
         immediate_upstream=spark.immediate_upstream,
         immediate_downstream=spark.immediate_downstream,
@@ -649,6 +650,7 @@ def _spark_from_nested(nested: SparkNested) -> Spark:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

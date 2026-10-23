@@ -199,6 +199,7 @@ async fn hydrate(
             data,
             JsonStoreHydrationContext {
                 source_url,
+                sync_trigger: None,
                 current_verified_values,
                 mmap_project_id: MmapProjectId::for_sdk_key("json-preparation"),
                 preserve_session_update_mode: false,

@@ -38,15 +38,15 @@ from audit_fixture_harness import (
 from matrx_scraper.web_crawl import analysis
 
 #: Every builtin, non-deleted `web.analysis_item` key — read from the live
-#: catalog on 2026-09-28 (83 rows). `scripts/check_seo_catalogue_coverage.py`
+#: catalog on 2026-09-28 (83 rows) plus the two rows 20261022270000 added (85). `scripts/check_seo_catalogue_coverage.py`
 #: owns catalog ⟷ code drift against the live DB; this snapshot lets the gate
 #: run offline. A row added to the catalog is added here in the same change.
 BUILTIN_CATALOGUE: frozenset[str] = frozenset(
     """
     a11y_lab_basics anchor_text_descriptiveness asset_delivery broken_external_links
     broken_images broken_internal_links broken_page_4xx caching_policy canonical_conflicts
-    canonical_presence content_depth content_freshness content_quality_eeat crawl_depth
-    cwv_cls cwv_inp_tbt cwv_lcp duplicate_content_exact excessive_outlinks grammar_spelling
+    canonical_presence content_depth content_freshness content_needs_rendering content_quality_eeat crawl_depth
+    cwv_cls cwv_inp_tbt cwv_lcp dead_end_page duplicate_content_exact excessive_outlinks grammar_spelling
     gsc_ctr_opportunity gsc_index_coverage gsc_keyword_cannibalization gsc_performance_decay
     h1_presence heading_hierarchy host_protocol_consistency hreflang_reciprocity
     hreflang_validity hsts_policy html_lang_validity https_enforcement image_alt_presence

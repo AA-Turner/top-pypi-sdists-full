@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 8.8.3
+Version: 8.8.5
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -35,6 +35,7 @@ Requires-Dist: werkzeug; extra == "all"
 Requires-Dist: flask[async]; extra == "all"
 Requires-Dist: fastapi; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
+Requires-Dist: websockets; extra == "all"
 Requires-Dist: python-multipart; extra == "all"
 Requires-Dist: a2wsgi; extra == "all"
 Requires-Dist: setuptools; extra == "all"
@@ -57,6 +58,7 @@ Requires-Dist: werkzeug; extra == "slim"
 Requires-Dist: flask[async]; extra == "slim"
 Requires-Dist: fastapi; extra == "slim"
 Requires-Dist: uvicorn; extra == "slim"
+Requires-Dist: websockets; extra == "slim"
 Requires-Dist: python-multipart; extra == "slim"
 Requires-Dist: a2wsgi; extra == "slim"
 Requires-Dist: pypdf2; extra == "slim"
@@ -73,6 +75,7 @@ Provides-Extra: api
 Requires-Dist: loguru; extra == "api"
 Requires-Dist: fastapi; extra == "api"
 Requires-Dist: uvicorn; extra == "api"
+Requires-Dist: websockets; extra == "api"
 Requires-Dist: python-multipart; extra == "api"
 Requires-Dist: a2wsgi; extra == "api"
 Requires-Dist: PyYAML; extra == "api"
@@ -558,6 +561,7 @@ Repository: https://github.com/xtekky/gpt4free
 
 ## Security, privacy & takedown policy
 - Do not store or share sensitive credentials. Use per-provider recommended security practices.
+- Conversations are stored locally on your device by default; server/cloud synchronization (Secret Storage) is strictly opt-in and client-side encrypted.
 - If your site appears in the project’s links and you want it removed, send proof of ownership to https://g4f.dev/community and it will be removed promptly.
 - For production, secure the server with HTTPS, authentication, and firewall rules. Limit access to provider credentials and cookie/HAR storage.
 

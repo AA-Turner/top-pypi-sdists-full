@@ -132,6 +132,11 @@ ROLLUP_RULES: dict[str, RollupRule] = {
     "cwv_inp_tbt": RollupRule(None, "busy page", metric="tbt_ms", unit="ms"),
     "canonical_presence": RollupRule(_reason_token, "canonical-tag problem"),
     "og_image_validity": RollupRule(_reason_token, "share-image problem"),
+    # A site built as one JavaScript app serves the same empty frame on every
+    # route: one setting (rendered crawling) fixes them all.
+    "content_needs_rendering": RollupRule(None, "unrendered app frame"),
+    # A template with no navigation strands every page built on it.
+    "dead_end_page": RollupRule(None, "page with no links onward"),
 }
 
 

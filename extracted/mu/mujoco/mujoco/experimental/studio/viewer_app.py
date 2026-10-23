@@ -41,8 +41,10 @@ import warnings
 
 import mujoco
 from mujoco.experimental.studio import messages
+from mujoco.experimental.studio import plugin
 from mujoco.experimental.studio import sim
 from mujoco.experimental.studio import sim_history
+from mujoco.experimental.studio import step_control
 from mujoco.experimental.studio import ux
 from mujoco.experimental.studio import viewer_app_events
 from mujoco.experimental.studio import viewer_protocol
@@ -218,17 +220,21 @@ class ViewerAppConfig:
   show_inspector: bool = True
 
 
-class ViewerApp:
-  """ViewerApp wraps a Viewer and adds Studio UI/UX."""
+# Sim-side plugins that back ViewerApp's step control and history scrubbing UI.
+# Unpack alongside ViewerApp() in plugins=[...], or pass individual plugins
+# when replacing one (e.g. a custom StepEvent plugin).
+SIM_PLUGINS: tuple[plugin.SimPlugin, ...] = (
+    step_control.StepControl(),
+    sim_history.SimHistory(),
+)
 
-  @property
-  def viewer(self) -> viewer_protocol.Viewer:
-    assert self._viewer is not None
-    return self._viewer
 
-  @viewer.setter
-  def viewer(self, value: viewer_protocol.Viewer | None) -> None:
-    self._viewer = value
+class ViewerApp(plugin.ViewerPlugin):
+  """ViewerApp wraps a Viewer and adds Studio UI/UX.
+
+  Pair with ``*SIM_PLUGINS`` in ``plugins=[...]`` for the default sim-side
+  real-time CPU stepping and history scrubbing.
+  """
 
   @property
   def model(self) -> mujoco.MjModel:
@@ -256,7 +262,6 @@ class ViewerApp:
 
   def __init__(self, config: ViewerAppConfig | None = None) -> None:
     install_console_hooks()
-    self._viewer: viewer_protocol.Viewer | None = None
     self._model_path: str = ''
     self.theme = ux.load_theme()
     self.config = config or ViewerAppConfig()
@@ -264,8 +269,7 @@ class ViewerApp:
     self._reset_app_state()
 
   @messages.handler(priority=messages.Priority.CRITICAL)
-  def _on_viewer_init(self, event: viewer_protocol.ViewerInitEvent) -> None:
-    self.viewer = event.viewer
+  def _on_viewer_init(self, _: plugin.ViewerInitEvent) -> None:
     # Creating the web viewer configures the web server's logger.
     install_console_hooks()
     self.theme = ux.load_settings(def_theme=self.theme)

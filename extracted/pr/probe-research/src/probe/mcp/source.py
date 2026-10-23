@@ -30,7 +30,7 @@ _RETIRED_REF_DETAIL = (
     "Per-entity notes "
     'live on the entity itself: get_entity(ref="project:<id>", view="notes"). '
     "If your instructions still tell you to start there, they are "
-    "out of date -- upgrade the plugin (`uv tool upgrade probe-research`) and "
+    "out of date -- upgrade the plugin (`probe update`) and "
     "re-run `probe wizard` to refresh them."
 )
 _INDEX_SLUG = "contents"

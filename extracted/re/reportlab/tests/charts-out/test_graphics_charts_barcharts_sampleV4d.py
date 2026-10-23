@@ -15,19 +15,19 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		self.add(Line(350,50,350,45,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,125,45)
-		v0.add(String(-10,-10,'Ying',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-10.005,-10,'Ying',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,275,45)
-		v0.add(String(-10.83,-10,'Yang',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-11.675,-10,'Yang',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		self.add(Line(50,50,50,175,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		self.add(Line(50,50,45,50,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
 		self.add(Line(50,143.75,45,143.75,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,45,50)
-		v0.add(String(-13.33,-4,'-30',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-14.45,-4,'-30',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,45,143.75)
-		v0.add(String(-13.33,-4,'-15',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-14.45,-4,'-15',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS

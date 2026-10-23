@@ -16,8 +16,9 @@ from skylos.rules.quality._readability import OpaqueIdentifierRule
 
 
 def _run_rule(rule, code: str, filename: str = "app.py") -> list[dict]:
-    tree = ast.parse(textwrap.dedent(code))
-    findings = rule.visit_node(tree, {"filename": filename})
+    source = textwrap.dedent(code)
+    tree = ast.parse(source)
+    findings = rule.visit_node(tree, {"filename": filename, "source": source})
     return findings or []
 
 
@@ -35,6 +36,9 @@ def _run_policy_cli(monkeypatch, capsys, root, *args) -> dict:
             "json",
             "--no-upload",
             "--no-provenance",
+            # Repo policy is measured, not listed, by default; these cases
+            # check detection, so they ask for every check.
+            "--all-advice",
             *args,
         ],
     )
@@ -52,24 +56,34 @@ def _repo_policy_findings(report: dict) -> list[dict]:
 
 def test_type_annotation_rule_flags_public_typed_api_gaps():
     findings = _run_rule(
-        TypeAnnotationPracticeRule(),
+        TypeAnnotationPracticeRule(coverage_advice=True),
         """
         from typing import Any
+        __all__ = ["load_user"]
 
-        def load_user(user_id, include_deleted: bool):
-            return {"id": user_id, "deleted": include_deleted}
+        def load_user(self, include_deleted: bool):
+            return {"id": self, "deleted": include_deleted}
         """,
     )
 
     rule_ids = {finding["rule_id"] for finding in findings}
     assert rule_ids == {"SKY-T101", "SKY-T102"}
     assert findings[0]["kind"] == "typing"
+    assert findings[0]["value"] == "self"
 
 
 def test_type_annotation_rule_skips_untyped_script_modules():
     findings = _run_rule(
         TypeAnnotationPracticeRule(),
         """
+        from typing import Any
+
+        def _helper(value: Any) -> Any:
+            return value
+
+        def typed_sibling(value: str) -> str:
+            return value
+
         def quick_script(path):
             print(path)
         """,
@@ -80,9 +94,11 @@ def test_type_annotation_rule_skips_untyped_script_modules():
 
 def test_type_annotation_rule_accepts_typed_public_function():
     findings = _run_rule(
-        TypeAnnotationPracticeRule(),
+        TypeAnnotationPracticeRule(coverage_advice=True),
         """
-        def load_user(user_id: str) -> dict[str, str]:
+        __all__ = ["load_user"]
+        def load_user(user_id):
+            # type: (str) -> dict[str, str]
             return {"id": user_id}
         """,
     )
@@ -467,7 +483,12 @@ def test_repo_policy_from_direct_analyzer_ignores_config_excluded_python(tmp_pat
     ("script", "next_dependency", "next_config", "expect_r105"),
     [
         ("next build --webpack", True, None, False),
-        ("next build --webpack", True, "export default { reactStrictMode: true };", False),
+        (
+            "next build --webpack",
+            True,
+            "export default { reactStrictMode: true };",
+            False,
+        ),
         (
             "next build",
             True,
@@ -652,3 +673,33 @@ def test_signature_check_hidden_in_a_branch_or_unrelated_verify_is_not_a_guard()
         "branchy_webhook",
         "confirm_user",
     ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from unittest.mock import patch\n\n@patch('release.get_tags')\ndef run(tags):\n    return tags\n",
+        "from unittest import mock\n\n@mock.patch('release.clock')\ndef run(clock):\n    return clock\n",
+        "import unittest.mock\n\n@unittest.mock.patch('release.clock')\ndef run(clock):\n    return clock\n",
+    ],
+)
+def test_framework_rule_ignores_unittest_mock_patch(source):
+    # Keep the existing test identity, but reject its old unsafe exemption:
+    # an import spelling does not prove the runtime decorator's identity.
+    findings = _run_rule(FrameworkPracticeRule(), source)
+    assert [(f["rule_id"], f["name"]) for f in findings] == [("SKY-F102", "run")]
+    assert "Review whether it registers a route" in findings[0]["message"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from litestar import patch\n\n@patch('/items')\nasync def update(data: dict) -> dict:\n    return data\n",
+        "from fastapi import APIRouter\nfrom unittest.mock import patch\n\nrouter = APIRouter()\npatch = router.patch\n\n@patch('/items')\ndef update(data: dict) -> dict:\n    return data\n",
+        "from mock import patch\n\n@patch('/items')\ndef update(data: dict) -> dict:\n    return data\n",
+    ],
+)
+def test_framework_rule_keeps_patch_route_lookalikes(source):
+    findings = _run_rule(FrameworkPracticeRule(), source)
+
+    assert [(f["rule_id"], f["name"]) for f in findings] == [("SKY-F102", "update")]

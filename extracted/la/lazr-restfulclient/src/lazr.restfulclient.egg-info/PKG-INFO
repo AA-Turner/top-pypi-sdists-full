@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lazr.restfulclient
-Version: 4.0.0
+Version: 4.1.0
 Summary: A programmable client library that takes advantage of the commonalities among lazr.restful web services.
 Maintainer: LAZR Developers
 License: LGPL v3

@@ -52,7 +52,7 @@ import os
 import sys
 from dataclasses import dataclass
 from gettext import gettext as _
-from importlib import resources
+from pathlib import Path
 from typing import cast
 
 import click
@@ -76,6 +76,8 @@ if TYPE_CHECKING:
     from typing import Any, Final
 
     from cloup.styling import IStyle
+
+logger = logging.getLogger(__name__)
 
 
 THEME_ENVVAR: Final[str] = "CLICK_EXTRA_THEME"
@@ -792,7 +794,7 @@ class ThemeChoice(click.ParamType):
         lookup = {self._normalize(name): name for name in registry}
         canonical = lookup.get(self._normalize(value))
         if canonical is None:
-            choices = "|".join(sorted({AUTO_THEME, *registry}))
+            choices = "|".join(_theme_choices(ctx))
             self.fail(
                 f"{value!r} is not one of [{choices}].",
                 param,
@@ -895,7 +897,7 @@ class ThemeOption(ExtraOption):
                 try:
                     value = param.type.convert(raw, param, ctx)
                 except click.BadParameter:
-                    logging.getLogger("click_extra").warning(
+                    logger.warning(
                         "Ignoring %s=%r: not one of [%s].",
                         THEME_ENVVAR,
                         raw,
@@ -966,20 +968,32 @@ def _load_builtin_themes() -> dict[str, HelpTheme]:
     CLI's config file (`[tool.<cli>.themes.<name>]`) remain available.
     ```
     """
-    resource = resources.files(__package__).joinpath("themes.toml")
     try:
-        payload = resource.read_text(encoding="utf-8")
-    except OSError as error:
-        logging.getLogger("click_extra").warning(
-            "Could not read the packaged %r data file (%s). Built-in themes "
-            "are unavailable: falling back to the no-color theme. The file was "
-            "likely dropped by a packaging or distribution step. You can still "
-            "define your own themes in your config file, like a "
-            "[tool.<cli>.themes.<name>] table in pyproject.toml.",
-            f"{__package__}/themes.toml",
-            error,
-        )
-        return {}
+        payload = Path(__file__).with_name("themes.toml").read_text(encoding="utf-8")
+    except OSError:
+        # A zipped or compiled package has no file beside this module: ask
+        # the import system instead.
+        # Deferred import: keeps importlib.resources off the startup path of every CLI.
+        from importlib import resources
+
+        try:
+            payload = (
+                resources
+                .files(__package__)
+                .joinpath("themes.toml")
+                .read_text(encoding="utf-8")
+            )
+        except OSError as error:
+            logger.warning(
+                "Could not read the packaged %r data file (%s). Built-in themes "
+                "are unavailable: falling back to the no-color theme. The file "
+                "was likely dropped by a packaging or distribution step. You can "
+                "still define your own themes in your config file, like a "
+                "[tool.<cli>.themes.<name>] table in pyproject.toml.",
+                f"{__package__}/themes.toml",
+                error,
+            )
+            return {}
     raw = tomllib.loads(payload)
     return {name: HelpTheme.from_dict(data) for name, data in raw.items()}
 

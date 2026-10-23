@@ -17,87 +17,15 @@ class reg_value_base_t:
     SLR: int  # 7
     SUB: int  # 1
     XOR: int  # 4
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
     def __getitem__(self, i: int) -> reg_value_def_t:
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
         ...
     def __init__(self) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
     def __len__(self) -> int:
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
         ...
     def __repr__(self) -> Any:
         ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
     def __str__(self) -> str:
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -174,6 +102,11 @@ class reg_value_base_t:
         
         """
         ...
+    def get_stride(self) -> int:
+        r"""Return the loop stride of a NUMLOOP value. 
+                
+        """
+        ...
     def has_any_vals_flag(self, val_flags: int) -> bool:
         ...
     def have_all_vals_flag(self, val_flags: int) -> bool:
@@ -184,6 +117,8 @@ class reg_value_base_t:
     def is_all_vals_like_got(self) -> bool:
         ...
     def is_all_vals_pc_based(self) -> bool:
+        ...
+    def is_any_vals_had_delta(self) -> bool:
         ...
     def is_any_vals_like_got(self) -> bool:
         ...
@@ -207,6 +142,11 @@ class reg_value_base_t:
     def is_num(self) -> bool:
         r"""Return 'true' if the value is a constant.
         
+        """
+        ...
+    def is_numloop(self) -> bool:
+        r"""Return 'true' if the value is a number changed in a loop by adding a constant stride each iteration. 
+                
         """
         ...
     def is_spd(self) -> bool:
@@ -259,60 +199,72 @@ class reg_value_base_t:
         
         """
         ...
-    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
+    @staticmethod
+    def make_aborted(bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
         r"""Return the value after aborting. 
                 
         """
         ...
-    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_badinsn(insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value after a bad insn. 
                 
         """
         ...
-    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_dead_end(dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the undefined value because of a dead end. 
                 
         """
         ...
-    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_initial_sp(func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the value that is the initial stack pointer. 
                 
         """
         ...
     @overload
-    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
+    @staticmethod
+    def make_num(rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
     @overload
-    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
+    @staticmethod
+    def make_num(rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
-    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkfunc(func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value from the function start. 
                 
         """
         ...
-    def make_unkinsn(self, insn: insn_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkinsn(insn: insn_t) -> reg_value_base_t:
         r"""Return the unknown value after executing the insn. 
                 
         """
         ...
-    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkloop(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if it changes in a loop. 
                 
         """
         ...
-    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkmult(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has incompatible values. 
                 
         """
         ...
-    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkvals(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has too many values. 
                 
         """
         ...
-    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkxref(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if there are too many xrefs. 
                 
         """
@@ -344,6 +296,8 @@ class reg_value_base_t:
         ...
     def set_all_vals_got_based(self) -> None:
         ...
+    def set_all_vals_had_delta(self) -> None:
+        ...
     def set_all_vals_pc_based(self) -> None:
         ...
     def set_badinsn(self, insn_ea: ida_idaapi.ea_t) -> None:
@@ -372,6 +326,11 @@ class reg_value_base_t:
     @overload
     def set_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> None:
         r"""Set the value to be a number before an address."""
+        ...
+    def set_numloop(self, loop_stride: int) -> None:
+        r"""Turn a number into the NUMLOOP value: the register is changed in a loop by adding LOOP_STRIDE each iteration, VALS keeps the initial value(s). 
+                
+        """
         ...
     def set_unkfunc(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""Set the value to be unknown from the function start. 
@@ -446,6 +405,8 @@ class reg_value_def_t:
     SPVAL: int  # 2
     UVAL: int  # 1
     @property
+    def HAD_DELTA(self) -> Any: ...
+    @property
     def LIKE_GOT(self) -> Any: ...
     @property
     def PC_BASED(self) -> Any: ...
@@ -453,85 +414,27 @@ class reg_value_def_t:
     def SHORT_INSN(self) -> Any: ...
     @property
     def def_ea(self) -> ida_idaapi.ea_t: ...
+    @def_ea.setter
+    def def_ea(self, value: ida_idaapi.ea_t) -> None: ...
     @property
     def def_itype(self) -> int: ...
+    @def_itype.setter
+    def def_itype(self, value: int) -> None: ...
     @property
     def flags(self) -> int: ...
+    @flags.setter
+    def flags(self, value: int) -> None: ...
     @property
     def val(self) -> int: ...
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
+    @val.setter
+    def val(self, value: int) -> None: ...
     def __eq__(self, r: reg_value_def_t) -> bool:
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
         ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
     def __lt__(self, r: reg_value_def_t) -> bool:
         ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
-        ...
     def __repr__(self) -> Any:
-        ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
-    def __str__(self) -> str:
-        r"""Return str(self)."""
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -539,6 +442,8 @@ class reg_value_def_t:
         r"""Return the string representation.
         
         """
+        ...
+    def had_delta(self) -> bool:
         ...
     def is_like_got(self) -> bool:
         ...
@@ -566,87 +471,15 @@ class reg_value_info_t(reg_value_base_t):
     SLR: int  # 7
     SUB: int  # 1
     XOR: int  # 4
-    def __delattr__(self, name: Any) -> Any:
-        r"""Implement delattr(self, name)."""
-        ...
-    def __dir__(self) -> Any:
-        r"""Default dir() implementation."""
-        ...
-    def __eq__(self, value: Any) -> bool:
-        r"""Return self==value."""
-        ...
-    def __format__(self, format_spec: Any) -> str:
-        r"""Default object formatter.
-        
-        Return str(self) if format_spec is empty. Raise TypeError otherwise.
-        """
-        ...
-    def __ge__(self, value: Any) -> bool:
-        r"""Return self>=value."""
-        ...
-    def __getattribute__(self, name: Any) -> Any:
-        r"""Return getattr(self, name)."""
-        ...
     def __getitem__(self, i: int) -> reg_value_def_t:
-        ...
-    def __getstate__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __gt__(self, value: Any) -> bool:
-        r"""Return self>value."""
-        ...
-    def __hash__(self) -> int:
-        r"""Return hash(self)."""
         ...
     def __init__(self, *args: Any) -> Any:
         ...
-    def __init_subclass__(self) -> Any:
-        r"""This method is called when a class is subclassed.
-        
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        
-        """
-        ...
-    def __le__(self, value: Any) -> bool:
-        r"""Return self<=value."""
-        ...
     def __len__(self) -> int:
-        ...
-    def __lt__(self, value: Any) -> bool:
-        r"""Return self<value."""
-        ...
-    def __ne__(self, value: Any) -> bool:
-        r"""Return self!=value."""
-        ...
-    def __new__(self, *args: Any, **kwargs: Any) -> Any:
-        r"""Create and return a new object.  See help(type) for accurate signature."""
-        ...
-    def __reduce__(self) -> Any:
-        r"""Helper for pickle."""
-        ...
-    def __reduce_ex__(self, protocol: Any) -> Any:
-        r"""Helper for pickle."""
         ...
     def __repr__(self) -> Any:
         ...
-    def __setattr__(self, name: Any, value: Any) -> Any:
-        r"""Implement setattr(self, name, value)."""
-        ...
-    def __sizeof__(self) -> Any:
-        r"""Size of object in memory, in bytes."""
-        ...
     def __str__(self) -> str:
-        ...
-    def __subclasshook__(self, object: Any) -> Any:
-        r"""Abstract classes can override this to customize issubclass().
-        
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        
-        """
         ...
     def __swig_destroy__(self, object: Any) -> Any:
         ...
@@ -738,6 +571,11 @@ class reg_value_info_t(reg_value_base_t):
                 
         """
         ...
+    def get_stride(self) -> int:
+        r"""Return the loop stride of a NUMLOOP value. 
+                
+        """
+        ...
     def has_any_vals_flag(self, val_flags: int) -> bool:
         ...
     def have_all_vals_flag(self, val_flags: int) -> bool:
@@ -748,6 +586,8 @@ class reg_value_info_t(reg_value_base_t):
     def is_all_vals_like_got(self) -> bool:
         ...
     def is_all_vals_pc_based(self) -> bool:
+        ...
+    def is_any_vals_had_delta(self) -> bool:
         ...
     def is_any_vals_like_got(self) -> bool:
         ...
@@ -771,6 +611,11 @@ class reg_value_info_t(reg_value_base_t):
     def is_num(self) -> bool:
         r"""Return 'true' if the value is a constant.
         
+        """
+        ...
+    def is_numloop(self) -> bool:
+        r"""Return 'true' if the value is a number changed in a loop by adding a constant stride each iteration. 
+                
         """
         ...
     def is_spd(self) -> bool:
@@ -823,60 +668,72 @@ class reg_value_info_t(reg_value_base_t):
         
         """
         ...
-    def make_aborted(self, bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
+    @staticmethod
+    def make_aborted(bblk_ea: ida_idaapi.ea_t, aborting_depth: int = -1) -> reg_value_base_t:
         r"""Return the value after aborting. 
                 
         """
         ...
-    def make_badinsn(self, insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_badinsn(insn_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value after a bad insn. 
                 
         """
         ...
-    def make_dead_end(self, dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_dead_end(dead_end_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the undefined value because of a dead end. 
                 
         """
         ...
-    def make_initial_sp(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_initial_sp(func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the value that is the initial stack pointer. 
                 
         """
         ...
     @overload
-    def make_num(self, rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
+    @staticmethod
+    def make_num(rval: int, insn: insn_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
     @overload
-    def make_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
+    @staticmethod
+    def make_num(rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> reg_value_base_t:
         r"""Return the value that is the RVAL number."""
         ...
-    def make_unkfunc(self, func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkfunc(func_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value from the function start. 
                 
         """
         ...
-    def make_unkinsn(self, insn: insn_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkinsn(insn: insn_t) -> reg_value_base_t:
         r"""Return the unknown value after executing the insn. 
                 
         """
         ...
-    def make_unkloop(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkloop(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if it changes in a loop. 
                 
         """
         ...
-    def make_unkmult(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkmult(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has incompatible values. 
                 
         """
         ...
-    def make_unkvals(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkvals(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if the register has too many values. 
                 
         """
         ...
-    def make_unkxref(self, bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
+    @staticmethod
+    def make_unkxref(bblk_ea: ida_idaapi.ea_t) -> reg_value_base_t:
         r"""Return the unknown value if there are too many xrefs. 
                 
         """
@@ -907,6 +764,8 @@ class reg_value_info_t(reg_value_base_t):
         """
         ...
     def set_all_vals_got_based(self) -> None:
+        ...
+    def set_all_vals_had_delta(self) -> None:
         ...
     def set_all_vals_pc_based(self) -> None:
         ...
@@ -941,6 +800,11 @@ class reg_value_info_t(reg_value_base_t):
     @overload
     def set_num(self, rval: int, val_ea: ida_idaapi.ea_t, val_flags: int = 0) -> None:
         r"""Set the value to be a number before an address."""
+        ...
+    def set_numloop(self, loop_stride: int) -> None:
+        r"""Turn a number into the NUMLOOP value: the register is changed in a loop by adding LOOP_STRIDE each iteration, VALS keeps the initial value(s). 
+                
+        """
         ...
     def set_unkfunc(self, func_ea: ida_idaapi.ea_t) -> None:
         r"""Set the value to be unknown from the function start. 
@@ -1023,6 +887,18 @@ def find_nearest_rvi(rvi: reg_value_info_t, ea: ida_idaapi.ea_t, reg: Any) -> in
     :param ea: the address to find a value at
     :param reg: the registers to find
     :returns: the index of the found register or -1
+    """
+    ...
+
+def find_op_value_info(rvi: reg_value_info_t, insn: insn_t, op: op_t, max_depth: int = 0) -> bool:
+    r"""Find the value of an instruction operand using the register tracker. Works for register and stack-variable operands; returns 'false' for operands the tracker cannot turn into a tracked object. 
+            
+    :param rvi: the found value with additional attributes
+    :param insn: the instruction owning the operand
+    :param op: the operand to find a value of
+    :param max_depth: as in find_regname_value_info()
+    :returns: 'false': the processor module does not support a register tracker, or the operand cannot be tracked
+    :returns: 'true': the found value is in RVI
     """
     ...
 

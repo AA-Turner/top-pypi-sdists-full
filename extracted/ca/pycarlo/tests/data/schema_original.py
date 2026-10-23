@@ -5997,16 +5997,17 @@ class ManualMonitorExecutionStatus(sgqlc.types.Enum):
 class McpServerAgentType(sgqlc.types.Enum):
     """An AI agent whose customer MCP server access can be set by account
     admins. TROUBLESHOOTING: the Troubleshooting agent. CHAT: the
-    Operations agent.
+    Operations agent. TEAMMATE: the Teammate.
 
     Enumeration Choices:
 
     * `CHAT`None
+    * `TEAMMATE`None
     * `TROUBLESHOOTING`None
     """
 
     __schema__ = schema
-    __choices__ = ("CHAT", "TROUBLESHOOTING")
+    __choices__ = ("CHAT", "TEAMMATE", "TROUBLESHOOTING")
 
 
 class McpServersAccessMode(sgqlc.types.Enum):
@@ -14838,6 +14839,29 @@ class DbtArtifactsInput(sgqlc.types.Input):
     """logs file name"""
 
 
+class DbtCloudConnectionAllowListInput(sgqlc.types.Input):
+    """dbt Cloud webhook connection allow-list. A run is kept when one of
+    the fields on its dbt environment connection equals one of the
+    values.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("fields", "values")
+    fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="fields",
+    )
+    """dbt connection fields to compare, such as account for Snowflake.
+    An empty list compares name and id.
+    """
+
+    values = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="values",
+    )
+    """Values to match, exactly as they appear in dbt Cloud."""
+
+
 class DbtCloudConnectionDetails(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
@@ -21329,7 +21353,12 @@ class UpdateReinforcementLoopAgentInput(sgqlc.types.Input):
 
 class UpdateReinforcementLoopSelectorInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("issue_space_uuid", "selected_cluster_keys", "is_enabled")
+    __field_names__ = (
+        "issue_space_uuid",
+        "selected_cluster_keys",
+        "select_all_clusters",
+        "is_enabled",
+    )
     issue_space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueSpaceUuid")
     """issueSpaceUuid from the selector, or the ISSUE space's uuid."""
 
@@ -21337,6 +21366,12 @@ class UpdateReinforcementLoopSelectorInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="selectedClusterKeys"
     )
     """Keys from availableClusters. Omit or null: unchanged; []: clear."""
+
+    select_all_clusters = sgqlc.types.Field(Boolean, graphql_name="selectAllClusters")
+    """true: select every current cluster, including clusters added
+    later. Cannot be combined with selectedClusterKeys. false or null:
+    same as omitting it.
+    """
 
     is_enabled = sgqlc.types.Field(Boolean, graphql_name="isEnabled")
     """Turn the loop on or off. Omit: unchanged."""
@@ -24862,6 +24897,26 @@ class AgentAlertSummary(sgqlc.types.Type):
     """
 
 
+class AgentAssetMemories(sgqlc.types.Type):
+    """The asset memories an agent loads with its saved context."""
+
+    __schema__ = schema
+    __field_names__ = ("items", "ignored_mcons")
+    items = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentMemory"))),
+        graphql_name="items",
+    )
+    """Asset memories of the requested MCONs, filtered by the requested
+    domains and agent types (GENERAL always), by created time.
+    """
+
+    ignored_mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="ignoredMcons",
+    )
+    """Requested MCONs dropped as malformed or over the server cap."""
+
+
 class AgentClassificationOutput(sgqlc.types.Type):
     """Classification of an AI-observability agent: its origin (user
     trace table vs platform agent), platform integration, and which
@@ -24912,20 +24967,25 @@ class AgentClassificationOutput(sgqlc.types.Type):
 
 
 class AgentContext(sgqlc.types.Type):
-    """A composed persisted context, plus what the request could not
-    honor.  The agent renders ``context`` and does not need to know
-    how many scopes or agent types produced it. Everything alongside
-    it is reporting: the echoes say what was dropped, and the label
-    lists say what did not fit, so "this scope has no context" stays
-    distinguishable from "this scope was cut".  **These field names
-    are a cross-repo wire contract.** graphene auto-camelCases them,
-    and ai-agent's ``_warn_on_agent_context_echoes`` reads
+    """A composed persisted context and memories, plus what the request
+    could not honor.  The agent renders ``context`` and loads
+    ``memories`` / ``assetMemories``. It does not need to know how
+    many scopes or agent types produced them. The echoes and label
+    lists are reporting: the echoes say what was dropped, and the
+    label lists say what did not fit, so "this scope has no context"
+    stays distinguishable from "this scope was cut".  **These field
+    names are a cross-repo wire contract.** graphene auto-camelCases
+    them. ai-agent's ``_warn_on_agent_context_echoes`` reads
     ``ignoredAgentTypes`` / ``ignoredDomainIds`` / ``truncatedLabels``
-    / ``omittedLabels`` verbatim. Renaming one looks safe here — no
-    monolith code reads the echoes — but it silently empties the
-    client's lists forever, which disables the only drift signal this
-    feature has. ``GetAgentContextTest`` is the pin; the mirror
-    convention is the same one on ``AiAgentType``.
+    / ``omittedLabels`` verbatim. The stage-3 loader reads
+    ``memories``, ``assetMemories``, ``ignoredMcons``, ``items`` and
+    the ``AgentMemory`` item fields ``level``, ``domainUuid``,
+    ``assetMcon``, ``agentType``, ``memoryText``, ``authorName`` and
+    ``createdTime`` verbatim. Renaming one looks safe here, because no
+    monolith code reads them, but it silently empties the client's
+    data forever and disables the only drift signal this feature has.
+    ``GetAgentContextTest`` is the pin; the mirror convention is the
+    same one on ``AiAgentType``.
     """
 
     __schema__ = schema
@@ -24937,6 +24997,8 @@ class AgentContext(sgqlc.types.Type):
         "ignored_domain_ids",
         "truncated_labels",
         "omitted_labels",
+        "memories",
+        "asset_memories",
     )
     context = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="context")
     """The composed context, or "" when the account has configured
@@ -24983,6 +25045,43 @@ class AgentContext(sgqlc.types.Type):
         graphql_name="omittedLabels",
     )
     """Sections dropped entirely because they could not fit meaningfully."""
+
+    memories = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentMemory")), graphql_name="memories"
+    )
+    """(experimental) Domain memories people asked the agents to
+    remember, for the requested domains and agent types (GENERAL
+    always), by created time. Requested domains are narrowed to the
+    caller's `ai-agents/memories/access` grant.
+    """
+
+    asset_memories = sgqlc.types.Field(
+        AgentAssetMemories,
+        graphql_name="assetMemories",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Asset memories of the given assets, filtered by the
+    requested domains and agent types (GENERAL always), by created
+    time. Requested domains are narrowed to the caller's `ai-
+    agents/memories/access` grant.
+
+    Arguments:
+
+    * `mcons` (`[String!]`): Assets whose memories to return.
+      Malformed MCONs and values over the server cap are dropped and
+      echoed in `ignoredMcons`.
+    """
 
 
 class AgentCost(sgqlc.types.Type):
@@ -26379,6 +26478,7 @@ class AgentMemory(sgqlc.types.Type):
         "agent_type",
         "memory_text",
         "created_by",
+        "author_name",
         "created_time",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
@@ -26401,6 +26501,11 @@ class AgentMemory(sgqlc.types.Type):
     user's email for human users; for agent users, returns a derived
     display label (e.g. ``Agent on <domain>``) — never the agent's
     internal address.
+    """
+
+    author_name = sgqlc.types.Field(String, graphql_name="authorName")
+    """Name of the user who asked to remember this, or their email when
+    they have no name. Null when that user was deleted.
     """
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -32237,6 +32342,7 @@ class Connection(sgqlc.types.relay.Connection):
         "integration_type",
         "connection_type_display_name",
         "allowed_dbt_cloud_environments",
+        "dbt_cloud_connection_allow_list",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -32378,6 +32484,14 @@ class Connection(sgqlc.types.relay.Connection):
     )
     """dbt Cloud webhook only: the dbt environment names whose events are
     kept. Null when no environment allow-list is set.
+    """
+
+    dbt_cloud_connection_allow_list = sgqlc.types.Field(
+        "DbtCloudConnectionAllowList", graphql_name="dbtCloudConnectionAllowList"
+    )
+    """dbt Cloud webhook only: the explicit allow-list of dbt
+    connections. Null when runs are matched automatically or not
+    filtered.
     """
 
 
@@ -38351,6 +38465,27 @@ class DateTimeAttribute(sgqlc.types.Type):
         sgqlc.types.non_null(DateTime), graphql_name="dateTimeValue"
     )
     """DateTime value"""
+
+
+class DbtCloudConnectionAllowList(sgqlc.types.Type):
+    """dbt Cloud webhook connection allow-list. A run is kept when one of
+    the fields on its dbt environment connection equals one of the
+    values.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("fields", "values")
+    fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="fields",
+    )
+    """dbt connection fields compared against the values."""
+
+    values = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="values",
+    )
+    """Values to match, exactly as they appear in dbt Cloud."""
 
 
 class DbtConnectionDetails(sgqlc.types.Type):
@@ -65101,6 +65236,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "dbt_cloud_connection_allow_list",
+                    sgqlc.types.Arg(
+                        DbtCloudConnectionAllowListInput,
+                        graphql_name="dbtCloudConnectionAllowList",
+                        default=None,
+                    ),
+                ),
+                (
                     "filter_dbt_cloud_events",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(Boolean),
@@ -65116,17 +65259,23 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `allowed_dbt_cloud_connections` (`[String!]`): Allow-list of dbt
-      connection ids/names; when provided, only runs whose dbt
-      environment connection id or name is in this list are handled
-      (automatic warehouse matching is not used). Only valid when
-      filterDbtCloudEvents is true.
+    * `allowed_dbt_cloud_connections` (`[String!]`): Deprecated. Use
+      dbtCloudConnectionAllowList. Allow-list of dbt connection
+      ids/names. When provided, only runs whose dbt environment
+      connection id or name is in this list are handled. Only valid
+      when filterDbtCloudEvents is true. Cannot be combined with
+      dbtCloudConnectionAllowList.
     * `allowed_dbt_cloud_environments` (`[String!]`): dbt environment
       names to keep, matched case-insensitively. When the list is non-
       empty, events from other environments or without an environment
       name are dropped. An empty list clears the allow-list. Omit it
       or pass null to leave it unchanged.
     * `connection_id` (`UUID!`): dbt Cloud webhook connection id
+    * `dbt_cloud_connection_allow_list`
+      (`DbtCloudConnectionAllowListInput`): Explicit allow-list of dbt
+      connections. Automatic warehouse matching is not used when it
+      has values. An empty values list clears it. Only valid when
+      filterDbtCloudEvents is true.
     * `filter_dbt_cloud_events` (`Boolean!`): When true, drop runs
       that don't belong to this connection's warehouse
     """
@@ -70969,6 +71118,10 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "deploy_when_done",
+                    sgqlc.types.Arg(Boolean, graphql_name="deployWhenDone", default=None),
+                ),
+                (
                     "domain_uuid",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
@@ -71036,6 +71189,12 @@ class Mutation(sgqlc.types.Type):
       every monitor this run creates. Applies to this run only and
       replaces any audiences saved on the domain's monitoring
       pipeline. Unknown labels are ignored by the agent.
+    * `deploy_when_done` (`Boolean`): `true` deploys the build's
+      monitors once the run finishes and its plan is complete, with no
+      review step. Requires `planSelection` or `planAgents`. The
+      monitors are created as you, so they deploy only if you can
+      still create monitors on the domain at that point. `false` or
+      omitted leaves the plan for review.
     * `domain_uuid` (`UUID!`): UUID of the metadata domain to run
       monitoring for.
     * `plan_agents` (`[PlanAgentInput!]`): The AI agents a generated
@@ -75420,6 +75579,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="createWarehouseType", default=None),
                 ),
                 ("ctp_config", sgqlc.types.Arg(JSONString, graphql_name="ctpConfig", default=None)),
+                (
+                    "dbt_cloud_connection_allow_list",
+                    sgqlc.types.Arg(
+                        DbtCloudConnectionAllowListInput,
+                        graphql_name="dbtCloudConnectionAllowList",
+                        default=None,
+                    ),
+                ),
                 ("dc_id", sgqlc.types.Arg(UUID, graphql_name="dcId", default=None)),
                 ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
                 (
@@ -75455,10 +75622,12 @@ class Mutation(sgqlc.types.Type):
       derives from the connection's database name instead: it is
       recorded whenever the database is otel_traces, and passing this
       argument is rejected.
-    * `allowed_dbt_cloud_connections` (`[String!]`): dbt Cloud webhook
-      only: explicit allow-list of dbt connection ids/names; a run is
-      kept only if its environment connection id or name is listed.
-      Only valid when filterDbtCloudEvents is true.
+    * `allowed_dbt_cloud_connections` (`[String!]`): Deprecated. Use
+      dbtCloudConnectionAllowList. dbt Cloud webhook only: explicit
+      allow-list of dbt connection ids/names. A run is kept only if
+      its environment connection id or name is listed. Only valid when
+      filterDbtCloudEvents is true. Cannot be combined with
+      dbtCloudConnectionAllowList.
     * `allowed_dbt_cloud_environments` (`[String!]`): dbt Cloud
       webhook only: dbt environment names to keep. When non-empty,
       events from other environments, or without an environment name,
@@ -75470,6 +75639,10 @@ class Mutation(sgqlc.types.Type):
       the connection
     * `ctp_config` (`JSONString`): CTP pipeline config to associate
       with the connection after creation.
+    * `dbt_cloud_connection_allow_list`
+      (`DbtCloudConnectionAllowListInput`): dbt Cloud webhook only:
+      explicit allow-list of dbt connections. Only valid when
+      filterDbtCloudEvents is true.
     * `dc_id` (`UUID`): DC UUID. To disambiguate accounts with
       multiple collectors
     * `dw_id` (`UUID`): Add connection to an existing warehouse
@@ -111419,6 +111592,7 @@ class ReinforcementLoopSelector(sgqlc.types.Type):
         "trace_table_mcon",
         "scope_workflow",
         "selected_cluster_keys",
+        "selects_all_clusters",
         "is_enabled",
         "eval_score_threshold",
         "available_clusters",
@@ -111444,6 +111618,14 @@ class ReinforcementLoopSelector(sgqlc.types.Type):
     """Cluster keys whose conversations the loop diagnoses; empty selects
     nothing. Until a selection is saved, every current cluster of the
     space.
+    """
+
+    selects_all_clusters = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="selectsAllClusters"
+    )
+    """True when no selection is saved, so the loop diagnoses every
+    current cluster, including clusters added later. selectAllClusters
+    restores it.
     """
 
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
@@ -112216,7 +112398,7 @@ class RequiredTag(sgqlc.types.Type):
 
 class ResidualJobMonitor(sgqlc.types.Type):
     """A job monitor of the jobs that alerted nobody before the
-    migration. It has no audience.
+    migration.  It had no audience at migration.
     """
 
     __schema__ = schema
@@ -112227,6 +112409,7 @@ class ResidualJobMonitor(sgqlc.types.Type):
         "integration",
         "job_count",
         "failed_job_count90d",
+        "audiences",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -112248,6 +112431,16 @@ class ResidualJobMonitor(sgqlc.types.Type):
     )
     """Of those jobs, how many failed in the 90 days before the migration
     was proposed.
+    """
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(JobMonitorMigrationAudience))
+        ),
+        graphql_name="audiences",
+    )
+    """The monitor's current audiences, including ones set after the
+    migration.
     """
 
 
@@ -112681,22 +112874,24 @@ class RunMonitoringForDomain(sgqlc.types.Type):
     internal group is provisioned, and no scheduled pipeline is
     enabled for a cold (never-assisted) domain. The run always uses
     SUGGEST mode — it emits the staged finding tree for the user to
-    review and apply, and never deploys monitors live. There is no
-    create-mode option; deploying the suggested monitors is a
-    separate, Write-gated step.  The run dispatches as the calling
-    user, and at most one run per domain is in flight at a time —
-    calling this while the domain is already running returns that run
-    instead of starting a second one.  Poll the resulting run's state
-    via ``getMonitoringRunForDomain``.  Passing ``targetAgentName``
-    **and** ``targetTraceTableMcon`` scopes the run to that one agent
-    rather than every agent in the domain. Both are required together
-    — agent names are not unique, so an agent is identified by the
-    pair — and both must come from ``getAgentMetadataV2``. Passing one
-    without the other is rejected.  Passing ``planSelection``,
-    ``planAgents``, or both builds exactly the plan the user chose in
-    a planning session, instead of letting the agent select tables and
-    agents. If the domain is already running, a build returns that run
-    only when it builds the same tables and agents. Any other in-
+    review and apply. There is no create-mode option; deploying the
+    suggested monitors is a separate, Write-gated step. Passing
+    ``deployWhenDone`` on a build runs that step for you, as the
+    calling user, once the plan is complete.  The run dispatches as
+    the calling user, and at most one run per domain is in flight at a
+    time — calling this while the domain is already running returns
+    that run instead of starting a second one.  Poll the resulting
+    run's state via ``getMonitoringRunForDomain``.  Passing
+    ``targetAgentName`` **and** ``targetTraceTableMcon`` scopes the
+    run to that one agent rather than every agent in the domain. Both
+    are required together — agent names are not unique, so an agent is
+    identified by the pair — and both must come from
+    ``getAgentMetadataV2``. Passing one without the other is rejected.
+    Passing ``planSelection``, ``planAgents``, or both builds exactly
+    the plan the user chose in a planning session, instead of letting
+    the agent select tables and agents. If the domain is already
+    running, a build returns that run only when it builds the same
+    tables and agents with the same ``deployWhenDone``. Any other in-
     flight run is rejected with ``MONITORING_RUN_IN_PROGRESS``.
     Passing ``revisesPlanUuid`` (with or without ``planCorrections``)
     makes the run a *revision* of that plan. A plan is a view over one
@@ -114183,11 +114378,11 @@ class SetDbtCloudEventFilter(sgqlc.types.Type):
     """Configure dbt Cloud webhook event filtering on a connection. When
     filterDbtCloudEvents is true, runs that don't belong to this
     connection's warehouse are dropped. Provide
-    allowedDbtCloudConnections (dbt connection ids/names) to drop by
-    an explicit allow-list instead of automatic warehouse matching —
-    only valid when filterDbtCloudEvents is true. Provide
-    allowedDbtCloudEnvironments to set the dbt environment allow-list.
-    Both filters are saved together.
+    dbtCloudConnectionAllowList to drop by an explicit allow-list
+    instead of automatic warehouse matching. It is only valid when
+    filterDbtCloudEvents is true. Provide allowedDbtCloudEnvironments
+    to set the dbt environment allow-list. Both filters are saved
+    together.
     """
 
     __schema__ = schema
@@ -115993,7 +116188,9 @@ class TableCapabilitiesResponse(sgqlc.types.Type):
     """
 
     supports_query_logs = sgqlc.types.Field(Boolean, graphql_name="supportsQueryLogs")
-    """indicates whether the table could possibly provide query logs"""
+    """indicates whether query logs are collected for the table's
+    warehouse
+    """
 
     supports_lineage = sgqlc.types.Field(Boolean, graphql_name="supportsLineage")
     """indicates whether the table could possibly provide lineage"""

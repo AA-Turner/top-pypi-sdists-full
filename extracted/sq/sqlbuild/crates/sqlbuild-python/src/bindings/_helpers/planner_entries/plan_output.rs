@@ -2,6 +2,9 @@
 
 use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compiled_views::function_reads;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::seed_reads;
 use crate::bindings::_helpers::planner_entries::model_entries::scope_overlaps;
 use crate::bindings::_helpers::planner_entries::models::PlanOutputInputs;
 use crate::bindings::_helpers::planner_entries::values::{
@@ -104,27 +107,27 @@ fn seed_entries<'py>(
     let metadata_jsons = native_field(extras, "seed_metadata_jsons")?;
     let plan_reasons = native_field(extras, "seed_plan_reasons")?;
     let mut entries: Vec<Bound<'py, PyAny>> = Vec::new();
-    for seed in native_field(project, "seeds")?.try_iter()? {
+    for seed in project_reads::seeds(project)?.try_iter()? {
         let seed = seed?;
-        if !selected_keys.contains(native_field(&seed, "key")?)? {
+        if !selected_keys.contains(seed_reads::key(&seed)?)? {
             continue;
         }
-        let name = native_field(&seed, "name")?;
+        let name = seed_reads::name(&seed)?;
         entries.push(planner_model(
             py,
             RecordId::SeedPlanEntry,
             &[
-                ("key", native_field(&seed, "key")?),
+                ("key", seed_reads::key(&seed)?),
                 ("name", name.clone()),
-                ("destination", native_field(&seed, "destination")?),
+                ("destination", seed_reads::destination(&seed)?),
                 (
                     "file_path",
-                    native_field(&native_field(&seed, "seed_file")?, "file_path")?,
+                    native_field(&seed_reads::seed_file(&seed)?, "file_path")?,
                 ),
                 ("columns", object(py, extract_seed_columns(&seed)?)?),
                 (
                     "csv_settings",
-                    native_field(&native_field(&seed, "schema_entry")?, "csv_settings")?,
+                    native_field(&seed_reads::schema_entry(&seed)?, "csv_settings")?,
                 ),
                 (
                     "fingerprint_definition",
@@ -368,26 +371,34 @@ pub(super) fn function_entry<'py>(
             ],
         )?),
     )?;
-    let field = |name: &str| native_field(function, name);
     planner_model(
         py,
         RecordId::FunctionPlanEntry,
         &[
-            ("key", field("key")?),
-            ("name", field("name")?),
-            ("relative_path", field("relative_path")?),
-            ("destination", field("destination")?),
-            ("arguments", field("arguments")?),
-            ("returns", field("returns")?),
+            ("key", function_reads::key(function)?),
+            ("name", function_reads::name(function)?),
+            ("relative_path", function_reads::relative_path(function)?),
+            ("destination", function_reads::destination(function)?),
+            ("arguments", function_reads::arguments(function)?),
+            ("returns", function_reads::returns(function)?),
             ("body_sql", body_sql),
             ("fingerprint_query_sql", fingerprint_query_sql),
-            ("fingerprint_destination", field("fingerprint_destination")?),
-            ("return_columns", field("return_columns")?),
-            ("language", field("language")?),
-            ("source_file_path", field("source_file_path")?),
-            ("runtime_version", field("runtime_version")?),
-            ("entry_point", field("entry_point")?),
-            ("packages", field("packages")?),
+            (
+                "fingerprint_destination",
+                function_reads::fingerprint_destination(function)?,
+            ),
+            ("return_columns", function_reads::return_columns(function)?),
+            ("language", function_reads::language(function)?),
+            (
+                "source_file_path",
+                function_reads::source_file_path(function)?,
+            ),
+            (
+                "runtime_version",
+                function_reads::runtime_version(function)?,
+            ),
+            ("entry_point", function_reads::entry_point(function)?),
+            ("packages", function_reads::packages(function)?),
             ("previous_query_sql", previous_query_sql),
             ("reason", reason),
         ],
@@ -404,12 +415,12 @@ fn function_entries<'py>(
     let functions = native_field(changes, "functions")?;
     let previous = native_field(&native_field(snapshot, "fingerprints")?, "functions")?;
     let mut entries: Vec<Bound<'py, PyAny>> = Vec::new();
-    for function in native_field(project, "functions")?.try_iter()? {
+    for function in project_reads::functions(project)?.try_iter()? {
         let function = function?;
-        if !selected_keys.contains(native_field(&function, "key")?)? {
+        if !selected_keys.contains(function_reads::key(&function)?)? {
             continue;
         }
-        let name = native_field(&function, "name")?;
+        let name = function_reads::name(&function)?;
         let change = functions.get_item(&name)?;
         let previous_query_sql = if previous.contains(&name)? {
             native_field(&previous.get_item(&name)?, "definition")?
@@ -464,7 +475,7 @@ pub(super) fn selected_test_entries<'py>(
 ) -> PyResult<SelectedTests<'py>> {
     let py = project.py();
     let mut selected: Vec<Bound<'py, PyAny>> = Vec::new();
-    for test in native_field(project, "sql_tests")?.try_iter()? {
+    for test in project_reads::sql_tests(project)?.try_iter()? {
         let test = test?;
         if !test_selected(&test, selected_keys, selection)? {
             continue;
@@ -693,42 +704,7 @@ pub(crate) fn plan_output_fields<'py>(
     ])
 }
 
-/// Build one canonical function entry from resolved relation inputs.
-#[pyfunction]
-#[pyo3(signature = (**kwargs))]
-fn plan_function<'py>(
-    py: Python<'py>,
-    kwargs: Option<Bound<'py, PyDict>>,
-) -> PyResult<Bound<'py, PyAny>> {
-    let args = KeywordArguments::read(
-        py,
-        "plan_function",
-        kwargs,
-        (
-            &["function", "adapter", "relations", "fingerprint_query_sql"],
-            &["previous_query_sql", "reason"],
-        ),
-    )?;
-    let reason = if args.passed("reason")? {
-        args.value("reason")?
-    } else {
-        planner_type(py, RecordId::PlanReason, "NO_CHANGE")?
-    };
-    function_entry(
-        &args.value("function")?,
-        &args.value("adapter")?,
-        &args.value("relations")?,
-        (
-            args.value("fingerprint_query_sql")?,
-            args.value("previous_query_sql")?,
-            reason,
-        ),
-    )
-}
-
 /// Plan SQL tests selected by name or overlapping one selection into a reusable result.
-#[pyfunction]
-#[pyo3(signature = (*, project, adapter, selected_keys, sql_test_selection))]
 pub(crate) fn plan_selected_sql_tests<'py>(
     project: &Bound<'py, PyAny>,
     adapter: &Bound<'py, PyAny>,
@@ -736,17 +712,6 @@ pub(crate) fn plan_selected_sql_tests<'py>(
     sql_test_selection: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
     planned_sql_tests(project, adapter, selected_keys, sql_test_selection)
-}
-
-/// Whether a test is named by the selection or covers a selected resource, and not excluded.
-#[pyfunction]
-#[pyo3(signature = (*, test, selected_keys, sql_test_selection))]
-fn sql_test_is_selected(
-    test: &Bound<'_, PyAny>,
-    selected_keys: &Bound<'_, PyAny>,
-    sql_test_selection: &Bound<'_, PyAny>,
-) -> PyResult<bool> {
-    test_selected(test, selected_keys, sql_test_selection)
 }
 
 /// Selected SQL test entries and warnings, optionally narrowed to one parameterized case.
@@ -778,9 +743,6 @@ fn build_selected_test_entries<'py>(
 }
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(plan_function, module)?)?;
-    module.add_function(wrap_pyfunction!(plan_selected_sql_tests, module)?)?;
-    module.add_function(wrap_pyfunction!(sql_test_is_selected, module)?)?;
     module.add_function(wrap_pyfunction!(sql_test_model_chain_names_by_key, module)?)?;
     module.add_function(wrap_pyfunction!(build_selected_test_entries, module)?)
 }

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import Iterator, AsyncIterator
 
-import httpx
 import pytest
 
-from ours_privacy import OursPrivacy, AsyncOursPrivacy
+from ours_privacy import OursPrivacy, AsyncOursPrivacy, httpx
 from ours_privacy._streaming import Stream, AsyncStream, ServerSentEvent
 
 

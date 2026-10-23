@@ -40,8 +40,10 @@ from crosshair.libimpl import (
     ipaddresslib,
     itertoolslib,
     jsonlib,
+    lzmalib,
     mathlib,
     oslib,
+    picklelib,
     randomlib,
     relib,
     socketlib,
@@ -98,12 +100,14 @@ def _make_registrations():
     hashliblib.make_registrations()
     heapqlib.make_registrations()
     jsonlib.make_registrations()
+    lzmalib.make_registrations()
     importliblib.make_registrations()
     iolib.make_registrations()
     ipaddresslib.make_registrations()
     itertoolslib.make_registrations()
     mathlib.make_registrations()
     oslib.make_registrations()
+    picklelib.make_registrations()
     randomlib.make_registrations()
     relib.make_registrations()
     socketlib.make_registrations()

@@ -39,6 +39,8 @@ tests = [
   'layout.notonastaliqurdu',
   'layout.tinos',
   'layout.duplicate_features',
+  'layout.feature_dedup',
+  'layout.feature_dedup_instance',
   'layout.unsorted_featurelist',
   'layout.drop_feature',
   'no_layout_closure',
@@ -63,6 +65,7 @@ tests = [
   'pin_all_at_default',
   'instantiate_base',
   'instantiate_colrv1',
+  'colrv1_alpha_instance',
   'instantiate_glyf',
   'instantiate_cff2',
   'instantiate_cff2_partial',
@@ -76,9 +79,13 @@ tests = [
   'post_apply_mvar_delta',
   'apply_cvar_delta',
   'collect_name_ids',
+  'feature_params_variations',
+  'feature_params_alternate',
   'instantiate_cff2_update_metrics',
   'layout.empty_ligature_offset',
   'glyf_partial_instancing',
+  'glyf_iup_retry',
+  'glyf_iup_large_contour',
   'hvar_partial_instance_implicit_map',
   'mvar_partial_instance',
   'update_def_wght',
@@ -98,6 +105,7 @@ tests = [
 if get_option('experimental_api')
   tests += [
     'iftb_requirements',
+    'downgrade_cff2_iftb',
     'retain-num-glyphs',
   ]
 endif

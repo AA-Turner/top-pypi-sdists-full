@@ -58,7 +58,7 @@ from .util import (
 )
 
 
-def _expr39(gen0: TypeInfo) -> TypeInfo:
+def _expr28(gen0: TypeInfo) -> TypeInfo:
     return record_type(
         "ListModule.FSharpList",
         Array([gen0]),
@@ -198,10 +198,10 @@ class FSharpList[T](Record, EnumerableBase[Any]):
         return int(self.GetHashCode())
 
 
-FSharpList_reflection = _expr39
+FSharpList_reflection = _expr28
 
 
-def _expr40(gen0: TypeInfo) -> TypeInfo:
+def _expr29(gen0: TypeInfo) -> TypeInfo:
     return class_type("ListModule.ListEnumerator`1", Array([gen0]), ListEnumerator_1)
 
 
@@ -240,7 +240,7 @@ class ListEnumerator_1[T](EnumeratorBase[Any], DisposableBase):
         pass
 
 
-ListEnumerator_1_reflection = _expr40
+ListEnumerator_1_reflection = _expr29
 
 
 def ListEnumerator_1__ctor_3002E699[T](xs: FSharpList[T]) -> ListEnumerator_1[T]:
@@ -444,10 +444,10 @@ def fold[T, STATE](folder: Callable[[STATE, T], STATE], state: STATE, xs: FSharp
 
 
 def reverse[T](xs: FSharpList[T]) -> FSharpList[T]:
-    def _arrow43(acc: FSharpList[T], x: T) -> FSharpList[T]:
+    def _arrow30(acc: FSharpList[T], x: T) -> FSharpList[T]:
         return FSharpList_Cons_305B8EAC(x, acc)
 
-    return fold(_arrow43, FSharpList_get_Empty(), xs)
+    return fold(_arrow30, FSharpList_get_Empty(), xs)
 
 
 def fold_back[T, STATE](folder: Callable[[T, STATE], STATE], xs: FSharpList[T], state: STATE) -> STATE:
@@ -499,12 +499,12 @@ def unfold[STATE, T](generator: Callable[[STATE], tuple[T, STATE] | None], state
             if match_value is not None:
                 acc_mut = match_value[1]
 
-                def _arrow49(match_value: tuple[T, STATE], node: Any = node) -> FSharpList[T]:
+                def _arrow42(match_value: tuple[T, STATE], node: Any = node) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(match_value[0], None)
                     node.tail_ = t
                     return t
 
-                node_mut = _arrow49(match_value)
+                node_mut = _arrow42(match_value)
                 continue
 
             else:
@@ -520,33 +520,33 @@ def unfold[STATE, T](generator: Callable[[STATE], tuple[T, STATE] | None], state
 
 
 def iterate[_A](action: Callable[[_A], None], xs: FSharpList[_A]) -> None:
-    def _arrow51(unit_var: None, x: _A, action: Any = action) -> None:
+    def _arrow43(unit_var: None, x: _A, action: Any = action) -> None:
         action(x)
 
-    fold(_arrow51, None, xs)
+    fold(_arrow43, None, xs)
 
 
 def iterate2[_A, _B](action: Callable[[_A, _B], None], xs: FSharpList[_A], ys: FSharpList[_B]) -> None:
-    def _arrow52(unit_var: None, x: _A, y: _B, action: Any = action) -> None:
+    def _arrow44(unit_var: None, x: _A, y: _B, action: Any = action) -> None:
         action(x, y)
 
-    fold2(_arrow52, None, xs, ys)
+    fold2(_arrow44, None, xs, ys)
 
 
 def iterate_indexed[_A](action: Callable[[int, _A], None], xs: FSharpList[_A]) -> None:
-    def _arrow53(i: int, x: _A, action: Any = action) -> int:
+    def _arrow45(i: int, x: _A, action: Any = action) -> int:
         action(i, x)
         return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold(_arrow53, 0, xs))
+    ignore(fold(_arrow45, 0, xs))
 
 
 def iterate_indexed2[_A, _B](action: Callable[[int, _A, _B], None], xs: FSharpList[_A], ys: FSharpList[_B]) -> None:
-    def _arrow54(i: int, x: _A, y: _B, action: Any = action) -> int:
+    def _arrow46(i: int, x: _A, y: _B, action: Any = action) -> int:
         action(i, x, y)
         return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold2(_arrow54, 0, xs, ys))
+    ignore(fold2(_arrow46, 0, xs, ys))
 
 
 def to_seq[T](xs: FSharpList[T]) -> IEnumerable_1[T]:

@@ -43,7 +43,6 @@ def test_create_from_model_create_mode(tables):
         )
 
 
-@pytest.mark.skip_notebook
 @pytest.mark.skip_storedproc
 def test_create_using_template(session, tables):
     session.sql("create or replace temp stage table_test_stage").collect()

@@ -26,9 +26,10 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
     import tomli as tomllib
 
-from skylos.constants import DEFAULT_EXCLUDE_FOLDERS
+from skylos.constants import DEFAULT_EXCLUDE_FOLDERS, get_non_library_dir_kind
 from skylos.core.file_discovery import discover_source_files
 from skylos.core.python_distributions import (
+    NAMESPACE_ROOTS,
     distribution_import_paths,
     path_is_provided,
     shared_namespace_roots,
@@ -45,9 +46,23 @@ from skylos.core.safe_cache_io import (
     save_project_json_cache,
 )
 from skylos.rules.ai_defect import pypi_wheel_modules
+from skylos.rules.ai_defect.environment_dependencies import (
+    DirectoryEnvironment,
+    directory_environment,
+    environment_import_paths,
+    image_distributions,
+)
 from skylos.rules.ai_defect.installed_modules_cache import (
     installed_module_mapping,
     virtual_env_site_packages,
+)
+from skylos.rules.ai_defect.package_selection import pyproject_package_selection
+from skylos.rules.ai_defect.transitive_dependencies import (
+    LOCKFILE_NAMES,
+    MAX_LOCKFILE_BYTES,
+    installed_closure,
+    lockfile_closure,
+    parse_lockfile,
 )
 
 # ---------------------------------------------------------------------------
@@ -2159,6 +2174,60 @@ def _provider_scope_for_file(repo_root, file_path, cache):
     return cache[directory]
 
 
+def _environment_directory(root, relative, cache):
+    """Environment definitions of one contained directory."""
+    key = ("directory", relative)
+    if key not in cache:
+        environment = DirectoryEnvironment()
+        if not relative.parts or _contained_directory(root, relative) is not None:
+            environment = directory_environment(root, root / relative)
+        cache[key] = environment
+    return cache[key]
+
+
+def _environment_scope_for_file(repo_root, file_path, cache, *, diff_path=False):
+    """Distributions the importing file's environment definitions provide.
+
+    From the file's directory and every parent up to the root
+    (environment_dependencies says which shapes count):
+
+    * Pipfile ``[packages]``;
+    * ``environment.yml`` and setup scripts, but only where no other manifest
+      sits in their directory or between it and the file: that manifest
+      declares the code's environment, and a script or conda file beside or
+      above it (CI, lint, docs, a monorepo's dev env) installs tools;
+    * the one Dockerfile stage that copies the file's directory.
+    """
+    root = Path(os.path.abspath(repo_root))
+    importer = _contained_importer_path(root, file_path, diff_path=diff_path)
+    relative = Path() if importer is None else importer.parent
+    if len(relative.parts) > MAX_DEPENDENCY_SCOPE_COMPONENTS:
+        relative = Path()
+    key = ("scope", relative)
+    if key in cache:
+        return cache[key]
+    names = set()
+    manifest_nearer = False
+    dockerfiles = []
+    root_dockerignore = False
+    for depth in range(len(relative.parts), -1, -1):
+        environment = _environment_directory(root, Path(*relative.parts[:depth]), cache)
+        names |= environment.declared
+        if not manifest_nearer:
+            if not environment.manifests - environment.conda_files:
+                names |= environment.conda
+            if not environment.manifests:
+                names |= environment.script_installs
+        manifest_nearer = manifest_nearer or bool(environment.manifests)
+        below = Path(*relative.parts[depth:])
+        dockerfiles.extend((dockerfile, below) for dockerfile in environment.dockerfiles)
+        if depth == 0:
+            root_dockerignore = environment.dockerignore
+    names |= image_distributions(dockerfiles, root_dockerignore=root_dockerignore)
+    cache[key] = frozenset(names)
+    return cache[key]
+
+
 def _nested_pyproject_metadata(repo_root, directory, project_names=None):
     deps = set()
     has_manifest = False
@@ -2251,6 +2320,89 @@ def _dependency_scope_for_file(
         scope_cache[nested_directory] = declared_deps, manifest_context
 
     return scope_cache[directory]
+
+
+_NO_MANIFEST = object()
+_OTHER_MANIFEST_NAMES = frozenset({"setup.py", "setup.cfg", "Pipfile", "requirements"})
+
+
+def _directory_package_selection(ctx, directory):
+    """``_NO_MANIFEST``; the explicit package selection of the directory's
+    pyproject; or None when another manifest sits there (a requirements file,
+    ``setup.py``/``setup.cfg``, a Pipfile) or the selection is unknown."""
+    path = _contained_directory(ctx["repo_root"], directory)
+    if path is None:
+        return None
+    has_pyproject = False
+    try:
+        with os.scandir(path) as entries:
+            for index, entry in enumerate(entries):
+                if index >= MAX_SERVICE_ROOT_ENTRIES:
+                    return None
+                name = entry.name
+                if name in _OTHER_MANIFEST_NAMES:
+                    return None
+                if name.startswith("requirements") and name.endswith(".txt"):
+                    return None
+                if name == "pyproject.toml":
+                    has_pyproject = True
+    except OSError:
+        return None
+    if not has_pyproject:
+        return _NO_MANIFEST
+    return pyproject_package_selection(
+        read_project_text_no_symlink(
+            ctx["repo_root"],
+            directory / "pyproject.toml",
+            max_bytes=MAX_DEPENDENCY_MANIFEST_BYTES,
+            encoding="utf-8",
+        )
+    )
+
+
+def _outside_packaged_sources(ctx, importer):
+    """Every Python manifest from the importer's directory up to the root is
+    a pyproject naming the packages it ships, and none ships the importer.
+
+    Those manifests declare their distributions' dependencies; a file no
+    distribution ships (a benchmark, a maintenance script) has no declared
+    dependency scope, so a missing declaration is not a finding there.
+    A hallucinated import still is.
+    """
+    if importer is None:
+        return False
+    cache = ctx.setdefault("package_selection_cache", {})
+    parts = importer.parent.parts
+    found = False
+    for depth in range(len(parts), -1, -1):
+        directory = Path(*parts[:depth])
+        if directory not in cache:
+            cache[directory] = _directory_package_selection(ctx, directory)
+        selection = cache[directory]
+        if selection is _NO_MANIFEST:
+            continue
+        if selection is None:
+            return False
+        if selection.packages(PurePosixPath(*importer.parts[depth:])):
+            return False
+        found = True
+    return found
+
+
+def _file_manifest_context(manifest_context, ctx, importer):
+    """The manifest context of one file.
+
+    None for test, example and benchmark code (``get_non_library_dir_kind``)
+    that no distribution ships, unless an environment definition in scope
+    (Pipfile, environment.yml, a setup script, a Dockerfile copying the
+    code) installs its dependencies. Other unshipped files, such as a
+    root-level ``app.py`` run in the project's environment, keep it.
+    """
+    if not manifest_context or ctx["environment_deps"] or importer is None:
+        return manifest_context
+    if get_non_library_dir_kind(importer.as_posix()) is None:
+        return manifest_context
+    return not _outside_packaged_sources(ctx, importer)
 
 
 def _normalized_dependency_names(dependencies):
@@ -2582,6 +2734,8 @@ def _build_dependency_context(repo_root, py_files=None):
         "project_names": project_names,
         "declared_specs": declared_specs,
         "provider_unknown": provider_unknown,
+        # Environment files/install commands in scope (per file).
+        "environment_deps": frozenset(),
         "ros_package_deps": _collect_ros_package_dependencies(repo_root, py_files),
         "manifest_context": bool(declared_deps)
         or _has_dependency_manifest_context(repo_root),
@@ -3184,6 +3338,21 @@ def _classify_import(
         # ImportError is handled, but the fallback cannot be proven safe.
         _record_unverified(ctx, mod, "guarded_import_fallback_unproven")
         return None
+    # Environment evidence only explains a missing declaration of a package
+    # known to exist; it never clears a (possible) hallucination, which an
+    # install line of the same name does not make real.
+    if template["rule_id"] == RULE_ID_UNDECLARED and _package_known_to_exist(
+        mod, ctx
+    ):
+        if _environment_provides(mod, required_paths, from_imports, ctx):
+            return None
+        importer = None
+        if file_path is not None:
+            importer = _contained_importer_path(
+                ctx["repo_root"], file_path, diff_path=diff_path
+            )
+        if _transitively_provided(mod, required_paths, from_imports, ctx, importer):
+            return None
     return _check_declared_providers(
         mod, template, ctx, required_paths=required_paths, from_imports=from_imports
     )
@@ -3286,10 +3455,7 @@ def _declared_import_paths(ctx):
     if declared in cache:
         return cache[declared]
     installed = ctx["installed_mapping"]
-    shared = ctx.get("shared_namespace_roots")
-    if shared is None:
-        shared = shared_namespace_roots(installed)
-        ctx["shared_namespace_roots"] = shared
+    shared = _shared_namespace_roots(ctx)
     paths = set()
     for dist in declared:
         paths |= distribution_import_paths(
@@ -3300,6 +3466,203 @@ def _declared_import_paths(ctx):
         )
     cache[declared] = frozenset(paths)
     return cache[declared]
+
+
+def _shared_namespace_roots(ctx):
+    shared = ctx.get("shared_namespace_roots")
+    if shared is None:
+        shared = shared_namespace_roots(ctx["installed_mapping"])
+        ctx["shared_namespace_roots"] = shared
+    return shared
+
+
+def _package_known_to_exist(mod, ctx):
+    """The import is installed, or PyPI has its (mapped) project."""
+    if mod in ctx["installed_mapping"]:
+        return True
+    mapped = ctx["import_to_dist"].get(mod)
+    if mapped and _tracked_pypi_status(mapped, ctx) == "exists":
+        return True
+    return _tracked_pypi_status(mod, ctx) == "exists"
+
+
+def _environment_provides(mod, required_paths, from_imports, ctx):
+    """An environment file or install command in scope installs a
+    distribution that provides every path the import needs (SKY-D223 only).
+
+    The same name mapping as for manifests decides; a distribution that
+    merely shares a name token (``docker-pycreds`` vs ``docker``) does not.
+    """
+    return _distributions_provide(
+        ctx.get("environment_deps"), mod, required_paths, from_imports, ctx
+    )
+
+
+def _installed_site_directories():
+    directories = virtual_env_site_packages()
+    try:
+        directories.extend(site.getsitepackages())
+        user_site = site.getusersitepackages()
+        if isinstance(user_site, str):
+            directories.append(user_site)
+    except (AttributeError, OSError):
+        pass
+    return list(dict.fromkeys(directories))
+
+
+def _metadata_requirements(metadata):
+    fields = {"Requires-Dist": []}
+    for line in metadata.splitlines():
+        if not line:
+            break
+        name, separator, value = line.partition(":")
+        if not separator:
+            continue
+        if name == "Requires-Dist":
+            fields["Requires-Dist"].append(value.strip())
+        elif name in ("Name", "Version") and name not in fields:
+            fields[name] = value.strip()
+    return fields
+
+
+def _build_installed_requirements():
+    """``Requires-Dist`` of every installed distribution, by normalized name:
+    ``{name: (version, requirement strings)}``. Metadata is read as text."""
+    requirements = {}
+    for directory in _installed_site_directories():
+        try:
+            candidates = Path(directory).glob("*.dist-info")
+            for index, dist_info in enumerate(candidates):
+                if index >= MAX_PYTHON_LAYOUT_CANDIDATES:
+                    break
+                metadata = read_project_text_no_symlink(
+                    directory,
+                    dist_info / "METADATA",
+                    max_bytes=MAX_DEPENDENCY_MANIFEST_BYTES,
+                    encoding="utf-8",
+                    errors="ignore",
+                )
+                if metadata is None:
+                    continue
+                fields = _metadata_requirements(metadata)
+                name = _normalize_name(fields.get("Name"))
+                if not name or name in requirements or not fields.get("Version"):
+                    continue
+                requirements[name] = (
+                    fields["Version"],
+                    tuple(fields["Requires-Dist"]),
+                )
+        except OSError:
+            continue
+    return requirements
+
+
+def _installed_requirements(ctx):
+    """Installed requirement records, limited to the distributions the
+    analysis' installed-module snapshot knows, so both describe one
+    environment."""
+    records = ctx.get("installed_requirements")
+    if records is None:
+        known = {
+            _normalize_name(dist)
+            for dists in ctx["installed_mapping"].values()
+            for dist in dists
+        }
+        records = {
+            name: record
+            for name, record in _build_installed_requirements().items()
+            if name in known
+        }
+        ctx["installed_requirements"] = records
+    return records
+
+
+def _lockfile_graphs(ctx, directory):
+    """Parsed lockfiles in one contained directory, and whether any exists."""
+    cache = ctx.setdefault("lockfile_graph_cache", {})
+    if directory not in cache:
+        graphs = []
+        found = False
+        for name in LOCKFILE_NAMES:
+            text = read_project_text_no_symlink(
+                ctx["repo_root"],
+                directory / name,
+                max_bytes=MAX_LOCKFILE_BYTES,
+                encoding="utf-8",
+            )
+            if text is None:
+                continue
+            found = True
+            graph = parse_lockfile(name, text)
+            if graph is not None:
+                graphs.append(graph)
+        cache[directory] = (found, tuple(graphs))
+    return cache[directory]
+
+
+def _transitive_dependencies(ctx, importer):
+    """Distributions the declared ones in scope bring along: by the nearest
+    lockfile at or above the importer, and by installed metadata.
+
+    The project's own entries are not roots: their locked or installed
+    requirements may be stale; only what its manifests declare counts, and
+    only declarations without a marker or URL whose version constraint the
+    locked or installed version satisfies.
+    """
+    declared = frozenset(ctx["declared_deps"])
+    project_names = frozenset(ctx["project_names"])
+    specs = frozenset(
+        (name, specifier)
+        for name, specifier in ctx["declared_specs"].items()
+        if name not in project_names
+    )
+    parts = ()
+    if importer is not None:
+        parts = importer.parent.parts
+    graphs = ()
+    for depth in range(len(parts), -1, -1):
+        found, graphs = _lockfile_graphs(ctx, Path(*parts[:depth]))
+        if found:
+            break
+    cache = ctx.setdefault("transitive_cache", {})
+    key = (declared, specs, graphs)
+    if key not in cache:
+        dists = set()
+        for graph in graphs:
+            dists |= lockfile_closure(graph, dict(specs))
+        dists |= installed_closure(dict(specs), _installed_requirements(ctx))
+        cache[key] = frozenset(dists - declared)
+    return cache[key]
+
+
+def _transitively_provided(mod, required_paths, from_imports, ctx, importer):
+    """A declared distribution requires, unconditionally, one that provides
+    every path the import needs (SKY-D223 only)."""
+    return _distributions_provide(
+        _transitive_dependencies(ctx, importer), mod, required_paths, from_imports, ctx
+    )
+
+
+def _distributions_provide(dists, mod, required_paths, from_imports, ctx):
+    if not dists:
+        return False
+    cache = ctx.setdefault("environment_import_paths_cache", {})
+    if dists not in cache:
+        cache[dists] = environment_import_paths(
+            dists,
+            installed_modules=ctx["installed_mapping"],
+            import_to_dist=ctx["import_to_dist"],
+            namespace_roots=_shared_namespace_roots(ctx),
+        )
+    provided = cache[dists]
+    paths = set(required_paths or (mod,)) | {base for base, _names in from_imports}
+    # A namespace parent is "provided" by any portion below it; the names
+    # taken from it must be provided themselves (google-cloud-storage does
+    # not provide ``from google.cloud import bigquery``).
+    for base, names in from_imports:
+        if base.split(".", 1)[0] in NAMESPACE_ROOTS | _shared_namespace_roots(ctx):
+            paths |= {f"{base}.{name}" for name in names if name != "*"}
+    return bool(provided) and all(path_is_provided(path, provided) for path in paths)
 
 
 def _declared_by_name_mapping(mod, required_paths, from_imports, ctx):
@@ -3471,10 +3834,14 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
     provider_scope_cache = {
         root: (ctx["declared_specs"], ctx["project_names"], ctx["provider_unknown"])
     }
+    environment_scope_cache = {}
 
     for file_path in py_files:
         declared_deps, manifest_context = _dependency_scope_for_file(
             root, file_path, scope_cache
+        )
+        ctx["environment_deps"] = _environment_scope_for_file(
+            root, file_path, environment_scope_cache
         )
         specs, own_names, unknown = _provider_scope_for_file(
             root, file_path, provider_scope_cache
@@ -3483,7 +3850,10 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
         ctx["project_names"] = own_names
         ctx["provider_unknown"] = unknown
         ctx["declared_deps"] = declared_deps | specs.keys()
-        ctx["manifest_context"] = manifest_context
+        importer = _contained_importer_path(root, file_path)
+        ctx["manifest_context"] = _file_manifest_context(
+            manifest_context, ctx, importer
+        )
         src = read_project_text_no_symlink(
             root,
             file_path,
@@ -3495,7 +3865,6 @@ def scan_python_dependency_hallucinations(repo_root, py_files):
             continue
 
         direct_script = _has_direct_script_evidence(src)
-        importer = _contained_importer_path(root, file_path)
         local_fallbacks = _local_import_fallbacks(src, ctx, importer)
         optional_imports = _optional_import_roots(src)
         uncertain_imports = (
@@ -3573,6 +3942,7 @@ def scan_diff_added_imports(
         root: (ctx["declared_specs"], ctx["project_names"], ctx["provider_unknown"])
     }
 
+    environment_scope_cache = {}
     seen = set()
     direct_script_cache = {}
     local_fallback_cache = {}
@@ -3594,11 +3964,18 @@ def scan_diff_added_imports(
         specs, own_names, unknown = _provider_scope_for_file(
             root, file_label, provider_scope_cache
         )
+        ctx["environment_deps"] = _environment_scope_for_file(
+            root, file_label, environment_scope_cache, diff_path=True
+        )
         ctx["declared_specs"] = specs
         ctx["project_names"] = own_names
         ctx["provider_unknown"] = unknown
         ctx["declared_deps"] = declared_deps | specs.keys()
-        ctx["manifest_context"] = manifest_context
+        ctx["manifest_context"] = _file_manifest_context(
+            manifest_context,
+            ctx,
+            _contained_importer_path(root, file_label, diff_path=True),
+        )
 
         script_key = str(file_label)
         if script_key not in direct_script_cache:

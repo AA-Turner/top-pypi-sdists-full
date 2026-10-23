@@ -86,7 +86,7 @@ def deindent_string(string: Optional[str]) -> str:
 
 
 # Functions that do the work
-def document_object_from_another(target: Union[Type, Callable], original: Union[Type, Callable]):
+def document_object_from_another(target: Union[Type, Callable], original: Union[Type, Callable]) -> None:
 	"""
 	Sets the docstring of the ``target`` function to that of the ``original`` function.
 
@@ -99,7 +99,7 @@ def document_object_from_another(target: Union[Type, Callable], original: Union[
 	target.__doc__ = original.__doc__
 
 
-def append_doctring_from_another(target: Union[Type, Callable], original: Union[Type, Callable]):
+def append_doctring_from_another(target: Union[Type, Callable], original: Union[Type, Callable]) -> None:
 	"""
 	Sets the docstring of the ``target`` function to that of the ``original`` function.
 
@@ -216,8 +216,8 @@ def sphinxify_docstring() -> Callable[[_F], _F]:
 	.. code-block:: python
 
 		intersphinx_mapping = {
-			"python": ("https://docs.python.org/3/", None),
-		}
+				"python": ("https://docs.python.org/3/", None),
+				}
 	"""
 
 	def wrapper(target: _F) -> _F:
@@ -318,7 +318,7 @@ new_return_types = {
 		}
 
 
-def _do_prettify(obj: Type, base: Type, new_docstrings: Dict[str, str]):
+def _do_prettify(obj: Type, base: Type, new_docstrings: Dict[str, str]) -> None:
 	"""
 	Perform the actual prettifying for :func`~.prettify_docstrings`.
 

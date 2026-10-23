@@ -863,7 +863,15 @@ class CloudFilesSync:
         # A file a restore could not bring back is never a delete candidate: only
         # the person's confirmation of that exact hold lets it through (D1).
         self._unrestored -= {r for r in both if r in self._confirmed_deletes}
-        self._unrestored &= now_missing  # back on disk (or gone from the cloud): done
+        # Leaves the unrestored set ONLY when verified back: a regular file on
+        # disk, or no longer a known file (gone from the cloud). A path that is
+        # merely "not missing" (a folder or a link where the file belongs, an
+        # unreadable entry) is NOT back: it stays held, so removing the blocker
+        # later never turns it into a cloud delete (live 2026-10-22, f03/f04).
+        self._unrestored = {
+            r for r in self._unrestored
+            if r in now_missing or (r in known and not self._is_regular_file(r))
+        }
         pending = sorted(self._unrestored)
         seen_twice = sorted(both - self._unrestored)
         if not seen_twice and now_missing and self.halt:
@@ -893,6 +901,14 @@ class CloudFilesSync:
                 "reason": "restore_failed", "held": len(pending), "sample": pending[:5],
                 "paths": pending, "hold_id": hold_id_for(pending)}
         return confirmed + candidates, None
+
+    def _is_regular_file(self, rel: str) -> bool:
+        """A real file (not a link, folder or anything else) is at ``rel``."""
+        try:
+            p = self._path(rel)
+            return not p.is_symlink() and p.is_file()
+        except (OSError, ValueError):
+            return False
 
     def _deletes_in_window(self) -> int:
         horizon = self._clock() - self.knobs.delete_window_seconds
@@ -935,19 +951,20 @@ class CloudFilesSync:
         for rel in paths:
             entry = self.entries.get(rel)
             try:
-                if entry is None or await asyncio.to_thread(os.path.lexists, self._path(rel)):
-                    continue
-                if entry.remote_checksum and not entry.stub and self._wants_mirror(0, entry.remote_updated):
-                    placed = await self._place_remote(rel)
-                    placed.stub = False
-                else:
-                    placed = await self._awrite(rel, stub_text(rel, entry.remote_size, entry.remote_updated).encode())
-                    placed.stub = True
-                placed.remote_checksum, placed.remote_size = entry.remote_checksum, entry.remote_size
-                placed.remote_updated = entry.remote_updated
+                if entry is None:
+                    continue  # no longer a cloud file: nothing to restore, nothing to delete
+                if await asyncio.to_thread(os.path.lexists, self._path(rel)):
+                    if await asyncio.to_thread(self._is_regular_file, rel):
+                        continue  # a regular file is there: it syncs as an edit, never a delete
+                    # A folder, link or anything else sits where the file belongs:
+                    # NOT restored. It stays held and is retried (never "skipped").
+                    raise FileExistsError(f"{rel} is blocked by something that is not a file")
+                await self._restore_one(rel, entry)
+                if not await asyncio.to_thread(self._is_regular_file, rel):
+                    raise FileNotFoundError(f"{rel} is not on disk after the restore")
                 restored += 1
                 self._unskip(rel, "could not restore")
-            except (BridgeError, OSError, ValueError) as exc:
+            except Exception as exc:  # noqa: BLE001 - ANY restore that did not put the file back stays held
                 self._skip(rel, f"could not restore: {exc}")
                 failed.append(rel)
             self._missing_last.discard(rel)
@@ -966,6 +983,17 @@ class CloudFilesSync:
             self.halt = None
         await self.asave()
         return restored
+
+    async def _restore_one(self, rel: str, entry: Entry) -> None:
+        """Put one known cloud file back at ``rel`` (copy or placeholder by the usual rule)."""
+        if entry.remote_checksum and not entry.stub and self._wants_mirror(0, entry.remote_updated):
+            placed = await self._place_remote(rel)
+            placed.stub = False
+        else:
+            placed = await self._awrite(rel, stub_text(rel, entry.remote_size, entry.remote_updated).encode())
+            placed.stub = True
+        placed.remote_checksum, placed.remote_size = entry.remote_checksum, entry.remote_size
+        placed.remote_updated = entry.remote_updated
 
     def _restore_due(self) -> bool:
         since = _parse_time((self.halt or {}).get("since"))
@@ -1080,7 +1108,19 @@ class CloudFilesSync:
                 entry = self.entries[rel]
                 if entry.remote_checksum:
                     await asyncio.to_thread(self._tombstone, rel, entry)
-                    await self.bridge.delete(rel)
+                    try:
+                        await self.bridge.delete(rel)
+                    except BridgeError as exc:
+                        if exc.status not in (403, 409):
+                            raise
+                        # The server held or refused this delete (its per-machine
+                        # cap, or the person chose to keep the file): the file is
+                        # still in the cloud, so it comes back into the folder.
+                        logger.warning("cloud files: the cloud kept %s (%s); restoring it", rel, exc.status)
+                        self._missing_last.discard(rel)
+                        await self._restore_one(rel, entry)
+                        await self.asave()
+                        continue
                     self.stats.deleted_remote += 1
                     if rel not in self._confirmed_deletes:
                         self._recent_deletes.append(self._clock())

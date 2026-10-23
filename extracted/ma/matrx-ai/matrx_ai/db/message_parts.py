@@ -1163,7 +1163,17 @@ def validate_message_content(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Returns a list of model_dump(mode='json') dicts ready to write to the DB.
 
     This is the single intercept point between the dataclass layer and the DB.
+
+    A CONFIDENTIAL run whose rows carry no content (``matrx_ai.persistence.sealed``) stores
+    nothing here: the write funnel would blank it anyway, and validating first would refuse a
+    confidential chat's INLINE attachment (its bytes are never uploaded) with an error that
+    quotes the part — words that must not reach a log.
     """
+    from matrx_ai.context.app_context import try_get_app_context
+    from matrx_ai.persistence.sealed import blanks_content
+
+    if blanks_content(try_get_app_context()):
+        return []
     validated: list[dict[str, Any]] = []
     for i, raw_part in enumerate(raw):
         # Sanitize BEFORE validation so raw bytes / NUL bytes (e.g. Google's

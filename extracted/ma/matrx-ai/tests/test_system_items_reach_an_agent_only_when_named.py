@@ -6,7 +6,7 @@ trigger api calls or other fetching". Both resolvers hand back every deliverable
 ``agent_context_from_resolved`` — the one body both answers pass through — keeps only the named
 ones, and an unnamed computed item is never computed.
 
-The resolver payloads below are the live shape of ``public.resolve_full_context`` /
+The resolver payloads below are the live shape of ``context.resolve_full_context`` /
 ``custom.resolve_context`` (2026-09-25): the System lane runs first, so a same-key scope item
 overwrites the variable entry and carries the System cell in its ``cells``.
 """
@@ -313,7 +313,7 @@ async def test_both_resolvers_are_handed_the_names_and_read_nothing_else(monkeyp
     )
 
     schema, fn, args = seen["rpc"]
-    assert (schema, fn) == ("public", "resolve_full_context")
+    assert (schema, fn) == ("context", "resolve_full_context")
     refs = args[4]
     assert isinstance(refs, ArrayArg)
     assert list(refs.value) == sorted([GUIDANCE_ID, "current_date"]) == names.refs()

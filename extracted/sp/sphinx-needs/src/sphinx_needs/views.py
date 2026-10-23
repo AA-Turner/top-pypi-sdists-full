@@ -236,8 +236,11 @@ class NeedsView(Mapping[str, "NeedItem"]):
             i for value in values for i in self._indexes.indexes.types.get(value, [])
         )
 
-    def filter_statuses(self, values: list[str]) -> NeedsView:
-        """Create new view with only needs that have certain ``status`` field values."""
+    def filter_statuses(self, values: list[str] | list[str | None]) -> NeedsView:
+        """Create new view with only needs that have certain ``status`` field values.
+
+        :param values: Statuses to filter by; ``None`` selects the needs without one.
+        """
         return self._copy_filtered(
             i for value in values for i in self._indexes.indexes.status.get(value, [])
         )
@@ -347,14 +350,15 @@ class NeedsAndPartsListView:
         selected_ids: Iterable[tuple[str, str | None]]
         if self._selected_ids is None:
             # the id can either be a need or a part id
-            selected_ids = [
+            need_and_part_ids: list[tuple[str, str | None]] = [
                 (need_id, None) for need_id in values if need_id in self._all_needs
             ]
             for part_id in values:
-                selected_ids.extend(
+                need_and_part_ids.extend(
                     (need_id, part_id)
-                    for need_id in self._indexes.indexes.parts_to_needs.get(part_id, [])  # ty: ignore[invalid-argument-type]
+                    for need_id in self._indexes.indexes.parts_to_needs.get(part_id, [])
                 )
+            selected_ids = need_and_part_ids
         else:
             val_set = set(values)
             selected_ids = (
@@ -402,8 +406,13 @@ class NeedsAndPartsListView:
             i for value in values for i in self._indexes.indexes.types.get(value, [])
         )
 
-    def filter_statuses(self, values: list[str]) -> NeedsAndPartsListView:
-        """Create new view with only needs/parts that have certain ``status`` field values."""
+    def filter_statuses(
+        self, values: list[str] | list[str | None]
+    ) -> NeedsAndPartsListView:
+        """Create new view with only needs/parts that have certain ``status`` field values.
+
+        :param values: Statuses to filter by; ``None`` selects the needs/parts without one.
+        """
         return self._copy_filtered(
             i for value in values for i in self._indexes.indexes.status.get(value, [])
         )

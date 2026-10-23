@@ -1,4 +1,4 @@
-"""Midea local FA device."""
+"""Midea lan FA device."""
 
 import json
 import logging
@@ -37,18 +37,40 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_NEW_SWING_ANGLE = 1275
 INVALID_MODE_CODE = 0
 MAX_LEGACY_SWING_MODE = 6
+# Models whose Lua uses the 54-byte protocol v5 set frame (MessageCB4Set).
+# 56011C99 shares 56011CB4's framing byte-for-byte (same body length, invalid
+# marker bytes, and Ecology mode); it only adds cloud-side lr_swing/ud_swing
+# convenience keys that map onto the same swing bytes.
+MODE_CB4_PROTOCOL_MODELS = {"56011CB4", "56011C99"}
 MODE_NEW_PROTOCOL_MODELS = {
     "560000F3": FA_MESSAGE_PROTOCOL,
     "56011CB4": FA_MESSAGE_PROTOCOL,
+    "56011C99": FA_MESSAGE_PROTOCOL,
     "56011CEC": FA_MESSAGE_PROTOCOL_V6,
 }
-MODE_ECOLOGY_MODELS = {"56011CB4", "56011CEC"}
+MODE_ECOLOGY_MODELS = {"56011CB4", "56011C99", "56011CEC"}
 MODE_OFFICIAL_V6_MODELS = {"56011CEC"}
 # Model 56000211 reports raw mode 4 with the additional power-mode bit set.
 MODE_LEGACY_SET_OVERRIDES = {
     "56000211": {0x04: 0x29},
 }
 NEW_SWING_ANGLE_STEP = 5
+BGF10000_SUBTYPE = 15
+BGF10000_SPEED_COUNT = 12
+# ../midea-lua/lua/0xFA/T_0000_FA_17.lua defines mode and gear as independent
+# generic FA fields for both command encoding and response decoding.
+# These App preset names are confirmed only by BGF10000 subtype 15 captures.
+BGF10000_PRESETS: dict[str, tuple[int, int | None]] = {
+    "normal": (0x01, None),
+    "forest": (0x04, 1),
+    "beach": (0x04, 2),
+    "countryside": (0x04, 3),
+    "baby": (0x03, 1),
+    "sleep_1": (0x03, 2),
+    "sleep_2": (0x03, 3),
+    "strong": (0x09, BGF10000_SPEED_COUNT),
+}
+BGF10000_SUBMODE_CODES = {0x03, 0x04}
 
 
 def _status_code(value: FAValue) -> int:
@@ -186,7 +208,9 @@ class MideaFADevice(MideaDevice):
                 DeviceAttributes.body_feeling_scan: None,
             },
         )
-        self._default_speed_count = 3
+        self._default_speed_count = (
+            BGF10000_SPEED_COUNT if self._uses_preset_submodes else 3
+        )
         self._speed_count: int = self._default_speed_count
         self.fa_protocol = 0
         self.set_customize(customize)
@@ -231,11 +255,18 @@ class MideaFADevice(MideaDevice):
     @property
     def preset_modes(self) -> list[str]:
         """Return a list of preset modes."""
+        if self._uses_preset_submodes:
+            return list(BGF10000_PRESETS)
         return [
             mode
             for code, mode in self._preset_mode_codes.items()
             if code != INVALID_MODE_CODE
         ]
+
+    @property
+    def _uses_preset_submodes(self) -> bool:
+        """Whether this confirmed model encodes presets using mode and speed."""
+        return self.model == "BGF10000" and self.subtype == BGF10000_SUBTYPE
 
     @property
     def _mode_codes(self) -> dict[int, str]:
@@ -383,6 +414,27 @@ class MideaFADevice(MideaDevice):
             else:
                 self._attributes[attr] = value
             new_status[str(attr)] = self._attributes[attr]
+        raw_mode = getattr(message, "mode", None)
+        if self._uses_preset_submodes and raw_mode is not None:
+            preset = next(
+                (
+                    name
+                    for name, (mode, speed) in BGF10000_PRESETS.items()
+                    if mode == raw_mode
+                    and (speed is None or speed == getattr(message, "fan_speed", None))
+                ),
+                None,
+            )
+            self._attributes[DeviceAttributes.mode] = preset
+            new_status[DeviceAttributes.mode] = preset
+            if (
+                raw_mode in BGF10000_SUBMODE_CODES
+                and self._attributes[DeviceAttributes.power]
+            ):
+                # A submode number is not a motor speed. Consumers must not
+                # display it as a speed percentage.
+                self._attributes[DeviceAttributes.fan_speed] = None
+                new_status[DeviceAttributes.fan_speed] = None
         return new_status
 
     def _legacy_angle_code(self, value: str, values: dict[int, str]) -> int | None:
@@ -532,6 +584,8 @@ class MideaFADevice(MideaDevice):
         is_v6 = self._effective_fa_protocol == FA_MESSAGE_PROTOCOL_V6
         current_mode = self._attributes[DeviceAttributes.oscillation_mode]
         if attr == DeviceAttributes.oscillate:
+            # `oscillate` is the horizontal-axis control. Vertical swing is an
+            # independent attribute and must remain unchanged when it is toggled.
             message.oscillate = bool(value)
             if value:
                 message.oscillation_angle = (
@@ -539,10 +593,9 @@ class MideaFADevice(MideaDevice):
                     if self._effective_fa_protocol == FA_MESSAGE_PROTOCOL_V6
                     else DEFAULT_NEW_SWING_ANGLE
                 )
-                message.oscillation_mode = "oscillation"
             else:
                 message.oscillation_angle = 0
-                message.oscillation_mode = "oscillation"
+            message.oscillation_mode = "oscillation"
         elif attr == DeviceAttributes.oscillation_mode:
             if value in {"off", "", None}:
                 message.oscillate = False
@@ -662,7 +715,7 @@ class MideaFADevice(MideaDevice):
             MessageV6Set
             if self._effective_fa_protocol == FA_MESSAGE_PROTOCOL_V6
             else MessageCB4Set
-            if self.model == "56011CB4"
+            if self.model in MODE_CB4_PROTOCOL_MODELS
             else MessageNewSet
         )
         return message_type(self._message_protocol_version, self.subtype)
@@ -675,6 +728,13 @@ class MideaFADevice(MideaDevice):
 
     def set_attribute(self, attr: str, value: bool | float | str) -> None:
         """Set an FA device attribute."""
+        if self._uses_preset_submodes:
+            if attr == DeviceAttributes.mode:
+                self.turn_on(mode=str(value))
+                return
+            if attr == DeviceAttributes.fan_speed and int(value) > 0:
+                self.turn_on(fan_speed=int(value))
+                return
         if attr in {
             DeviceAttributes.oscillate,
             DeviceAttributes.oscillation_mode,
@@ -723,6 +783,12 @@ class MideaFADevice(MideaDevice):
 
     def turn_on(self, fan_speed: int | None = None, mode: str | None = None) -> None:
         """Turn on the device."""
+        if (
+            self._uses_preset_submodes
+            and mode is not None
+            and mode not in BGF10000_PRESETS
+        ):
+            return
         message = (
             self._new_message()
             if self._effective_fa_protocol
@@ -734,6 +800,14 @@ class MideaFADevice(MideaDevice):
         mode_code = self._mode_code(str(mode))
         if mode_code is not None:
             message.mode = mode_code
+        if self._uses_preset_submodes:
+            if mode is not None:
+                message.mode, preset_speed = BGF10000_PRESETS[mode]
+                if preset_speed is not None:
+                    message.fan_speed = preset_speed
+            elif fan_speed is not None:
+                # Explicit motor-speed selection leaves comfort/sleep mode.
+                message.mode = BGF10000_PRESETS["normal"][0]
         self.build_send(message)
 
     def set_customize(self, customize: str) -> None:

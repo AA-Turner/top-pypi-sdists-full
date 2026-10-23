@@ -86,10 +86,9 @@ class Evals(APIResource):
     tasks.
 
     Args:
-      idempotency_key: Optional. Without a key the API generates one, so a retried submission creates a
-        second resource. A blank or over-long key is rejected. Reuse this key when
-        retrying a submission; the SDK generates one per call and reuses it across
-        automatic retries.
+      idempotency_key: Optional. Without a key, repeated submissions are treated as separate actions. A
+        blank or over-long key is rejected. Reuse this key when retrying a submission; the
+        SDK generates one per call and reuses it across automatic retries.
 
       bench_id: Benchmark ID; use instead of agent_name and benchmark_name.
 

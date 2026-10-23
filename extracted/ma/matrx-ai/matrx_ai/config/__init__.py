@@ -73,6 +73,7 @@ from .message_config import (
     content_text,
     host_authored_user_turn,
     human_authored_text,
+    person_authored_user_turn,
 )
 from .response_format import (
     OutputSchemaEnvelope,
@@ -140,6 +141,7 @@ __all__ = [
     "content_text",
     "host_authored_user_turn",
     "human_authored_text",
+    "person_authored_user_turn",
     # Tier 1
     "NormalizedCitation",
     "ensure_normalized_citations",

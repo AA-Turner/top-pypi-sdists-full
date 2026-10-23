@@ -565,6 +565,12 @@ class MCPIntegrator:
                         existing_args.append({"value_hint": f"--{k}={v}"})
                 pkg["runtime_arguments"] = existing_args
 
+        # Registry data cannot supply authored overlay metadata.
+        info.pop("_apm_env_overlay", None)
+        # Keep authored values separate from collected install-time values.
+        if dep.env:
+            info["_apm_env_overlay"] = dict(dep.env)
+
         # Tools overlay: embed for adapters to pick up
         if dep.tools:
             info["_apm_tools_override"] = dep.tools
@@ -715,6 +721,8 @@ class MCPIntegrator:
         logger=None,
         scope=None,
         fail_on_write_error: bool = False,
+        stored_configs: builtins.dict | None = None,
+        native_hashes: builtins.dict[str, builtins.dict[str, str]] | None = None,
     ) -> None:
         """Remove MCP server entries that are no longer required by any dependency.
 
@@ -746,9 +754,10 @@ class MCPIntegrator:
         if exclude:
             target_runtimes.discard(exclude)
 
-        # Scope filtering: at USER scope, only clean global-capable runtimes.
         from apm_cli.core.scope import InstallScope
+        from apm_cli.install.mcp.ownership import require_removable_mcp_connections
 
+        # Scope filtering: at USER scope, only clean global-capable runtimes.
         if scope is InstallScope.USER:
             from apm_cli.factory import ClientFactory as _CF
 
@@ -817,16 +826,22 @@ class MCPIntegrator:
         if "codex" in target_runtimes:
             from apm_cli.factory import ClientFactory
 
-            codex_cfg = Path(
-                ClientFactory.create_client(
-                    "codex",
-                    project_root=project_root,
-                    user_scope=user_scope,
-                ).get_config_path()
+            codex_client = ClientFactory.create_client(
+                "codex",
+                project_root=project_root,
+                user_scope=user_scope,
+            )
+            codex_cfg = Path(codex_client.get_config_path())
+            if _reject_symlink_config(
+                codex_cfg, "Codex CLI config", logger, fail_on_write_error=fail_on_write_error
+            ):
+                return
+            verified_keys = require_removable_mcp_connections(
+                codex_client, stale_names, stored_configs or {}, (native_hashes or {}).get("codex")
             )
             _clean_toml_mcp_config(
                 codex_cfg,
-                expanded_stale,
+                verified_keys,
                 "Codex CLI config",
                 fail_on_write_error=fail_on_write_error,
             )
@@ -963,10 +978,28 @@ class MCPIntegrator:
 
         # Clean Claude Code project .mcp.json (only if .claude/ directory exists)
         if clean_claude_project:
-            if (project_root_path / ".claude").is_dir():
+            claude_project_enabled = (project_root_path / ".claude").is_dir()
+            if claude_project_enabled or stored_configs:
+                if _reject_symlink_config(
+                    project_root_path / ".mcp.json",
+                    ".mcp.json",
+                    logger,
+                    fail_on_write_error=fail_on_write_error,
+                ):
+                    return
+                project_client = ClientFactory.create_client(
+                    "claude", project_root=project_root_path, user_scope=False
+                )
+                verified_keys = require_removable_mcp_connections(
+                    project_client,
+                    stale_names,
+                    stored_configs or {},
+                    (native_hashes or {}).get("claude"),
+                )
+            if claude_project_enabled:
                 _clean_claude_config(
                     project_root_path / ".mcp.json",
-                    expanded_stale,
+                    verified_keys,
                     logger,
                     fail_on_write_error=fail_on_write_error,
                 )
@@ -997,9 +1030,15 @@ class MCPIntegrator:
                     ) from exc
                 return
 
+            user_client = ClientFactory.create_client(
+                "claude", project_root=project_root_path, user_scope=True
+            )
+            verified_keys = require_removable_mcp_connections(
+                user_client, stale_names, stored_configs or {}, (native_hashes or {}).get("claude")
+            )
             _clean_claude_config(
                 claude_cfg,
-                expanded_stale,
+                verified_keys,
                 logger,
                 is_user_scope=True,
                 fail_on_write_error=fail_on_write_error,
@@ -1018,6 +1057,7 @@ class MCPIntegrator:
         mcp_configs: builtins.dict | None = None,
         mcp_target_servers: builtins.dict | None = None,
         mcp_config_provenance: builtins.dict | None = None,
+        native_hashes: builtins.dict[str, builtins.dict[str, str]] | None = None,
         logger: CommandLogger | None = None,
         fail_on_write_error: bool = False,
     ) -> None:
@@ -1081,6 +1121,7 @@ class MCPIntegrator:
                         for target, servers in sorted(mcp_target_servers.items())
                         if servers
                     },
+                    native_hashes=native_hashes,
                 )
             if mcp_config_provenance is not None:
                 lockfile.mcp_config_provenance = mcp_config_provenance
@@ -1211,6 +1252,8 @@ class MCPIntegrator:
         logger=None,
         replace_existing: bool = False,
         installed_servers: builtins.set[str] | None = None,
+        managed_fields: builtins.set[str] | None = None,
+        written_native_hashes: builtins.dict[str, str] | None = None,
     ) -> bool:
         """Install MCP dependencies for a specific runtime.
 
@@ -1234,12 +1277,15 @@ class MCPIntegrator:
                         project_root=project_root,
                         user_scope=user_scope,
                         replace_existing=replace_existing,
+                        managed_fields=managed_fields,
                     )
                     if result["failed"]:
                         logger.error(f"  Failed to install {dep}")
                         all_ok = False
                     elif result.get("installed") and installed_servers is not None:
                         installed_servers.add(dep)
+                        if written_native_hashes is not None:
+                            written_native_hashes.update(result.get("native_hashes", {}))
                     if not result["failed"] and logger and runtime == "codex":
                         from apm_cli.factory import ClientFactory
 
@@ -1516,6 +1562,7 @@ class MCPIntegrator:
         managed_target_servers: builtins.dict | None = None,
         prevalidated_registry_servers: builtins.dict[str, builtins.dict] | None = None,
         fail_on_write_error: bool = False,
+        native_hashes: builtins.dict[str, builtins.dict[str, str]] | None = None,
     ) -> int:
         """Install MCP dependencies.
 
@@ -1562,4 +1609,5 @@ class MCPIntegrator:
             managed_target_servers=managed_target_servers,
             prevalidated_registry_servers=prevalidated_registry_servers,
             fail_on_write_error=fail_on_write_error,
+            native_hashes=native_hashes,
         )

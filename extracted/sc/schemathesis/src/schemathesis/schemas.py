@@ -26,7 +26,6 @@ from schemathesis.core.jsonschema.types import JsonSchemaObject
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation, SkippedParameter
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.runtime import RuntimeProbeState
-from schemathesis.core.spec import CoverageCapabilities
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.transport import CallOutcome, HttpMethod, HttpMethodSchema, Response, is_uninformative_status
 from schemathesis.generation import GenerationMode
@@ -34,7 +33,7 @@ from schemathesis.generation.case import Case
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.hypothesis.given import GivenInput, given_proxy
-from schemathesis.generation.meta import CaseMetadata
+from schemathesis.generation.meta import CaseMetadata, TestPhase
 from schemathesis.hooks import HookDispatcherMark
 from schemathesis.transport.prepare import prepare_path
 
@@ -503,7 +502,14 @@ class BaseSchema(Mapping):
         auth_storage: AuthStorage | None = None,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
         feedback: FeedbackSources = NO_FEEDBACK,
-        **kwargs: Any,
+        *,
+        path_parameters: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        cookies: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = NOT_SET,
+        media_type: str | None = None,
+        phase: TestPhase = TestPhase.FUZZING,
     ) -> SearchStrategy[Case]:
         raise NotImplementedError
 
@@ -562,10 +568,6 @@ class BaseSchema(Mapping):
     ) -> bool | None:
         raise NotImplementedError
 
-    def get_coverage_capabilities(self) -> CoverageCapabilities:
-        """Return spec-specific data the coverage phase asks of a schema."""
-        return CoverageCapabilities(update_pattern=None, validator_cls=None)
-
     def record_runtime_observations(
         self,
         *,
@@ -587,7 +589,6 @@ class BaseSchema(Mapping):
         generation_config: GenerationConfig,
         extra_data_source: ResourcePool | None = None,
         error_feedback: ErrorFeedbackStore | None = None,
-        unexpected_methods_seen: set[tuple[str, str]] | None = None,
         session: GenerationSession | None = None,
     ) -> Iterator[Case]:
         raise NotImplementedError
@@ -713,16 +714,20 @@ class BaseSchema(Mapping):
         """React to the engine probe finding that the app rejects unsafe characters in URL paths."""
         self._probe_state.path_decoder_strict = True
 
-    def get_custom_format_strategies(
-        self, generation_config: GenerationConfig, mode: GenerationMode
-    ) -> dict[str, SearchStrategy]:
-        """Return spec-specific format strategies (mode-aware)."""
-        return {}
-
     def as_strategy(
         self,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
-        **kwargs: Any,
+        *,
+        feedback: FeedbackSources | None = None,
+        hooks: HookDispatcher | None = None,
+        auth_storage: AuthStorage | None = None,
+        path_parameters: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        cookies: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = NOT_SET,
+        media_type: str | None = None,
+        phase: TestPhase = TestPhase.FUZZING,
     ) -> SearchStrategy[Case]:
         """Create a Hypothesis strategy that generates test cases for all schema operations.
 
@@ -730,7 +735,16 @@ class BaseSchema(Mapping):
 
         Args:
             generation_mode: Whether to generate positive or negative test data.
-            **kwargs: Additional keywords for each strategy.
+            feedback: Runtime signals that steer generation; defaults to constants extracted for this schema.
+            hooks: Hooks applied to each generated case.
+            auth_storage: Authentication applied to each generated case.
+            path_parameters: Fixed path parameters; missing ones are generated.
+            headers: Fixed headers; missing ones are generated.
+            cookies: Fixed cookies; missing ones are generated.
+            query: Fixed query parameters; missing ones are generated.
+            body: Fixed request body.
+            media_type: Media type of the request body.
+            phase: Test phase the cases are generated for.
 
         Returns:
             Combined Hypothesis strategy for all valid operations in the schema.
@@ -739,7 +753,19 @@ class BaseSchema(Mapping):
         from hypothesis import strategies as st
 
         _strategies = [
-            operation.ok().as_strategy(generation_mode=generation_mode, **kwargs)
+            operation.ok().as_strategy(
+                generation_mode=generation_mode,
+                feedback=feedback,
+                hooks=hooks,
+                auth_storage=auth_storage,
+                path_parameters=path_parameters,
+                headers=headers,
+                cookies=cookies,
+                query=query,
+                body=body,
+                media_type=media_type,
+                phase=phase,
+            )
             for operation in self.get_all_operations()
             if isinstance(operation, Ok)
         ]
@@ -769,7 +795,17 @@ class APIOperationMap(Mapping):
     def as_strategy(
         self,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
-        **kwargs: Any,
+        *,
+        feedback: FeedbackSources | None = None,
+        hooks: HookDispatcher | None = None,
+        auth_storage: AuthStorage | None = None,
+        path_parameters: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        cookies: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = NOT_SET,
+        media_type: str | None = None,
+        phase: TestPhase = TestPhase.FUZZING,
     ) -> SearchStrategy[Case]:
         """Create a Hypothesis strategy that generates test cases for all schema operations in this subset.
 
@@ -777,7 +813,16 @@ class APIOperationMap(Mapping):
 
         Args:
             generation_mode: Whether to generate positive or negative test data.
-            **kwargs: Additional keywords for each strategy.
+            feedback: Runtime signals that steer generation; defaults to constants extracted for this schema.
+            hooks: Hooks applied to each generated case.
+            auth_storage: Authentication applied to each generated case.
+            path_parameters: Fixed path parameters; missing ones are generated.
+            headers: Fixed headers; missing ones are generated.
+            cookies: Fixed cookies; missing ones are generated.
+            query: Fixed query parameters; missing ones are generated.
+            body: Fixed request body.
+            media_type: Media type of the request body.
+            phase: Test phase the cases are generated for.
 
         Returns:
             Combined Hypothesis strategy for all valid operations in the schema.
@@ -786,7 +831,20 @@ class APIOperationMap(Mapping):
         from hypothesis import strategies as st
 
         _strategies = [
-            operation.as_strategy(generation_mode=generation_mode, **kwargs) for operation in self._data.values()
+            operation.as_strategy(
+                generation_mode=generation_mode,
+                feedback=feedback,
+                hooks=hooks,
+                auth_storage=auth_storage,
+                path_parameters=path_parameters,
+                headers=headers,
+                cookies=cookies,
+                query=query,
+                body=body,
+                media_type=media_type,
+                phase=phase,
+            )
+            for operation in self._data.values()
         ]
         return st.one_of(_strategies)
 
@@ -963,6 +1021,15 @@ class APIOperation(Generic[P, R, S, SchemaT]):
             return container.get(name)
         return None
 
+    def get_body_for_media_type(self, media_type: str | None) -> P | None:
+        """The body declared for `media_type`, preferring an exact match over a media range or other parameters."""
+        if media_type is None:
+            return None
+        for body in self.body:
+            if body.media_type == media_type:
+                return body
+        return next(self.get_bodies_for_media_type(media_type), None)
+
     def get_bodies_for_media_type(self, media_type: str) -> Iterator[P]:
         main_target, sub_target = media_types.parse(media_type)
         for body in self.body:
@@ -975,7 +1042,15 @@ class APIOperation(Generic[P, R, S, SchemaT]):
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
         *,
         feedback: FeedbackSources | None = None,
-        **kwargs: Any,
+        hooks: HookDispatcher | None = None,
+        auth_storage: AuthStorage | None = None,
+        path_parameters: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        cookies: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = NOT_SET,
+        media_type: str | None = None,
+        phase: TestPhase = TestPhase.FUZZING,
     ) -> SearchStrategy[Case]:
         """Create a Hypothesis strategy that generates test cases for this API operation.
 
@@ -984,7 +1059,15 @@ class APIOperation(Generic[P, R, S, SchemaT]):
         Args:
             generation_mode: Whether to generate positive or negative test data.
             feedback: Runtime signals that steer generation; defaults to constants extracted for this schema.
-            **kwargs: Extra arguments to the underlying strategy function.
+            hooks: Hooks applied to each generated case.
+            auth_storage: Authentication applied to each generated case.
+            path_parameters: Fixed path parameters; missing ones are generated.
+            headers: Fixed headers; missing ones are generated.
+            cookies: Fixed cookies; missing ones are generated.
+            query: Fixed query parameters; missing ones are generated.
+            body: Fixed request body.
+            media_type: Media type of the request body.
+            phase: Test phase the cases are generated for.
 
         """
         from schemathesis.generation._hooks import apply_case_hooks
@@ -996,9 +1079,22 @@ class APIOperation(Generic[P, R, S, SchemaT]):
 
             feedback = FeedbackSources(constants_value_source=make_constants_value_source(self.schema))
         if self.schema.config.headers:
-            kwargs["headers"] = {**(kwargs.get("headers") or {}), **self.schema.config.headers}
-        strategy = self.schema.get_case_strategy(self, generation_mode=generation_mode, feedback=feedback, **kwargs)
-        return apply_case_hooks(strategy, self, local=kwargs.get("hooks"))
+            headers = {**(headers or {}), **self.schema.config.headers}
+        strategy = self.schema.get_case_strategy(
+            self,
+            hooks=hooks,
+            auth_storage=auth_storage,
+            generation_mode=generation_mode,
+            feedback=feedback,
+            path_parameters=path_parameters,
+            headers=headers,
+            cookies=cookies,
+            query=query,
+            body=body,
+            media_type=media_type,
+            phase=phase,
+        )
+        return apply_case_hooks(strategy, self, local=hooks)
 
     def get_strategies_from_examples(
         self, feedback: FeedbackSources = NO_FEEDBACK, **kwargs: Any

@@ -15,9 +15,17 @@ This module provides:
 from __future__ import annotations
 
 import re
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -47,13 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .tableau_related import (
     RelatedTableauDashboard,
     RelatedTableauDashboardField,
@@ -355,6 +356,60 @@ class TableauDashboard(Asset):
         if self.guid is not UNSET:
             return RelatedTableauDashboard(guid=self.guid)
         return RelatedTableauDashboard(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        workbook_qualified_name: str,
+        dashboard_id: str,
+        top_level_project_qualified_name: Optional[str] = None,
+    ) -> "TableauDashboard":
+        validate_required_fields(
+            ["name", "workbook_qualified_name", "dashboard_id"],
+            [name, workbook_qualified_name, dashboard_id],
+        )
+        fields = workbook_qualified_name.split("/")
+        if len(fields) != 6:
+            raise ValueError(
+                f"Invalid workbook_qualified_name: {workbook_qualified_name}. "
+                "Expected format: "
+                "default/tableau/<epoch>/<site_id>/<project_id>/<workbook_id>"
+            )
+        site_qn = "/".join(fields[:4])
+        project_qn = "/".join(fields[:5])
+        if top_level_project_qualified_name is not None and (
+            len(top_level_project_qualified_name.split("/")) != 5
+            or not top_level_project_qualified_name.startswith(f"{site_qn}/")
+        ):
+            raise ValueError(
+                f"Invalid top_level_project_qualified_name: "
+                f"{top_level_project_qualified_name}. "
+                f"Expected format: {site_qn}/<project_id>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{workbook_qualified_name}/{dashboard_id}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            site_qualified_name=site_qn,
+            project_qualified_name=project_qn,
+            top_level_project_qualified_name=(
+                top_level_project_qualified_name or project_qn
+            ),
+            workbook_qualified_name=workbook_qualified_name,
+            workbook=RelatedTableauWorkbook(qualified_name=workbook_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "TableauDashboard":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "TableauDashboard":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -704,6 +759,7 @@ def _tableau_dashboard_to_nested(
         is_incomplete=tableau_dashboard.is_incomplete,
         provenance_type=tableau_dashboard.provenance_type,
         home_id=tableau_dashboard.home_id,
+        delete_handler=tableau_dashboard.delete_handler,
         depth=tableau_dashboard.depth,
         immediate_upstream=tableau_dashboard.immediate_upstream,
         immediate_downstream=tableau_dashboard.immediate_downstream,
@@ -752,6 +808,7 @@ def _tableau_dashboard_from_nested(nested: TableauDashboardNested) -> TableauDas
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -777,10 +834,7 @@ def _tableau_dashboard_from_nested_bytes(data: bytes, serde: Serde) -> TableauDa
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 TableauDashboard.SITE_QUALIFIED_NAME = KeywordField(
     "siteQualifiedName", "siteQualifiedName"

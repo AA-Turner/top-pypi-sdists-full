@@ -130,7 +130,7 @@ class DataFrameAIFunctions:
             ...         col("question")
             ...     ],
             ...     output_column="answer",
-            ...     model="claude-4-sonnet"
+            ...     model="claude-sonnet-4-5"
             ... )
             >>> result_df.columns
             ['IMAGE_PATH', 'QUESTION', 'ANSWER']
@@ -1393,7 +1393,7 @@ class DataFrameAIFunctions:
             ...     response_format=[["name", "What is the first name?"], ["city", "What city do they work in?"]],
             ...     output_column="info",
             ... )
-            >>> result_df.show()
+            >>> result_df.sort("text").show()
             ------------------------------------------------------------
             |"TEXT"                          |"INFO"                   |
             ------------------------------------------------------------

@@ -340,7 +340,8 @@ impl StatsigHttpSpecsAdapter {
                                     )
                                     .await
                                     .map_err(|(error, _)| StatsigErr::NetworkError(error))?;
-                                self.hydrate_network_response(&mut response).await?;
+                                self.hydrate_network_response(&mut response, trigger)
+                                    .await?;
                                 Ok(response)
                             }
                         },
@@ -504,6 +505,7 @@ impl StatsigHttpSpecsAdapter {
                         *metrics.lock() = Some(attempt_metrics);
                         let result = self
                             .process_spec_data_with_metrics(
+                                trigger,
                                 response.map_err(|(error, _)| error),
                                 Some(metrics),
                             )
@@ -572,13 +574,16 @@ impl StatsigHttpSpecsAdapter {
     #[cfg(test)]
     async fn process_spec_data(
         &self,
+        trigger: SpecsSyncTrigger,
         response: Result<NetworkResponse, NetworkError>,
     ) -> Result<(), StatsigErr> {
-        self.process_spec_data_with_metrics(response, None).await
+        self.process_spec_data_with_metrics(trigger, response, None)
+            .await
     }
 
     async fn process_spec_data_with_metrics(
         &self,
+        trigger: SpecsSyncTrigger,
         response: Result<NetworkResponse, NetworkError>,
         metrics: Option<&parking_lot::Mutex<Option<ConfigSyncMetrics>>>,
     ) -> Result<(), StatsigErr> {
@@ -589,7 +594,8 @@ impl StatsigHttpSpecsAdapter {
                 let hydration = SpecsUpdateHydration::new(
                     self.remote_config_value_hydrator.clone(),
                     self.hydration_source_url(&resp.request_url).to_string(),
-                );
+                )
+                .with_sync_trigger(trigger);
 
                 let mut update = SpecsUpdate {
                     data: resp.data,
@@ -696,13 +702,15 @@ impl StatsigHttpSpecsAdapter {
     pub(crate) async fn hydrate_network_response(
         &self,
         response: &mut NetworkResponse,
+        trigger: SpecsSyncTrigger,
     ) -> Result<(), StatsigErr> {
         self.output_policy
             .scope(async {
                 self.remote_config_value_hydrator
-                    .hydrate_response(
+                    .hydrate_response_with_trigger(
                         &mut response.data,
                         self.hydration_source_url(&response.request_url),
+                        Some(trigger),
                     )
                     .await
             })
@@ -1071,21 +1079,25 @@ mod tests {
         adapter.initialize(listener.clone());
 
         let result = adapter
-            .process_spec_data(Ok(NetworkResponse {
-                data: ResponseData::from_bytes_with_headers(
-                    br#"{"has_updates":false}"#.to_vec(),
-                    Some(HashMap::from([
-                        (
-                            "content-type".to_string(),
-                            "application/octet-stream".to_string(),
-                        ),
-                        ("content-encoding".to_string(), "statsig-br".to_string()),
-                    ])),
-                ),
-                loggable_api: "test-api".to_string(),
-                requested_deltas: false,
-                request_url: "https://example.com/v2/download_config_specs/key.json".to_string(),
-            }))
+            .process_spec_data(
+                SpecsSyncTrigger::Initial,
+                Ok(NetworkResponse {
+                    data: ResponseData::from_bytes_with_headers(
+                        br#"{"has_updates":false}"#.to_vec(),
+                        Some(HashMap::from([
+                            (
+                                "content-type".to_string(),
+                                "application/octet-stream".to_string(),
+                            ),
+                            ("content-encoding".to_string(), "statsig-br".to_string()),
+                        ])),
+                    ),
+                    loggable_api: "test-api".to_string(),
+                    requested_deltas: false,
+                    request_url: "https://example.com/v2/download_config_specs/key.json"
+                        .to_string(),
+                }),
+            )
             .await;
 
         assert!(result.is_ok());
@@ -1140,22 +1152,26 @@ mod tests {
         adapter.initialize(listener.clone());
 
         let result = adapter
-            .process_spec_data(Ok(NetworkResponse {
-                data: ResponseData::from_bytes_with_headers(
-                    compressed,
-                    Some(HashMap::from([
-                        (
-                            "content-type".to_string(),
-                            "application/octet-stream".to_string(),
-                        ),
-                        ("content-encoding".to_string(), "statsig-zstd".to_string()),
-                        ("x-deltas-used".to_string(), "true".to_string()),
-                    ])),
-                ),
-                loggable_api: "test-api".to_string(),
-                requested_deltas: true,
-                request_url: "https://example.com/v2/download_config_specs/key.json".to_string(),
-            }))
+            .process_spec_data(
+                SpecsSyncTrigger::Initial,
+                Ok(NetworkResponse {
+                    data: ResponseData::from_bytes_with_headers(
+                        compressed,
+                        Some(HashMap::from([
+                            (
+                                "content-type".to_string(),
+                                "application/octet-stream".to_string(),
+                            ),
+                            ("content-encoding".to_string(), "statsig-zstd".to_string()),
+                            ("x-deltas-used".to_string(), "true".to_string()),
+                        ])),
+                    ),
+                    loggable_api: "test-api".to_string(),
+                    requested_deltas: true,
+                    request_url: "https://example.com/v2/download_config_specs/key.json"
+                        .to_string(),
+                }),
+            )
             .await;
 
         assert!(
@@ -1214,13 +1230,16 @@ mod tests {
 
             adapter.initialize(Arc::new(ChecksumFailingListener));
             let result = adapter
-                .process_spec_data(Ok(NetworkResponse {
-                    data: ResponseData::from_bytes(b"{}".to_vec()),
-                    loggable_api: "test-api".to_string(),
-                    requested_deltas: true,
-                    request_url: "https://example.com/v2/download_config_specs/key.json"
-                        .to_string(),
-                }))
+                .process_spec_data(
+                    SpecsSyncTrigger::Initial,
+                    Ok(NetworkResponse {
+                        data: ResponseData::from_bytes(b"{}".to_vec()),
+                        loggable_api: "test-api".to_string(),
+                        requested_deltas: true,
+                        request_url: "https://example.com/v2/download_config_specs/key.json"
+                            .to_string(),
+                    }),
+                )
                 .await;
 
             assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
@@ -1264,13 +1283,16 @@ mod tests {
             }));
 
             let first_result = adapter
-                .process_spec_data(Ok(NetworkResponse {
-                    data: ResponseData::from_bytes(b"{}".to_vec()),
-                    loggable_api: "test-api".to_string(),
-                    requested_deltas: true,
-                    request_url: "https://example.com/v2/download_config_specs/key.json"
-                        .to_string(),
-                }))
+                .process_spec_data(
+                    SpecsSyncTrigger::Initial,
+                    Ok(NetworkResponse {
+                        data: ResponseData::from_bytes(b"{}".to_vec()),
+                        loggable_api: "test-api".to_string(),
+                        requested_deltas: true,
+                        request_url: "https://example.com/v2/download_config_specs/key.json"
+                            .to_string(),
+                    }),
+                )
                 .await;
 
             assert!(matches!(first_result, Err(StatsigErr::ChecksumFailure(_))));
@@ -1285,13 +1307,16 @@ mod tests {
             );
 
             let second_result = adapter
-                .process_spec_data(Ok(NetworkResponse {
-                    data: ResponseData::from_bytes(b"{}".to_vec()),
-                    loggable_api: "test-api".to_string(),
-                    requested_deltas: false,
-                    request_url: "https://example.com/v2/download_config_specs/key.json"
-                        .to_string(),
-                }))
+                .process_spec_data(
+                    SpecsSyncTrigger::Initial,
+                    Ok(NetworkResponse {
+                        data: ResponseData::from_bytes(b"{}".to_vec()),
+                        loggable_api: "test-api".to_string(),
+                        requested_deltas: false,
+                        request_url: "https://example.com/v2/download_config_specs/key.json"
+                            .to_string(),
+                    }),
+                )
                 .await;
 
             assert!(second_result.is_ok());

@@ -13,6 +13,7 @@ use tokio::time::timeout;
 use std::io::Write;
 
 use crate::networking::ResponseData;
+use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_response::proto_stream_reader::ProtoStreamReader;
 use crate::specs_response::statsig_config_specs::{self as pb, return_value};
 use crate::{DynamicReturnable, StatsigErr};
@@ -158,12 +159,13 @@ struct RemoteMetadataMarkerHistory {
 pub(super) fn begin_session<'a>(
     hydrator: &'a RemoteConfigValueHydrator,
     source_url: &'a str,
+    sync_trigger: Option<SpecsSyncTrigger>,
 ) -> ProtobufHydrationSession<'a> {
     ProtobufHydrationSession {
         hydrator,
         source_url,
         started_at: Instant::now(),
-        result: HydrationResult::new(hydrator),
+        result: HydrationResult::new_with_trigger(hydrator, sync_trigger),
         references: HashMap::new(),
         verified_bodies: HashMap::new(),
         previous_values: HashMap::new(),
@@ -206,7 +208,7 @@ pub(super) async fn hydrate_response(
         _response_budget,
     } = prepared;
     data.set_prepared_protobuf_stream(bytes);
-    hydrator.log_hydration_success(reference_count, total_bytes);
+    result.log_hydration_success(reference_count, total_bytes);
     Ok(true)
 }
 
@@ -239,11 +241,18 @@ impl RemoteConfigValueHydrator {
                         .and_then(|envelope| decode_protobuf_envelope_kind(envelope).ok());
 
                     match (first.as_ref(), first_kind) {
-                        (Some(first), Some(pb::SpecsEnvelopeKind::TopLevel)) => (
-                            ProtobufResponseMode::Full,
-                            protobuf_top_level_hint_for_mode(ProtobufResponseMode::Full, first)?,
-                        ),
+                        (Some(first), Some(pb::SpecsEnvelopeKind::TopLevel)) => {
+                            hydration_result.set_response_type(false);
+                            (
+                                ProtobufResponseMode::Full,
+                                protobuf_top_level_hint_for_mode(
+                                    ProtobufResponseMode::Full,
+                                    first,
+                                )?,
+                            )
+                        }
                         (_, Some(pb::SpecsEnvelopeKind::CopyPrev)) => {
+                            hydration_result.set_response_type(true);
                             let second_encoded = reader.read_next_delimited_proto()?;
                             let second = decode_protobuf_envelope(second_encoded.as_ref())?;
                             let second_kind = decode_protobuf_envelope_kind(&second)?;
@@ -432,6 +441,10 @@ impl RemoteConfigValueHydrator {
 }
 
 impl ProtobufHydrationSession<'_> {
+    pub(crate) fn set_response_type(&mut self, is_delta: bool) {
+        self.result.set_response_type(is_delta);
+    }
+
     pub(crate) fn mark_remote_metadata(&mut self) {
         self.result.mark_remote_metadata();
     }
@@ -865,11 +878,10 @@ impl ProtobufHydrationSession<'_> {
         } else {
             HydrationOutcome::Failure
         };
-        self.hydrator
-            .log_hydration_outcome(self.started_at, outcome);
+        self.result.log_hydration_outcome(self.started_at, outcome);
 
         if succeeded {
-            self.hydrator.log_hydration_success(
+            self.result.log_hydration_success(
                 self.reference_totals.reference_count,
                 self.reference_totals.total_bytes,
             );

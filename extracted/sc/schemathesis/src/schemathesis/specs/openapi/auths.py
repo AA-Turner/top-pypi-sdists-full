@@ -17,10 +17,12 @@ from schemathesis.core.failures import reason_phrase
 from schemathesis.core.media_types import is_form_urlencoded, is_json
 from schemathesis.core.output import prepare_response_payload
 from schemathesis.core.transforms import UNRESOLVABLE, resolve_pointer
-from schemathesis.core.transport import decode_lossy, load_json_lossy
+from schemathesis.core.transport import AUTH_REJECTION_STATUSES, decode_lossy, load_json_lossy
 from schemathesis.schemas import get_full_path
 
 if TYPE_CHECKING:
+    from werkzeug.datastructures import Headers
+
     from schemathesis.auths import AuthContext
     from schemathesis.config import OutputConfig
     from schemathesis.generation.case import Case
@@ -244,11 +246,11 @@ class DynamicTokenAuthProvider:
         status_code: int,
         text: str,
         get_json: Callable[[], Any],
-        headers: Mapping[str, str],
+        headers: Mapping[str, str] | Headers,
         cookies: Mapping[str, str],
         output_config: OutputConfig,
     ) -> str:
-        if status_code in (401, 403):
+        if status_code in AUTH_REJECTION_STATUSES:
             raise AuthenticationError(
                 "DynamicTokenAuthProvider",
                 "get",

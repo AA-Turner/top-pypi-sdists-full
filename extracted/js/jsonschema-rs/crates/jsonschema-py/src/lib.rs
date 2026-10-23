@@ -229,28 +229,24 @@ impl PyEvaluation {
     }
 
     /// Return the flag output representation as a Python object.
-    #[pyo3(text_signature = "()")]
     fn flag(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let flag = self.inner.flag();
         evaluation_output_to_python(py, &flag)
     }
 
     /// Return the list output representation as a Python object.
-    #[pyo3(text_signature = "()")]
     fn list(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let list_output = self.inner.list();
         evaluation_output_to_python(py, &list_output)
     }
 
     /// Return the hierarchical output representation as a Python object.
-    #[pyo3(text_signature = "()")]
     fn hierarchical(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let hierarchical_output = self.inner.hierarchical();
         evaluation_output_to_python(py, &hierarchical_output)
     }
 
     /// Return collected annotations for all evaluated nodes.
-    #[pyo3(text_signature = "()")]
     fn annotations(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let entries = PyList::empty(py);
         for entry in self.inner.iter_annotations() {
@@ -260,7 +256,6 @@ impl PyEvaluation {
     }
 
     /// Return collected errors for all evaluated nodes.
-    #[pyo3(text_signature = "()")]
     fn errors(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let entries = PyList::empty(py);
         for entry in self.inner.iter_errors() {
@@ -322,7 +317,7 @@ pub(crate) fn referencing_error_pyerr(py: Python<'_>, message: String) -> PyResu
 }
 
 /// Type of validation failure with its contextual data.
-#[pyclass]
+#[pyclass(module = "jsonschema_rs")]
 #[derive(Debug)]
 enum ValidationErrorKind {
     AdditionalItems { limit: usize },
@@ -1619,6 +1614,21 @@ struct ValidatorMap {
     holding: bool,
 }
 
+impl ValidatorMap {
+    fn entry<'py>(
+        &self,
+        py: Python<'py>,
+        validator: &jsonschema::Validator<Pyo3>,
+    ) -> PyResult<Bound<'py, Validator>> {
+        Validator {
+            validator: validator.clone(),
+            mask: self.mask.clone(),
+            holding: self.holding,
+        }
+        .into_draft_instance(py)
+    }
+}
+
 #[pymethods]
 impl ValidatorMap {
     /// get(pointer)
@@ -1628,21 +1638,16 @@ impl ValidatorMap {
     ///     >>> m = validator_map_for({"$defs": {"T": {"type": "string"}}})
     ///     >>> v = m.get("#/$defs/T")
     ///
-    fn get(&self, pointer: &str) -> Option<Validator> {
-        self.inner.get(pointer).map(|v| Validator {
-            validator: v.clone(),
-            mask: self.mask.clone(),
-            holding: self.holding,
-        })
+    fn get<'py>(&self, py: Python<'py>, pointer: &str) -> PyResult<Option<Bound<'py, Validator>>> {
+        self.inner
+            .get(pointer)
+            .map(|v| self.entry(py, v))
+            .transpose()
     }
 
-    fn __getitem__(&self, pointer: &str) -> PyResult<Validator> {
+    fn __getitem__<'py>(&self, py: Python<'py>, pointer: &str) -> PyResult<Bound<'py, Validator>> {
         match self.inner.get(pointer) {
-            Some(v) => Ok(Validator {
-                validator: v.clone(),
-                mask: self.mask.clone(),
-                holding: self.holding,
-            }),
+            Some(v) => self.entry(py, v),
             None => Err(PyKeyError::new_err(pointer.to_owned())),
         }
     }
@@ -1673,8 +1678,8 @@ impl ValidatorMap {
 ///
 #[pyfunction]
 #[pyo3(signature = (schema, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None))]
-fn validator_for(
-    py: Python<'_>,
+fn validator_for<'py>(
+    py: Python<'py>,
     schema: &Bound<'_, PyAny>,
     formats: Option<&Bound<'_, PyDict>>,
     validate_formats: Option<bool>,
@@ -1689,7 +1694,7 @@ fn validator_for(
     keywords: Option<&Bound<'_, PyDict>>,
     vocabularies: Option<Vec<String>>,
     offline: Option<bool>,
-) -> PyResult<Validator> {
+) -> PyResult<Bound<'py, Validator>> {
     validator_for_impl(
         py,
         schema,
@@ -1707,7 +1712,8 @@ fn validator_for(
         keywords,
         vocabularies,
         offline,
-    )
+    )?
+    .into_draft_instance(py)
 }
 
 /// validator_map_for(schema, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None)
@@ -1939,12 +1945,37 @@ fn validator_for_impl(
     }
 }
 
+impl Validator {
+    /// Wrap the validator in the Python class of its draft, so `isinstance` checks against draft classes hold.
+    fn into_draft_instance(self, py: Python<'_>) -> PyResult<Bound<'_, Validator>> {
+        let draft = self.validator.draft();
+        let initializer = PyClassInitializer::from(self);
+        Ok(match draft {
+            Draft::Draft4 => {
+                Bound::new(py, initializer.add_subclass(Draft4Validator))?.into_super()
+            }
+            Draft::Draft6 => {
+                Bound::new(py, initializer.add_subclass(Draft6Validator))?.into_super()
+            }
+            Draft::Draft7 => {
+                Bound::new(py, initializer.add_subclass(Draft7Validator))?.into_super()
+            }
+            Draft::Draft201909 => {
+                Bound::new(py, initializer.add_subclass(Draft201909Validator))?.into_super()
+            }
+            Draft::Draft202012 | _ => {
+                Bound::new(py, initializer.add_subclass(Draft202012Validator))?.into_super()
+            }
+        })
+    }
+}
+
 #[pymethods]
 impl Validator {
     #[new]
     #[pyo3(signature = (schema, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry = None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None, vocabularies=None, offline=None))]
-    fn new(
-        py: Python<'_>,
+    fn new<'py>(
+        py: Python<'py>,
         schema: &Bound<'_, PyAny>,
         formats: Option<&Bound<'_, PyDict>>,
         validate_formats: Option<bool>,
@@ -1959,7 +1990,7 @@ impl Validator {
         keywords: Option<&Bound<'_, PyDict>>,
         vocabularies: Option<Vec<String>>,
         offline: Option<bool>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<Bound<'py, Self>> {
         validator_for(
             py,
             schema,
@@ -1987,7 +2018,6 @@ impl Validator {
     ///     False
     ///
     /// The output is a boolean value, that indicates whether the instance is valid or not.
-    #[pyo3(text_signature = "(instance)")]
     fn is_valid(&self, instance: &Bound<'_, PyAny>) -> PyResult<bool> {
         surface_pending_errors(instance, self.holding, || {
             panic::catch_unwind(AssertUnwindSafe(|| {
@@ -2006,7 +2036,6 @@ impl Validator {
     ///     ValidationError: 3 is less than the minimum of 5
     ///
     /// If the input instance is invalid, only the first occurred error is raised.
-    #[pyo3(text_signature = "(instance)")]
     fn validate(&self, py: Python<'_>, instance: &Bound<'_, PyAny>) -> PyResult<()> {
         raise_on_error(
             py,
@@ -2024,7 +2053,6 @@ impl Validator {
     ///     >>> next(validator.iter_errors(3))
     ///     ...
     ///     ValidationError: 3 is less than the minimum of 5
-    #[pyo3(text_signature = "(instance)")]
     fn iter_errors(
         &self,
         py: Python<'_>,
@@ -2077,7 +2105,6 @@ impl Validator {
     ///         ]
     ///     }
     /// ```
-    #[pyo3(text_signature = "(instance)")]
     fn evaluate(&self, instance: &Bound<'_, PyAny>) -> PyResult<PyEvaluation> {
         surface_pending_errors(instance, self.holding, || {
             let _scope = KeywordCauseScope::enter();
@@ -2551,6 +2578,7 @@ fn jsonschema_rs(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_wrapped(wrap_pyfunction!(bundle))?;
     module.add_wrapped(wrap_pyfunction!(dereference))?;
     module.add_wrapped(wrap_pyfunction!(validator_cls_for))?;
+    module.add_class::<Validator>()?;
     module.add_class::<Draft4Validator>()?;
     module.add_class::<Draft6Validator>()?;
     module.add_class::<Draft7Validator>()?;

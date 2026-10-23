@@ -1393,6 +1393,8 @@ from .type_defs import (
     GetSpotPlacementScoresResultTypeDef,
     GetSubnetCidrReservationsRequestTypeDef,
     GetSubnetCidrReservationsResultTypeDef,
+    GetTransitGatewayAttachmentNatConfigurationRequestTypeDef,
+    GetTransitGatewayAttachmentNatConfigurationResultTypeDef,
     GetTransitGatewayAttachmentPropagationsRequestTypeDef,
     GetTransitGatewayAttachmentPropagationsResultTypeDef,
     GetTransitGatewayMeteringPolicyEntriesRequestTypeDef,
@@ -1549,6 +1551,8 @@ from .type_defs import (
     ModifyTrafficMirrorFilterRuleResultTypeDef,
     ModifyTrafficMirrorSessionRequestTypeDef,
     ModifyTrafficMirrorSessionResultTypeDef,
+    ModifyTransitGatewayAttachmentNatConfigurationRequestTypeDef,
+    ModifyTransitGatewayAttachmentNatConfigurationResultTypeDef,
     ModifyTransitGatewayMeteringPolicyRequestTypeDef,
     ModifyTransitGatewayMeteringPolicyResultTypeDef,
     ModifyTransitGatewayPolicyTableEntryRequestTypeDef,
@@ -8186,6 +8190,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_subnet_cidr_reservations)
         """
 
+    def get_transit_gateway_attachment_nat_configuration(
+        self, **kwargs: Unpack[GetTransitGatewayAttachmentNatConfigurationRequestTypeDef]
+    ) -> GetTransitGatewayAttachmentNatConfigurationResultTypeDef:
+        """
+        Describes the NAT configuration for the specified transit gateway attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_transit_gateway_attachment_nat_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_transit_gateway_attachment_nat_configuration)
+        """
+
     def get_transit_gateway_attachment_propagations(
         self, **kwargs: Unpack[GetTransitGatewayAttachmentPropagationsRequestTypeDef]
     ) -> GetTransitGatewayAttachmentPropagationsResultTypeDef:
@@ -9016,6 +9030,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_transit_gateway)
+        """
+
+    def modify_transit_gateway_attachment_nat_configuration(
+        self, **kwargs: Unpack[ModifyTransitGatewayAttachmentNatConfigurationRequestTypeDef]
+    ) -> ModifyTransitGatewayAttachmentNatConfigurationResultTypeDef:
+        """
+        Modifies the NAT configuration for the specified transit gateway attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_attachment_nat_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_transit_gateway_attachment_nat_configuration)
         """
 
     def modify_transit_gateway_metering_policy(

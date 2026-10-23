@@ -59,6 +59,9 @@ from collections import OrderedDict
 from types import ModuleType
 from typing import Optional, Union
 
+# this package
+from domdf_python_tools._isoformat import date_from_isoformat, datetime_from_isoformat, time_from_isoformat
+
 __all__ = [
 		"current_tzinfo",
 		"set_timezone",
@@ -71,6 +74,9 @@ __all__ = [
 		"month_short_names",
 		"month_full_names",
 		"is_bst",
+		"date_from_isoformat",
+		"time_from_isoformat",
+		"datetime_from_isoformat",
 		]
 
 
@@ -147,7 +153,7 @@ def utc_timestamp_to_datetime(
 if sys.version_info <= (3, 7, 2):  # pragma: no cover (py37+)
 	MonthsType = OrderedDict
 else:  # pragma: no cover (<py37)
-	MonthsType = typing.OrderedDict[str, str]  # type: ignore  # noqa: TYP006
+	MonthsType = typing.OrderedDict[str, str]  # type: ignore[misc,assignment]  # noqa: TYP006
 
 #: Mapping of 3-character shortcodes to full month names.
 months: MonthsType = OrderedDict(
@@ -195,7 +201,8 @@ def parse_month(month: Union[str, int]) -> str:
 		month = int(month)
 	except ValueError:
 		try:
-			return months[month.capitalize()[:3]]  # type: ignore
+			assert not isinstance(month, int)
+			return months[month.capitalize()[:3]]
 		except KeyError:
 			raise ValueError(error_text)
 
@@ -382,7 +389,7 @@ except ImportError as e:
 		'{word_join(_pytz_functions)}' require pytz (https://pypi.org/project/pytz/), but it could not be imported.
 
 		The error was: {e}.
-		"""
+		""",
 				)
 
 	else:
@@ -390,10 +397,10 @@ except ImportError as e:
 
 		class SelfWrapper(ModuleType):
 
-			def __getattr__(self, name):
+			def __getattr__(self, name: str):  # noqa: MAN002
 				if name in _pytz_functions:
 					raise ImportError(
-							f"{name!r} requires pytz (https://pypi.org/project/pytz/), but it could not be imported."
+							f"{name!r} requires pytz (https://pypi.org/project/pytz/), but it could not be imported.",
 							)
 				else:
 					return getattr(_actual_module, name)

@@ -522,13 +522,16 @@ _EXTRACTION_DEFAULT_UNIT = (
 # the whole run — images and videos included — ended.
 from matrx_connect.context.data_types import LIVE_MEDIA_DATA_TYPES  # noqa: E402
 
-# Mandates live in matrx_ai.mandates (one seam for the whole package). These
-# aliases keep this module's ~23 call sites and aidream's installer unchanged.
+# Mandates run through the ONE runner (runner plan 25 step 5): every podcast agent call is
+# ``get_mandate_runner().run(Cls.mandate_key, Offer.from_inputs(Cls, ...))`` for the carried principal.
 from matrx_ai.mandates import (  # noqa: E402
+    Offer,
+    RunOptions,
+    carried_principal,
+    get_mandate_runner,
     resolved_agent_id,
     set_mandate_resolver,  # noqa: F401
 )
-from matrx_ai.mandates import run_mandated as _run_mandated  # noqa: E402
 
 
 class _PodcastAgent(NamedAgent):
@@ -1519,41 +1522,55 @@ async def _prepare_content(request: PodcastRequest) -> StageResult:
             ]
             if request.prep_user_message:
                 user_input.append({"type": "input_text", "text": request.prep_user_message})
-            result = await _run_mandated(
-                _ResearchAgent,
-                inputs=_ResearchAgent.Inputs(),
-                user_input=user_input,
-                label="Podcast Research",
-                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-                # parent stream — the /podcast/generate endpoint's emitter, or the
-                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-                # to the workflow run's wire. The pipeline reports through typed stage /
-                # asset events, so an unmuted stage agent's raw tokens are pure leakage
-                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-                # output via the shared turn-text accumulator). Result still returns via
-                # AgentRunResult.
-                suppress_stream=True,
-            )
+            result = (
+                await get_mandate_runner().run(
+                    _ResearchAgent.mandate_key,
+                    Offer.from_inputs(
+                        _ResearchAgent,
+                        inputs=_ResearchAgent.Inputs(),
+                        user_input=user_input,
+                        label="Podcast Research",
+                        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                        # parent stream — the /podcast/generate endpoint's emitter, or the
+                        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                        # to the workflow run's wire. The pipeline reports through typed stage /
+                        # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                        # output via the shared turn-text accumulator). Result still returns via
+                        # AgentRunResult.
+                        suppress_stream=True,
+                    ),
+                    who=carried_principal(),
+                    opts=RunOptions(door="named_agent"),
+                )
+            ).raw
             return _to_stage("prepare_content_researcher", result)
 
         case InputDataType.FILE_URL:
             extraction_unit = request.extraction_unit or _EXTRACTION_DEFAULT_UNIT
             user_input_blocks = await _build_extraction_user_input(request)
-            result = await _run_mandated(
-                _ContentExtractorAgent,
-                inputs=_ContentExtractorAgent.Inputs(extraction_unit=extraction_unit),
-                user_input=user_input_blocks,
-                label="Podcast Extraction",
-                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-                # parent stream — the /podcast/generate endpoint's emitter, or the
-                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-                # to the workflow run's wire. The pipeline reports through typed stage /
-                # asset events, so an unmuted stage agent's raw tokens are pure leakage
-                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-                # output via the shared turn-text accumulator). Result still returns via
-                # AgentRunResult.
-                suppress_stream=True,
-            )
+            result = (
+                await get_mandate_runner().run(
+                    _ContentExtractorAgent.mandate_key,
+                    Offer.from_inputs(
+                        _ContentExtractorAgent,
+                        inputs=_ContentExtractorAgent.Inputs(extraction_unit=extraction_unit),
+                        user_input=user_input_blocks,
+                        label="Podcast Extraction",
+                        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                        # parent stream — the /podcast/generate endpoint's emitter, or the
+                        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                        # to the workflow run's wire. The pipeline reports through typed stage /
+                        # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                        # output via the shared turn-text accumulator). Result still returns via
+                        # AgentRunResult.
+                        suppress_stream=True,
+                    ),
+                    who=carried_principal(),
+                    opts=RunOptions(door="named_agent"),
+                )
+            ).raw
             return _to_stage("prepare_content_extractor", result)
 
 
@@ -1631,27 +1648,34 @@ async def _apply_audience_adaptation(
     if not target_audience.strip():
         return StageResult(stage=stage, success=True, output=content)
     try:
-        result = await _run_mandated(
-            _AudienceAdapterAgent,
-            inputs=_AudienceAdapterAgent.Inputs(
-                prepared_content=content,
-                target_audience=target_audience.strip(),
-                adaptation_guidance=guidance.strip(),
-            ),
-            # Mapping-only (podcast.audience_adaptation mapped_offer): the
-            # default-pin Holder never receives it.
-            offered={"content_char_count": len(content)},
-            label="Podcast Audience Adaptation",
-            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-            # parent stream — the /podcast/generate endpoint's emitter, or the
-            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-            # to the workflow run's wire. The pipeline reports through typed stage /
-            # asset events, so an unmuted stage agent's raw tokens are pure leakage
-            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-            # output via the shared turn-text accumulator). Result still returns via
-            # AgentRunResult.
-            suppress_stream=True,
-        )
+        result = (
+            await get_mandate_runner().run(
+                _AudienceAdapterAgent.mandate_key,
+                Offer.from_inputs(
+                    _AudienceAdapterAgent,
+                    inputs=_AudienceAdapterAgent.Inputs(
+                        prepared_content=content,
+                        target_audience=target_audience.strip(),
+                        adaptation_guidance=guidance.strip(),
+                    ),
+                    # Mapping-only (podcast.audience_adaptation mapped_offer): the
+                    # default-pin Holder never receives it.
+                    offered={"content_char_count": len(content)},
+                    label="Podcast Audience Adaptation",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
+                ),
+                who=carried_principal(),
+                opts=RunOptions(door="named_agent"),
+            )
+        ).raw
     except Exception as exc:  # noqa: BLE001 — soft stage: record + keep original content
         vcprint(f"[PodcastGenerator] {stage} failed: {exc}", color="red")
         return StageResult(stage=stage, success=False, error=str(exc))
@@ -1709,71 +1733,99 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
     try:
         match option:
             case PostPrepOption.TRANSLATION:
-                result = await _run_mandated(
-                    _PostPrepTranslationAgent,
-                    inputs=_PostPrepTranslationAgent.Inputs(
-                        content=content, target_language=language
-                    ),
-                    offered=post_prep_offered,
-                    label="Podcast Post-Prep Translation",
-                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-                    # parent stream — the /podcast/generate endpoint's emitter, or the
-                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-                    # to the workflow run's wire. The pipeline reports through typed stage /
-                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
-                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-                    # output via the shared turn-text accumulator). Result still returns via
-                    # AgentRunResult.
-                    suppress_stream=True,
-                )
+                result = (
+                    await get_mandate_runner().run(
+                        _PostPrepTranslationAgent.mandate_key,
+                        Offer.from_inputs(
+                            _PostPrepTranslationAgent,
+                            inputs=_PostPrepTranslationAgent.Inputs(
+                                content=content, target_language=language
+                            ),
+                            offered=post_prep_offered,
+                            label="Podcast Post-Prep Translation",
+                            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                            # parent stream — the /podcast/generate endpoint's emitter, or the
+                            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                            # to the workflow run's wire. The pipeline reports through typed stage /
+                            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                            # output via the shared turn-text accumulator). Result still returns via
+                            # AgentRunResult.
+                            suppress_stream=True,
+                        ),
+                        who=carried_principal(),
+                        opts=RunOptions(door="named_agent"),
+                    )
+                ).raw
             case PostPrepOption.SUMMARIZATION:
-                result = await _run_mandated(
-                    _PostPrepSummarizationAgent,
-                    inputs=_PostPrepSummarizationAgent.Inputs(content=content),
-                    offered=post_prep_offered,
-                    label="Podcast Post-Prep Summarization",
-                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-                    # parent stream — the /podcast/generate endpoint's emitter, or the
-                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-                    # to the workflow run's wire. The pipeline reports through typed stage /
-                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
-                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-                    # output via the shared turn-text accumulator). Result still returns via
-                    # AgentRunResult.
-                    suppress_stream=True,
-                )
+                result = (
+                    await get_mandate_runner().run(
+                        _PostPrepSummarizationAgent.mandate_key,
+                        Offer.from_inputs(
+                            _PostPrepSummarizationAgent,
+                            inputs=_PostPrepSummarizationAgent.Inputs(content=content),
+                            offered=post_prep_offered,
+                            label="Podcast Post-Prep Summarization",
+                            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                            # parent stream — the /podcast/generate endpoint's emitter, or the
+                            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                            # to the workflow run's wire. The pipeline reports through typed stage /
+                            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                            # output via the shared turn-text accumulator). Result still returns via
+                            # AgentRunResult.
+                            suppress_stream=True,
+                        ),
+                        who=carried_principal(),
+                        opts=RunOptions(door="named_agent"),
+                    )
+                ).raw
             case PostPrepOption.EXPANSION:
-                result = await _run_mandated(
-                    _PostPrepExpansionAgent,
-                    inputs=_PostPrepExpansionAgent.Inputs(content=content),
-                    offered=post_prep_offered,
-                    label="Podcast Post-Prep Expansion",
-                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-                    # parent stream — the /podcast/generate endpoint's emitter, or the
-                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-                    # to the workflow run's wire. The pipeline reports through typed stage /
-                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
-                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-                    # output via the shared turn-text accumulator). Result still returns via
-                    # AgentRunResult.
-                    suppress_stream=True,
-                )
+                result = (
+                    await get_mandate_runner().run(
+                        _PostPrepExpansionAgent.mandate_key,
+                        Offer.from_inputs(
+                            _PostPrepExpansionAgent,
+                            inputs=_PostPrepExpansionAgent.Inputs(content=content),
+                            offered=post_prep_offered,
+                            label="Podcast Post-Prep Expansion",
+                            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                            # parent stream — the /podcast/generate endpoint's emitter, or the
+                            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                            # to the workflow run's wire. The pipeline reports through typed stage /
+                            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                            # output via the shared turn-text accumulator). Result still returns via
+                            # AgentRunResult.
+                            suppress_stream=True,
+                        ),
+                        who=carried_principal(),
+                        opts=RunOptions(door="named_agent"),
+                    )
+                ).raw
             case PostPrepOption.FACT_CHECKING:
-                result = await _run_mandated(
-                    _PostPrepFactCheckingAgent,
-                    inputs=_PostPrepFactCheckingAgent.Inputs(content=content),
-                    offered=post_prep_offered,
-                    label="Podcast Post-Prep Fact Check",
-                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-                    # parent stream — the /podcast/generate endpoint's emitter, or the
-                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-                    # to the workflow run's wire. The pipeline reports through typed stage /
-                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
-                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-                    # output via the shared turn-text accumulator). Result still returns via
-                    # AgentRunResult.
-                    suppress_stream=True,
-                )
+                result = (
+                    await get_mandate_runner().run(
+                        _PostPrepFactCheckingAgent.mandate_key,
+                        Offer.from_inputs(
+                            _PostPrepFactCheckingAgent,
+                            inputs=_PostPrepFactCheckingAgent.Inputs(content=content),
+                            offered=post_prep_offered,
+                            label="Podcast Post-Prep Fact Check",
+                            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                            # parent stream — the /podcast/generate endpoint's emitter, or the
+                            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                            # to the workflow run's wire. The pipeline reports through typed stage /
+                            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                            # output via the shared turn-text accumulator). Result still returns via
+                            # AgentRunResult.
+                            suppress_stream=True,
+                        ),
+                        who=carried_principal(),
+                        opts=RunOptions(door="named_agent"),
+                    )
+                ).raw
             case _:
                 return StageResult(
                     stage=stage,
@@ -2109,105 +2161,133 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
                 legacy_cls = _EducationalScriptAgent
         if request.format == "news":
             legacy_cls = _NewsScriptAgent
-        result = await _run_mandated(
-            legacy_cls,
-            inputs=legacy_cls.Inputs(podcast_topic_or_content=prepared_content, **length),
-            label="Podcast Script",
-            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-            # parent stream — the /podcast/generate endpoint's emitter, or the
-            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-            # to the workflow run's wire. The pipeline reports through typed stage /
-            # asset events, so an unmuted stage agent's raw tokens are pure leakage
-            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-            # output via the shared turn-text accumulator). Result still returns via
-            # AgentRunResult.
-            suppress_stream=True,
-        )
+        result = (
+            await get_mandate_runner().run(
+                legacy_cls.mandate_key,
+                Offer.from_inputs(
+                    legacy_cls,
+                    inputs=legacy_cls.Inputs(podcast_topic_or_content=prepared_content, **length),
+                    label="Podcast Script",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
+                ),
+                who=carried_principal(),
+                opts=RunOptions(door="named_agent"),
+            )
+        ).raw
         return await _validated_script_stage(result, request)
 
     n = request.host_count
     if n == 1:
         solo_name = request.speakers[0].name if request.speakers else ""
-        result = await _run_mandated(
-            _SoloScriptAgent,
-            inputs={
-                "prepared_content": prepared_content,
-                "format": _derived_format(request),
-                "theme": request.theme,
-                "language": _derived_language(request),
-                "speaker_name": solo_name,
-                **length,
-            },
-            label="Podcast Script",
-            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-            # parent stream — the /podcast/generate endpoint's emitter, or the
-            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-            # to the workflow run's wire. The pipeline reports through typed stage /
-            # asset events, so an unmuted stage agent's raw tokens are pure leakage
-            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-            # output via the shared turn-text accumulator). Result still returns via
-            # AgentRunResult.
-            suppress_stream=True,
-        )
+        result = (
+            await get_mandate_runner().run(
+                _SoloScriptAgent.mandate_key,
+                Offer.from_inputs(
+                    _SoloScriptAgent,
+                    inputs={
+                        "prepared_content": prepared_content,
+                        "format": _derived_format(request),
+                        "theme": request.theme,
+                        "language": _derived_language(request),
+                        "speaker_name": solo_name,
+                        **length,
+                    },
+                    label="Podcast Script",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
+                ),
+                who=carried_principal(),
+                opts=RunOptions(door="named_agent"),
+            )
+        ).raw
         return await _validated_script_stage(result, request)
 
     if n >= 5:
-        result = await _run_mandated(
-            _RoundtableScriptAgent,
-            inputs={
-                "prepared_content": prepared_content,
-                "num_speakers": str(n),
-                "format": _derived_format(request),
-                "theme": request.theme,
-                "language": _derived_language(request),
-                # BLANK ON PURPOSE (2026-08-23): no persona data (role/stance)
-                # exists anywhere on PodcastRequest — only name/voice/gender,
-                # which already travel in speaker_names. Blank is the agent's
-                # documented "fall back to speaker_names" path; the previous
-                # hardcoded "[]" fabricated a value nothing ever fills (and the
-                # durable-workflow twin podcast_w3_script maps no personas at
-                # all, so the two call sites now agree). If the request ever
-                # grows real personas, fill this from them — never a constant.
-                "speaker_personas": "",
-                "speaker_names": _speaker_names_json(request),
-                **length,
-            },
-            label="Podcast Script",
-            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-            # parent stream — the /podcast/generate endpoint's emitter, or the
-            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-            # to the workflow run's wire. The pipeline reports through typed stage /
-            # asset events, so an unmuted stage agent's raw tokens are pure leakage
-            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-            # output via the shared turn-text accumulator). Result still returns via
-            # AgentRunResult.
-            suppress_stream=True,
-        )
+        result = (
+            await get_mandate_runner().run(
+                _RoundtableScriptAgent.mandate_key,
+                Offer.from_inputs(
+                    _RoundtableScriptAgent,
+                    inputs={
+                        "prepared_content": prepared_content,
+                        "num_speakers": str(n),
+                        "format": _derived_format(request),
+                        "theme": request.theme,
+                        "language": _derived_language(request),
+                        # BLANK ON PURPOSE (2026-08-23): no persona data (role/stance)
+                        # exists anywhere on PodcastRequest — only name/voice/gender,
+                        # which already travel in speaker_names. Blank is the agent's
+                        # documented "fall back to speaker_names" path; the previous
+                        # hardcoded "[]" fabricated a value nothing ever fills (and the
+                        # durable-workflow twin podcast_w3_script maps no personas at
+                        # all, so the two call sites now agree). If the request ever
+                        # grows real personas, fill this from them — never a constant.
+                        "speaker_personas": "",
+                        "speaker_names": _speaker_names_json(request),
+                        **length,
+                    },
+                    label="Podcast Script",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
+                ),
+                who=carried_principal(),
+                opts=RunOptions(door="named_agent"),
+            )
+        ).raw
         return await _validated_script_stage(result, request)
 
     # 2–4 hosts off the legacy path → the built multihost agent.
-    result = await _run_mandated(
-        _MultihostScriptAgent,
-        inputs=_MultihostScriptAgent.Inputs(
-            prepared_content=prepared_content,
-            num_speakers=str(n),
-            format=_derived_format(request),
-            theme=request.theme,
-            language=_derived_language(request),
-            speaker_names=_speaker_names_json(request),
-            **length,
-        ),
-        label="Podcast Script",
-        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-        # parent stream — the /podcast/generate endpoint's emitter, or the
-        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-        # to the workflow run's wire. The pipeline reports through typed stage /
-        # asset events, so an unmuted stage agent's raw tokens are pure leakage
-        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-        # output via the shared turn-text accumulator). Result still returns via
-        # AgentRunResult.
-        suppress_stream=True,
-    )
+    result = (
+        await get_mandate_runner().run(
+            _MultihostScriptAgent.mandate_key,
+            Offer.from_inputs(
+                _MultihostScriptAgent,
+                inputs=_MultihostScriptAgent.Inputs(
+                    prepared_content=prepared_content,
+                    num_speakers=str(n),
+                    format=_derived_format(request),
+                    theme=request.theme,
+                    language=_derived_language(request),
+                    speaker_names=_speaker_names_json(request),
+                    **length,
+                ),
+                label="Podcast Script",
+                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                # parent stream — the /podcast/generate endpoint's emitter, or the
+                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                # to the workflow run's wire. The pipeline reports through typed stage /
+                # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                # output via the shared turn-text accumulator). Result still returns via
+                # AgentRunResult.
+                suppress_stream=True,
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="named_agent"),
+        )
+    ).raw
     return await _validated_script_stage(result, request)
 
 
@@ -2748,24 +2828,31 @@ async def _create_audio(request: PodcastRequest, script: str) -> StageResult:
             # Caught BEFORE the paid TTS call — surface as a failed (resumable)
             # stage, never an unhandled pipeline crash.
             return StageResult(stage="create_audio", success=False, error=str(exc))
-        result = await _run_mandated(
-            _AudioDialogueAgent,
-            inputs={"content": audio_content},
-            config_overrides={"tts_voice": turns},
-            label="Podcast Audio",
-            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-            # parent stream — the /podcast/generate endpoint's emitter, or the
-            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-            # to the workflow run's wire. The pipeline reports through typed stage /
-            # asset events, so an unmuted stage agent's raw tokens are pure leakage
-            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-            # output via the shared turn-text accumulator). Result still returns via
-            # AgentRunResult.
-            suppress_stream=True,
-            # …except the audio itself: the live chunks ARE the episode the person
-            # starts listening to while images and videos are still rendering.
-            stream_data_types=LIVE_MEDIA_DATA_TYPES,
-        )
+        result = (
+            await get_mandate_runner().run(
+                _AudioDialogueAgent.mandate_key,
+                Offer.from_inputs(
+                    _AudioDialogueAgent,
+                    inputs={"content": audio_content},
+                    config_overrides={"tts_voice": turns},
+                    label="Podcast Audio",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
+                    # …except the audio itself: the live chunks ARE the episode the person
+                    # starts listening to while images and videos are still rendering.
+                    stream_data_types=LIVE_MEDIA_DATA_TYPES,
+                ),
+                who=carried_principal(),
+                opts=RunOptions(door="named_agent"),
+            )
+        ).raw
         return _audio_stage_result(result)
 
     # 1–2 speakers → the proven Gemini TTS agents. The voice config is ALWAYS
@@ -2808,27 +2895,34 @@ async def _create_audio(request: PodcastRequest, script: str) -> StageResult:
     if request.tts_quality:
         overrides["tts_quality"] = request.tts_quality
 
-    result = await _run_mandated(
-        agent_cls,
-        inputs=agent_cls.Inputs(
-            content=audio_content,
-            audio_style=_resolve_audio_style(request),
-        ),
-        config_overrides=overrides,
-        label="Podcast Audio",
-        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-        # parent stream — the /podcast/generate endpoint's emitter, or the
-        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-        # to the workflow run's wire. The pipeline reports through typed stage /
-        # asset events, so an unmuted stage agent's raw tokens are pure leakage
-        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-        # output via the shared turn-text accumulator). Result still returns via
-        # AgentRunResult.
-        suppress_stream=True,
-        # …except the audio itself: the live chunks ARE the episode the person
-        # starts listening to while images and videos are still rendering.
-        stream_data_types=LIVE_MEDIA_DATA_TYPES,
-    )
+    result = (
+        await get_mandate_runner().run(
+            agent_cls.mandate_key,
+            Offer.from_inputs(
+                agent_cls,
+                inputs=agent_cls.Inputs(
+                    content=audio_content,
+                    audio_style=_resolve_audio_style(request),
+                ),
+                config_overrides=overrides,
+                label="Podcast Audio",
+                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                # parent stream — the /podcast/generate endpoint's emitter, or the
+                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                # to the workflow run's wire. The pipeline reports through typed stage /
+                # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                # output via the shared turn-text accumulator). Result still returns via
+                # AgentRunResult.
+                suppress_stream=True,
+                # …except the audio itself: the live chunks ARE the episode the person
+                # starts listening to while images and videos are still rendering.
+                stream_data_types=LIVE_MEDIA_DATA_TYPES,
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="named_agent"),
+        )
+    ).raw
     return _audio_stage_result(result)
 
 
@@ -2846,22 +2940,29 @@ async def _generate_metadata(prepared_content: str) -> tuple[StageResult, Podcas
     The agent declares ``Output = PodcastMetadata``, so ``run_agent`` parses
     and validates the JSON via the canonical extractor (no hand-rolled regex).
     """
-    result = await _run_mandated(
-        _MetadataAgent,
-        inputs=_MetadataAgent.Inputs(podcast_content=prepared_content),
-        # Mapping-only (podcast.metadata_stage mapped_offer).
-        offered={"podcast_content_char_count": len(prepared_content)},
-        label="Podcast Metadata",
-        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
-        # parent stream — the /podcast/generate endpoint's emitter, or the
-        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
-        # to the workflow run's wire. The pipeline reports through typed stage /
-        # asset events, so an unmuted stage agent's raw tokens are pure leakage
-        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
-        # output via the shared turn-text accumulator). Result still returns via
-        # AgentRunResult.
-        suppress_stream=True,
-    )
+    result = (
+        await get_mandate_runner().run(
+            _MetadataAgent.mandate_key,
+            Offer.from_inputs(
+                _MetadataAgent,
+                inputs=_MetadataAgent.Inputs(podcast_content=prepared_content),
+                # Mapping-only (podcast.metadata_stage mapped_offer).
+                offered={"podcast_content_char_count": len(prepared_content)},
+                label="Podcast Metadata",
+                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                # parent stream — the /podcast/generate endpoint's emitter, or the
+                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                # to the workflow run's wire. The pipeline reports through typed stage /
+                # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                # output via the shared turn-text accumulator). Result still returns via
+                # AgentRunResult.
+                suppress_stream=True,
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="named_agent"),
+        )
+    ).raw
     meta = result.parsed if isinstance(result.parsed, PodcastMetadata) else PodcastMetadata()
 
     stage = _to_stage("generate_metadata", result)
@@ -2970,18 +3071,25 @@ async def _run_asset_with_fallback(
         agent: type[NamedAgent], label: str, *, is_fallback: bool = False
     ) -> tuple[StageResult, str | None]:
         try:
-            result = await _run_mandated(
-                agent,
-                inputs=make_inputs(agent),
-                # Mapping-only (podcast.image_render / video_render mapped_offer):
-                # the default-pin Holder never receives these.
-                offered={**(offered or {}), "is_fallback_render": is_fallback},
-                label=label,
-                # Media slots emit their own typed ASSET event. Their provider
-                # stream must never share the parent text accumulator with
-                # sibling slots in this concurrent fan-out.
-                suppress_stream=True,
-            )
+            result = (
+                await get_mandate_runner().run(
+                    agent.mandate_key,
+                    Offer.from_inputs(
+                        agent,
+                        inputs=make_inputs(agent),
+                        # Mapping-only (podcast.image_render / video_render mapped_offer):
+                        # the default-pin Holder never receives these.
+                        offered={**(offered or {}), "is_fallback_render": is_fallback},
+                        label=label,
+                        # Media slots emit their own typed ASSET event. Their provider
+                        # stream must never share the parent text accumulator with
+                        # sibling slots in this concurrent fan-out.
+                        suppress_stream=True,
+                    ),
+                    who=carried_principal(),
+                    opts=RunOptions(door="named_agent"),
+                )
+            ).raw
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -3140,37 +3248,44 @@ async def _generate_feature_image(
 
     async def _run_prompt() -> StageResult:
         try:
-            result = await _run_mandated(
-                _ImagePromptAgent,
-                inputs=_ImagePromptAgent.Inputs(
-                    intent_or_content=transcript,
-                    style=style_prompt,
-                ),
-                # Mapping-only (podcast.feature_image_prompt mapped_offer).
-                offered={
-                    "asset_slot": slot,
-                    "visual_style": style.value,
-                    "transcript_char_count": len(transcript),
-                },
-                label="Podcast Feature Image Prompt",
-                # ISOLATE this concurrent side-quest agent's stream. A
-                # child-agent fork ALIASES the parent's emitter
-                # (context/app_context.py fork_for_child_agent), and the
-                # executor rebuilds a stage's output from that emitter's shared
-                # turn-text accumulator on the error/truncate/cancel paths — so
-                # a concurrent agent's streamed tokens can land in another
-                # slot's captured output. This agent is the first LONG TEXT
-                # streamer to run concurrently with the image agents; its prompt
-                # interleaved into a concurrent image Mandate (proven: a metadata
-                # image's stored output was a verbatim window of THIS prompt).
-                # suppress_stream gives it its OWN SilentEmitter, so its tokens
-                # never enter the shared accumulator the image agents read. The
-                # sink is the emitter, NOT request_id, so independent_request is
-                # deliberately NOT set — it wouldn't help and would orphan this
-                # agent's cost from the run's CX lineage (SUBAGENTS.md H4). Its
-                # structured result still returns via AgentRunResult.
-                suppress_stream=True,
-            )
+            result = (
+                await get_mandate_runner().run(
+                    _ImagePromptAgent.mandate_key,
+                    Offer.from_inputs(
+                        _ImagePromptAgent,
+                        inputs=_ImagePromptAgent.Inputs(
+                            intent_or_content=transcript,
+                            style=style_prompt,
+                        ),
+                        # Mapping-only (podcast.feature_image_prompt mapped_offer).
+                        offered={
+                            "asset_slot": slot,
+                            "visual_style": style.value,
+                            "transcript_char_count": len(transcript),
+                        },
+                        label="Podcast Feature Image Prompt",
+                        # ISOLATE this concurrent side-quest agent's stream. A
+                        # child-agent fork ALIASES the parent's emitter
+                        # (context/app_context.py fork_for_child_agent), and the
+                        # executor rebuilds a stage's output from that emitter's shared
+                        # turn-text accumulator on the error/truncate/cancel paths — so
+                        # a concurrent agent's streamed tokens can land in another
+                        # slot's captured output. This agent is the first LONG TEXT
+                        # streamer to run concurrently with the image agents; its prompt
+                        # interleaved into a concurrent image Mandate (proven: a metadata
+                        # image's stored output was a verbatim window of THIS prompt).
+                        # suppress_stream gives it its OWN SilentEmitter, so its tokens
+                        # never enter the shared accumulator the image agents read. The
+                        # sink is the emitter, NOT request_id, so independent_request is
+                        # deliberately NOT set — it wouldn't help and would orphan this
+                        # agent's cost from the run's CX lineage (SUBAGENTS.md H4). Its
+                        # structured result still returns via AgentRunResult.
+                        suppress_stream=True,
+                    ),
+                    who=carried_principal(),
+                    opts=RunOptions(door="named_agent"),
+                )
+            ).raw
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001
@@ -3203,22 +3318,29 @@ async def _generate_feature_image(
         # cover candidate an anonymous reader loads.
         try:
             with public_media_scope():
-                result = await _run_mandated(
-                    _FeatureImageAgent,
-                    inputs=_FeatureImageAgent.Inputs(image_description=image_prompt),
-                    # Mapping-only (podcast.image_render mapped_offer).
-                    offered={
-                        "asset_slot": slot,
-                        "is_fallback_render": False,
-                        "visual_style": style.value,
-                    },
-                    label="Podcast Feature Image",
-                    # Same emitter isolation as the prompt agent above (it forks
-                    # with the shared emitter and runs concurrently with the other
-                    # media slots). request_id is not the sink, so no
-                    # independent_request here either.
-                    suppress_stream=True,
-                )
+                result = (
+                    await get_mandate_runner().run(
+                        _FeatureImageAgent.mandate_key,
+                        Offer.from_inputs(
+                            _FeatureImageAgent,
+                            inputs=_FeatureImageAgent.Inputs(image_description=image_prompt),
+                            # Mapping-only (podcast.image_render mapped_offer).
+                            offered={
+                                "asset_slot": slot,
+                                "is_fallback_render": False,
+                                "visual_style": style.value,
+                            },
+                            label="Podcast Feature Image",
+                            # Same emitter isolation as the prompt agent above (it forks
+                            # with the shared emitter and runs concurrently with the other
+                            # media slots). request_id is not the sink, so no
+                            # independent_request here either.
+                            suppress_stream=True,
+                        ),
+                        who=carried_principal(),
+                        opts=RunOptions(door="named_agent"),
+                    )
+                ).raw
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

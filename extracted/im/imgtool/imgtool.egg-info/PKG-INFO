@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: imgtool
-Version: 2.4.0
+Version: 2.5.0
 Summary: MCUboot's image signing and key management
 Home-page: http://github.com/mcu-tools/mcuboot
 Author: The MCUboot committers
@@ -10,4 +10,4 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Development Status :: 4 - Beta
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.6
+Requires-Python: >=3.8

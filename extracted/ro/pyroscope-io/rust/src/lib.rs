@@ -133,8 +133,6 @@ fn initialize_logging(logging_level: u32) -> bool {
 #[allow(clippy::too_many_arguments)]
 #[pyfunction]
 fn configure_experimental_stack_profiler(
-    fast_copy: bool,
-    fast_copy_warmup: f64,
     max_nframe: u32,
     max_threads: u32,
     adaptive_sampling: bool,
@@ -143,10 +141,10 @@ fn configure_experimental_stack_profiler(
     adaptive_baseline: f64,
     adaptive_p_stable_window_s: u32,
     adaptive_p_stable_percentile: f64,
+    cpu_timer_enabled: bool,
+    cpu_timer_interval_ms: u64,
 ) -> bool {
     stack::set_options(stack::Options {
-        fast_copy,
-        fast_copy_warmup_s: fast_copy_warmup,
         max_nframe,
         max_threads,
         adaptive_sampling,
@@ -155,6 +153,9 @@ fn configure_experimental_stack_profiler(
         adaptive_baseline,
         adaptive_p_stable_window_s,
         adaptive_p_stable_percentile,
+        cpu_timer_enabled,
+        cpu_timer_interval_ms,
+        ..stack::Options::default()
     })
 }
 
@@ -190,6 +191,13 @@ fn initialize_agent(
         log::error!(
             target: "pyroscope-python",
             "at least one of CPU or memory profiling must be enabled"
+        );
+        return false;
+    }
+    if cpu_enabled && cpu_implementation == ProfilerImplementation::Stack && !oncpu {
+        log::error!(
+            target: "pyroscope-python",
+            "the Stack CPU profiler supports only oncpu=True"
         );
         return false;
     }

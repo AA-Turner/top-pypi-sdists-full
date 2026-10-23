@@ -15,6 +15,7 @@ from serialx import (
     Platform,
     async_list_serial_ports,
     get_serial_classes,
+    is_non_unique_serial,
     list_serial_ports,
     redact_uri,
     register_uri_handler,
@@ -399,6 +400,23 @@ def test_serial_kwarg_forwarding(caplog: pytest.LogCaptureFixture) -> None:
 def test_serial_port_info_description(port: SerialPortInfo, expected: str) -> None:
     """`description` mirrors pyserial's `usb_description()` output."""
     assert port.description == expected
+
+
+@pytest.mark.parametrize(
+    ("serial_number", "expected"),
+    [
+        pytest.param("A6008isP", False, id="unique"),
+        pytest.param(None, True, id="missing"),
+        pytest.param("", True, id="empty"),
+        pytest.param("   ", True, id="whitespace"),
+        pytest.param("A50285BI", True, id="ftdi_clone"),
+        pytest.param("A50285BIA", True, id="ftdi_clone_windows"),
+        pytest.param("0001", True, id="cp210x_default"),
+    ],
+)
+def test_is_non_unique_serial(serial_number: str | None, expected: bool) -> None:
+    """Test `is_non_unique_serial`."""
+    assert is_non_unique_serial(serial_number) is expected
 
 
 @pytest.mark.parametrize("platform", list(Platform))

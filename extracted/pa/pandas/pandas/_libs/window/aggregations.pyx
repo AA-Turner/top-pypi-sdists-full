@@ -1,15 +1,17 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True
 
-from libc.math cimport (
-    fabs,
-    signbit,
-    sqrt,
-)
+from libc.math cimport fabs
+from libcpp.cmath cimport signbit
 from libcpp.deque cimport deque
 from libcpp.stack cimport stack
 from libcpp.unordered_map cimport unordered_map
 
-from pandas._libs.algos cimport TiebreakEnumType
+from pandas._libs.algos cimport (
+    TiebreakEnumType,
+    calc_kurt,
+    calc_skew,
+    moments_add_value,
+)
 
 import numpy as np
 
@@ -34,7 +36,6 @@ cdef extern from "pandas/skiplist.h":
         double value
         int is_nil
         int levels
-        int ref_count
 
     ctypedef struct skiplist_t:
         node_t *head
@@ -45,10 +46,11 @@ cdef extern from "pandas/skiplist.h":
 
     skiplist_t* skiplist_init(int) nogil
     void skiplist_destroy(skiplist_t*) nogil
+    void skiplist_reset(skiplist_t*) nogil
     double skiplist_get(skiplist_t*, int, int*) nogil
+    int skiplist_get_pair(skiplist_t*, int, double*, double*) nogil
     int skiplist_insert(skiplist_t*, double) nogil
     int skiplist_remove(skiplist_t*, double) nogil
-    int skiplist_rank(skiplist_t*, double) nogil
     int skiplist_min_rank(skiplist_t*, double) nogil
 
 cdef:
@@ -59,6 +61,20 @@ cdef:
     # it will only have up to 3 significant digits in base 10 remaining.
     # https://en.wikipedia.org/wiki/Condition_number
     float64_t InvCondTol = EpsF64 * 1e3
+
+    # GH#65739 largest magnitude the cov/corr accumulators will re-anchor on.
+    # Subtracting an origin this size can never overflow, and beyond it the
+    # squared deviations would overflow anyway, so there is nothing to gain.
+    float64_t MaxOriginMagnitude = np.sqrt(np.finfo(np.float64).max)
+
+    # GH#68934 thresholds for moment_cancellation_suspected. PeakDevLimit fires
+    # once m2's own round-off, ~``EpsF64 * peak_dev ** 2``, exceeds InvCondTol
+    # relative to m2. AnchorDriftLimit retires an anchor once the window's centre
+    # is more than 4*sqrt(m2) from it; a fresh anchor is a window member, so it
+    # starts within 1*sqrt(m2). Past a deviation of ~1e154 both are compared as
+    # inf > inf, so the NaN check there takes over.
+    float64_t PeakDevLimit = EpsF64 / InvCondTol
+    float64_t AnchorDriftLimit = 1.0 / 16.0
 
 cdef bint is_monotonic_increasing_start_end_bounds(
     ndarray[int64_t, ndim=1] start, ndarray[int64_t, ndim=1] end
@@ -478,95 +494,86 @@ def roll_var(const float64_t[:] values, ndarray[int64_t] start,
     return output
 
 # ----------------------------------------------------------------------
+# Rolling skewness and kurtosis: shared accumulator defences
+
+
+cdef inline void track_moment_dev(
+    float64_t val, float64_t mean, float64_t *peak_dev
+) noexcept nogil:
+    """
+    Single-variable track_peak_dev for the skew/kurt accumulators.
+
+    The remove side calls this too: ``mean`` has moved by then, so a value's
+    deviation against the new mean can exceed what was recorded when it was added.
+    """
+    cdef float64_t dev = fabs(val - mean)
+
+    if dev > peak_dev[0]:
+        peak_dev[0] = dev
+
+
+cdef inline bint moment_cancellation_suspected(
+    float64_t mean, float64_t m2, float64_t m3, float64_t m4, float64_t peak_dev
+) noexcept nogil:
+    """
+    Whether the accumulators have lost the significance calc_skew/calc_kurt need.
+
+    Both statistics divide m3 or m4 by a power of m2, so what decides whether the
+    ratio survives is how far m2 has fallen below the largest deviation it
+    absorbed. m3 is useless to test directly, since a window of symmetric data
+    holds m3 == 0 legitimately and would recompute every time.
+    """
+    if m2 != m2 or m3 != m3 or m4 != m4:
+        # NaN, e.g. from values spanning nearly the whole float64 range; the
+        # comparisons below would be False and the accumulators never recover
+        return True
+
+    if mean * mean * AnchorDriftLimit > m2:
+        # the anchor has gone stale; recomputing re-anchors on the current window
+        return True
+
+    # peak_dev is a running max of fabs(), so this also covers an m2 that
+    # cancellation has driven negative -- which calc_skew would otherwise turn
+    # into NaN via the square root of a negative number
+    return peak_dev * peak_dev * PeakDevLimit > m2
+
+
+# ----------------------------------------------------------------------
 # Rolling skewness
 
 
-cdef float64_t calc_skew(int64_t minp, int64_t nobs,
-                         float64_t mean, float64_t m2, float64_t m3,
-                         int64_t num_consecutive_same_value
-                         ) noexcept nogil:
-    cdef:
-        float64_t result, dnobs
-        float64_t moments_ratio, correction
-
-    if nobs >= minp:
-        dnobs = <float64_t>nobs
-
-        if nobs < 3:
-            result = NaN
-        # GH 42064 46431
-        # uniform case, force result to be 0
-        elif num_consecutive_same_value >= nobs:
-            result = 0.0
-        # #18044: with degenerate distribution, floating issue will
-        #         cause m2 != 0. and cause the result is a very
-        #         large number.
-        #
-        #         in core/nanops.py nanskew/nankurt call the function
-        #         _zero_out_fperr(m2) to fix floating error.
-        #         if the variance is less than 1e-14, it could be
-        #         treat as zero, here we follow the original
-        #         skew/kurt behaviour to check m2 <= n * 1e-14
-        elif m2 <= dnobs * 1e-14:
-            result = NaN
-        else:
-            moments_ratio = m3 / (m2 * sqrt(m2))
-            correction = dnobs * sqrt((dnobs - 1)) / (dnobs - 2)
-            result = moments_ratio * correction
-    else:
-        result = NaN
-
-    return result
-
-
 cdef void add_skew(float64_t val, int64_t *nobs,
-                   float64_t *mean, float64_t *m2,
-                   float64_t *m3,
+                   float64_t *mean, float64_t *origin, float64_t *m2,
+                   float64_t *m3, float64_t *peak_dev,
                    bint *numerically_unstable,
-                   int64_t *num_consecutive_same_value,
-                   float64_t *prev_value,
                    ) noexcept nogil:
     """ add a value from the skew calc """
     cdef:
-        float64_t n, delta, delta_n, term1, m3_update, new_m3
-
-    # Formulas adapted from
-    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Higher-order_statistics
+        float64_t shifted
 
     # Not NaN
     if val == val:
-        nobs[0] += 1
-        n = <float64_t>(nobs[0])
-        delta = val - mean[0]
-        delta_n = delta / n
-        term1 = delta * delta_n * (n - 1.0)
+        if nobs[0] == 0:
+            # GH#68934 anchor the accumulators to the window's first value, see
+            # add_cov
+            origin[0] = val if fabs(val) < MaxOriginMagnitude else 0
 
-        m3_update = delta_n * (term1 * (n - 2.0) - 3.0 * m2[0])
-        new_m3 = m3[0] + m3_update
-        if (fabs(m3_update) + fabs(m3[0])) * InvCondTol > fabs(new_m3):
+        shifted = val - origin[0]
+        moments_add_value(shifted, nobs, mean, m2, m3, NULL, 3)
+        track_moment_dev(shifted, mean[0], peak_dev)
+
+        if moment_cancellation_suspected(mean[0], m2[0], m3[0], 0, peak_dev[0]):
             # possible catastrophic cancellation
             numerically_unstable[0] = True
 
-        m3[0] = new_m3
-        m2[0] += term1
-        mean[0] += delta_n
-
-        # GH#42064, record num of same values to remove floating point artifacts
-        if val == prev_value[0]:
-            num_consecutive_same_value[0] += 1
-        else:
-            # reset to 1 (include current value itself)
-            num_consecutive_same_value[0] = 1
-        prev_value[0] = val
-
 
 cdef void remove_skew(float64_t val, int64_t *nobs,
-                      float64_t *mean, float64_t *m2,
-                      float64_t *m3,
+                      float64_t *mean, float64_t *origin, float64_t *m2,
+                      float64_t *m3, float64_t *peak_dev,
                       bint *numerically_unstable) noexcept nogil:
     """ remove a value from the skew calc """
     cdef:
-        float64_t n, delta, delta_n, term1, m3_update, new_m3
+        float64_t n, delta, delta_n, term1, shifted
 
     # This is the online update for the central moments
     # when we remove an observation.
@@ -581,21 +588,29 @@ cdef void remove_skew(float64_t val, int64_t *nobs,
     # Not NaN
     if val == val:
         nobs[0] -= 1
+        if nobs[0] == 0:
+            mean[0] = 0.0
+            origin[0] = 0.0
+            m2[0] = 0.0
+            m3[0] = 0.0
+            peak_dev[0] = 0.0
+            numerically_unstable[0] = False
+            return
+
+        shifted = val - origin[0]
         n = <float64_t>(nobs[0])
-        delta = val - mean[0]
+        delta = shifted - mean[0]
         delta_n = delta / n
         term1 = delta_n * delta * (n + 1.0)
 
-        m3_update = delta_n * (term1 * (n + 2.0) - 3.0 * m2[0])
-        new_m3 = m3[0] - m3_update
-
-        if (fabs(m3_update) + fabs(m3[0])) * InvCondTol > fabs(new_m3):
-            # possible catastrophic cancellation
-            numerically_unstable[0] = True
-
-        m3[0] = new_m3
+        m3[0] -= delta_n * (term1 * (n + 2.0) - 3.0 * m2[0])
         m2[0] -= term1
         mean[0] -= delta_n
+        track_moment_dev(shifted, mean[0], peak_dev)
+
+        if moment_cancellation_suspected(mean[0], m2[0], m3[0], 0, peak_dev[0]):
+            # possible catastrophic cancellation
+            numerically_unstable[0] = True
 
 
 def roll_skew(const float64_t[:] values, ndarray[int64_t] start,
@@ -603,10 +618,9 @@ def roll_skew(const float64_t[:] values, ndarray[int64_t] start,
     cdef:
         Py_ssize_t i, j
         float64_t val
-        float64_t mean, m2, m3
-        float64_t prev_value
+        float64_t mean, origin, m2, m3, peak_dev
         int64_t nobs = 0, N = len(start)
-        int64_t s, e, num_consecutive_same_value
+        int64_t s, e
         ndarray[float64_t] output
         bint is_monotonic_increasing_bounds
         bint requires_recompute, numerically_unstable = False
@@ -637,36 +651,36 @@ def roll_skew(const float64_t[:] values, ndarray[int64_t] start,
                 # calculate deletes
                 for j in range(start[i - 1], s):
                     val = values[j]
-                    remove_skew(val, &nobs, &mean, &m2, &m3, &numerically_unstable)
+                    remove_skew(val, &nobs, &mean, &origin, &m2, &m3, &peak_dev,
+                                &numerically_unstable)
 
                 # calculate adds
                 for j in range(end[i - 1], e):
                     val = values[j]
-                    add_skew(val, &nobs, &mean, &m2, &m3, &numerically_unstable,
-                             &num_consecutive_same_value, &prev_value)
+                    add_skew(val, &nobs, &mean, &origin, &m2, &m3, &peak_dev,
+                             &numerically_unstable)
 
             if requires_recompute or numerically_unstable:
 
-                prev_value = values[s]
-                num_consecutive_same_value = 0
-
-                mean = m2 = m3 = 0.0
+                mean = origin = m2 = m3 = peak_dev = 0.0
                 nobs = 0
 
                 for j in range(s, e):
                     val = values[j]
-                    add_skew(val, &nobs, &mean, &m2, &m3, &numerically_unstable,
-                             &num_consecutive_same_value, &prev_value)
+                    add_skew(val, &nobs, &mean, &origin, &m2, &m3, &peak_dev,
+                             &numerically_unstable)
 
                 numerically_unstable = False
 
-            output[i] = calc_skew(minp, nobs, mean, m2, m3, num_consecutive_same_value)
+            output[i] = NaN if nobs < minp else calc_skew(nobs, m2, m3)
 
             if not is_monotonic_increasing_bounds:
                 nobs = 0
                 mean = 0.0
+                origin = 0.0
                 m2 = 0.0
                 m3 = 0.0
+                peak_dev = 0.0
 
     return output
 
@@ -674,140 +688,81 @@ def roll_skew(const float64_t[:] values, ndarray[int64_t] start,
 # Rolling kurtosis
 
 
-cdef float64_t calc_kurt(int64_t minp, int64_t nobs,
-                         float64_t m2, float64_t m4,
-                         int64_t num_consecutive_same_value,
-                         ) noexcept nogil:
-    cdef:
-        float64_t result, dnobs, term1, term2, inner, correction
-        float64_t moments_ratio
-
-    if nobs >= minp:
-        if nobs < 4:
-            result = NaN
-        # GH 42064 46431
-        # degenerate case, force result to be -3.
-        elif num_consecutive_same_value >= nobs:
-            result = -3.
-        else:
-            dnobs = <float64_t>nobs
-
-            # #18044: with uniform distribution, floating issue will
-            #         cause B != 0. and cause the result is a very
-            #         large number.
-            #
-            #         in core/nanops.py nanskew/nankurt call the function
-            #         _zero_out_fperr(m2) to fix floating error.
-            #         if the variance is less than 1e-14, it could be
-            #         treat as zero, here we follow the original
-            #         skew/kurt behaviour to check m2 <= n * 1e-14
-            if m2 <= dnobs * 1e-14:
-                result = NaN
-            else:
-                moments_ratio = m4 / (m2 * m2)
-                term1 = dnobs * (dnobs + 1.0) * moments_ratio
-                term2 = 3.0 * (dnobs - 1.0)
-                inner = term1 - term2
-
-                correction = (dnobs - 1.0) / ((dnobs - 2.0) * (dnobs - 3.0))
-                result = correction * inner
-    else:
-        result = NaN
-
-    return result
-
-
 cdef void add_kurt(float64_t val, int64_t *nobs,
-                   float64_t *mean, float64_t *m2,
-                   float64_t *m3, float64_t *m4,
+                   float64_t *mean, float64_t *origin, float64_t *m2,
+                   float64_t *m3, float64_t *m4, float64_t *peak_dev,
                    bint *numerically_unstable,
-                   int64_t *num_consecutive_same_value,
-                   float64_t *prev_value
                    ) noexcept nogil:
     """ add a value from the kurotic calc """
     cdef:
-        float64_t n, delta, delta_n, term1, m4_update, new_m4
-
-    # Formulas adapted from
-    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Higher-order_statistics
+        float64_t shifted
 
     # Not NaN
     if val == val:
-        nobs[0] += 1
-        n = <float64_t>(nobs[0])
-        delta = val - mean[0]
-        delta_n = delta / n
-        term1 = delta * delta_n * (n - 1.0)
+        if nobs[0] == 0:
+            # see add_skew
+            origin[0] = val if fabs(val) < MaxOriginMagnitude else 0
 
-        m4_update = delta_n * (
-                -4.0 * m3[0]
-                + delta_n * (
-                    6 * m2[0] + term1 * (n * n - 3.0 * n + 3.0)
-                    )
-                )
-        new_m4 = m4[0] + m4_update
+        shifted = val - origin[0]
+        moments_add_value(shifted, nobs, mean, m2, m3, m4, 4)
+        track_moment_dev(shifted, mean[0], peak_dev)
 
-        if (fabs(m4_update) + fabs(m4[0])) * InvCondTol > fabs(new_m4):
+        if moment_cancellation_suspected(mean[0], m2[0], m3[0], m4[0], peak_dev[0]):
             # possible catastrophic cancellation
             numerically_unstable[0] = True
 
-        m4[0] = new_m4
-        m3[0] += delta_n * (term1 * (n - 2.0) - 3.0 * m2[0])
-        m2[0] += term1
-        mean[0] += delta_n
-
-        # GH#42064, record num of same values to remove floating point artifacts
-        if val == prev_value[0]:
-            num_consecutive_same_value[0] += 1
-        else:
-            # reset to 1 (include current value itself)
-            num_consecutive_same_value[0] = 1
-        prev_value[0] = val
-
 
 cdef void remove_kurt(float64_t val, int64_t *nobs,
-                      float64_t *mean, float64_t *m2,
-                      float64_t *m3, float64_t *m4,
+                      float64_t *mean, float64_t *origin, float64_t *m2,
+                      float64_t *m3, float64_t *m4, float64_t *peak_dev,
                       bint *numerically_unstable,
                       ) noexcept nogil:
     """ remove a value from the kurotic calc """
     cdef:
-        float64_t n, delta, delta_n, term1, m4_update, new_m4
+        float64_t n, delta, delta_n, term1, shifted
 
     # Not NaN
     if val == val:
         nobs[0] -= 1
+        if nobs[0] == 0:
+            mean[0] = 0.0
+            origin[0] = 0.0
+            m2[0] = 0.0
+            m3[0] = 0.0
+            m4[0] = 0.0
+            peak_dev[0] = 0.0
+            numerically_unstable[0] = False
+            return
+
+        shifted = val - origin[0]
         n = <float64_t>(nobs[0])
-        delta = val - mean[0]
+        delta = shifted - mean[0]
         delta_n = delta / n
         term1 = delta_n * delta * (n + 1.0)
 
-        m4_update = delta_n * (
+        m4[0] += delta_n * (
                 4.0 * m3[0]
                 + delta_n * (
                     6.0 * m2[0]
                     - term1 * (n * n + 3.0 * n + 3.0)
                     )
                 )
-        new_m4 = m4[0] + m4_update
-
-        if (fabs(m4_update) + fabs(m4[0])) * InvCondTol > fabs(new_m4):
-            # possible catastrophic cancellation
-            numerically_unstable[0] = True
-
-        m4[0] = new_m4
         m3[0] -= delta_n * (term1 * (n + 2.0) - 3.0 * m2[0])
         m2[0] -= term1
         mean[0] -= delta_n
+        track_moment_dev(shifted, mean[0], peak_dev)
+
+        if moment_cancellation_suspected(mean[0], m2[0], m3[0], m4[0], peak_dev[0]):
+            # possible catastrophic cancellation
+            numerically_unstable[0] = True
 
 
 def roll_kurt(const float64_t[:] values, ndarray[int64_t] start,
               ndarray[int64_t] end, int64_t minp) -> np.ndarray:
     cdef:
         Py_ssize_t i, j
-        float64_t mean, m2, m3, m4
-        float64_t prev_value
-        int64_t nobs, s, e, num_consecutive_same_value
+        float64_t mean, origin, m2, m3, m4, peak_dev
+        int64_t nobs, s, e
         int64_t N = len(start)
         ndarray[float64_t] output
         bint is_monotonic_increasing_bounds
@@ -839,36 +794,479 @@ def roll_kurt(const float64_t[:] values, ndarray[int64_t] start,
                 # and removed
                 # calculate deletes
                 for j in range(start[i - 1], s):
-                    remove_kurt(values[j], &nobs, &mean, &m2, &m3, &m4,
-                                &numerically_unstable)
+                    remove_kurt(values[j], &nobs, &mean, &origin, &m2, &m3, &m4,
+                                &peak_dev, &numerically_unstable)
 
                 # calculate adds
                 for j in range(end[i - 1], e):
-                    add_kurt(values[j], &nobs, &mean, &m2, &m3, &m4,
-                             &numerically_unstable,
-                             &num_consecutive_same_value, &prev_value)
+                    add_kurt(values[j], &nobs, &mean, &origin, &m2, &m3, &m4,
+                             &peak_dev, &numerically_unstable)
 
             if requires_recompute or numerically_unstable:
 
-                prev_value = values[s]
-                num_consecutive_same_value = 0
-
-                mean = m2 = m3 = m4 = 0.0
+                mean = origin = m2 = m3 = m4 = peak_dev = 0.0
                 nobs = 0
                 for j in range(s, e):
-                    add_kurt(values[j], &nobs, &mean, &m2, &m3, &m4,
-                             &numerically_unstable,
-                             &num_consecutive_same_value, &prev_value)
+                    add_kurt(values[j], &nobs, &mean, &origin, &m2, &m3, &m4,
+                             &peak_dev, &numerically_unstable)
 
-            output[i] = calc_kurt(minp, nobs, m2, m4,
-                                  num_consecutive_same_value)
+                numerically_unstable = False
+
+            output[i] = NaN if nobs < minp else calc_kurt(nobs, m2, m4)
 
             if not is_monotonic_increasing_bounds:
                 nobs = 0
                 mean = 0.0
+                origin = 0.0
                 m2 = 0.0
                 m3 = 0.0
                 m4 = 0.0
+                peak_dev = 0.0
+
+    return output
+
+
+# ----------------------------------------------------------------------
+# Rolling covariance
+
+
+cdef float64_t calc_cov(
+    float64_t nobs,
+    int ddof,
+    float64_t ssqdm_xy,
+) noexcept nogil:
+    if nobs <= ddof:
+        return NaN
+
+    return ssqdm_xy / (nobs - <float64_t>ddof)
+
+
+cdef inline void track_peak_dev(
+    float64_t val_x,
+    float64_t val_y,
+    float64_t mean_x,
+    float64_t mean_y,
+    float64_t *peak_dev_x,
+    float64_t *peak_dev_y,
+) noexcept nogil:
+    """
+    Record the largest deviation from the mean either accumulator has absorbed.
+
+    GH#65739 the running means are updated incrementally too, so once a value far
+    from the rest of the data leaves the window they keep an absolute error on
+    the order of ``eps * dev``. That polluted mean then feeds every later
+    ``(val_x - mean_x) * dy``, which is why watching the ``ssqdm`` accumulators
+    alone cannot see the resulting garbage: ``peak_dev_x * peak_dev_y`` bounds
+    both that error and the plain round-off in ``ssqdm_xy``.
+
+    Callers pass values already shifted by the accumulators' origin, so these are
+    deviations within the window rather than absolute magnitudes.
+    """
+    cdef float64_t dev_x = fabs(val_x - mean_x)
+    cdef float64_t dev_y = fabs(val_y - mean_y)
+
+    if dev_x > peak_dev_x[0]:
+        peak_dev_x[0] = dev_x
+    if dev_y > peak_dev_y[0]:
+        peak_dev_y[0] = dev_y
+
+
+cdef inline bint cancellation_suspected(
+    float64_t ssqdm_xy,
+    float64_t ssqdm_x,
+    float64_t ssqdm_y,
+    float64_t peak_dev_x,
+    float64_t peak_dev_y,
+) noexcept nogil:
+    """
+    Whether an accumulator has shrunk far enough to be mostly round-off.
+
+    The ssqdm_x/ssqdm_y tests are the sensitive ones: a sum of squares collapses
+    to ~``eps * peak_dev ** 2`` of garbage as soon as the value that dominated it
+    leaves the window, which is 1e3 times below the threshold here, whereas
+    ssqdm_xy can stay well above it while already carrying a relative error near
+    the tolerance. cov therefore accumulates ssqdm_x/ssqdm_y purely to feed this
+    test, even though calc_cov never reads them.
+
+    The non-abs comparisons for ssqdm_x/ssqdm_y also catch a negative result from
+    cancellation, which would otherwise reach the square root in calc_corr and
+    silently produce NaN.
+    """
+    if ssqdm_xy != ssqdm_xy or ssqdm_x != ssqdm_x or ssqdm_y != ssqdm_y:
+        # NaN, e.g. inf - inf; comparisons below would all be False and the
+        # accumulators could never recover on their own
+        return True
+
+    return (
+        peak_dev_x * peak_dev_y * InvCondTol > fabs(ssqdm_xy)
+        or peak_dev_x * peak_dev_x * InvCondTol > ssqdm_x
+        or peak_dev_y * peak_dev_y * InvCondTol > ssqdm_y
+    )
+
+
+cdef void add_cov(
+    float64_t val_x,
+    float64_t val_y,
+    float64_t *nobs,
+    float64_t *mean_x,
+    float64_t *mean_y,
+    float64_t *origin_x,
+    float64_t *origin_y,
+    float64_t *ssqdm_xy,
+    float64_t *ssqdm_x,
+    float64_t *ssqdm_y,
+    float64_t *peak_dev_x,
+    float64_t *peak_dev_y,
+    bint *numerically_unstable,
+) noexcept nogil:
+    """ add a value from the cov calc """
+    cdef:
+        float64_t dx, dy, shifted_x, shifted_y
+
+    if val_x != val_x or val_y != val_y:
+        return
+
+    nobs[0] += 1
+    if nobs[0] == 1:
+        # GH#65739 anchor the accumulators to the first value in the window, so
+        # that an offset shared by the whole series cancels exactly instead of
+        # costing precision in every deviation taken against a huge mean.
+        # Declining to anchor on a huge value keeps `val - origin` from
+        # overflowing to +/-inf, which would poison the accumulators with NaN.
+        origin_x[0] = val_x if fabs(val_x) < MaxOriginMagnitude else 0
+        origin_y[0] = val_y if fabs(val_y) < MaxOriginMagnitude else 0
+
+    shifted_x = val_x - origin_x[0]
+    shifted_y = val_y - origin_y[0]
+
+    dx = shifted_x - mean_x[0]
+    dy = shifted_y - mean_y[0]
+    mean_x[0] += dx / nobs[0]
+    mean_y[0] += dy / nobs[0]
+    ssqdm_xy[0] += (shifted_x - mean_x[0]) * dy
+    ssqdm_x[0] += (shifted_x - mean_x[0]) * dx
+    ssqdm_y[0] += (shifted_y - mean_y[0]) * dy
+
+    track_peak_dev(shifted_x, shifted_y, mean_x[0], mean_y[0],
+                   peak_dev_x, peak_dev_y)
+
+    if cancellation_suspected(ssqdm_xy[0], ssqdm_x[0], ssqdm_y[0],
+                              peak_dev_x[0], peak_dev_y[0]):
+        # possible catastrophic cancellation
+        numerically_unstable[0] = True
+
+
+cdef void remove_cov(
+    float64_t val_x,
+    float64_t val_y,
+    float64_t *nobs,
+    float64_t *mean_x,
+    float64_t *mean_y,
+    float64_t *origin_x,
+    float64_t *origin_y,
+    float64_t *ssqdm_xy,
+    float64_t *ssqdm_x,
+    float64_t *ssqdm_y,
+    float64_t *peak_dev_x,
+    float64_t *peak_dev_y,
+    bint *numerically_unstable,
+) noexcept nogil:
+    """ remove a value from the cov calc """
+    cdef:
+        float64_t dx, dy, shifted_x, shifted_y
+
+    if val_x != val_x or val_y != val_y:
+        return
+
+    shifted_x = val_x - origin_x[0]
+    shifted_y = val_y - origin_y[0]
+
+    dx = shifted_x - mean_x[0]
+    dy = shifted_y - mean_y[0]
+
+    nobs[0] -= 1
+    if nobs[0]:
+        mean_x[0] -= dx / nobs[0]
+        mean_y[0] -= dy / nobs[0]
+        ssqdm_xy[0] -= (shifted_x - mean_x[0]) * dy
+        ssqdm_x[0] -= (shifted_x - mean_x[0]) * dx
+        ssqdm_y[0] -= (shifted_y - mean_y[0]) * dy
+
+        track_peak_dev(shifted_x, shifted_y, mean_x[0], mean_y[0],
+                       peak_dev_x, peak_dev_y)
+
+        if cancellation_suspected(ssqdm_xy[0], ssqdm_x[0], ssqdm_y[0],
+                                  peak_dev_x[0], peak_dev_y[0]):
+            # possible catastrophic cancellation
+            numerically_unstable[0] = True
+    else:
+        # GH#65739 avoid 0/0 -> NaN poisoning subsequent windows
+        mean_x[0] = 0
+        mean_y[0] = 0
+        origin_x[0] = 0
+        origin_y[0] = 0
+        ssqdm_xy[0] = 0
+        ssqdm_x[0] = 0
+        ssqdm_y[0] = 0
+        peak_dev_x[0] = 0
+        peak_dev_y[0] = 0
+        numerically_unstable[0] = False
+
+
+def roll_cov(const float64_t[:] x, const float64_t[:] y, ndarray[int64_t] start,
+             ndarray[int64_t] end, int64_t minp, int ddof=1) -> np.ndarray:
+    cdef:
+        float64_t mean_x, mean_y, ssqdm_xy, ssqdm_x, ssqdm_y, nobs
+        float64_t origin_x, origin_y, peak_dev_x, peak_dev_y
+        int64_t s, e
+        Py_ssize_t i, j, N = len(start)
+        ndarray[float64_t] output
+        bint is_monotonic_increasing_bounds
+        bint requires_recompute, numerically_unstable = False
+
+    minp = max(minp, 1)
+    is_monotonic_increasing_bounds = is_monotonic_increasing_start_end_bounds(
+        start, end
+    )
+    output = np.empty(N, dtype=np.float64)
+
+    with nogil:
+
+        for i in range(0, N):
+            s = start[i]
+            e = end[i]
+
+            requires_recompute = (
+                i == 0
+                or not is_monotonic_increasing_bounds
+                or s >= end[i - 1]
+            )
+
+            if not requires_recompute:
+                # calculate deletes
+                for j in range(start[i - 1], s):
+                    remove_cov(x[j], y[j], &nobs, &mean_x, &mean_y, &origin_x,
+                               &origin_y, &ssqdm_xy, &ssqdm_x, &ssqdm_y,
+                               &peak_dev_x, &peak_dev_y, &numerically_unstable)
+
+                # calculate adds
+                for j in range(end[i - 1], e):
+                    add_cov(x[j], y[j], &nobs, &mean_x, &mean_y, &origin_x,
+                            &origin_y, &ssqdm_xy, &ssqdm_x, &ssqdm_y,
+                            &peak_dev_x, &peak_dev_y, &numerically_unstable)
+
+            if requires_recompute or numerically_unstable:
+                mean_x = mean_y = ssqdm_xy = ssqdm_x = ssqdm_y = nobs = 0
+                origin_x = origin_y = peak_dev_x = peak_dev_y = 0
+                for j in range(s, e):
+                    add_cov(x[j], y[j], &nobs, &mean_x, &mean_y, &origin_x,
+                            &origin_y, &ssqdm_xy, &ssqdm_x, &ssqdm_y,
+                            &peak_dev_x, &peak_dev_y, &numerically_unstable)
+                numerically_unstable = False
+
+            output[i] = NaN if nobs < minp else calc_cov(nobs, ddof, ssqdm_xy)
+
+            if not is_monotonic_increasing_bounds:
+                nobs = 0.0
+                mean_x = mean_y = ssqdm_xy = ssqdm_x = ssqdm_y = 0.0
+                origin_x = origin_y = peak_dev_x = peak_dev_y = 0.0
+
+    return output
+
+
+# ----------------------------------------------------------------------
+# Rolling correlation
+
+
+cdef float64_t calc_corr(
+    float64_t nobs,
+    float64_t ssqdm_xy,
+    float64_t ssqdm_x,
+    float64_t ssqdm_y,
+) noexcept nogil:
+    cdef float64_t den, val
+    if nobs <= 0.0 or ssqdm_x == 0.0 or ssqdm_y == 0.0:
+        return NaN
+
+    den = (ssqdm_x * ssqdm_y) ** 0.5
+    val = ssqdm_xy / den
+
+    if val > 1.0:
+        val = 1.0
+    elif val < -1.0:
+        val = -1.0
+    return val
+
+
+cdef void add_corr(
+    float64_t val_x,
+    float64_t val_y,
+    float64_t *nobs,
+    float64_t *mean_x,
+    float64_t *mean_y,
+    float64_t *origin_x,
+    float64_t *origin_y,
+    float64_t *ssqdm_xy,
+    float64_t *ssqdm_x,
+    float64_t *ssqdm_y,
+    float64_t *peak_dev_x,
+    float64_t *peak_dev_y,
+    bint *numerically_unstable,
+) noexcept nogil:
+    """ add a value from the corr calc """
+    cdef:
+        float64_t dx, dy, shifted_x, shifted_y
+
+    if val_x != val_x or val_y != val_y:
+        return
+
+    nobs[0] += 1
+    if nobs[0] == 1:
+        # GH#65739 anchor the accumulators to the first value in the window, so
+        # that an offset shared by the whole series cancels exactly instead of
+        # costing precision in every deviation taken against a huge mean.
+        # Declining to anchor on a huge value keeps `val - origin` from
+        # overflowing to +/-inf, which would poison the accumulators with NaN.
+        origin_x[0] = val_x if fabs(val_x) < MaxOriginMagnitude else 0
+        origin_y[0] = val_y if fabs(val_y) < MaxOriginMagnitude else 0
+
+    shifted_x = val_x - origin_x[0]
+    shifted_y = val_y - origin_y[0]
+
+    dx = shifted_x - mean_x[0]
+    dy = shifted_y - mean_y[0]
+    mean_x[0] += dx / nobs[0]
+    mean_y[0] += dy / nobs[0]
+    ssqdm_xy[0] += (shifted_x - mean_x[0]) * dy
+    ssqdm_x[0] += (shifted_x - mean_x[0]) * dx
+    ssqdm_y[0] += (shifted_y - mean_y[0]) * dy
+
+    track_peak_dev(shifted_x, shifted_y, mean_x[0], mean_y[0],
+                   peak_dev_x, peak_dev_y)
+
+    if cancellation_suspected(ssqdm_xy[0], ssqdm_x[0], ssqdm_y[0],
+                              peak_dev_x[0], peak_dev_y[0]):
+        # possible catastrophic cancellation
+        numerically_unstable[0] = True
+
+
+cdef void remove_corr(
+    float64_t val_x,
+    float64_t val_y,
+    float64_t *nobs,
+    float64_t *mean_x,
+    float64_t *mean_y,
+    float64_t *origin_x,
+    float64_t *origin_y,
+    float64_t *ssqdm_xy,
+    float64_t *ssqdm_x,
+    float64_t *ssqdm_y,
+    float64_t *peak_dev_x,
+    float64_t *peak_dev_y,
+    bint *numerically_unstable,
+) noexcept nogil:
+    """ remove a value from the corr calc """
+    cdef:
+        float64_t dx, dy, shifted_x, shifted_y
+
+    if val_x != val_x or val_y != val_y:
+        return
+
+    shifted_x = val_x - origin_x[0]
+    shifted_y = val_y - origin_y[0]
+
+    dx = shifted_x - mean_x[0]
+    dy = shifted_y - mean_y[0]
+
+    nobs[0] -= 1
+    if nobs[0]:
+        mean_x[0] -= dx / nobs[0]
+        mean_y[0] -= dy / nobs[0]
+        ssqdm_xy[0] -= (shifted_x - mean_x[0]) * dy
+        ssqdm_x[0] -= (shifted_x - mean_x[0]) * dx
+        ssqdm_y[0] -= (shifted_y - mean_y[0]) * dy
+
+        track_peak_dev(shifted_x, shifted_y, mean_x[0], mean_y[0],
+                       peak_dev_x, peak_dev_y)
+
+        if cancellation_suspected(ssqdm_xy[0], ssqdm_x[0], ssqdm_y[0],
+                                  peak_dev_x[0], peak_dev_y[0]):
+            # possible catastrophic cancellation
+            numerically_unstable[0] = True
+    else:
+        # GH#65739 avoid 0/0 -> NaN poisoning subsequent windows
+        mean_x[0] = 0
+        mean_y[0] = 0
+        origin_x[0] = 0
+        origin_y[0] = 0
+        ssqdm_xy[0] = 0
+        ssqdm_x[0] = 0
+        ssqdm_y[0] = 0
+        peak_dev_x[0] = 0
+        peak_dev_y[0] = 0
+        numerically_unstable[0] = False
+
+
+def roll_corr(const float64_t[:] x, const float64_t[:] y, ndarray[int64_t] start,
+              ndarray[int64_t] end, int64_t minp) -> np.ndarray:
+    cdef:
+        float64_t mean_x, mean_y, ssqdm_xy, ssqdm_x, ssqdm_y, nobs
+        float64_t origin_x, origin_y, peak_dev_x, peak_dev_y
+        int64_t s, e
+        Py_ssize_t i, j, N = len(start)
+        ndarray[float64_t] output
+        bint is_monotonic_increasing_bounds
+        bint requires_recompute, numerically_unstable = False
+
+    minp = max(minp, 1)
+    is_monotonic_increasing_bounds = is_monotonic_increasing_start_end_bounds(
+        start, end
+    )
+    output = np.empty(N, dtype=np.float64)
+
+    with nogil:
+
+        for i in range(0, N):
+            s = start[i]
+            e = end[i]
+
+            requires_recompute = (
+                i == 0
+                or not is_monotonic_increasing_bounds
+                or s >= end[i - 1]
+            )
+
+            if not requires_recompute:
+                # calculate deletes
+                for j in range(start[i - 1], s):
+                    remove_corr(x[j], y[j], &nobs, &mean_x, &mean_y, &origin_x,
+                                &origin_y, &ssqdm_xy, &ssqdm_x, &ssqdm_y,
+                                &peak_dev_x, &peak_dev_y, &numerically_unstable)
+
+                # calculate adds
+                for j in range(end[i - 1], e):
+                    add_corr(x[j], y[j], &nobs, &mean_x, &mean_y, &origin_x,
+                             &origin_y, &ssqdm_xy, &ssqdm_x, &ssqdm_y,
+                             &peak_dev_x, &peak_dev_y, &numerically_unstable)
+
+            if requires_recompute or numerically_unstable:
+                mean_x = mean_y = ssqdm_xy = ssqdm_x = ssqdm_y = nobs = 0
+                origin_x = origin_y = peak_dev_x = peak_dev_y = 0
+                for j in range(s, e):
+                    add_corr(x[j], y[j], &nobs, &mean_x, &mean_y, &origin_x,
+                             &origin_y, &ssqdm_xy, &ssqdm_x, &ssqdm_y,
+                             &peak_dev_x, &peak_dev_y, &numerically_unstable)
+                numerically_unstable = False
+
+            output[i] = (
+                NaN if nobs < minp
+                else calc_corr(nobs, ssqdm_xy, ssqdm_x, ssqdm_y)
+            )
+
+            if not is_monotonic_increasing_bounds:
+                nobs = 0.0
+                mean_x = mean_y = ssqdm_xy = ssqdm_x = ssqdm_y = 0.0
+                origin_x = origin_y = peak_dev_x = peak_dev_y = 0.0
 
     return output
 
@@ -884,7 +1282,7 @@ def roll_median_c(const float64_t[:] values, ndarray[int64_t] start,
         bint err = False, is_monotonic_increasing_bounds
         int midpoint, ret = 0
         int64_t nobs = 0, N = len(start), s, e, win
-        float64_t val, res
+        float64_t val, res, vlow, vhigh
         skiplist_t *sl
         ndarray[float64_t] output
 
@@ -913,8 +1311,7 @@ def roll_median_c(const float64_t[:] values, ndarray[int64_t] start,
             if i == 0 or not is_monotonic_increasing_bounds or s >= end[i - 1]:
 
                 if i != 0:
-                    skiplist_destroy(sl)
-                    sl = skiplist_init(<int>win)
+                    skiplist_reset(sl)
                     nobs = 0
                 # setup
                 for j in range(s, e):
@@ -947,8 +1344,8 @@ def roll_median_c(const float64_t[:] values, ndarray[int64_t] start,
                 if nobs % 2:
                     res = skiplist_get(sl, midpoint, &ret)
                 else:
-                    res = (skiplist_get(sl, midpoint, &ret) +
-                           skiplist_get(sl, (midpoint - 1), &ret)) / 2
+                    ret = skiplist_get_pair(sl, midpoint - 1, &vlow, &vhigh)
+                    res = (vlow + vhigh) / 2
                 if ret == 0:
                     res = NaN
             else:
@@ -958,8 +1355,7 @@ def roll_median_c(const float64_t[:] values, ndarray[int64_t] start,
 
             if not is_monotonic_increasing_bounds:
                 nobs = 0
-                skiplist_destroy(sl)
-                sl = skiplist_init(<int>win)
+                skiplist_reset(sl)
 
     skiplist_destroy(sl)
     if err:
@@ -1294,8 +1690,7 @@ def roll_quantile(const float64_t[:] values, ndarray[int64_t] start,
             if i == 0 or not is_monotonic_increasing_bounds or s >= end[i - 1]:
                 if i != 0:
                     nobs = 0
-                    skiplist_destroy(skiplist)
-                    skiplist = skiplist_init(<int>win)
+                    skiplist_reset(skiplist)
 
                 # setup
                 for j in range(s, e):
@@ -1332,8 +1727,7 @@ def roll_quantile(const float64_t[:] values, ndarray[int64_t] start,
                         continue
 
                     if interpolation_type == LINEAR:
-                        vlow = skiplist_get(skiplist, idx, &ret)
-                        vhigh = skiplist_get(skiplist, idx + 1, &ret)
+                        ret = skiplist_get_pair(skiplist, idx, &vlow, &vhigh)
                         output[i] = (vlow + (vhigh - vlow) *
                                      (idx_with_fraction - idx))
                     elif interpolation_type == LOWER:
@@ -1353,8 +1747,7 @@ def roll_quantile(const float64_t[:] values, ndarray[int64_t] start,
                         else:
                             output[i] = skiplist_get(skiplist, idx + 1, &ret)
                     elif interpolation_type == MIDPOINT:
-                        vlow = skiplist_get(skiplist, idx, &ret)
-                        vhigh = skiplist_get(skiplist, idx + 1, &ret)
+                        ret = skiplist_get_pair(skiplist, idx, &vlow, &vhigh)
                         output[i] = <float64_t>(vlow + vhigh) / 2
 
                     if ret == 0:
@@ -1419,8 +1812,7 @@ def roll_rank(const float64_t[:] values, ndarray[int64_t] start,
             if i == 0 or not is_monotonic_increasing_bounds or s >= end[i - 1]:
                 if i != 0:
                     nobs = 0
-                    skiplist_destroy(skiplist)
-                    skiplist = skiplist_init(<int>win)
+                    skiplist_reset(skiplist)
 
                 # setup
                 for j in range(s, e):

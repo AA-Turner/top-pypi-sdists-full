@@ -350,7 +350,10 @@ class AsStrFlattenedTests(absltest.TestCase):
     cfg = fdl.Config(to_integer, 1)
     output = printing.as_str_flattened(cfg, include_types=True)
 
-    expected = 'x: typing.Union[int, str] = 1'
+    if sys.version_info >= (3, 14):
+      expected = 'x: int | str = 1'
+    else:
+      expected = 'x: typing.Union[int, str] = 1'
     self.assertEqual(output, expected)
 
   def test_can_print_parameterized_generic(self):
@@ -398,10 +401,10 @@ class HistoryPerLeafParamTests(absltest.TestCase):
     cfg = fdl.Config(fn_x_y,
                      [fdl.Config(fn_x_y, 1, '1'),
                       fdl.Config(SampleClass, 2)])
-    cfg.x[0].x = 3  # pytype: disable=unsupported-operands  # use-fiddle-overlay
-    cfg.x[1].a = 2  # Reset to same value.  # pytype: disable=unsupported-operands  # use-fiddle-overlay
-    cfg.x[0].y = 'abc'  # pytype: disable=unsupported-operands  # use-fiddle-overlay
-    cfg.x[0].x = 4  # pytype: disable=unsupported-operands  # use-fiddle-overlay
+    cfg.x[0].x = 3
+    cfg.x[1].a = 2  # Reset to same value.
+    cfg.x[0].y = 'abc'
+    cfg.x[0].x = 4
     output = printing.history_per_leaf_parameter(cfg)
     self.assertTrue(printing._has_nested_builder(cfg.x))
     expected = textwrap.dedent(rf"""
@@ -472,6 +475,17 @@ class HistoryPerLeafParamTests(absltest.TestCase):
         \[1\].x = 10 @ {name}""".strip('\n'))
     self.assertRegex(output, expected)
 
+  def test_history_includes_updated_tags(self):
+    cfg = fdl.Config(fn_x_y, x=1, y=SampleTag.new(default='abc'))
+    fdl.add_tag(cfg, 'y', SampleTag2)
+    output = printing.history_per_leaf_parameter(cfg)
+    expected = textwrap.dedent(r"""
+        x = 1 @ .*/printing_test.py:\d+:test_history_includes_updated_tags
+        y = frozenset\(\{.*SampleTag2.*\}\) @ .*:\d+:add_tag
+        .*previously: 'abc' @ .*test_history_includes_updated_tags
+        .*previously: frozenset\(\{.*SampleTag\}\)""".strip('\n'))
+    self.assertRegex(output, expected)
+
 
 class AsFlattenedDictTests(absltest.TestCase):
 
@@ -480,6 +494,13 @@ class AsFlattenedDictTests(absltest.TestCase):
     output = printing.as_dict_flattened(cfg)
 
     expected = {'x': 1, 'y': 'abc'}
+    self.assertEqual(output, expected)
+
+  def test_simple_flattened_dict_fn_name(self):
+    cfg = fdl.Config(fn_x_y, 1, 'abc')
+    output = printing.as_dict_flattened(cfg, output_fn_or_cls_name=True)
+
+    expected = {'__fn_or_cls__.__name__': 'fn_x_y', 'x': 1, 'y': 'abc'}
     self.assertEqual(output, expected)
 
   def test_skip_unset_argument(self):
@@ -496,11 +517,35 @@ class AsFlattenedDictTests(absltest.TestCase):
     expected = {'x': 'x', 'y.x': 'nest_x', 'y.y': 123}
     self.assertEqual(output, expected)
 
+  def test_nested_fn_name(self):
+    cfg = fdl.Config(fn_x_y, 'x', fdl.Config(fn_x_y, 'nest_x', 123))
+    output = printing.as_dict_flattened(cfg, output_fn_or_cls_name=True)
+
+    expected = {
+        '__fn_or_cls__.__name__': 'fn_x_y',
+        'x': 'x',
+        'y.__fn_or_cls__.__name__': 'fn_x_y',
+        'y.x': 'nest_x',
+        'y.y': 123,
+    }
+    self.assertEqual(output, expected)
+
   def test_class(self):
     cfg = fdl.Config(SampleClass, 'a_param', b=123)
     output = printing.as_dict_flattened(cfg)
 
     expected = {'a': 'a_param', 'b': 123}
+    self.assertEqual(output, expected)
+
+  def test_class_cls_name(self):
+    cfg = fdl.Config(SampleClass, 'a_param', b=123)
+    output = printing.as_dict_flattened(cfg, output_fn_or_cls_name=True)
+
+    expected = {
+        '__fn_or_cls__.__name__': 'SampleClass',
+        'a': 'a_param',
+        'b': 123,
+    }
     self.assertEqual(output, expected)
 
   def test_kwargs(self):

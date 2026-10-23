@@ -15,6 +15,9 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from matrx_orm import ArrayArg, CrossOrgAssociationError, JsonbMerge, call_function, transaction
+from matrx_orm.session.fallback import (
+    SYSTEM_ORGANIZATION_ID,  # the org that owns system-tier rows — ONE definition
+)
 
 from .db import PACKAGE_DB_NAME
 from .db import models_seo as m
@@ -25,8 +28,6 @@ from .facet_registry import (
     load_facet_vocabulary,  # noqa: F401  (re-export convenience for hosts)
 )
 from .keyword_plane import reject_keyword_edge  # noqa: F401  (re-export convenience)
-
-from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID  # the org that owns system-tier rows — ONE definition
 
 logger = logging.getLogger(__name__)
 
@@ -315,7 +316,9 @@ async def apply_keyword_classifications(
         }
         await row.update(
             classification_confidence=confidence,
-            classification_detail=detail,
+            # MERGED: classification_detail also carries serp_intent_analysis, written by
+            # apply_keyword_serp_intent_analysis; a whole-column write would erase it.
+            classification_detail=JsonbMerge("classification_detail", detail),
             classified_at=now,
             classifier_version=classifier_version,
             updated_at=now,
@@ -830,7 +833,7 @@ async def apply_topic_assignments(
                         confidence=confidence_value,
                         assigned_by=AGENT_PLACEMENT_SOURCE,
                         scope_tier=AGENT_SCOPE_TIER,
-                        metadata=JsonbMerge({"placement": placement}),
+                        metadata=JsonbMerge("metadata", {"placement": placement}),
                         updated_at=now,
                     )
                 if is_primary:
@@ -946,7 +949,11 @@ async def apply_site_topic_valuations(
                 **fields,
             )
         else:
-            await existing.update(**fields)
+            # MERGED: site_topic_value.metadata carries other writers' keys (placement,
+            # map work); the valuer owns only confidence and valuer_version.
+            await existing.update(
+                **{**fields, "metadata": JsonbMerge("metadata", fields["metadata"])}
+            )
         written += 1
         if kinds.get(topic_id) in OFFERING_NODE_TYPES:
             # TRANSITION (brand-offerings cutover, D9): offering worth is read from
@@ -1025,6 +1032,72 @@ async def apply_site_topic_valuations(
     return summary
 
 
+async def merge_upsert_site_keyword_values(
+    rows: list[dict[str, Any]], *, insert_only: frozenset[str] | set[str] = frozenset()
+) -> list[dict[str, Any]]:
+    """INSERT the site's keyword records, or on (site_id, keyword_id) conflict UPDATE
+    them — in ONE statement, so concurrent writers never collide on the unique key.
+
+    * ``metadata`` is MERGED (``existing || new``, top-level keys): a writer changes
+      only the keys it supplies and every other writer's keys (classification,
+      valuation, map_home, serp_cluster …) survive.
+    * Every other supplied column takes the new value on conflict, except the
+      ``insert_only`` columns, which only seed a NEW record (e.g. a promote must not
+      push an existing keyword's workflow_status back to candidate).
+    * A SOFT-DELETED record is never written or revived (the unique key is not
+      partial, so an upsert would otherwise update it and leave it deleted): such
+      rows are skipped and returned with ``skipped_deleted=True``. A record deleted
+      between that check and the statement is reported the same way.
+
+    All rows must supply the same columns. Returns, per row: ``id``, ``keyword_id``,
+    ``inserted`` (a new record) and ``skipped_deleted``."""
+    from matrx_orm import Excluded, F, JsonbConcat
+
+    if not rows:
+        return []
+    deleted: dict[tuple[str, str], str] = {}
+    by_site: dict[str, list[str]] = {}
+    for row in rows:
+        by_site.setdefault(str(row["site_id"]), []).append(str(row["keyword_id"]))
+    for site_id, keyword_ids in by_site.items():
+        for rec in await m.SiteKeywordValue.filter(
+            site_id=site_id, keyword_id__in=keyword_ids, deleted_at__isnull=False
+        ).all():
+            deleted[(site_id, str(rec.keyword_id))] = str(rec.id)
+    live = [r for r in rows if (str(r["site_id"]), str(r["keyword_id"])) not in deleted]
+    out: list[dict[str, Any]] = [
+        {"id": rec_id, "keyword_id": kw, "inserted": False, "skipped_deleted": True}
+        for (_site, kw), rec_id in deleted.items()
+    ]
+    if not live:
+        return out
+    now = _now()
+    data = [{"id": str(uuid4()), "created_at": now, "updated_at": now, **row} for row in live]
+    columns = set(data[0])
+    if any(set(d) != columns for d in data):
+        raise ValueError("merge_upsert_site_keyword_values: every row must supply the same columns")
+    table = m.SiteKeywordValue._meta.qualified_table_name
+    owned = {"id", "created_at", "created_by", "organization_id", "site_id", "keyword_id"}
+    set_fields: dict[str, Any] = {
+        c: Excluded(c) for c in columns - owned - {"metadata"} - set(insert_only)
+    }
+    if "metadata" in columns:
+        set_fields["metadata"] = JsonbConcat(F(f"{table}.metadata"), Excluded("metadata"))
+    result = await m.SiteKeywordValue.bulk_upsert_increment(
+        data, on_conflict=["site_id", "keyword_id"], set_fields=set_fields, returning=True
+    )
+    for r in result:  # type: ignore[union-attr]
+        out.append(
+            {
+                "id": str(r["id"]),
+                "keyword_id": str(r["keyword_id"]),
+                "inserted": bool(r.get("_matrx_inserted")),
+                "skipped_deleted": r.get("deleted_at") is not None,
+            }
+        )
+    return out
+
+
 async def _upsert_site_keyword_value(
     *,
     site_id: str,
@@ -1034,25 +1107,144 @@ async def _upsert_site_keyword_value(
     fields: dict[str, Any],
 ) -> str:
     """Get-or-create the one seo.site_keyword_value row for (site_id,
-    keyword_id) and apply ``fields``. The one write path both page-analysis
-    writers below use — DEF-22's un-degrade point for
-    ``v_site_keyword_performance``."""
-    now = _now()
-    existing = await m.SiteKeywordValue.get_or_none(site_id=site_id, keyword_id=keyword_id)
-    if existing is None:
-        row = await m.SiteKeywordValue.create(
-            id=str(uuid4()),
-            organization_id=organization_id,
-            site_id=site_id,
-            keyword_id=keyword_id,
-            created_by=created_by,
-            created_at=now,
-            updated_at=now,
-            **fields,
+    keyword_id) and apply ``fields`` — the one write path both page-analysis
+    writers below use (DEF-22's un-degrade point for
+    ``v_site_keyword_performance``). ``fields["metadata"]`` is MERGED into the
+    record's metadata, never written over it (2026-10-22: a plain update here wiped
+    serp_cluster, classification, map_home and valuation on every existing row)."""
+    rows = await merge_upsert_site_keyword_values(
+        [
+            {
+                "organization_id": organization_id,
+                "site_id": site_id,
+                "keyword_id": keyword_id,
+                "created_by": created_by,
+                **fields,
+            }
+        ]
+    )
+    # A soft-deleted record is left untouched (see merge_upsert_site_keyword_values); its
+    # id is still returned so the caller's links point at the one (site, keyword) record.
+    return rows[0]["id"]
+
+
+
+#: Where a keyword's SERP-overlap cluster lives on the site's keyword record
+#: (beside ``metadata.classification``). Written by :func:`apply_serp_clusters`.
+SERP_CLUSTER_METADATA_KEY = "serp_cluster"
+
+
+def _serp_cluster_value(row: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    """The compact stored value for one ``KeywordCluster.as_dict`` row (no URL list —
+    the justification is recomputed from the stored snapshots on every read)."""
+    value: dict[str, Any] = {"status": row["status"], "settings": settings}
+    if row.get("reason"):
+        value["reason"] = row["reason"]
+    if row["status"] == "clustered":
+        value.update(
+            cluster_id=row["cluster_id"],
+            head_keyword_id=row["head_keyword_id"],
+            head_phrase=row["head_phrase"],
+            cluster_size=row["cluster_size"],
+            linked_keyword_id=row["linked_keyword_id"],
+            shared_count=row["shared_count"],
+            jaccard=row["jaccard"],
         )
-        return str(row.id)
-    await existing.update(updated_at=now, **fields)
-    return str(existing.id)
+    if row.get("snapshot_id"):
+        value["snapshot_id"] = row["snapshot_id"]
+    return value
+
+
+def _same_cluster_value(stored: Any, value: dict[str, Any]) -> bool:
+    if not isinstance(stored, dict):
+        return False
+    return {k: v for k, v in stored.items() if k != "computed_at"} == value
+
+
+async def apply_serp_clusters(
+    rows: list[dict[str, Any]],
+    *,
+    site_id: str,
+    organization_id: str,
+    created_by: str,
+    settings: dict[str, Any],
+    market: dict[str, Any] | None = None,
+) -> dict[str, int]:
+    """Reconcile the site's recorded SERP-overlap clusters
+    (``site_keyword_value.metadata.serp_cluster``) with ``rows`` — the COMPLETE
+    clustering of the site's keywords that have stored results in one market
+    (:meth:`matrx_seo.serp_clusters.KeywordCluster.as_dict` outputs). In one
+    transaction:
+
+    * a changed value is merged in (other metadata keys untouched; a missing record
+      is created through :func:`merge_upsert_site_keyword_values`, conflict-safe);
+    * an unchanged value (``computed_at`` aside) is not written — re-runs are no-ops;
+    * a dissolved cluster is rewritten to its keyword's new status, its id gone;
+    * a record carrying ``serp_cluster`` for a keyword NOT in ``rows`` (its results
+      are gone, or the market changed) has the key REMOVED.
+
+    Every row must be one of the site's own keywords (the caller filters)."""
+    from matrx_orm import JsonbRemoveKeys
+
+    now = _now()
+    wanted = {
+        str(r["keyword_id"]): {
+            **_serp_cluster_value(r, settings),
+            **({"market": market} if market else {}),
+        }
+        for r in rows
+        if r.get("keyword_id")
+    }
+    existing = {
+        str(rec.keyword_id): rec
+        for rec in await m.SiteKeywordValue.filter(site_id=site_id, deleted_at__isnull=True).all()
+    }
+
+    def stored(keyword_id: str) -> Any:
+        rec = existing.get(keyword_id)
+        meta = rec.metadata if rec is not None and isinstance(rec.metadata, dict) else {}
+        return meta.get(SERP_CLUSTER_METADATA_KEY)
+
+    changed = {k: v for k, v in wanted.items() if not _same_cluster_value(stored(k), v)}
+    stale = [
+        str(rec.id)
+        for k, rec in existing.items()
+        if k not in wanted
+        and isinstance(rec.metadata, dict)
+        and SERP_CLUSTER_METADATA_KEY in rec.metadata
+    ]
+    written: list[dict[str, Any]] = []
+    async with transaction(PACKAGE_DB_NAME):
+        if changed:
+            written = await merge_upsert_site_keyword_values(
+                [
+                    {
+                        "organization_id": organization_id,
+                        "site_id": site_id,
+                        "keyword_id": k,
+                        "created_by": created_by,
+                        "metadata": {
+                            SERP_CLUSTER_METADATA_KEY: {**v, "computed_at": now.isoformat()},
+                        },
+                    }
+                    for k, v in sorted(changed.items())
+                ]
+            )
+        if stale:
+            await m.SiteKeywordValue.update_where(
+                {"id__in": stale},
+                lock_rows_in_pk_order=True,
+                metadata=JsonbRemoveKeys("metadata", [SERP_CLUSTER_METADATA_KEY]),
+                updated_at=now,
+            )
+    skipped = sum(1 for w in written if w["skipped_deleted"])
+    return {
+        "keywords_written": len(written) - skipped,
+        "unchanged": len(wanted) - len(changed),
+        "records_created": sum(1 for w in written if w["inserted"] and not w["skipped_deleted"]),
+        "skipped_deleted": skipped,
+        "stale_cleared": len(stale),
+    }
 
 
 async def apply_page_keyword_analysis(
@@ -1331,6 +1523,9 @@ __all__ = [
     "load_facet_vocabulary",
     "apply_keyword_classifications",
     "apply_keyword_serp_intent_analysis",
+    "SERP_CLUSTER_METADATA_KEY",
+    "apply_serp_clusters",
+    "merge_upsert_site_keyword_values",
     "apply_page_keyword_analysis",
     "apply_page_keyword_map",
     "apply_site_topic_valuations",

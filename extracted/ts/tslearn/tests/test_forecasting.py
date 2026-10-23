@@ -2,8 +2,16 @@ import numpy as np
 
 import pytest
 
+from sklearn.base import clone
+
 from tslearn.generators import random_walks
-from tslearn.forecasting import VARIMA, AutoVARIMA
+from tslearn.forecasting import VARIMA, AutoVARIMA, ScaledForecastingPipeline
+from tslearn.preprocessing import (
+    TimeSeriesScalerMeanVariance,
+    TimeSeriesScalerMinMax,
+    TimeSeriesResampler,
+)
+from tslearn.utils import to_time_series_dataset
 
 
 def test_VARIMA():
@@ -114,6 +122,15 @@ def test_VARIMA():
         expected
     )
 
+    # Higher order differencing: the d-th difference of t**d is constant, so
+    # VARIMA(0, d, 0) with constant should continue the polynomial exactly
+    t = np.arange(10, dtype=float)
+    for d in (2, 3):
+        data = (t ** d).reshape(1, -1, 1)
+        predicted = VARIMA(0, d, 0).fit(data).predict(n=3)
+        expected = (np.arange(10, 13, dtype=float) ** d).reshape(1, -1, 1)
+        np.testing.assert_almost_equal(predicted, expected)
+
     # MA X(t) = e(t) + 0.9e(t-1)
     rng = np.random.RandomState(0)
     noise = rng.normal(size=(2, 100, 2))
@@ -128,6 +145,26 @@ def test_VARIMA():
         model.predict(n=2),
         model.predict(data, n=2)
     )
+
+    # Multivariate VAR: X(t) = R X(t-1) with a non-symmetric rotation matrix R.
+    # Forecasts should continue the rotation, also when fitting p = 2
+    angle = np.pi / 6
+    rotation = np.array(
+        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    )
+    data = np.zeros((1, 33, 2))
+    data[0, 0] = [1.0, 0.0]
+    for i in range(1, 33):
+        data[0, i] = rotation @ data[0, i - 1]
+    for p in (1, 2):
+        predicted = VARIMA(p, 0, 0).fit(data[:, :30]).predict(n=3)
+        np.testing.assert_almost_equal(predicted, data[:, 30:])
+
+    # MA X(t) = e(t) + 0.6e(t-1) - 0.3e(t-2): ma_coeffs_[k] is the lag k + 1 term
+    noise = rng.normal(size=(1, 2002, 1))
+    data = noise[:, 2:] + 0.6 * noise[:, 1:-1] - 0.3 * noise[:, :-2]
+    model = VARIMA(0, 0, 2).fit(data)
+    np.testing.assert_allclose(model.ma_coeffs_.ravel(), [0.6, -0.3], atol=0.1)
 
 
 def test_AutoVARIMA():
@@ -208,3 +245,136 @@ def test_verbosity(capteesys):
     AutoVARIMA(max_d=0, max_iter=2, verbose=1).fit(data)
     captured = capteesys.readouterr()
     assert "Default d for non stationarity 0 is used." in captured.out
+
+
+@pytest.mark.parametrize(
+    "scaler",
+    [
+        TimeSeriesScalerMeanVariance(per_timeseries=False),
+        TimeSeriesScalerMinMax(per_timeseries=False),
+    ]
+)
+def test_scaled_forecaster_global_matches_manual_scaling(scaler):
+    data = random_walks(n_ts=5, sz=20, d=2, random_state=0) * 100 + 500
+
+    pipeline = ScaledForecastingPipeline(VARIMA(1, 0, 0), scaler=scaler).fit(data)
+    assert pipeline.per_timeseries_ is False
+    predicted = pipeline.predict(n=3)
+    assert predicted.shape == (5, 3, 2)
+
+    reference_scaler = clone(scaler)
+    scaled_data = reference_scaler.fit_transform(data)
+    reference_predicted = VARIMA(1, 0, 0).fit(scaled_data).predict(n=3)
+    np.testing.assert_allclose(
+        predicted,
+        reference_scaler.inverse_transform(reference_predicted)
+    )
+
+
+@pytest.mark.parametrize(
+    "scaler",
+    [None, TimeSeriesScalerMeanVariance(), TimeSeriesScalerMinMax()]
+)
+def test_scaled_forecaster_per_series_matches_manual_scaling(scaler):
+    # `per_timeseries=True` is the default of tslearn scalers, so both the
+    # default `scaler=None` and an explicit scaler exercise per-series mode.
+    data = random_walks(n_ts=5, sz=20, d=2, random_state=0)
+    # Give series wildly different levels/spreads, the case per-series
+    # scaling is meant for.
+    data = data * np.array([1, 100, 0.01, 10, 1000]).reshape(5, 1, 1)
+
+    pipeline = ScaledForecastingPipeline(VARIMA(1, 0, 0), scaler=scaler).fit(data)
+    assert pipeline.per_timeseries_ is True
+    assert len(pipeline.scalers_) == 5
+    predicted = pipeline.predict(n=3)
+    assert predicted.shape == (5, 3, 2)
+
+    template = pipeline._scaler_template_
+    scalers = [clone(template).fit(data[i:i + 1]) for i in range(5)]
+    scaled_data = np.concatenate(
+        [s.transform(data[i:i + 1]) for i, s in enumerate(scalers)], axis=0
+    )
+    reference_predicted_scaled = VARIMA(1, 0, 0).fit(scaled_data).predict(n=3)
+    reference_predicted = np.concatenate(
+        [
+            s.inverse_transform(reference_predicted_scaled[i:i + 1])
+            for i, s in enumerate(scalers)
+        ],
+        axis=0,
+    )
+    np.testing.assert_allclose(predicted, reference_predicted)
+
+
+def test_scaled_forecaster_per_series_variable_length():
+    data = random_walks(n_ts=3, sz=20, d=1, random_state=0)
+    data = data * np.array([1, 100, 0.01]).reshape(3, 1, 1)
+    data[0, 12:] = np.nan
+
+    pipeline = ScaledForecastingPipeline(VARIMA(1, 0, 0)).fit(data)
+    predicted = pipeline.predict(n=2)
+    assert predicted.shape == (3, 2, 1)
+    np.testing.assert_allclose(pipeline.predict(data, n=2), predicted)
+
+    scalers = [
+        clone(pipeline._scaler_template_).fit(data[i:i + 1]) for i in range(3)
+    ]
+    scaled_data = to_time_series_dataset(
+        [s.transform(data[i:i + 1])[0] for i, s in enumerate(scalers)]
+    )
+    reference_predicted_scaled = VARIMA(1, 0, 0).fit(scaled_data).predict(n=2)
+    reference_predicted = np.concatenate(
+        [
+            s.inverse_transform(reference_predicted_scaled[i:i + 1])
+            for i, s in enumerate(scalers)
+        ],
+        axis=0,
+    )
+    np.testing.assert_allclose(predicted, reference_predicted)
+
+
+def test_scaled_forecaster_per_series_predict_uses_fresh_statistics():
+    data = random_walks(n_ts=3, sz=20, d=1, random_state=0)
+    data = data * np.array([1, 100, 0.01]).reshape(3, 1, 1)
+    pipeline = ScaledForecastingPipeline(VARIMA(1, 0, 0)).fit(data)
+
+    new_data = random_walks(n_ts=3, sz=15, d=1, random_state=1)
+    new_data = new_data * np.array([5, 2, 50]).reshape(3, 1, 1) + 3
+    predicted_new = pipeline.predict(new_data, n=2)
+    assert predicted_new.shape == (3, 2, 1)
+
+    # Statistics used for the new prediction differ from the fit-time ones,
+    # since per-series scaling is recomputed from whatever is transformed.
+    template = pipeline._scaler_template_
+    fresh_scalers = [
+        clone(template).fit(new_data[i:i + 1]) for i in range(3)
+    ]
+    for fitted, fresh in zip(pipeline.scalers_, fresh_scalers):
+        assert not np.allclose(fitted.mean_, fresh.mean_)
+
+
+def test_scaled_forecaster_fit_predict():
+    data = random_walks(n_ts=3, sz=20, d=1, random_state=0) * 10 + 50
+    pipeline = ScaledForecastingPipeline(VARIMA(1, 0, 0))
+    np.testing.assert_allclose(
+        pipeline.fit_predict(data, n=3),
+        pipeline.fit(data).predict(n=3)
+    )
+
+
+def test_scaled_forecaster_predict_defaults_to_wrapped_forecaster_default():
+    # With no `n` given, ScaledForecastingPipeline should not impose its own
+    # default, but let the wrapped forecaster's own default (n=1 for VARIMA)
+    # kick in transparently.
+    data = random_walks(n_ts=3, sz=20, d=1, random_state=0) * 10 + 50
+    pipeline = ScaledForecastingPipeline(VARIMA(1, 0, 0)).fit(data)
+    assert pipeline.predict().shape == (3, 1, 1)
+    assert ScaledForecastingPipeline(VARIMA(1, 0, 0)).fit_predict(data).shape == (3, 1, 1)
+
+
+def test_scaled_forecaster_rejects_scaler_without_inverse_transform():
+    data = random_walks(n_ts=3, sz=20, random_state=0)
+    with pytest.raises(ValueError):
+        ScaledForecastingPipeline(
+            VARIMA(1, 0, 0),
+            scaler=TimeSeriesResampler(sz=20)
+        ).fit(data)

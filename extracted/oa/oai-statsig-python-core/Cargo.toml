@@ -21,12 +21,13 @@ exclude = [
     "examples/rust/perf-bench",
     "examples/rust/verify-package",
     "benchmarking/bench-cluster",
+    "benchmarking/hello_world",
 ]
 
 [workspace.package]
 edition = "2021"
 license = "ISC"
-version = "0.36.0"
+version = "0.37.0"
 homepage = "https://statsig.com/"
 authors = ["Statsig", "Daniel Loomb <daniel@statsig.com>"]
 readme = "README.md"

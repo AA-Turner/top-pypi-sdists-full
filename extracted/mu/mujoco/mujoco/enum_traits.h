@@ -660,6 +660,14 @@ struct mjtMeshBuiltin {
     std::make_pair("mjMESH_BUILTIN_DISC", ::mjtMeshBuiltin::mjMESH_BUILTIN_DISC)};
 };
 
+struct mjtFlexSection {
+  static constexpr char name[] = "mjtFlexSection";
+  using type = ::mjtFlexSection;
+  static constexpr auto values = std::array{
+    std::make_pair("mjFLEXSECTION_CIRCLE", ::mjtFlexSection::mjFLEXSECTION_CIRCLE),
+    std::make_pair("mjFLEXSECTION_BOX", ::mjtFlexSection::mjFLEXSECTION_BOX)};
+};
+
 struct mjtBuiltin {
   static constexpr char name[] = "mjtBuiltin";
   using type = ::mjtBuiltin;
@@ -696,6 +704,23 @@ struct mjtAlignFree {
     std::make_pair("mjALIGNFREE_FALSE", ::mjtAlignFree::mjALIGNFREE_FALSE),
     std::make_pair("mjALIGNFREE_TRUE", ::mjtAlignFree::mjALIGNFREE_TRUE),
     std::make_pair("mjALIGNFREE_AUTO", ::mjtAlignFree::mjALIGNFREE_AUTO)};
+};
+
+struct mjtPassthrough {
+  static constexpr char name[] = "mjtPassthrough";
+  using type = ::mjtPassthrough;
+  static constexpr auto values = std::array{
+    std::make_pair("mjPASSTHROUGH_NONE", ::mjtPassthrough::mjPASSTHROUGH_NONE),
+    std::make_pair("mjPASSTHROUGH_TEXTURES", ::mjtPassthrough::mjPASSTHROUGH_TEXTURES)};
+};
+
+struct mjtEmbed {
+  static constexpr char name[] = "mjtEmbed";
+  using type = ::mjtEmbed;
+  static constexpr auto values = std::array{
+    std::make_pair("mjEMBED_FALSE", ::mjtEmbed::mjEMBED_FALSE),
+    std::make_pair("mjEMBED_TRUE", ::mjtEmbed::mjEMBED_TRUE),
+    std::make_pair("mjEMBED_AUTO", ::mjtEmbed::mjEMBED_AUTO)};
 };
 
 struct mjtInertiaFromGeom {
@@ -1131,10 +1156,13 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtGeomInertia{},
     mjtMeshInertia{},
     mjtMeshBuiltin{},
+    mjtFlexSection{},
     mjtBuiltin{},
     mjtMark{},
     mjtLimited{},
     mjtAlignFree{},
+    mjtPassthrough{},
+    mjtEmbed{},
     mjtInertiaFromGeom{},
     mjtOrientation{},
     mjtConflict{},

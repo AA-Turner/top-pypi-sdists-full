@@ -28,6 +28,9 @@ pub struct LintResult {
     pub fixes: Vec<LintFix>,
     description: Option<String>,
     source: String,
+    // Safety checks can make an individual result unfixable even when its rule
+    // supports fixes. Preserve this after fixes are cleared or moved out.
+    unfixable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Copy, Hash, Eq, AsRefStr, EnumIter)]
@@ -62,6 +65,7 @@ impl LintResult {
             fixes,
             description,
             source: source.unwrap_or_default(),
+            unfixable: false,
         }
     }
 
@@ -112,7 +116,7 @@ impl LintResult {
             .as_deref()
             .unwrap_or_else(|| rule.description());
 
-        let is_fixable = rule.is_fix_compatible();
+        let is_fixable = rule.is_fix_compatible() && !self.unfixable;
 
         SQLLintError::new(description, anchor, is_fixable)
             .config(|this| {
@@ -163,6 +167,14 @@ pub enum LintPhase {
 
 pub trait Rule: Debug + 'static + Send + Sync {
     fn load_from_config(&self, _config: &HashMap<String, Value>) -> Result<ErasedRule, String>;
+
+    /// Typed metadata for this rule's configuration options.
+    ///
+    /// An empty result means the rule has not declared typed metadata; it does
+    /// not necessarily mean the rule has no legacy configuration.
+    fn config_options(&self) -> Vec<sqruff_lib_core::config::ConfigOption> {
+        Vec::new()
+    }
 
     fn lint_phase(&self) -> LintPhase {
         LintPhase::Main
@@ -261,14 +273,18 @@ pub fn crawl(
                 return;
             };
 
-            for result in results {
-                if !result
+            for mut result in results {
+                if result
                     .fixes
                     .iter()
                     .any(|it| it.has_template_conflicts(templated_file))
                 {
-                    on_violation(result);
+                    // Keep the warning, but discard the entire fix group so a
+                    // structural rewrite cannot be applied only partially.
+                    result.fixes.clear();
+                    result.unfixable = true;
                 }
+                on_violation(result);
             }
         });
 
@@ -339,7 +355,7 @@ impl RulePack {
 }
 
 pub struct RuleSet {
-    pub(crate) register: IndexMap<&'static str, RuleManifest>,
+    register: IndexMap<&'static str, RuleManifest>,
 }
 
 impl RuleSet {
@@ -481,5 +497,29 @@ impl RuleSet {
             rules: instantiated_rules,
             reference_map,
         })
+    }
+}
+
+impl FromIterator<ErasedRule> for RuleSet {
+    fn from_iter<T: IntoIterator<Item = ErasedRule>>(iter: T) -> Self {
+        let mut register = IndexMap::default();
+
+        let iter = iter.into_iter();
+        register.reserve(iter.size_hint().0);
+
+        for rule in iter {
+            register.insert(
+                rule.code(),
+                RuleManifest {
+                    code: rule.code(),
+                    name: rule.name(),
+                    description: rule.description(),
+                    groups: rule.groups(),
+                    rule_class: rule,
+                },
+            );
+        }
+
+        RuleSet { register }
     }
 }

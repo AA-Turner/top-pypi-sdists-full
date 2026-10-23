@@ -963,6 +963,59 @@ class UploadResult:
     #: The server deleted this session at its team's request: final, nothing
     #: was or will be uploaded. Counted as a skip, never as a failure.
     deleted: bool = False
+    #: The session file was deleted from this machine (`_removed_from_machine`)
+    #: while this call read it. The caller decides whether that is a skip.
+    source_removed: bool = False
+
+
+def _removed_from_machine(exc: BaseException, path: Path) -> bool:
+    """`exc` failed because the session file at `path` was deleted, and nothing else.
+
+    Claude Code deletes transcripts nobody has opened for `cleanupPeriodDays`
+    (30 by default), silently, after any session starts, so a file a census
+    found can be gone by upload time. It is a removal only when the error names
+    this file, the file is still absent, and the folder that held it still
+    exists: the sweep deletes session files, not the project folder around
+    them. A folder that is gone too (an unmounted drive, a moved config
+    directory, even one recreated empty since) or an absence that cannot be
+    proved (a permission error) stays a failure, so it still stops the import
+    and reaches its owner.
+    """
+    if not isinstance(exc, FileNotFoundError) or exc.filename is None:
+        return False
+    if os.fspath(exc.filename) != os.fspath(path):
+        return False
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return False
+    else:
+        return False
+    try:
+        return path.parent.is_dir()
+    except OSError:
+        return False
+
+
+def _upload_started(remote: dict, journal: Journal, session_id: str) -> bool:
+    """Part of this session already reached the server, or is staged to.
+
+    A removed file is nothing-to-do only when nothing was sent: a partial
+    stream on the server, or a batch the journal still holds, stays a failure
+    rather than a skip that would hide an upload left half done.
+    """
+    stream = remote.get("stream")
+    if isinstance(stream, dict) and stream.get("finalized") is not True:
+        return True
+    # One read of the journal, so a writer cannot stage a batch between the two.
+    with journal.transaction():
+        pending = journal.pending(session_id)
+        state = journal.get(session_id)
+    if pending is not None:
+        return True
+    return bool(state) and state.get("last_seq", -1) >= 0 and not state.get("historical_complete")
 
 
 def _failure_message(exc: Exception) -> str:
@@ -1204,6 +1257,7 @@ def upload_session(
     except (DeliveryPending, ReconciliationRequired, OSError, sqlite3.Error) as exc:
         result.error = f"{stage}: {_failure_message(exc)}"
         result.retryable = isinstance(exc, DeliveryPending) and exc.retryable
+        result.source_removed = _removed_from_machine(exc, (coverage_source or transcript).path)
     finally:
         if own_journal and journal is not None:
             journal.close()
@@ -1312,6 +1366,9 @@ class LaneOutcome:
     #: Sessions the server deleted at their team's request. Never uploaded,
     #: never a failure: the engine refuses them for good.
     skipped_deleted: int = 0
+    #: Session files deleted from this machine between the census and the
+    #: upload, with nothing of them sent. A skip, never a failure.
+    skipped_removed: int = 0
     bytes_sent: int = 0
     pending_batches: int = 0
     pending_bytes: int = 0
@@ -1344,6 +1401,10 @@ class LaneOutcome:
         if self.skipped_deleted:
             out.append(
                 f"{self.skipped_deleted} deleted at your team's request (not uploaded)"
+            )
+        if self.skipped_removed:
+            out.append(
+                f"{self.skipped_removed} removed from this machine before upload (nothing sent)"
             )
         if self.deferred:
             out.append(
@@ -1388,8 +1449,9 @@ def import_transcripts(
     `assignments` is ignored for compatibility. Legacy pending anchor intent
     never creates entity links. The old ledger is read neither as coverage nor
     as a session completion claim; the v2 journal and receipts own those facts.
-    ``on_completion`` counts only verified finalizations, including previously
-    finalized receipts. ``on_stage`` retains its processed-session semantics.
+    ``on_completion`` counts every session the lane has accounted for (see
+    `accounted_ids`), not only finalizations. ``on_stage`` retains its
+    processed-session semantics.
     """
     outcome = LaneOutcome(
         found=census.sessions,
@@ -1398,11 +1460,12 @@ def import_transcripts(
     )
     posters = poster if isinstance(poster, dict) else dict.fromkeys(INGEST_PATH, poster)
     remaining = budget_bytes
-    #: Sessions this lane has ACCOUNTED FOR -- finalized here, or found already
-    #: held by the server. Both belong in the progress denominator: a bar that
+    #: Sessions this lane has ACCOUNTED FOR -- finalized here, found already
+    #: held by the server, deleted at the team's request, or removed from this
+    #: machine with nothing sent. All belong in the progress denominator: a bar that
     #: can never reach its total on a machine with pre-protocol-2 history reads
     #: as an import that never finished, which is the opposite of the truth.
-    #: The report lines below keep the two apart in words.
+    #: The report lines below keep them apart in words.
     accounted_ids: set[tuple[str, str]] = set()
     if on_completion:
         on_completion(0, census.sessions, [])
@@ -1429,6 +1492,11 @@ def import_transcripts(
         #: counted without being uploaded. One `on_stage` per session is the
         #: contract the progress estimator and the job record both assume.
         note = None
+        #: The session file on disk. `transcript` is rebound to the reviewed
+        #: copy below, so this is what tells a removed source apart.
+        source_path = transcript.path
+        remote = None
+        result = None
         stage = "reviewed snapshot"
         approved_snapshot = contextlib.ExitStack()
         try:
@@ -1544,13 +1612,55 @@ def import_transcripts(
             if on_completion:
                 on_completion(len(accounted_ids), census.sessions, sorted(accounted_ids))
         except (DeliveryPending, ReconciliationRequired, OSError, sqlite3.Error) as exc:
-            outcome.failed += 1
-            if isinstance(exc, DeliveryPending) and exc.retryable:
-                outcome.retryable_failures += 1
-            failure = f"{transcript.agent}/{transcript.session_id} — {stage}: {_failure_message(exc)}"
-            outcome.errors.append(failure)
-            if stop_on_retryable and isinstance(exc, DeliveryPending) and exc.retryable:
-                break
+            # The session file was deleted after the census found it -- usually
+            # by Claude Code's own `cleanupPeriodDays` sweep (see
+            # `_removed_from_machine`), which can land between review and
+            # upload. With nothing of it sent, that is a skip, like
+            # `skipped_legacy`: no resume can bring the file back, so counting
+            # it as a failure only failed the job and mailed "Resume to retry"
+            # every time. A receipt that matches the approved size and hash
+            # finalizes without the file and never reaches here; one that runs
+            # past them needs the file for its proof, so it lands here too, and
+            # the server's longer copy stands untouched.
+            removed = remote is not None and (
+                _removed_from_machine(exc, source_path)
+                or (result is not None and result.source_removed)
+            )
+            if removed:
+                opened = None
+                try:
+                    if journal is None:
+                        journal = opened = Journal(wire.base_url, remote["customer_id"], transcript.agent)
+                    # Fresh receipts: `upload_session` read its own after ours,
+                    # and an upload may have started in between.
+                    removed = not _upload_started(
+                        wire.receipts(transcript.session_id), journal, transcript.session_id,
+                    )
+                except Exception:
+                    # Anything that stops the check (an unreadable or newer
+                    # journal, no answer from the server) leaves it unproved:
+                    # the ordinary failure below, never an error that ends the
+                    # whole import. A journal opened only for this check is
+                    # closed here, so the cleanup below does not read it again.
+                    removed = False
+                    if opened is not None:
+                        with contextlib.suppress(Exception):
+                            opened.close()
+                        journal = None
+            if removed:
+                outcome.skipped_removed += 1
+                note = "Removed from this machine before upload; nothing sent"
+                accounted_ids.add((transcript.agent, transcript.session_id))
+                if on_completion:
+                    on_completion(len(accounted_ids), census.sessions, sorted(accounted_ids))
+            else:
+                outcome.failed += 1
+                if isinstance(exc, DeliveryPending) and exc.retryable:
+                    outcome.retryable_failures += 1
+                failure = f"{transcript.agent}/{transcript.session_id} — {stage}: {_failure_message(exc)}"
+                outcome.errors.append(failure)
+                if stop_on_retryable and isinstance(exc, DeliveryPending) and exc.retryable:
+                    break
         finally:
             cleanup_failure = None
             if journal is not None:
@@ -2243,7 +2353,7 @@ def _execute_census(
             "Session import paused" if incomplete else "Session import finished",
             completed=outcome.uploaded,
             total=outcome.found, uploaded=outcome.uploaded, failed=outcome.failed,
-            skipped_legacy=outcome.skipped_legacy,
+            skipped_legacy=outcome.skipped_legacy, skipped_removed=outcome.skipped_removed,
             **completion,
         )
         if incomplete:

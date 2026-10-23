@@ -16,7 +16,7 @@ from sphinx_needs.exceptions import (
     VariantParsingException,
 )
 from sphinx_needs.filter_common import filter_needs_mutable
-from sphinx_needs.functions.order import filter_names, placeholder
+from sphinx_needs.functions.order import filter_names, placeholder, typed_empty
 from sphinx_needs.logging import WarningSubTypes, get_logger, log_warning
 from sphinx_needs.need_item import NeedItem, NeedModification
 from sphinx_needs.needs_schema import (
@@ -26,6 +26,7 @@ from sphinx_needs.needs_schema import (
     LinkSchema,
     LinksFunctionArray,
     LinksLiteralValue,
+    TypeFieldsSchema,
 )
 from sphinx_needs.utils import DummyOptionSpec, add_doc, coerce_to_boolean, counted_ids
 
@@ -74,7 +75,11 @@ class NeedextendDirective(SphinxDirective):
         options: dict[str, str | None] = self.options
 
         needs_config = NeedsSphinxConfig(self.env.app.config)
-        needs_schema = SphinxNeedsData(self.env).get_schema()
+        # the global view: a needextend may match needs of every type, and none is in
+        # hand here, so its options are checked and converted against the declarations
+        # every need type shares; each matched need is checked against its own type
+        # where it is extended (_refused_on_type)
+        needs_schema = SphinxNeedsData(self.env).get_schema().for_type(None)
 
         try:
             # override global needextend_strict if user set it in the directive
@@ -160,24 +165,9 @@ class NeedextendDirective(SphinxDirective):
                 if isinstance(field_schema, LinkSchema):
                     list_modifications.append((key, etype, LinksLiteralValue([])))
                     continue
-                if field_schema.nullable:
-                    modifications.append((key, etype, None))
-                    continue
-                match field_schema.type:
-                    case "string":
-                        modifications.append((key, etype, FieldLiteralValue("")))
-                    case "boolean":
-                        modifications.append((key, etype, FieldLiteralValue(False)))
-                    case "number":
-                        modifications.append((key, etype, FieldLiteralValue(0.0)))
-                    case "integer":
-                        modifications.append((key, etype, FieldLiteralValue(0)))
-                    case "array":
-                        modifications.append((key, etype, FieldLiteralValue([])))
-                    case other:
-                        self._log_warning(
-                            f"Unknown field type '{other}' for option '{key}'"
-                        )
+                # the value is the need's type's: None where it declares the field
+                # nullable, else the empty value of its type (extend_needs_data)
+                modifications.append((key, etype, None))
             else:
                 if etype == ExtendType.APPEND and field_schema.type not in (
                     "string",
@@ -305,6 +295,8 @@ def extend_needs_data(
         # a fixed order; each need is modified on its own, so nothing depends on it
         targets.append((needextend, sorted(matched)))
 
+    #: (location, need type, option) -> the ids of the needs not extended by it
+    refused: dict[tuple[tuple[str, int], str, str], list[str]] = {}
     current_needextend: NeedsExtendType
     for current_needextend, need_ids in targets:
         for need_id in need_ids:
@@ -320,15 +312,22 @@ def extend_needs_data(
                 current_needextend["docname"],
                 current_needextend["lineno"],
             )
+            # the fields of the need's type: a field it does not allow to extend is
+            # not extended on its needs
+            type_schema = schema.for_type(need["type"])
 
             for option_name, etype, link_value in current_needextend[
                 "list_modifications"
             ]:
+                if _refused_on_type(
+                    type_schema, need, option_name, etype, location, refused
+                ):
+                    continue
                 match (etype, link_value):
                     case (ExtendType.APPEND, LinksLiteralValue()):
-                        if (df := need._dynamic_fields.get(option_name)) is not None:
+                        if (df := _computed_links(need, option_name)) is not None:
                             need._dynamic_fields[option_name] = LinksFunctionArray(
-                                (*df.value, *link_value.value)  # ty: ignore[invalid-argument-type]
+                                (*df.value, *link_value.value)
                             )
                             need[option_name] = []
                         else:
@@ -340,12 +339,12 @@ def extend_needs_data(
                                 ),
                             ]
                     case (ExtendType.APPEND, LinksFunctionArray()):
-                        if (df := need._dynamic_fields.get(option_name)) is not None:
+                        if (df := _computed_links(need, option_name)) is not None:
                             need._dynamic_fields[option_name] = LinksFunctionArray(
                                 (  # keep unique
                                     *df.value,
                                     *(v for v in link_value.value if v not in df.value),
-                                )  # ty: ignore[invalid-argument-type]
+                                )
                             )
                             need[option_name] = []
                         else:
@@ -371,13 +370,17 @@ def extend_needs_data(
                         )
 
             for option_name, etype, field_value in current_needextend["modifications"]:
+                if _refused_on_type(
+                    type_schema, need, option_name, etype, location, refused
+                ):
+                    continue
                 match (etype, field_value):
                     case (ExtendType.APPEND, FieldLiteralValue()):
-                        if (df := need._dynamic_fields.get(option_name)) is not None:
+                        if (df := _computed_field(need, option_name)) is not None:
                             need._dynamic_fields[option_name] = (
-                                FieldFunctionArray((*df.value, *field_value.value))  # ty: ignore[invalid-argument-type]
+                                FieldFunctionArray((*df.value, *field_value.value))
                                 if isinstance(field_value.value, list)
-                                else FieldFunctionArray((*df.value, field_value.value))  # ty: ignore[invalid-argument-type]
+                                else FieldFunctionArray((*df.value, field_value.value))
                             )
                         else:
                             if isinstance(field_value.value, list):
@@ -398,21 +401,21 @@ def extend_needs_data(
                                     f"Cannot append non-string/array value {field_value.value!r} to field '{option_name}'"
                                 )
                     case (ExtendType.APPEND, FieldFunctionArray()):
-                        if (df := need._dynamic_fields.get(option_name)) is not None:
+                        if (df := _computed_field(need, option_name)) is not None:
                             need._dynamic_fields[option_name] = FieldFunctionArray(
-                                (*df.value, *field_value.value)  # ty: ignore[invalid-argument-type]
+                                (*df.value, *field_value.value)
                             )
                         else:
                             if isinstance(need[option_name], list):
                                 need._dynamic_fields[option_name] = FieldFunctionArray(
-                                    (*need[option_name], *field_value.value)  # ty: ignore[invalid-argument-type]
+                                    (*need[option_name], *field_value.value)
                                 )
                             elif isinstance(need[option_name], str):
                                 need._dynamic_fields[option_name] = FieldFunctionArray(
                                     (
                                         need[option_name],
                                         *field_value.value,
-                                    )  # ty: ignore[invalid-argument-type]
+                                    )
                                 )
                             elif need[option_name] is None:
                                 # an unset nullable field: appending sets it
@@ -422,24 +425,90 @@ def extend_needs_data(
                                     f"Cannot append non-string/array value {field_value.value!r} to field '{option_name}'"
                                 )
                             # the value written is part of the call's value now
-                            _hold_placeholder(need, option_name, schema)
+                            _hold_placeholder(need, option_name, type_schema)
                     case (ExtendType.REPLACE | ExtendType.DELETE, None):
-                        if (df := need._dynamic_fields.get(option_name)) is not None:
-                            need._dynamic_fields.pop(option_name, None)
-                        need[option_name] = None
+                        # a deleted field: the empty value the need's type declares
+                        field = type_schema.get_any_field(option_name)
+                        if field is None:
+                            # an extend kept from an earlier build, of a field this
+                            # build's schema does not have: nothing to delete
+                            continue
+                        need._dynamic_fields.pop(option_name, None)
+                        need[option_name] = typed_empty(field)
                     case (ExtendType.REPLACE | ExtendType.DELETE, FieldLiteralValue()):
                         if (df := need._dynamic_fields.get(option_name)) is not None:
                             need._dynamic_fields.pop(option_name, None)
                         need[option_name] = field_value.value
                     case (ExtendType.REPLACE | ExtendType.DELETE, FieldFunctionArray()):
                         need._dynamic_fields[option_name] = field_value
-                        _hold_placeholder(need, option_name, schema)
+                        _hold_placeholder(need, option_name, type_schema)
                     case other_field:
                         raise RuntimeError(
                             f"Unhandled case {other_field} for {option_name!r}"
                         )
 
+    for (location, need_type, option), ids in refused.items():
+        log_warning(
+            logger,
+            f"Option '{option}' does not support extend operations on need type "
+            f"{need_type!r}; it does not extend "
+            f"{counted_ids(ids, ' need' if len(ids) == 1 else ' needs')}.",
+            "needextend",
+            location=location,
+        )
     _report_filters_on_computed_fields(all_needs, targets, needs_config, schema)
+
+
+def _computed_links(need: NeedItem, name: str) -> LinksFunctionArray | None:
+    """The ``[[…]]``, ``<<…>>`` or ``<{…}>`` value a need holds for a link type.
+
+    A need holds its computed values by name, a link type's as a
+    :class:`.LinksFunctionArray` and a field's as a :class:`.FieldFunctionArray`, and no
+    field has a link type's name.
+
+    :raises RuntimeError: if the need holds a field's computed value under the name.
+    """
+    computed = need._dynamic_fields.get(name)
+    if computed is None or isinstance(computed, LinksFunctionArray):
+        return computed
+    raise RuntimeError(f"Link type {name!r} holds a field's value {computed!r}")
+
+
+def _computed_field(need: NeedItem, name: str) -> FieldFunctionArray | None:
+    """The ``[[…]]``, ``<<…>>`` or ``<{…}>`` value a need holds for a field.
+
+    The counterpart of :func:`_computed_links`: no link type has a field's name.
+
+    :raises RuntimeError: if the need holds a link type's computed value under the name.
+    """
+    computed = need._dynamic_fields.get(name)
+    if computed is None or isinstance(computed, FieldFunctionArray):
+        return computed
+    raise RuntimeError(f"Field {name!r} holds a link type's value {computed!r}")
+
+
+def _refused_on_type(
+    type_schema: TypeFieldsSchema,
+    need: NeedItem,
+    option_name: str,
+    etype: ExtendType,
+    location: tuple[str, int],
+    refused: dict[tuple[tuple[str, int], str, str], list[str]],
+) -> bool:
+    """Whether the need's type does not allow to extend the field: then the need is
+    added to ``refused``, reported once for every needextend, need type and option.
+
+    The directive refuses an option whose field does not allow it on any need type;
+    a need type may declare the field anew, or not declare a field declared on need
+    types alone, so each need is checked against its type.
+    """
+    field_schema = type_schema.get_any_field(option_name)
+    if field_schema is None or field_schema.allow_extend:
+        return False
+    refused.setdefault(
+        (location, need["type"], f"{etype.value}{option_name}"), []
+    ).append(need.id)
+    return True
 
 
 def _hold_placeholder(need: NeedItem, option_name: str, schema: FieldsSchema) -> None:

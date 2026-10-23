@@ -43,7 +43,7 @@ from typing import Any
 from matrx_utils import vcprint
 
 from matrx_ai.config.unified_config import UnifiedConfig
-from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
+from matrx_ai.orchestrator.mandate_carrier import HolderCarrier
 from matrx_ai.orchestrator.requests import CompletedRequest
 
 
@@ -107,11 +107,7 @@ async def parallel_execute(
             color="yellow",
         )
 
-    @mandate_carrier_passthrough(
-        "fan-out helper: every config and the metadata that holds it come from the "
-        "caller of execute_parallel_ai_requests."
-    )
-    async def _run_one(idx: int, config: UnifiedConfig) -> None:
+    async def _run_one(idx: int, config: HolderCarrier[UnifiedConfig]) -> None:
         try:
             vcprint(
                 f"[ParallelExecutor] Starting [{idx + 1}/{total}]",

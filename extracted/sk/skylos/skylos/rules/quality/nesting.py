@@ -2,10 +2,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 from skylos.rules.base import SkylosRule
+from skylos.rules.quality._scope import is_non_production_function_scope
 
 RULE_ID = "SKY-Q302"
 
-_BRANCH_NODES = (ast.If, ast.For, ast.While)
+_BRANCH_NODES = (ast.If, ast.For, ast.AsyncFor, ast.While)
 
 
 def _max_depth(nodes, depth=0, is_function_body=False):
@@ -18,11 +19,15 @@ def _max_depth(nodes, depth=0, is_function_body=False):
             branches = []
             if isinstance(node, ast.If):
                 branches.append(node.body)
-                if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+                if (
+                    len(node.orelse) == 1
+                    and isinstance(node.orelse[0], ast.If)
+                    and node.orelse[0].col_offset == node.col_offset
+                ):
                     max_depth = max(max_depth, _max_depth(node.orelse, depth))
                 elif node.orelse:
                     branches.append(node.orelse)
-            elif isinstance(node, (ast.For, ast.While)):
+            elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
                 branches.append(node.body)
                 if node.orelse:
                     branches.append(node.orelse)
@@ -31,8 +36,19 @@ def _max_depth(nodes, depth=0, is_function_body=False):
                 max_depth = max(max_depth, _max_depth(branch, depth + 1))
             continue
 
-        if isinstance(node, ast.With):
-            max_depth = max(max_depth, _max_depth(node.body, depth))
+        if hasattr(ast, "Match") and isinstance(node, ast.Match):
+            # A match is one branching level, like an if; each case body
+            # is one level deeper.
+            for case in node.cases:
+                max_depth = max(max_depth, _max_depth(case.body, depth + 1))
+            continue
+
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            # A with adds no level, so a try directly inside a top-level
+            # with is still a top-level try.
+            max_depth = max(
+                max_depth, _max_depth(node.body, depth, is_function_body)
+            )
             continue
 
         try_types = [ast.Try]
@@ -76,6 +92,8 @@ class NestingRule(SkylosRule):
 
     def visit_node(self, node, context):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return None
+        if is_non_production_function_scope(context):
             return None
 
         depth = _max_depth(node.body, 0, is_function_body=True)

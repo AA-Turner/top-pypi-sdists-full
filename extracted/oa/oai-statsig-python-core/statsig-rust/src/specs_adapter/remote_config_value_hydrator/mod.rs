@@ -7,6 +7,7 @@ use tokio::time::timeout;
 use crate::StatsigErr;
 use crate::networking::{NetworkClient, ResponseData};
 use crate::observability::ops_stats::OpsStatsForInstance;
+use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_adapter::response_format::{
     SpecsResponseFormat, get_specs_response_format, is_legacy_json_no_update_under_protobuf_headers,
 };
@@ -67,11 +68,20 @@ impl RemoteConfigValueHydrator {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn begin_protobuf_hydration<'a>(
         &'a self,
         source_url: &'a str,
     ) -> ProtobufHydrationSession<'a> {
-        protobuf::begin_session(self, source_url)
+        self.begin_protobuf_hydration_with_trigger(source_url, None)
+    }
+
+    pub(crate) fn begin_protobuf_hydration_with_trigger<'a>(
+        &'a self,
+        source_url: &'a str,
+        sync_trigger: Option<SpecsSyncTrigger>,
+    ) -> ProtobufHydrationSession<'a> {
+        protobuf::begin_session(self, source_url, sync_trigger)
     }
 
     /// Build a candidate JSON snapshot using provenance from the same immutable
@@ -83,7 +93,7 @@ impl RemoteConfigValueHydrator {
         context: JsonStoreHydrationContext<'_>,
     ) -> Result<Option<HydratedJsonStoreUpdate>, StatsigErr> {
         let started_at = Instant::now();
-        let mut hydration_result = HydrationResult::new(self);
+        let mut hydration_result = HydrationResult::new_with_trigger(self, context.sync_trigger);
         let result = timeout(
             HYDRATION_TIMEOUT,
             json::hydrate_response_for_store(self, data, context, &mut hydration_result),
@@ -93,9 +103,11 @@ impl RemoteConfigValueHydrator {
         .and_then(|result| result);
         hydration_result.finish(result.as_ref().map(|_| ()));
         match &result {
-            Ok(Some(_)) => self.log_hydration_outcome(started_at, HydrationOutcome::Success),
+            Ok(Some(_)) => {
+                hydration_result.log_hydration_outcome(started_at, HydrationOutcome::Success)
+            }
             Ok(None) => {}
-            Err(_) => self.log_hydration_outcome(started_at, HydrationOutcome::Failure),
+            Err(_) => hydration_result.log_hydration_outcome(started_at, HydrationOutcome::Failure),
         }
         result
     }
@@ -109,6 +121,16 @@ impl RemoteConfigValueHydrator {
         data: &mut ResponseData,
         source_url: &str,
     ) -> Result<(), StatsigErr> {
+        self.hydrate_response_with_trigger(data, source_url, None)
+            .await
+    }
+
+    pub(crate) async fn hydrate_response_with_trigger(
+        &self,
+        data: &mut ResponseData,
+        source_url: &str,
+        sync_trigger: Option<SpecsSyncTrigger>,
+    ) -> Result<(), StatsigErr> {
         // Some legacy DCS responses keep statsig-br headers around a JSON
         // no-update body. Preserve those bytes instead of probing protobuf.
         if is_legacy_json_no_update_under_protobuf_headers(data)? {
@@ -116,7 +138,7 @@ impl RemoteConfigValueHydrator {
         }
 
         let started_at = Instant::now();
-        let mut hydration_result = HydrationResult::new(self);
+        let mut hydration_result = HydrationResult::new_with_trigger(self, sync_trigger);
         let result = timeout(
             HYDRATION_TIMEOUT,
             self.hydrate_response_within_timeout(data, source_url, &mut hydration_result),
@@ -130,11 +152,11 @@ impl RemoteConfigValueHydrator {
         match result {
             Ok(false) => Ok(()),
             Ok(true) => {
-                self.log_hydration_outcome(started_at, HydrationOutcome::Success);
+                hydration_result.log_hydration_outcome(started_at, HydrationOutcome::Success);
                 Ok(())
             }
             Err(error) => {
-                self.log_hydration_outcome(started_at, HydrationOutcome::Failure);
+                hydration_result.log_hydration_outcome(started_at, HydrationOutcome::Failure);
                 Err(error)
             }
         }

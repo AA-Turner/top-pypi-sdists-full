@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekit
-Version: 1.16.30
+Version: 1.16.31
 Summary: Flyte SDK for Python
 Author-email: Flyte Contributors <admin@flyte.org>
 License: Apache-2.0
@@ -42,8 +42,7 @@ Requires-Dist: keyring>=18.0.1
 Requires-Dist: markdown-it-py
 Requires-Dist: marshmallow<4,>=3
 Requires-Dist: marshmallow-enum
-Requires-Dist: marshmallow-jsonschema>=0.12.0
-Requires-Dist: setuptools<82
+Requires-Dist: marshmallow-jsonschema>=0.14.0
 Requires-Dist: mashumaro>=3.15
 Requires-Dist: msgpack>=1.1.0
 Requires-Dist: protobuf!=4.25.0

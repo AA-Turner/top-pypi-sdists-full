@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -43,16 +50,9 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .schema_registry_related import RelatedSchemaRegistry, RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .schema_registry_related import RelatedSchemaRegistry, RelatedSchemaRegistrySubject
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -572,6 +572,7 @@ def _schema_registry_to_nested(schema_registry: SchemaRegistry) -> SchemaRegistr
         is_incomplete=schema_registry.is_incomplete,
         provenance_type=schema_registry.provenance_type,
         home_id=schema_registry.home_id,
+        delete_handler=schema_registry.delete_handler,
         depth=schema_registry.depth,
         immediate_upstream=schema_registry.immediate_upstream,
         immediate_downstream=schema_registry.immediate_downstream,
@@ -620,6 +621,7 @@ def _schema_registry_from_nested(nested: SchemaRegistryNested) -> SchemaRegistry
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -645,10 +647,7 @@ def _schema_registry_from_nested_bytes(data: bytes, serde: Serde) -> SchemaRegis
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 SchemaRegistry.SCHEMA_REGISTRY_SCHEMA_TYPE = KeywordField(
     "schemaRegistrySchemaType", "schemaRegistrySchemaType"

@@ -399,7 +399,9 @@ def get_conversation_forker() -> Any:
 #         async minter(*, sandbox_id: str, base_url: str) -> str | None
 #     ``base_url`` is the binding's ``<orchestrator>/sandboxes/<id>`` so the host
 #     can reach the correct orchestrator/tier. The host ignores kwargs it doesn't
-#     need.
+#     need. A ``local_machine`` binding (a person's computer) additionally passes
+#     ``target_kind="local_machine"`` and ``device_id=...``: the run outlived the
+#     person's login token, and the host mints a credential for that ONE device.
 
 _SANDBOX_TOKEN_MINTER_KEY = "sandbox_token_minter"
 

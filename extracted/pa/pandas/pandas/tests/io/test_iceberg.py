@@ -26,7 +26,7 @@ Catalog = collections.namedtuple("Catalog", ["name", "uri", "warehouse"])
 
 
 @pytest.fixture
-def catalog(request, tmp_path):
+def catalog(request, tmp_path, datapath):
     # the catalog stores the full path of data files, so the catalog needs to be
     # created dynamically, and not saved in pandas/tests/io/data as other formats
     uri = f"sqlite:///{tmp_path}/catalog.sqlite"
@@ -40,9 +40,7 @@ def catalog(request, tmp_path):
     )
     catalog.create_namespace("ns")
 
-    df = pq.read_table(
-        pathlib.Path(__file__).parent / "data" / "parquet" / "simple.parquet"
-    )
+    df = pq.read_table(datapath("io", "data", "parquet", "simple.parquet"))
     table = catalog.create_table("ns.my_table", schema=df.schema)
     table.append(df)
 
@@ -142,6 +140,9 @@ class TestIceberg:
         )
         tm.assert_frame_equal(result, expected)
 
+    @pytest.mark.filterwarnings(
+        "ignore:Delete operation did not match any records:UserWarning"
+    )
     def test_write(self, catalog):
         df = pd.DataFrame(
             {
@@ -160,6 +161,9 @@ class TestIceberg:
         )
         tm.assert_frame_equal(result, df)
 
+    @pytest.mark.filterwarnings(
+        "ignore:Delete operation did not match any records:UserWarning"
+    )
     @pytest.mark.parametrize("catalog", ["default", "pandas_tests"], indirect=True)
     def test_write_by_catalog_name(self, catalog):
         df = pd.DataFrame(

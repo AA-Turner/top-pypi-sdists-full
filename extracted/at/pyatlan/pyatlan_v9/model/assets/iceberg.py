@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -43,6 +50,7 @@ from .dbt_related import (
 )
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
+from .iceberg_related import RelatedIceberg
 from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
@@ -58,14 +66,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .iceberg_related import RelatedIceberg
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -998,6 +998,7 @@ def _iceberg_to_nested(iceberg: Iceberg) -> IcebergNested:
         is_incomplete=iceberg.is_incomplete,
         provenance_type=iceberg.provenance_type,
         home_id=iceberg.home_id,
+        delete_handler=iceberg.delete_handler,
         depth=iceberg.depth,
         immediate_upstream=iceberg.immediate_upstream,
         immediate_downstream=iceberg.immediate_downstream,
@@ -1042,6 +1043,7 @@ def _iceberg_from_nested(nested: IcebergNested) -> Iceberg:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

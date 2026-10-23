@@ -62,3 +62,62 @@ def test_all_lowercase_short_alias_is_refused() -> None:
     mentioned, terms = answer_mentions_target("Go to it, and to HP.", ["it", "hp"])
     assert mentioned is False
     assert terms == []
+
+
+def test_an_everyday_word_name_opening_a_list_item_or_sentence_is_named() -> None:
+    """Break: a list item or sentence that opens with the brand ("1. Render — …", "- Render: …",
+    "Render offers …") read as the everyday word, so the answer counted the brand absent."""
+    from matrx_seo.name_matching import proper_name_match
+
+    for text in (
+        "1. Render — managed hosting",
+        "- Render: good for small teams",
+        "Render offers managed Postgres.",
+        "Render is a hosting platform.",
+        "* **Render**: fast deploys",
+        "- Render\n- Fly",
+    ):
+        assert proper_name_match("Render", text) == "Render", text
+        assert answer_mentions_target(text, ["Render"])[0] is True, text
+    assert answer_mentions_target("Acme is one option.", ["Acme"])[0] is True
+
+
+def test_the_everyday_word_opening_a_sentence_is_still_not_the_name() -> None:
+    from matrx_seo.name_matching import proper_name_match
+
+    for text in ("Render the video at 4k.", "- Render the scene twice", "Stream it tonight."):
+        assert proper_name_match("Render", text) is None, text
+    assert proper_name_match("Render", "Render the page", verbs=()) is None
+    assert proper_name_match("Render", "Render offers hosting", verbs=()) is None  # the knob decides
+
+
+def test_an_everyday_word_name_with_only_a_verb_cue_is_not_the_brand() -> None:
+    """Break: "Monday is the best day to post", "Signal has to be strong", "Linear is fine" each
+    counted as a brand mention — a sentence-opening everyday word plus a verb is how English opens
+    any sentence. A verb cue now needs a second signal."""
+    from matrx_seo.name_matching import proper_name_match
+
+    for term, text in (
+        ("Monday", "Monday is the best day to post."),
+        ("Signal", "Signal has to be strong for the call to work."),
+        ("Linear", "Linear is fine for this regression."),
+    ):
+        assert proper_name_match(term, text) is None, text
+        # the register flags each as an everyday word ("Monday" is a proper noun to the dictionary)
+        assert answer_mentions_target(text, [term], common_word_terms=[term])[0] is False, text
+
+
+def test_a_verb_cue_with_a_second_signal_is_the_brand() -> None:
+    from matrx_seo.name_matching import proper_name_match
+
+    # a product word in the same sentence
+    assert proper_name_match("Linear", "Linear is a project tracking tool.") == "Linear"
+    assert proper_name_match("Signal", "Signal is a messaging app with end-to-end encryption.") == "Signal"
+    # the name written as a domain elsewhere in the text
+    assert proper_name_match("Linear", "Linear is fine.\nSee linear.app for details.") == "Linear"
+    # a tracked competitor named in the same answer
+    text = "1. Jira\n2. Linear is fine for small teams"
+    assert proper_name_match("Linear", text) is None
+    assert proper_name_match("Linear", text, co_terms=["Jira", "Linear"]) == "Linear"
+    # the product words are the knob's, not constants
+    assert proper_name_match("Linear", "Linear is a project tracking tool.", context_words=()) is None

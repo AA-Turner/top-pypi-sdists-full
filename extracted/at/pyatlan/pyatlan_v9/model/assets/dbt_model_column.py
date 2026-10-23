@@ -19,6 +19,15 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.dbt_utils import parse_dbt_env_qualified_name
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +44,12 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .dbt_related import (
+    RelatedDbtModel,
+    RelatedDbtModelColumn,
+    RelatedDbtSeed,
+    RelatedDbtTest,
+)
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -48,19 +63,6 @@ from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_related import RelatedColumn
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .dbt_related import (
-    RelatedDbtModel,
-    RelatedDbtModelColumn,
-    RelatedDbtSeed,
-    RelatedDbtTest,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -336,7 +338,7 @@ class DbtModelColumn(Asset):
     # =========================================================================
 
     _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
+        r"^.+/account/[^/]+/project/[^/]+/env/[^/]+/[^/]+/[^/]+$"
     )
 
     def validate(self, for_creation: bool = False) -> None:
@@ -371,10 +373,11 @@ class DbtModelColumn(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.dbt_model is UNSET:
-                errors.append("dbt_model is required for creation")
-            if self.dbt_model_qualified_name is UNSET:
-                errors.append("dbt_model_qualified_name is required for creation")
+            if self.dbt_model is UNSET and self.dbt_seed is UNSET:
+                errors.append("one of dbt_model, dbt_seed is required for creation")
+            if self.dbt_model is not UNSET:
+                if self.dbt_model_qualified_name is UNSET:
+                    errors.append("dbt_model_qualified_name is required for creation")
         if errors:
             raise ValueError(f"DbtModelColumn validation failed: {errors}")
 
@@ -406,6 +409,50 @@ class DbtModelColumn(Asset):
         if self.guid is not UNSET:
             return RelatedDbtModelColumn(guid=self.guid)
         return RelatedDbtModelColumn(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        model_qualified_name: str | None = None,
+        seed_qualified_name: str | None = None,
+    ) -> "DbtModelColumn":
+        """Create a column of a dbt model or seed: pass exactly one parent."""
+        validate_required_fields(["name"], [name])
+        if (model_qualified_name is None) == (seed_qualified_name is None):
+            raise ValueError(
+                "Exactly one of model_qualified_name or seed_qualified_name is required"
+            )
+        parent_qualified_name = model_qualified_name or seed_qualified_name
+        parent_arg = "model_qualified_name"
+        if model_qualified_name is None:
+            parent_arg = "seed_qualified_name"
+        parsed = parse_dbt_env_qualified_name(parent_qualified_name, parent_arg)
+        connection_qn, connector_name, parent_unique_id = parsed
+        # atlan-dbt-app sets dbtModelQualifiedName to the parent for seeds too.
+        column = cls(
+            name=name,
+            qualified_name=f"{parent_qualified_name}/{name}",
+            connection_qualified_name=connection_qn,
+            connector_name=connector_name,
+            asset_dbt_unique_id=f"{parent_unique_id}/{name}",
+            dbt_model_qualified_name=parent_qualified_name,
+        )
+        if model_qualified_name is not None:
+            column.dbt_model = RelatedDbtModel(qualified_name=model_qualified_name)
+        else:
+            column.dbt_seed = RelatedDbtSeed(qualified_name=seed_qualified_name)
+        return column
+
+    @classmethod
+    def create(cls, **kwargs) -> "DbtModelColumn":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DbtModelColumn":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -818,6 +865,7 @@ def _dbt_model_column_to_nested(
         is_incomplete=dbt_model_column.is_incomplete,
         provenance_type=dbt_model_column.provenance_type,
         home_id=dbt_model_column.home_id,
+        delete_handler=dbt_model_column.delete_handler,
         depth=dbt_model_column.depth,
         immediate_upstream=dbt_model_column.immediate_upstream,
         immediate_downstream=dbt_model_column.immediate_downstream,
@@ -866,6 +914,7 @@ def _dbt_model_column_from_nested(nested: DbtModelColumnNested) -> DbtModelColum
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

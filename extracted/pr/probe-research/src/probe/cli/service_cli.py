@@ -1,12 +1,11 @@
 """`probe service ...`: the machine-wide Probe service, by hand (plan T3).
 
     probe service status [--json]   is it running; its sessions, state and pid
-    probe service start             start it (whatever PROBE_SERVICE says) and
-                                    wait up to 2 s for it to answer
+    probe service start             start it and wait up to 2 s for it to answer
     probe service stop              ask it to stop now
     probe service check-now         ask it to check for updates now (starting it if
                                     needed): what the plugin hook runs instead of
-                                    an updater of its own while the switch is on
+                                    an updater of its own
 
 Thin on purpose: everything is `probe.service.client` over the socket, the
 same calls a tap or the desktop app makes. The service itself never starts
@@ -163,6 +162,23 @@ def check_now_cmd(
     typer.echo(f"probe service: update check {outcome}" + (f" ({reason})" if reason else ""))
 
 
+def _is_active_version(installs) -> bool:
+    """Is THIS version env the one the tool path names now? Read from the
+    versions folder's record (no `uv` call on a CLI start)."""
+    from pathlib import Path
+
+    here = Path(sys.prefix).resolve()
+    root = here.parent.parent  # probe-versions/<v>/probe-research -> probe-versions
+    try:
+        import json
+
+        data = json.loads((root / installs.ACTIVE_NAME).read_text(encoding="utf-8"))
+        tools = Path(data["tools"])
+        return installs.active(tools) == here
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def record_runtime(*, force: bool = False) -> None:
     """Write `runtime.json` (`{"python", "cli_version"}`) when this CLI runs from
     its uv tool env, so a tap or pi can spawn the service with the CLI's own
@@ -174,12 +190,19 @@ def record_runtime(*, force: bool = False) -> None:
     """
     try:
         prefix = sys.prefix.replace(os.sep, "/")
-        from_tool_env = "/uv/tools/probe-research" in prefix
+        from probe._shared import installs
+
+        versioned = installs.running_from_versions(prefix)
+        from_tool_env = "/uv/tools/probe-research" in prefix or versioned
         if not from_tool_env and not force:
             return
         from probe.service import client
 
         if not from_tool_env and client.runtime_python() is not None:
+            return
+        if versioned and not _is_active_version(installs):
+            # A process pinned to an older version (it started before a switch)
+            # must never point the service back at it (plan D6).
             return
         client.write_runtime(sys.executable, _version())
     except Exception:  # noqa: BLE001 -- a missing runtime.json only means the fallback path

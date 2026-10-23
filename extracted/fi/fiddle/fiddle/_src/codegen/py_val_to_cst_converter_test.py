@@ -87,6 +87,7 @@ class PyValToCstConverterTest(parameterized.TestCase):
       ({6}, '{6}'),
       (dict(a=8), "{'a': 8}"),
       ({}, '{}'),
+      (slice(1, 2, 3), 'slice(1, 2, 3)'),
       # Nested containers:
       ([1, (2, {3}), {4: 5, 6: [7]}], '[1, (2, {3}), {4: 5, 6: [7]}]'),
       # Fiddle types:
@@ -129,13 +130,13 @@ class PyValToCstConverterTest(parameterized.TestCase):
   ])
   def test_convert(self, pyval, expected):
     cst_expr = py_val_to_cst_converter.convert_py_val_to_cst(pyval)
-    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])
+    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(_get_cst_code(cst_module), expected + '\n')
 
   def test_convert_multiple_tags(self):
     pyval = fdl.TaggedValue([SampleTag, AnotherTag], 3)
     cst_expr = py_val_to_cst_converter.convert_py_val_to_cst(pyval)
-    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])
+    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(
         _get_cst_code(cst_module), 'AnotherTag.new(SampleTag.new(3))\n')
 
@@ -143,7 +144,7 @@ class PyValToCstConverterTest(parameterized.TestCase):
     pyval = fdl.Config(SampleNamedTuple, x=1)
     fdl.add_tag(pyval, 'x', SampleTag)
     cst_expr = py_val_to_cst_converter.convert_py_val_to_cst(pyval)
-    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])
+    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(
         _get_cst_code(cst_module),
         'fiddle._src.config.Config(SampleNamedTuple, x=SampleTag.new(1))\n',
@@ -151,7 +152,7 @@ class PyValToCstConverterTest(parameterized.TestCase):
 
   def test_convert_empty_set(self):
     cst_expr = py_val_to_cst_converter.convert_py_val_to_cst(set())
-    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])
+    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(_get_cst_code(cst_module), 'set()\n')
 
   def test_convert_unsupported_type(self):
@@ -178,13 +179,13 @@ class PyValToCstConverterTest(parameterized.TestCase):
 
     cst_expr = py_val_to_cst_converter.convert_py_val_to_cst(
         pyval, [custom_converter])
-    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])
+    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(
         _get_cst_code(cst_module),
         "[1, {2: x}, MyFiddleConfig(re.match, pattern='a|b')]\n")
 
     cst_expr = py_val_to_cst_converter.convert_py_val_to_cst(pyval)
-    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])
+    cst_module = cst.Module([cst.SimpleStatementLine([cst.Expr(cst_expr)])])  # pyrefly: ignore[bad-argument-type]
     self.assertEqual(
         _get_cst_code(cst_module),
         "[1, {2: [1]}, fiddle._src.config.Config(re.match, pattern='a|b')]\n",

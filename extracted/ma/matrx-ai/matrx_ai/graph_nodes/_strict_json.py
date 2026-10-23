@@ -63,7 +63,7 @@ from pydantic import BaseModel, ValidationError
 
 from matrx_ai.config.message_config import host_authored_user_turn
 from matrx_ai.graph_nodes.mandates import hold_ambient_workflow_strict_json
-from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
+from matrx_ai.orchestrator.mandate_carrier import HolderCarrier
 from matrx_ai.orchestrator.step_phase import emit_step_phase
 
 logger = logging.getLogger(__name__)
@@ -157,12 +157,6 @@ def _pin(offering_id: str | None) -> dict[str, Any]:
     return {"offering_id": offering_id} if offering_id else {}
 
 
-@mandate_carrier_passthrough(
-    "a generic strict-JSON funnel: its callers (workflow AI nodes, content-plan "
-    "lanes, any internal consumer) supply the Holder on the metadata they pass. "
-    "Stamping one here would LABEL every caller with a mandate that does not hold "
-    "them."
-)
 async def _run_completion(
     messages: list[dict[str, Any]],
     system_text: str,
@@ -173,7 +167,7 @@ async def _run_completion(
     temperature: float | None = None,
     response_format: str | dict[str, Any] | None = None,
     internal_web_search: bool = False,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
 ) -> tuple[str, str | None]:
@@ -215,10 +209,6 @@ async def _run_completion(
     return result.final_text, result.finish_reason
 
 
-@mandate_carrier_passthrough(
-    "the strict-JSON completion funnel resolves workflow_run/workflow_worker through "
-    "workflow.step_intelligence; non-workflow callers supply resolved Holder metadata"
-)
 async def _run_completion_measured(
     messages: list[dict[str, Any]],
     system_text: str,
@@ -229,7 +219,7 @@ async def _run_completion_measured(
     temperature: float | None = None,
     response_format: str | dict[str, Any] | None = None,
     internal_web_search: bool = False,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
 ) -> Any:
@@ -273,14 +263,18 @@ async def _run_completion_measured(
     # strict-JSON caller.
     metadata = await hold_ambient_workflow_strict_json(metadata, model=model)
     config = UnifiedConfig.from_dict(cfg)
-    completed = await execute_ai_request(
-        config,
-        max_iterations=1,
-        max_retries_per_iteration=2,
-        metadata=metadata or None,
-        store=store,
-        conversation_id=conversation_id,
-    )
+    from matrx_ai.config.cache_plan import one_shot_call
+
+    # One turn, no tools: no later call reads this call's cache (config/cache_plan.py).
+    with one_shot_call():
+        completed = await execute_ai_request(
+            config,
+            max_iterations=1,
+            max_retries_per_iteration=2,
+            metadata=metadata or None,
+            store=store,
+            conversation_id=conversation_id,
+        )
     result = await asyncio.to_thread(normalize_completed, completed)
     text = result.final_text or ""
 
@@ -818,10 +812,6 @@ async def llm_stream_messages(
     return text
 
 
-@mandate_carrier_passthrough(
-    "the single-user-turn streaming wrapper forwards its caller's resolved Holder "
-    "metadata to llm_stream_messages"
-)
 async def llm_stream_text(
     *,
     model: str,
@@ -833,7 +823,7 @@ async def llm_stream_text(
     max_tokens: int = 8092,
     temperature: float | None = None,
     response_format: str | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
 ) -> str:
@@ -1055,10 +1045,6 @@ async def llm_messages_to_pydantic_measured(
             ) from second_err
 
 
-@mandate_carrier_passthrough(
-    "the value-only wrapper forwards its caller's resolved Holder metadata to "
-    "llm_messages_to_pydantic_measured"
-)
 async def llm_messages_to_pydantic(
     *,
     model: str,
@@ -1071,7 +1057,7 @@ async def llm_messages_to_pydantic(
     internal_web_search: bool = False,
     api_keys: dict[str, str] | None = None,
     system_run: bool | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
     on_delta: Callable[[str], Awaitable[None]] | None = None,
@@ -1104,10 +1090,6 @@ async def llm_messages_to_pydantic(
     return measured.value
 
 
-@mandate_carrier_passthrough(
-    "the single-message measured wrapper forwards its caller's resolved Holder "
-    "metadata to llm_messages_to_pydantic_measured"
-)
 async def llm_to_pydantic_measured(
     *,
     model: str,
@@ -1120,7 +1102,7 @@ async def llm_to_pydantic_measured(
     internal_web_search: bool = False,
     api_keys: dict[str, str] | None = None,
     system_run: bool | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
     on_delta: Callable[[str], Awaitable[None]] | None = None,
@@ -1155,10 +1137,6 @@ async def llm_to_pydantic_measured(
     )
 
 
-@mandate_carrier_passthrough(
-    "the single-message wrapper forwards its caller's resolved Holder metadata to "
-    "llm_messages_to_pydantic"
-)
 async def llm_to_pydantic(
     *,
     model: str,
@@ -1171,7 +1149,7 @@ async def llm_to_pydantic(
     internal_web_search: bool = False,
     api_keys: dict[str, str] | None = None,
     system_run: bool | None = None,
-    metadata: dict[str, Any] | None = None,
+    metadata: HolderCarrier[dict[str, Any] | None] = None,
     store: bool | None = None,
     conversation_id: str | None = None,
     on_delta: Callable[[str], Awaitable[None]] | None = None,

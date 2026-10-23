@@ -221,6 +221,8 @@ class NearDuplicateContentEvidence(CheckEvidence):
 
 class CanonicalConflictsEvidence(CheckEvidence):
     canonical_url: str | None = None
+    # The page's final address when the canonical names a redirecting hop.
+    redirects_to: str | None = None
 
 
 # ── HTTP status & redirects ──────────────────────────────────────────────────

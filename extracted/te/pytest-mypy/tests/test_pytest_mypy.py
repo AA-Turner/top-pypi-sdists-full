@@ -3,11 +3,10 @@ import sys
 import textwrap
 
 import mypy.version
-from packaging.version import Version
 import pytest
+from packaging.version import Version
 
 import pytest_mypy
-
 
 MYPY_VERSION = Version(mypy.version.__version__)
 PYTEST_VERSION = Version(pytest.__version__)
@@ -66,10 +65,6 @@ def test_mypy_success(testdir, pyfile_count, xdist_args):
     reason="https://github.com/pytest-dev/pytest/pull/10935",
 )
 @pytest.mark.skipif(
-    PYTHON_VERSION < Version("3.10"),
-    reason="PEP 597 was added in Python 3.10.",
-)
-@pytest.mark.skipif(
     PYTHON_VERSION >= Version("3.12") and MYPY_VERSION < Version("1.5"),
     reason="https://github.com/python/mypy/pull/15558",
 )
@@ -82,6 +77,19 @@ def test_mypy_encoding_warnings(testdir, monkeypatch):
     mypy_status_check = 1
     mypy_checks = mypy_file_checks + mypy_status_check
     expected_warnings = 2  # https://github.com/python/mypy/issues/14603
+    if MYPY_VERSION < Version("1.5"):
+        # DeprecationWarning: mypy_extensions.TypedDict is deprecated,
+        # and will be removed in a future version.
+        # Use typing.TypedDict or typing_extensions.TypedDict instead.
+        # https://github.com/python/mypy/pull/15494
+        expected_warnings += 1
+    elif MYPY_VERSION < Version("2.3") and PYTHON_VERSION >= Version("3.15"):
+        # Mypy 2.3 added compiled .so modules for mypy.modulefinder and mypy.build.
+        # https://github.com/python/mypy/pull/21255
+        expected_warnings += 1
+    elif MYPY_VERSION >= Version("2.4"):
+        # https://github.com/python/mypy/pull/21823
+        expected_warnings -= 1
     result.assert_outcomes(passed=mypy_checks, warnings=expected_warnings)
 
 
@@ -699,12 +707,10 @@ def test_mypy_report_style(testdir, xdist_args):
     """Verify that --mypy-report-style functions correctly."""
     module_name = "unmistakable_module_name"
     testdir.makepyfile(
-        **{
-            module_name: """
+        **{module_name: """
             def pyfunc(x: int) -> str:
                 return x * 2
-        """
-        },
+        """},
     )
     result = testdir.runpytest_subprocess("--mypy-report-style", "no-path", *xdist_args)
     mypy_file_checks = 1

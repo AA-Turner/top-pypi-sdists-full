@@ -14,10 +14,19 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, List, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -42,19 +51,12 @@ from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
+from .qlik_related import RelatedQlikApp, RelatedQlikDataset, RelatedQlikSpace
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .qlik_related import RelatedQlikApp, RelatedQlikDataset, RelatedQlikSpace
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -265,6 +267,8 @@ class QlikSpace(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/space/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this QlikSpace instance.
@@ -289,6 +293,11 @@ class QlikSpace(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"QlikSpace validation failed: {errors}")
 
@@ -320,6 +329,38 @@ class QlikSpace(Asset):
         if self.guid is not UNSET:
             return RelatedQlikSpace(guid=self.guid)
         return RelatedQlikSpace(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        qlik_id: str,
+    ) -> "QlikSpace":
+        """Build a Qlik space; qualifiedName is {connection}/space/{qlik_id}."""
+        validate_required_fields(
+            ["name", "connection_qualified_name", "qlik_id"],
+            [name, connection_qualified_name, qlik_id],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/space/{qlik_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            qlik_id=qlik_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "QlikSpace":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "QlikSpace":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -647,6 +688,7 @@ def _qlik_space_to_nested(qlik_space: QlikSpace) -> QlikSpaceNested:
         is_incomplete=qlik_space.is_incomplete,
         provenance_type=qlik_space.provenance_type,
         home_id=qlik_space.home_id,
+        delete_handler=qlik_space.delete_handler,
         depth=qlik_space.depth,
         immediate_upstream=qlik_space.immediate_upstream,
         immediate_downstream=qlik_space.immediate_downstream,
@@ -693,6 +735,7 @@ def _qlik_space_from_nested(nested: QlikSpaceNested) -> QlikSpace:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

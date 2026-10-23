@@ -271,9 +271,18 @@ class _IcebergParserProxy:
         try:
             return self._base.parsePlan(sql)
         except jpype.JException as base_exc:
+            # Spark's base parser rejects CALL statements. When Iceberg SQL extensions
+            # are enabled, fall back to the Iceberg parser and only re-raise the base
+            # exception if the Iceberg parser fails too. This keeps CALL reachable by
+            # SCOS dispatch/forwarding logic.
             try:
                 return self._iceberg.parsePlan(sql)
-            except jpype.JException:
+            except jpype.JException as iceberg_exc:
+                # Prefer the Iceberg exception when the SQL looks like a CALL so we
+                # don't incorrectly claim a generic Spark parse error for a statement
+                # the extensions should own.
+                if sql.lstrip()[:4].upper() == "CALL":
+                    raise iceberg_exc
                 raise base_exc
 
     def parseExpression(self, sql: str) -> TypingAny:

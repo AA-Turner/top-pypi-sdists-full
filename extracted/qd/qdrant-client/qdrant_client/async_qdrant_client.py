@@ -15,6 +15,7 @@ import numpy as np
 from qdrant_client import grpc as grpc
 from qdrant_client.async_client_base import AsyncQdrantBase
 from qdrant_client.common.client_warnings import show_warning_once
+from qdrant_client.common.validation import require_length, vectors_length
 from qdrant_client.conversions import common_types as types
 from qdrant_client.embed.type_inspector import Inspector
 from qdrant_client.http import AsyncApiClient, AsyncApis
@@ -53,6 +54,8 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         url: either host or str of "Optional[scheme], host, Optional[port], Optional[prefix]".
             Default: `None`
         port: Port of the REST API interface. Default: 6333
+            Also used when `url` has no port. Set to `None` to use the scheme's default port
+            (80 for http, 443 for https), for example behind a reverse proxy.
         grpc_port: Port of the gRPC interface. Default: 6334
         prefer_grpc: If `true` - use gPRC interface whenever possible in custom methods.
         https: If `true` - use HTTPS(SSL) protocol. Default: `None`
@@ -1636,6 +1639,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         strict_mode_config: types.StrictModeConfig | None = None,
         metadata: types.Payload | None = None,
         payload: types.PayloadStorageParams | None = None,
+        id_tracker: types.IdTrackerParams | None = None,
         **kwargs: Any,
     ) -> bool:
         """Create empty collection with given parameters
@@ -1649,7 +1653,8 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             sparse_vectors_config:
                 Configuration of the sparse vector storage.
                 The service will create a sparse vector storage for each key in the dict.
-            shard_number: Number of shards in collection. Default is 1, minimum is 1.
+            shard_number: Number of shards in collection. If not specified, selected automatically.
+                Minimum is 1.
             sharding_method:
                 Defines strategy for shard creation.
                 Option `auto` (default) creates defined number of shards automatically.
@@ -1685,6 +1690,9 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             payload:
                 Configuration of the payload storage, e.g. the memory placement of the payload.
                 Overrides the deprecated `on_disk_payload` flag if both are set.
+            id_tracker:
+                Configuration of the point id tracker, e.g. the memory placement of the mapping
+                of point ids in indexed segments.
 
         Returns:
             Operation result
@@ -1707,6 +1715,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             strict_mode_config=strict_mode_config,
             metadata=metadata,
             payload=payload,
+            id_tracker=id_tracker,
             **kwargs,
         )
 
@@ -1728,6 +1737,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         strict_mode_config: types.StrictModeConfig | None = None,
         metadata: types.Payload | None = None,
         payload: types.PayloadStorageParams | None = None,
+        id_tracker: types.IdTrackerParams | None = None,
         **kwargs: Any,
     ) -> bool:
         """Delete and create empty collection with given parameters
@@ -1741,7 +1751,8 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             sparse_vectors_config:
                 Configuration of the sparse vector storage.
                 The service will create a sparse vector storage for each key in the dict.
-            shard_number: Number of shards in collection. Default is 1, minimum is 1.
+            shard_number: Number of shards in collection. If not specified, selected automatically.
+                Minimum is 1.
             sharding_method:
                 Defines strategy for shard creation.
                 Option `auto` (default) creates defined number of shards automatically.
@@ -1777,6 +1788,9 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             payload:
                 Configuration of the payload storage, e.g. the memory placement of the payload.
                 Overrides the deprecated `on_disk_payload` flag if both are set.
+            id_tracker:
+                Configuration of the point id tracker, e.g. the memory placement of the mapping
+                of point ids in indexed segments.
 
         Returns:
             Operation result
@@ -1804,6 +1818,7 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             strict_mode_config=strict_mode_config,
             metadata=metadata,
             payload=payload,
+            id_tracker=id_tracker,
             **kwargs,
         )
 
@@ -1829,10 +1844,10 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             collection_name:  Name of the collection to upload to
             points: Iterator over points to upload
             batch_size: How many vectors upload per-request, Default: 64
-            parallel: Number of parallel processes of upload
-            method: Start method for parallel processes, Default: forkserver
+            parallel: Number of parallel processes of upload, 0 means all available cores
+            method: Start method for parallel processes, Default: forkserver, spawn on macOS
             max_retries: maximum number of retries in case of a failure
-                during the upload of a batch
+                during the upload of a batch, 0 means a single attempt without retries
             wait:
                 Await for the results to be applied on the server side.
                 If `true`, each update request will explicitly wait for the confirmation of completion. Might be slower.
@@ -1905,10 +1920,10 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
             payload: Iterable of vectors payload, Optional, Default: None
             ids: Iterable of custom vectors ids, Optional, Default: None
             batch_size: How many vectors upload per-request, Default: 64
-            parallel: Number of parallel processes of upload
-            method: Start method for parallel processes, Default: forkserver
+            parallel: Number of parallel processes of upload, 0 means all available cores
+            method: Start method for parallel processes, Default: forkserver, spawn on macOS
             max_retries: maximum number of retries in case of a failure
-                during the upload of a batch
+                during the upload of a batch, 0 means a single attempt without retries
             wait:
                 Await for the results to be applied on the server side.
                 If `true`, each update request will explicitly wait for the confirmation of completion. Might be slower.
@@ -1926,6 +1941,10 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
                 yield from iterable
 
         assert len(kwargs) == 0, f"Unknown arguments: {list(kwargs.keys())}"
+        num_vectors = vectors_length(vectors)
+        if num_vectors is not None:
+            ids = require_length(ids, num_vectors, "ids")
+            payload = require_length(payload, num_vectors, "payload")
         if not self.cloud_inference:
             if not isinstance(vectors, dict) and (not isinstance(vectors, np.ndarray)):
                 requires_inference = False
@@ -2521,19 +2540,28 @@ class AsyncQdrantClient(AsyncQdrantFastembedMixin):
         return await self._client.remove_peer(peer_id, force=force, timeout=timeout, **kwargs)
 
     async def get_optimizations(
-        self, collection_name: str, completed_limit: int | None = None, **kwargs: Any
+        self,
+        collection_name: str,
+        completed_limit: int | None = None,
+        with_: types.OptimizationsWith | Sequence[types.OptimizationsWith] | None = None,
+        **kwargs: Any,
     ) -> types.OptimizationsResponse:
         """Get progress of ongoing and completed optimizations for a collection.
 
         Args:
             collection_name: Name of the collection
-            completed_limit: Maximum number of completed optimizations to return
+            completed_limit: Maximum number of completed optimizations to return.
+                Implies `"completed"` in `with_`
+            with_: Optional field or fields to include in the response:
+                `"queued"` - estimated queue of pending optimizations,
+                `"completed"` - completed optimizations,
+                `"idle_segments"` - segments that don't require optimization
 
         Returns:
             types.OptimizationsResponse: Optimizations progress for the collection
         """
         return await self._client.get_optimizations(
-            collection_name=collection_name, completed_limit=completed_limit, **kwargs
+            collection_name=collection_name, completed_limit=completed_limit, with_=with_, **kwargs
         )
 
     async def list_shard_keys(

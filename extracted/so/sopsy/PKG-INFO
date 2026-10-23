@@ -1,26 +1,25 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: sopsy
-Version: 1.2.1
+Version: 1.3.0
 Summary: SOPS Python wrapper library
-Project-URL: Changelog, https://sopsy.nikaro.net/changelog/
-Project-URL: Homepage, https://sopsy.nikaro.net
-Project-URL: Issues, https://github.com/nikaro/sopsy/issues
-Project-URL: Repository, https://github.com/nikaro/sopsy
+Keywords: sops
+Author: Nicolas Karolak
 Author-email: Nicolas Karolak <nicolas@karolak.fr>
 License: MIT
-License-File: LICENSE
-Keywords: sops
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
-Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: pyyaml>=6.0.3
+Requires-Python: >=3.9
+Project-URL: Changelog, https://sopsy.nikaro.net/changelog/
+Project-URL: Homepage, https://sopsy.nikaro.net
+Project-URL: Issues, https://todo.sr.ht/~nka/sopsy
+Project-URL: Repository, https://git.sr.ht/~nka/sopsy
 Description-Content-Type: text/markdown
 
 # SOPSy
@@ -28,11 +27,10 @@ Description-Content-Type: text/markdown
 [![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fgithub.com%2Fnikaro%2Fsopsy%2Fraw%2Fmain%2Fpyproject.toml)](https://www.python.org/downloads/)
 [![PyPI - Version](https://img.shields.io/pypi/v/sopsy)](https://pypi.org/project/sopsy/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/sopsy)](https://pypi.org/project/sopsy/#files)
-[![build](https://github.com/nikaro/sopsy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nikaro/sopsy/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/github/nikaro/sopsy/graph/badge.svg?token=DEVPQ8M6C4)](https://codecov.io/github/nikaro/sopsy)
+[![builds.sr.ht status](https://builds.sr.ht/~nka/sopsy.svg)](https://builds.sr.ht/~nka/sopsy?)
 [![Ceasefire Now](https://badge.techforpalestine.org/default)](https://techforpalestine.org/learn-more)
 
-SOPSy is a simple Python wrapper arround [SOPS](https://github.com/getsops/sops).
+SOPSy is a simple Python wrapper around [SOPS](https://github.com/getsops/sops).
 
 ## Installation
 

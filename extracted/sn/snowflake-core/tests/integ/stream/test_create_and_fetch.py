@@ -1,7 +1,7 @@
 import time
 
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -77,7 +77,7 @@ def test_create_by_table_stream_pot(streams, src_temp_table):
 def test_create_by_table_timestamp_pot(streams, src_temp_table):
     stream_name = random_string(10, "test_pot_timestamp_")
     time.sleep(1)
-    epoch = int(datetime.now(timezone.utc).timestamp())
+    epoch = int(datetime.now(UTC).timestamp())
     time.sleep(1)
     pot = PointOfTimeTimestamp(reference="at", timestamp=f"TO_TIMESTAMP_TZ({epoch})")
     try:

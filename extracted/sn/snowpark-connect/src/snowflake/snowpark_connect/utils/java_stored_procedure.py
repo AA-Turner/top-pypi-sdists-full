@@ -27,6 +27,7 @@ from snowflake.snowpark_connect.resources_initializer import (
     ensure_scala_udf_jars_uploaded,
 )
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 from snowflake.snowpark_connect.utils.sql_quoting import quote_single
 from snowflake.snowpark_connect.utils.upload_java_jar import (
@@ -291,7 +292,8 @@ def _create_java_udf_native_app(session: Session, function_name: str, java_class
     stage and referenced via snowpark.connect.udf.java.imports as relative paths.
     addArtifact JARs are silently ignored — they are not included in IMPORTS for this path.
     """
-    db = session.get_current_database()
+    with scos_internal_query_tag():
+        db = session.get_current_database()
     if not db:
         raise ValueError("A current database must be set when using native app mode")
     qualified_proc_name = f"{db}.{NATIVE_APP_VERSIONED_SCHEMA}.{PROCEDURE_NAME}"

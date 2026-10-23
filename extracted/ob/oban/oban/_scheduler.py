@@ -6,7 +6,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import orjson
@@ -134,6 +134,16 @@ def register_scheduled(cron: str | dict, worker_cls: type) -> None:
     _scheduled_entries.append(entry)
 
 
+def build_scheduler(
+    config: dict[str, Any], *, leader: Leader, notifier: Notifier, query: Query
+) -> Looper:
+    """Build the scheduler described by an Oban ``scheduler`` config.
+
+    The default for the ``scheduler.build`` extension.
+    """
+    return Scheduler(leader=leader, notifier=notifier, query=query, **config)
+
+
 @dataclass(slots=True, frozen=True)
 class Expression:
     input: str
@@ -171,9 +181,10 @@ class Expression:
                 rmax = int(rmax)
 
                 if rmin > rmax:
-                    raise ValueError(
-                        f"min of range ({rmin}) must be less than or equal to max"
-                    )
+                    raise ValueError(f"min {rmin} must be less than or equal to max")
+
+                if rmin < min(allowed) or rmax > max(allowed):
+                    raise ValueError(f"range {part} is out of range: {allowed}")
 
                 return set(range(rmin, rmax + 1))
             case _:

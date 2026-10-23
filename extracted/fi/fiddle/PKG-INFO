@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fiddle
-Version: 0.3.0
+Version: 0.3.1
 Summary: Fiddle: A Python-first configuration library
 Home-page: https://github.com/google/fiddle
 Author: The Fiddle Team
@@ -16,20 +16,48 @@ Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Provides-Extra: flags
-Provides-Extra: testing
 License-File: LICENSE
+Requires-Dist: absl-py
+Requires-Dist: graphviz
+Requires-Dist: libcst
+Requires-Dist: typing-extensions
+Provides-Extra: flags
+Requires-Dist: absl-py; extra == "flags"
+Requires-Dist: etils[epath]; extra == "flags"
+Provides-Extra: testing
+Requires-Dist: cloudpickle; extra == "testing"
+Requires-Dist: fiddle[flags]; extra == "testing"
+Requires-Dist: flax; extra == "testing"
+Requires-Dist: graphviz; extra == "testing"
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: seqio; (python_version < "3.13" and sys_platform != "darwin") and extra == "testing"
+Requires-Dist: tfds_nightly>=4.9.2.dev202308090034; (python_version < "3.13" and sys_platform != "darwin") and extra == "testing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 # Fiddle

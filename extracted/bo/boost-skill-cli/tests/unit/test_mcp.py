@@ -1751,14 +1751,16 @@ class TestDoctorToolOnStoreDirsBoostDidNotInstall:
 
     def test_a_corrupt_lock_is_the_users_to_restore(self, installed):
         from boost_cli.commands import configuration
-        from boost_cli.core import paths
+        from boost_cli.core import lockfile, paths
         paths.lockfile_path().write_text("{oops", encoding="utf-8")
         text, is_error = configuration._tool_doctor({})
-        assert ("the lock file is corrupt — ask the user to restore it with "
-                "`boost replay`") in text
+        # One install, so no snapshot before it: nothing to roll back to.
+        assert not lockfile.has_history()
+        fix = "rebuild it from the store with `boost sync --rebuild-lock`"
+        assert ("the lock file is corrupt — ask the user to %s" % fix) in text
         assert ("1 store dir the lock file cannot be read about (brainstorming) "
-                "— `boost replay` restores the lock that knows whose they "
-                "are") in text
+                "— %s, and it will know whose they are" % fix) in text
+        assert "boost replay" not in text
         # Neither is sync's to fix, so the verdict must not prescribe it.
         assert ("2 issue(s) — 2 are the user's to change, and `boost sync` "
                 "leaves them") in text
@@ -1775,8 +1777,9 @@ class TestDoctorToolOnStoreDirsBoostDidNotInstall:
         raw["version"] = 4
         lock.write_text(json.dumps(raw), encoding="utf-8")
         text, is_error = configuration._tool_doctor({})
-        assert ("the lock file is schema v4, not v3 — ask the user to restore "
-                "it with `boost replay`") in text
+        assert ("the lock file is schema v4, newer than this boost's v3 — ask "
+                "the user to upgrade boost with `boost self-update`") in text
+        assert "boost replay" not in text
         assert ("1 issue(s) — 1 is the user's to change, and `boost sync` "
                 "leaves it") in text
         assert "healthy" not in text and is_error is True
@@ -2147,3 +2150,74 @@ class TestReadLine:
                 raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
 
         assert mcp.read_line(NotUtf8()) == (None, False)
+
+
+class TestSearchAndListOnACorruptConfig:
+    """boost_search and boost_list read a corrupt config.json as "nothing is
+    tapped" and told the agent to run `boost tap --defaults` — a write that
+    moves the user's file aside and leaves a tap list holding only the
+    defaults. They now say what boost_doctor says, in its words."""
+
+    ERR = "/x/config.json: invalid JSON"
+    SENTENCE = ("/x/config.json: invalid JSON — boost is running on defaults, "
+                "so the user's taps are not listed; ask the user to repair the "
+                "file or re-add their taps (run `boost doctor` for details)")
+
+    def test_config_problem_is_the_doctor_sentence(self):
+        assert mcp.config_problem(self.ERR) == self.SENTENCE
+
+    def test_no_results_names_the_file_not_the_setup_command(self):
+        assert mcp.no_results("widgets", tapped=0, config_error=self.ERR) == (
+            "nothing was searched: " + self.SENTENCE + ".")
+
+    def test_it_outranks_every_other_branch(self):
+        for kw in ({"tapped": 3}, {"tapped": 3, "dropped": ["R"]},
+                   {"tapped": 3, "ignored": True}):
+            assert mcp.no_results("R", config_error=self.ERR, **kw) == (
+                "nothing was searched: " + self.SENTENCE + ".")
+
+    def test_no_error_keeps_the_old_replies(self):
+        assert mcp.no_results("widgets", tapped=4, config_error=None) == \
+            "no skills match 'widgets'"
+        assert "boost tap --defaults" in mcp.no_results(
+            "widgets", tapped=0, config_error="")
+
+    def test_coverage_line_names_the_file(self):
+        line = mcp.coverage_line({"skill": {"a": {}}}, tapped=0,
+                                 config_error=self.ERR)
+        assert line == ("1 skill · 0 rules · 0 workflows installed here. "
+                        + self.SENTENCE + ".")
+
+    def test_coverage_line_without_an_error_is_unchanged(self):
+        assert "boost tap --defaults" in mcp.coverage_line(
+            {"skill": {}}, tapped=0, config_error=None)
+
+    def test_the_tools_carry_it_end_to_end(self, sandbox):
+        from boost_cli.commands import configuration
+        from boost_cli.core import paths
+        paths.ensure_dirs()
+        paths.config_path().write_text("{not json", encoding="utf-8")
+        for text, is_error in (configuration._tool_search({"query": "testing"}),
+                               configuration._tool_list({})):
+            assert is_error is False
+            assert "invalid JSON" in text and "config.json" in text
+            assert "repair the file or re-add their taps" in text
+            assert "boost tap --defaults" not in text
+
+
+class TestBlankNameIsRefused:
+    """boost_info and boost_install treated a missing name as a lookup for
+    '' — install even offered three "closest matches". Every tool whose
+    schema requires a name now refuses a blank one the way boost_read did."""
+
+    def test_the_sentence(self):
+        assert mcp.needs_name("boost_info") == (
+            "boost_info needs a name — pass one as boost_search returned it")
+
+    @pytest.mark.parametrize("tool", ["boost_info", "boost_install",
+                                      "boost_read"])
+    @pytest.mark.parametrize("args", [{}, {"name": "   "}, {"name": ""}])
+    def test_each_tool_refuses_it(self, sandbox, tool, args):
+        from boost_cli.commands import configuration
+        handler = getattr(configuration, "_tool_" + tool.removeprefix("boost_"))
+        assert handler(args) == (mcp.needs_name(tool), True)

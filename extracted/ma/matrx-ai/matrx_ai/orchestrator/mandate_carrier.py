@@ -86,7 +86,7 @@ from __future__ import annotations
 import inspect
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, TypeVar
 
 from matrx_utils import vcprint
 
@@ -290,8 +290,7 @@ def _record(
             + ")"
         )
     try:
-        pending = record_error(
-            error,
+        fields: dict[str, Any] = dict(
             kind=kind,
             error_type=kind,
             error_text=str(error),
@@ -317,6 +316,12 @@ def _record(
                 ],
             },
         )
+        try:
+            # ONE open row per code path, every sighting counted on it (``context.occurrences``), across every
+            # process and deploy. A host door without grouping (a client host) still records, one row each.
+            pending = record_error(error, group_open=True, **fields)
+        except TypeError:
+            pending = record_error(error, **fields)
         if inspect.isawaitable(pending):
             import asyncio
 
@@ -395,6 +400,9 @@ def note_mandate_carrier(
             return record
         signature = (caller, model)
         if signature in _REPORTED:
+            # Banner once per process; every sighting is still COUNTED on the site's one open row
+            # (``_record`` → ``record_error(group_open=True)``: ``context.occurrences``).
+            _record(caller=caller, model=model, spec_type=spec_type, ctx=ctx)
             return record
         _REPORTED.add(signature)
 
@@ -642,36 +650,39 @@ def reset_reported_signatures() -> None:
     _REPORTED.clear()
 
 
-# ── The declared pass-through ───────────────────────────────────────────────
+# ── The typed Holder carrier ────────────────────────────────────────────────
 
 
-def mandate_carrier_passthrough(reason: str):
-    """DECLARE that this function's Holder is supplied by its caller.
+class HolderCarrierMarker:
+    """Metadata object that makes ``HolderCarrier[...]`` recognizable.
 
-    The static half of the same idea ``aidream.services.mandates.carriers``
-    already carries for mandate keys: some ``execute_ai_request`` callers are
-    generic funnels (``llm_messages_to_pydantic``, ``Agent.execute``, the chat
-    task body, the parallel executor). Their Holder legitimately arrives as
-    DATA — on the metadata they were handed, or on the AppContext their caller
-    stamped — so no literal at that line could ever be honest.
-
-    Declaring it does three things a silent pass-through does not: it names the
-    reason in the code, it lets
-    ``scripts/check_runtime_mandate_carriers.py`` tell "declared pass-through"
-    apart from "nobody thought about it", and it keeps the runtime gate above
-    as the real check — a declared pass-through that is handed NOTHING still
-    records ``mandate_bypass_runtime``, naming the caller that forgot.
-
-    Inert at runtime: it returns the function unchanged with one attribute set.
+    Deliberately inert: Pydantic ignores ``Annotated`` metadata it does not
+    understand and FastAPI keeps only its own, so typing a parameter
+    ``HolderCarrier[...]`` changes no behavior anywhere.
     """
-    if not reason or not reason.strip():
-        raise ValueError(
-            "mandate_carrier_passthrough requires a reason naming WHO supplies "
-            "the Holder at this call site"
-        )
 
-    def decorate(func):
-        func.__mandate_carrier_passthrough__ = reason.strip()
-        return func
+    __slots__ = ()
 
-    return decorate
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return "HolderCarrier"
+
+
+HOLDER_CARRIER_MARKER = HolderCarrierMarker()
+
+_Carried = TypeVar("_Carried")
+
+#: A parameter DECLARED to carry the Holder of the AI call it feeds, as data:
+#: the ``metadata`` a generic funnel is handed (``mandate_key`` /
+#: ``mandate_holder``), a ``HeldCall`` from ``hold_code_call``, the
+#: ``UnifiedConfig`` a router resolved, the agent id stamped on the
+#: AppContext. Some ``execute_ai_request`` callers are generic funnels
+#: (``llm_messages_to_pydantic``, ``Agent.execute``, the chat task body, the
+#: parallel executor) whose Holder can never be a literal at that line; the
+#: type on the parameter says WHICH value carries it.
+#:
+#: ``scripts/check_mandate_call_sites.py`` reads the annotation, and the
+#: runtime gate above stays the real check: a carrier that arrives EMPTY still
+#: records ``mandate_bypass_runtime``, naming the caller that forgot. This
+#: replaces the retired ``@mandate_carrier_passthrough`` decorator, which
+#: declared a whole function instead of the value.
+HolderCarrier = Annotated[_Carried, HOLDER_CARRIER_MARKER]

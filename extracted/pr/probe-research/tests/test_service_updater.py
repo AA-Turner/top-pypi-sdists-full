@@ -24,6 +24,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -31,7 +32,8 @@ import pytest
 
 import probe
 from probe.service import appupdate, barrier, client, paths
-from probe.service.protocol import Method, Mode
+from probe.service import updater
+from probe.service.protocol import Method, Mode, StopReason
 from tests.service_fakes import (
     FakeCore,
     autoupdate_state,
@@ -649,23 +651,6 @@ def _load_hook():
     return module
 
 
-@pytest.mark.parametrize("env", [None, "on", "ON", "1", "true", "yes", "off", "0", "no", "bogus", ""])
-@pytest.mark.parametrize("config", [None, {"service": "on"}, {"service": True}, {"service": "off"}, {"service": 1}, []])
-def test_the_hook_reads_the_switch_as_the_service_client_does(tmp_path, monkeypatch, env, config):
-    hook = _load_hook()
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-    target = tmp_path / "probe-config.json"
-    monkeypatch.setenv("PROBE_CONFIG_PATH", str(target))
-    if config is not None:
-        target.write_text(json.dumps(config))
-    if env is None:
-        monkeypatch.delenv("PROBE_SERVICE", raising=False)
-    else:
-        monkeypatch.setenv("PROBE_SERVICE", env)
-    assert hook._service_on() is client.enabled()
-
-
 def _fake_probe(bin_dir: Path, service_exit: int) -> Path:
     bin_dir.mkdir(parents=True, exist_ok=True)
     path = bin_dir / "probe"
@@ -694,7 +679,6 @@ def _fake_probe(bin_dir: Path, service_exit: int) -> Path:
 def test_the_hook_asks_the_service_and_falls_back_to_the_wizard(tmp_path, monkeypatch, service_exit, calls):
     hook = _load_hook()
     probe_bin = _fake_probe(tmp_path / "bin", service_exit)
-    monkeypatch.setenv("PROBE_SERVICE", "on")
     monkeypatch.setattr(hook, "_autoupdate_settings", lambda: {"enabled": True})
     hook._spawn_autoupdate(str(probe_bin))
     log = tmp_path / "bin" / "calls.log"
@@ -703,46 +687,32 @@ def test_the_hook_asks_the_service_and_falls_back_to_the_wizard(tmp_path, monkey
     assert [json.loads(line) for line in log.read_text().splitlines()] == calls
 
 
-def test_the_hook_spawns_the_wizard_update_when_the_switch_is_off(tmp_path, monkeypatch):
-    hook = _load_hook()
-    probe_bin = _fake_probe(tmp_path / "bin", 0)
-    monkeypatch.setenv("PROBE_SERVICE", "off")
-    monkeypatch.setattr(hook, "_autoupdate_settings", lambda: {"enabled": True})
-    hook._spawn_autoupdate(str(probe_bin))
-    log = tmp_path / "bin" / "calls.log"
-    assert wait_for(log.exists, 10.0)
-    time.sleep(0.3)
-    assert [json.loads(line) for line in log.read_text().splitlines()] == [["wizard", "--action", "update", "--yes"]]
-
-
-@pytest.mark.parametrize("switch", ["on", "off", None])
-def test_the_cli_asks_the_service_instead_of_spawning_an_updater(monkeypatch, switch):
+def test_the_cli_asks_the_service_instead_of_spawning_an_updater(monkeypatch):
     import types
 
     cli_main = importlib.import_module("probe.cli.main")  # the module (`probe.cli.main` is also a function)
     spawned: list = []
-    if switch is None:  # the default: no variable, no config key
-        monkeypatch.delenv("PROBE_SERVICE", raising=False)
-    else:
-        monkeypatch.setenv("PROBE_SERVICE", switch)
     fake = types.SimpleNamespace(
         Popen=lambda argv, **_kw: spawned.append(("service", argv, None)), DEVNULL=subprocess.DEVNULL
     )
     monkeypatch.setattr(cli_main, "subprocess", fake)
     monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: spawned.append(("detached", argv, env)))
+    from probe.service import client as service_client
+
+    monkeypatch.setattr(service_client, "runtime_python", lambda: sys.executable)
     cli_main._spawn_update("--apply-if-newer", trigger="session_start")
-    ((how, argv, env),) = spawned
-    if switch == "on":
-        assert how == "service"
-        assert argv == [
-            sys.executable, "-I", "-m", "probe.service.client", "check-now", "--trigger", "session",
-            "--wait-for-pid", str(os.getpid()),
-        ]
-    else:
-        # Off, or never set: the spawn it always was.
-        assert how == "detached" and argv == [sys.executable, "-m", "probe.cli.version_refresh", "--apply-if-newer"]
-        assert env["PROBE_AUTOUPDATE_WAIT_PID"] == str(os.getpid())
-        assert env["PROBE_AUTOUPDATE_TRIGGER"] == "session_start"
+    ((how, argv, _env),) = spawned
+    assert how == "service"
+    assert argv == [
+        sys.executable, "-I", "-m", "probe.service.client", "check-now", "--trigger", "session",
+        "--wait-for-pid", str(os.getpid()),
+    ]
+    # An install the service cannot start from (no runtime.json, no uv tool
+    # env: pip, pipx) keeps the old updater, or its updates would be dropped.
+    spawned.clear()
+    monkeypatch.setattr(service_client, "runtime_python", lambda: None)
+    cli_main._spawn_update("--apply-if-newer", trigger="session_start")
+    assert [how for how, _, _ in spawned] == ["detached"]
 
 
 def test_check_now_waits_for_the_command_that_asked(service_home, machine):
@@ -791,3 +761,398 @@ def test_an_update_child_that_wrote_no_done_failed(service_home, machine):
         _check_now(conn)
         done = _done(conn)[-1]
     assert done["steps"]["cli_and_plugins"]["state"] == "failed" and done["ok"] is False
+
+
+# -- busy machines still update (plan D7, D12, D13, D33, D11, D14) ------------------
+
+#: A stand-in `probe daemon worker`: holds its session's lock, says it takes
+#: requests (the marker the updater reads its pid from), and on SIGTERM leaves
+#: at once when its `.handover` marker is fresh, as the real one does at its
+#: next model round; without it, it would drain its queue (here: never leaves).
+_WORKER = r"""
+import fcntl, json, os, signal, sys, time
+state, sid, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+lock = open(os.path.join(state, "daemon", sid + ".lock"), "a")
+fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+marker = os.path.join(state, "reads", "requests", sid)
+os.makedirs(marker, exist_ok=True)
+with open(os.path.join(marker, ".worker.json"), "w") as f:
+    json.dump({"pid": os.getpid(), "requests": 1}, f)
+handover = os.path.join(state, "daemon", sid + ".handover")
+stopping = {"on": False}
+def term(*_):
+    stopping["on"] = True
+signal.signal(signal.SIGTERM, term)
+open(os.path.join(state, sid + ".ready"), "w").close()
+while True:
+    time.sleep(0.05)
+    if stopping["on"] and mode == "hands-over":
+        try:
+            fresh = time.time() - os.stat(handover).st_mtime < 10
+        except OSError:
+            fresh = False
+        if fresh:
+            open(os.path.join(state, sid + ".handed-over"), "w").close()
+            sys.exit(0)
+"""
+
+
+#: Stands in for `tap watch`, the supervisor every live session's worker runs
+#: under: the updater tells a live session's worker from one finishing an ended
+#: session's queue by its parent.
+_SUPERVISOR = r"""
+import subprocess, sys
+child = subprocess.Popen(sys.argv[3:])
+sys.exit(child.wait())
+"""
+
+
+def _spawn_worker(state: Path, sid: str, mode: str, *, supervised: bool = True) -> subprocess.Popen:
+    """A stand-in worker; `supervised`: under a stand-in `tap watch` (its session
+    live), else straight under this test (its session ended)."""
+    (state / "daemon").mkdir(parents=True, exist_ok=True)
+    script = state.parent / f"worker-{sid}.py"
+    script.write_text(_WORKER)
+    argv = [sys.executable, str(script), str(state), sid, mode, "daemon", "worker"]
+    if supervised:
+        supervisor = state.parent / "supervisor.py"
+        supervisor.write_text(_SUPERVISOR)
+        argv = [sys.executable, str(supervisor), "tap", "watch", *argv]
+    proc = subprocess.Popen(argv)
+    assert wait_for(lambda: (state / f"{sid}.ready").exists(), 10.0)
+    return proc
+
+
+def _register_daemon(conn, sid, owner, state_dir=None):
+    params = {"sid": sid, "harness": "test", "mode": Mode.DAEMON, "owner": owner, "generation": 1}
+    if state_dir is not None:
+        params["state_dir"] = str(state_dir)
+    conn.call(Method.SESSION_REGISTER, params)
+
+
+@no_real_app
+def test_a_worker_hands_over_and_the_update_runs_without_waiting_for_its_session(service_home, machine):
+    machine.plan("version", stdout={"cli_version": "0.1.0", "cli_latest": "9.9.9"})  # a newer CLI is out
+    state = service_home.home / ".local" / "state" / "probe"
+    worker = _spawn_worker(state, "s-busy", "hands-over")
+    agent, owner = spawn_agent()
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _register_daemon(conn, "s-busy", owner, state)
+            assert _check_now(conn)["outcome"] == "started"
+            seen = _done(conn, timeout=30.0)
+        assert seen[-1]["deferred"] is None, service_home.log()
+        assert worker.wait(timeout=10) == 0  # the stand-in tap watch exits with its worker
+        assert (state / "s-busy.handed-over").exists()
+        (call,) = machine.calls("update")
+        assert call["barrier"]  # the barrier went up only after the worker left
+        # The session goes on: nothing waited for it to end, and nothing is held now.
+        assert pid_running(agent.pid)
+        assert not barrier.hold_path().exists()
+        assert not (state / "daemon" / "s-busy.handover").exists()
+    finally:
+        worker.kill()
+        kill_agent(agent)
+
+
+def test_a_worker_that_will_not_hand_over_defers_and_lets_workers_start_again(service_home, machine, monkeypatch):
+    monkeypatch.setenv("PROBE_SERVICE_WORKER_STOP_S", "1")
+    state = service_home.home / ".local" / "state" / "probe"
+    worker = _spawn_worker(state, "s-stuck", "drains")
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            assert _done(conn, timeout=30.0)[-1]["deferred"] == "daemon_recording"
+        assert machine.calls("update") == []
+        assert not barrier.workers_held()
+    finally:
+        worker.kill()
+
+
+def test_new_workers_come_back_later_while_the_running_ones_hand_over(service_home):
+    from probe import _entry
+
+    token = "w" * 32
+    barrier.hold_workers(token)  # this test process stands in for the service
+    try:
+        assert _entry._update_barrier(["daemon", "worker", "--session-id", "s"]) == barrier.WORKER_BUSY_EXIT_CODE
+        assert _entry._update_barrier(["log", "loss", "0.1"]) is None  # every other command runs on
+    finally:
+        barrier.release_workers(token)
+    assert _entry._update_barrier(["daemon", "worker", "--session-id", "s"]) is None
+
+
+@pytest.mark.parametrize("held", ["runs/r-1.flock", "daemon/s-old.lock"])
+def test_a_day_of_deferral_ends_in_an_update(service_home, machine, monkeypatch, held):
+    """A run that never ends, or a worker that cannot be asked (no pid: an
+    older worker), defers at most DEFER_LIMIT_S; then the update goes ahead."""
+    monkeypatch.setenv("PROBE_SERVICE_DEFER_LIMIT_S", "1")
+    lock = _hold(service_home.home / ".local" / "state" / "probe" / held)
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            first = _done(conn)[-1]["deferred"]
+            assert first in ("run_in_flight", "daemon_recording")
+            assert conn.call(Method.UPDATE_STATUS)["deferred_since"] is not None
+            time.sleep(1.2)
+            _check_now(conn)
+            last = _done(conn)[-1]
+        assert last["deferred"] is None, service_home.log()
+        assert last["steps"]["cli_and_plugins"]["forced"] == first
+        assert machine.calls("update")
+        with service_home.connect() as conn:
+            assert conn.call(Method.UPDATE_STATUS)["deferred_since"] is None
+    finally:
+        lock.close()
+
+
+def test_a_session_s_own_state_dir_is_looked_in(service_home, machine, tmp_path):
+    """A session run with XDG_STATE_HOME names its state folder when it
+    registers (D13): its worker's lock is found there, and a daemon session
+    whose folder holds no worker defers nothing."""
+    other = Path(tempfile.mkdtemp(prefix="xdg-", dir=service_home.home)) / "probe"
+    agent, owner = spawn_agent()
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _register_daemon(conn, "s-xdg", owner, other)
+            lock = _hold(other / "wizard.lock")
+            try:
+                _check_now(conn)
+                assert _done(conn)[-1]["deferred"] == "setup_running"
+            finally:
+                lock.close()
+        assert machine.calls("update") == []
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            assert _done(conn)[-1]["deferred"] is None, service_home.log()
+        assert machine.calls("update")
+    finally:
+        kill_agent(agent)
+
+
+def test_the_update_child_gets_the_login_shell_s_path_and_settings(service_home, machine, monkeypatch):
+    """The service's own environment is clean (X2); the update child's PATH and
+    proxy come from the login shell, read for it (D11, D14)."""
+    shell = service_home.home / "bin" / "fake-login-shell"
+    shell.parent.mkdir(parents=True, exist_ok=True)
+    shell.write_text(
+        "#!/bin/sh\n"
+        "# called as: fake-login-shell -ilc <script>\n"
+        "export HTTPS_PROXY=http://proxy.example:3128\n"
+        "export UV_INDEX_URL=https://mirror.example/simple\n"
+        "export PATH=/opt/nvm/bin:$PATH\n"
+        'echo "a profile banner"\n'
+        'exec /bin/sh -c "$2"\n'
+    )
+    shell.chmod(0o755)
+    monkeypatch.setenv("SHELL", str(shell))
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+        _check_now(conn)
+        _done(conn)
+    (call,) = machine.calls("update")
+    assert call["env"]["HTTPS_PROXY"] == "http://proxy.example:3128"
+    assert call["env"]["UV_INDEX_URL"] == "https://mirror.example/simple"
+    assert call["env"]["PATH"].split(":")[0] == "/opt/nvm/bin"
+    assert str(service_home.home / ".local" / "bin") in call["env"]["PATH"].split(":")
+    # Never stored: not in the service's own files.
+    for path in paths.service_dir().rglob("*"):
+        if path.is_file():
+            assert b"proxy.example" not in path.read_bytes(), path
+
+
+def test_a_hook_waits_for_the_barrier_only_until_its_own_deadline(service_home, monkeypatch):
+    from probe import _entry
+
+    token = "d" * 32
+    barrier.raise_barrier(token)
+    try:
+        monkeypatch.setenv(barrier.DEADLINE_ENV, str(time.time() + 1.0))
+        started = time.monotonic()
+        assert _entry._update_barrier(["hook", "x"]) == barrier.BUSY_EXIT_CODE
+        assert time.monotonic() - started < 2.0  # not WAIT_S (10 s)
+        monkeypatch.setenv(barrier.DEADLINE_ENV, str(time.time() - 5))
+        assert barrier.budget() == 0.0
+        # Inherited by a job the hook left running, long after: an ordinary wait.
+        monkeypatch.setenv(barrier.DEADLINE_ENV, str(time.time() - 3600))
+        assert barrier.budget() == barrier.WAIT_S
+        monkeypatch.setenv(barrier.DEADLINE_ENV, "not a number")
+        assert barrier.budget() == barrier.WAIT_S
+    finally:
+        barrier.lower(token)
+
+
+def test_a_forced_update_tells_the_child_so_it_does_not_defer_again(service_home, machine, monkeypatch):
+    """After DEFER_LIMIT_S the cycle decided to update past a live run; the
+    child's own run check must not undo that (D33)."""
+    monkeypatch.setenv("PROBE_SERVICE_DEFER_LIMIT_S", "1")
+    lock = _hold(service_home.home / ".local" / "state" / "probe" / "runs" / "r-1.flock")
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            _done(conn)
+            time.sleep(1.2)
+            _check_now(conn)
+            _done(conn)
+    finally:
+        lock.close()
+    (call,) = machine.calls("update")
+    assert call["env"]["PROBE_UPDATE_FORCED"] == "run_in_flight"
+
+
+def test_the_child_skips_its_run_check_only_when_the_service_forced_it(monkeypatch, tmp_path):
+    from probe.cli import upgrading
+
+    assert upgrading.FORCED_ENV == "PROBE_UPDATE_FORCED"
+    from probe.service import updater
+
+    assert updater.FORCED_ENV == upgrading.FORCED_ENV
+
+
+def test_a_cli_start_waits_for_a_barrier_from_before_the_machine_key(service_home, monkeypatch):
+    """The service that installs this code ran the older code: its barrier is
+    in the shared folder (`paths.legacy_barrier_path`)."""
+    from probe import _entry
+
+    from probe.service import procid
+
+    record = {"pid": os.getpid(), "start_time": procid.start_time(os.getpid()), "token": "o" * 32,
+              "created_at": time.time()}
+    paths.private_dir(paths.root_dir())
+    paths.legacy_barrier_path().write_text(json.dumps(record))
+    monkeypatch.setattr(barrier, "WAIT_S", 0.2)
+    try:
+        assert _entry._update_barrier(["log", "loss", "1"]) == barrier.BUSY_EXIT_CODE
+    finally:
+        paths.legacy_barrier_path().unlink()
+    assert _entry._update_barrier(["log", "loss", "1"]) is None
+
+
+def test_with_the_cli_current_the_workers_run_on_and_only_plugins_update(service_home, machine):
+    """Nothing new for the env the workers run from: they are never stopped (D7)."""
+    machine.plan("version", stdout={"cli_version": probe.__version__, "cli_latest": probe.__version__})
+    state = service_home.home / ".local" / "state" / "probe"
+    worker = _spawn_worker(state, "s-current", "hands-over")
+    agent, owner = spawn_agent()
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _register_daemon(conn, "s-current", owner, state)
+            _check_now(conn)
+            assert _done(conn, timeout=30.0)[-1]["deferred"] is None, service_home.log()
+        (call,) = machine.calls("update")
+        assert call["env"]["PROBE_UPDATE_SKIP_CLI"] == "1"
+        assert worker.poll() is None and not (state / "s-current.handed-over").exists()
+    finally:
+        worker.kill()
+        kill_agent(agent)
+
+
+def test_the_worker_of_an_ended_session_finishes_its_queue_untouched(service_home, machine):
+    """No successor would take over its queue: it is waited for, never stopped."""
+    machine.plan("version", stdout={"cli_version": "0.1.0", "cli_latest": "9.9.9"})
+    state = service_home.home / ".local" / "state" / "probe"
+    worker = _spawn_worker(state, "s-ended", "hands-over", supervised=False)  # its tap watch is gone
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            assert _done(conn, timeout=30.0)[-1]["deferred"] == "daemon_recording"
+        assert machine.calls("update") == []
+        assert worker.poll() is None and not (state / "s-ended.handed-over").exists()
+    finally:
+        worker.kill()
+
+
+def test_a_run_that_just_started_is_not_updated_under_after_a_day_of_worker_waits(service_home, machine, monkeypatch):
+    """Each reason's own 24 h: a day of waiting on a worker does not override a
+    run that started a minute ago (D33)."""
+    monkeypatch.setenv("PROBE_SERVICE_DEFER_LIMIT_S", "3600")
+    state = service_home.home / ".local" / "state" / "probe"
+    machine.plan("version", stdout={"cli_version": "0.1.0", "cli_latest": "9.9.9"})
+    record = json.loads(paths.update_state_path().read_text()) if paths.update_state_path().exists() else {"v": 1}
+    record["deferred_since"] = {"daemon_recording": time.time() - 7200}
+    paths.update_state_path().parent.mkdir(parents=True, exist_ok=True)
+    paths.update_state_path().write_text(json.dumps(record))
+    lock = _hold(state / "runs" / "r-new.flock")
+    worker = _spawn_worker(state, "s-gone", "drains", supervised=False)
+    try:
+        service_home.start()
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            assert _done(conn)[-1]["deferred"] == "run_in_flight"
+            since = conn.call(Method.UPDATE_STATUS)["deferred_since"]
+        assert machine.calls("update") == []
+        assert since is not None
+    finally:
+        lock.close()
+        worker.kill()
+
+
+def test_a_plugins_only_update_is_a_success_not_a_failed_cli_step():
+    from probe.cli import upgrading
+
+    res = upgrading.cli_left_alone("1.2.3")
+    assert (res.ok, res.changed, res.before, res.after) == (True, False, "1.2.3", "1.2.3")
+
+
+def test_the_first_switch_waits_for_a_quiet_machine(monkeypatch):
+    """It moves the folder every running process reads through (Codex R2 #1)."""
+    from probe._shared import installs
+
+    monkeypatch.setattr(installs, "usable", lambda tools=None: True)
+    monkeypatch.setattr(installs, "needs_migration", lambda tools=None: True)
+    assert updater.side_by_side() is False
+    monkeypatch.setattr(installs, "needs_migration", lambda tools=None: False)
+    assert updater.side_by_side() is True
+
+
+def test_a_moved_worker_is_asked_for_long_enough(tmp_path, monkeypatch):
+    """The service exits right after asking: the hand-over marker is dated
+    ahead by the stop window, so a worker whose model round outlasts 10 s
+    still hands over (Codex R2 #10)."""
+    import time as _time
+
+    state = tmp_path / "state"
+    worker = _spawn_worker(state, "s-1", "hands-over")
+    try:
+        monkeypatch.setattr(updater, "_is_worker", lambda pid, sid: True)
+        assert updater.hand_over_workers([state]) == 1
+        marker = state / "daemon" / "s-1.handover"
+        assert marker.stat().st_mtime > _time.time() + updater.WORKER_STOP_S - 60
+        assert worker.wait(timeout=10) == 0
+    finally:
+        worker.kill()
+
+
+def test_the_guard_starts_when_the_service_really_stops(monkeypatch):
+    """Not when the cycle ends: a running action defers the stop, and a guard
+    started then reads the still-serving service as one that will not go
+    (critic R2 #6)."""
+    spawned = []
+    u = updater.Updater(version="0.1.0", emit=lambda *a: None, changed=lambda: None, stop=lambda r: None,
+                        action_running=lambda: False, discovering=lambda: False)
+    monkeypatch.setattr(u, "_spawn_guard", spawned.append)
+    u.before_exit(StopReason.UPDATE)
+    assert spawned == [], "no switch, no guard"
+    u.guard_pending = "0.2.0"  # the cycle switched; its restart waits for an action
+    assert spawned == []
+    u.before_exit("tap_update")  # stopped first for another reason: the next one is the new version all the same
+    assert spawned == ["0.2.0"] and u.guard_pending is None
+    u.before_exit(StopReason.UPDATE)
+    assert spawned == ["0.2.0"]

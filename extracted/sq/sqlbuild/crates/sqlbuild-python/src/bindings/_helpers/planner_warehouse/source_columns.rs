@@ -1,6 +1,8 @@
 //! Warehouse source relation listing and column gathering for planning.
 
 use crate::bindings::_helpers::boundary::python_calls::call_with;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::source_reads;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_phases::objects::{frozenset, text, tuple};
 use crate::bindings::_helpers::planner_warehouse::constants::{
@@ -19,9 +21,9 @@ fn entries_of<'py>(
 ) -> PyResult<Vec<Bound<'py, PyAny>>> {
     match source_entries.filter(|entries| !entries.is_none()) {
         Some(entries) => entries.try_iter()?.collect(),
-        None => native_field(project, "sources")?
+        None => project_reads::sources(project)?
             .try_iter()?
-            .map(|source| native_field(&source?, "source_entry"))
+            .map(|source| source_reads::source_entry(&source?))
             .collect(),
     }
 }
@@ -197,8 +199,6 @@ pub(crate) fn source_inspection<'py>(
     Ok((result, frozenset(py, &listed)?))
 }
 
-#[pyfunction]
-#[pyo3(signature = (*, project, adapter, connection, source_entries))]
 pub(crate) fn gather_source_inspection<'py>(
     project: &Bound<'py, PyAny>,
     adapter: &Bound<'py, PyAny>,

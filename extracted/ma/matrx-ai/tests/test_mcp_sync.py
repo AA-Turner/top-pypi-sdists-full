@@ -217,7 +217,7 @@ async def test_catalog_reconciliation_sets_named_actor_gucs_on_its_rpc_connectio
     assert recording_connection.calls[-1] == ("execute", "COMMIT", ())
     method, sql, args = recording_connection.calls[rpc_index]
     assert method == "fetchval"
-    assert sql == 'SELECT "public"."tool_register_mcp_discovered"($1, $2::jsonb)'
+    assert sql == 'SELECT "tool"."tool_register_mcp_discovered"($1, $2::jsonb)'
     assert args == ("6a1f0000-0000-0000-0000-000000000001", "[]")
 
 

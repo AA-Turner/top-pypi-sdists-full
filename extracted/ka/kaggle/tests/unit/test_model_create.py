@@ -9,13 +9,14 @@ import sys
 sys.path.insert(0, "../..")
 
 from kaggle.api.kaggle_api_extended import KaggleApi
+from kaggle.models.kaggle_models_extended import ResumableUploadResult
 from kagglesdk.models.types.model_enums import ModelFramework, ModelInstanceType
 from kagglesdk.models.types.model_api_service import (
     ApiCreateModelResponse,
     ApiCreateModelRequest,
     ApiUpdateModelRequest,
 )
-from kagglesdk.blobs.types.blob_api_service import ApiBlobType
+from kagglesdk.blobs.types.blob_api_service import ApiBlobType, ApiStartBlobUploadResponse
 
 
 class TestModelCreate(unittest.TestCase):
@@ -324,6 +325,44 @@ class TestModelCreate(unittest.TestCase):
 
             self.assertIsNotNone(request.update_mask)
             self.assertEqual(list(request.update_mask.paths), ["overview", "usage"])
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_update_omits_unset_overview_and_usage_from_mask(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.models.model_api_client.update_model_instance.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_instance_metadata()  # no overview or usage key
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            self.api.model_instance_update(tmpdir)
+
+            request = mock_kaggle.models.model_api_client.update_model_instance.call_args[0][0]
+
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(list(request.update_mask.paths), ["license_name"])
+
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_update_empty_overview_and_usage_are_masked(self, mock_client):
+        mock_kaggle = MagicMock()
+        mock_kaggle.models.model_api_client.update_model_instance.return_value = MagicMock()
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+
+        metadata = self._get_valid_instance_metadata()
+        metadata["overview"] = ""
+        metadata["usage"] = ""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._write_metadata(tmpdir, metadata)
+            self.api.model_instance_update(tmpdir)
+
+            request = mock_kaggle.models.model_api_client.update_model_instance.call_args[0][0]
+
+            self.assertIsNotNone(request.update_mask)
+            self.assertEqual(list(request.update_mask.paths), ["overview", "usage", "license_name"])
 
     def _get_valid_model_metadata(self):
         return {
@@ -747,6 +786,53 @@ class TestModelInstanceVersionCreate(unittest.TestCase):
             self.assertTrue(call_args[5])
             self.assertEqual(call_args[6], "zip")
             self.assertEqual(call_args[7], ignore_patterns)
+
+    def _mock_kaggle_client(self, mock_client):
+        """Wires build_kaggle_client so that blob uploads can be driven end to end."""
+        mock_kaggle = MagicMock()
+        started = []
+
+        def start_blob_upload(request):
+            started.append(request)
+            response = ApiStartBlobUploadResponse()
+            response.create_url = "http://upload-url/%d" % len(started)
+            response.token = "token-%d" % len(started)
+            return response
+
+        mock_kaggle.blobs.blob_api_client.start_blob_upload.side_effect = start_blob_upload
+        mock_client.return_value.__enter__ = MagicMock(return_value=mock_kaggle)
+        mock_client.return_value.__exit__ = MagicMock(return_value=False)
+        return mock_kaggle
+
+    @patch.object(KaggleApi, "upload_complete")
+    @patch.object(KaggleApi, "build_kaggle_client")
+    def test_model_instance_version_create_upload_failure_aborts(self, mock_client, mock_upload_complete):
+        mock_kaggle = self._mock_kaggle_client(mock_client)
+
+        def upload_complete(path, url, quiet, resume=False):
+            if os.path.basename(path) == "weights.bin":
+                return ResumableUploadResult.FAILED
+            return ResumableUploadResult.COMPLETE
+
+        mock_upload_complete.side_effect = upload_complete
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for file_name in ("config.json", "weights.bin"):
+                with open(os.path.join(tmpdir, file_name), "w", encoding="utf-8") as f:
+                    f.write("data")
+
+            with patch("kaggle.api.kaggle_api_extended.tempfile.gettempdir", return_value=tmpdir):
+                with self.assertRaises(ValueError) as context:
+                    self.api.model_instance_version_create(
+                        "testuser/test-model/keras/test-instance",
+                        tmpdir,
+                        version_notes="test version",
+                        quiet=True,
+                    )
+
+        # A version missing one of its files must never be created.
+        self.assertIn("Upload unsuccessful: weights.bin", str(context.exception))
+        mock_kaggle.models.model_api_client.create_model_instance_version.assert_not_called()
 
 
 if __name__ == "__main__":

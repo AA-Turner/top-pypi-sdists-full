@@ -7,7 +7,7 @@
 //!   * `convert(irsb, manager)` -- fallback that walks a cached pyvex Python
 //!     `IRSB` object via PyO3 attribute access.
 //!
-//! Both share one conversion core ([`Conv`]) over the [`IrReader`] trait;
+//! Both share one conversion core (`Conv`) over the `IrReader` trait;
 //! only the IR-reading layer differs.
 
 use std::collections::{HashMap, HashSet};
@@ -925,6 +925,7 @@ impl<'py, 'r, R: IrReader> Conv<'py, 'r, R> {
                 | Some("CmpLT")
                 | Some("CmpGE")
                 | Some("CmpGT")
+                | Some("CmpORD")
                 | Some("Div")
                 | Some("DivMod")
                 | Some("Mod")
@@ -1710,8 +1711,8 @@ impl<'py, 'r, R: IrReader> Conv<'py, 'r, R> {
                         condition: Arc::new(g),
                         true_target: Some(CFGTarget::Expr(Arc::new(d))),
                         false_target: None, // filled in right afterwards
-                        true_target_idx: None,
-                        false_target_idx: None,
+                        true_target_idx: 0,
+                        false_target_idx: 0,
                     },
                 ));
                 Ok(true)
@@ -1996,7 +1997,7 @@ impl<'py, 'r, R: IrReader> Conv<'py, 'r, R> {
                     self.tags(),
                     StmtInner::Jump {
                         target: CFGTarget::Expr(Arc::new(target)),
-                        target_idx: None,
+                        target_idx: 0,
                     },
                 ));
             }
@@ -2075,7 +2076,7 @@ impl<'py, 'r, R: IrReader> Conv<'py, 'r, R> {
             addr,
             original_size: self.reader.block_size(),
             statements: py_stmts.unbind(),
-            idx: None,
+            idx: 0,
             cached_hash: CachedHash::new(),
         })
     }

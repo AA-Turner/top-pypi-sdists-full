@@ -177,7 +177,7 @@ class TaggingTest(parameterized.TestCase):
 
   def test_tagged_value_error_message(self):
     cfg = fdl.Config(Foo)
-    cfg.bar = tagging.TaggedValue(tags={tst.ParameterDType})  # pytype: disable=annotation-type-mismatch  # use-fiddle-overlay
+    cfg.bar = tagging.TaggedValue(tags={tst.ParameterDType})
     with self.assertRaisesRegex(
         TypeError,
         (
@@ -503,7 +503,7 @@ class TaggingTest(parameterized.TestCase):
 
     for fn in (fdl.add_tag, fdl.set_tags, fdl.remove_tag):
       with self.assertRaisesRegex(IndexError, ".*is out of range"):
-        fn(cfg, 3, Tag1)
+        fn(cfg, 3, Tag1)  # pyrefly: ignore[bad-argument-type]
 
     for fn in (fdl.get_tags, fdl.clear_tags):
       with self.assertRaisesRegex(IndexError, ".*is out of range"):
@@ -514,7 +514,7 @@ class TaggingTest(parameterized.TestCase):
 
     for fn in (fdl.add_tag, fdl.set_tags, fdl.remove_tag):
       with self.assertRaisesRegex(IndexError, "Cannot use negative index"):
-        fn(cfg, -1, Tag1)
+        fn(cfg, -1, Tag1)  # pyrefly: ignore[bad-argument-type]
 
     for fn in (fdl.get_tags, fdl.clear_tags):
       with self.assertRaisesRegex(IndexError, "Cannot use negative index"):
@@ -547,7 +547,7 @@ class TaggingTest(parameterized.TestCase):
 
     with self.subTest("tagged_field_with_value"):
       cfg = fdl.Config(DataclassAnnotated)
-      cfg.one = fdl.TaggedValue([Tag2], 3)  # pytype: disable=annotation-type-mismatch  # use-fiddle-overlay
+      cfg.one = fdl.TaggedValue([Tag2], 3)
       self.assertEqual(frozenset([Tag1, Tag2]), fdl.get_tags(cfg, "one"))
       cfg2 = flatten_unflatten(cfg)
       self.assertEqual(frozenset([Tag1, Tag2]), fdl.get_tags(cfg2, "one"))

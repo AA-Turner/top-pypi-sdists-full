@@ -766,7 +766,9 @@ class OpenApiResponseHeader:
         """JSON Schema validator for this header."""
         if self._validator is NOT_SET:
             self._validator = self.adapter.jsonschema_validator_cls(
-                self.schema, validate_formats=True, pattern_options=FANCY_REGEX_OPTIONS
+                self.schema,
+                validate_formats=True,
+                pattern_options=FANCY_REGEX_OPTIONS,
             )
         assert not isinstance(self._validator, NotSet)
         return self._validator

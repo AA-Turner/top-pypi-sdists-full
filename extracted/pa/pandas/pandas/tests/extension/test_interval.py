@@ -16,26 +16,21 @@ be added to the array-specific tests in `pandas/tests/arrays/`.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import numpy as np
 import pytest
 
 from pandas.core.dtypes.dtypes import IntervalDtype
 
-from pandas import Interval
+import pandas as pd
 from pandas.core.arrays import IntervalArray
 from pandas.tests.extension import base
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 def make_data(n: int):
     left_array = np.random.default_rng(2).uniform(size=n).cumsum()
     right_array = left_array + np.random.default_rng(2).uniform(size=n)
     return [
-        Interval(left, right)
+        pd.Interval(left, right)
         for left, right in zip(left_array, right_array, strict=True)
     ]
 
@@ -83,8 +78,11 @@ def data_for_grouping():
 class TestIntervalArray(base.ExtensionTests):
     divmod_exc = TypeError
 
+    def _honors_copy_keyword(self, data) -> bool:
+        return False
+
     def _supports_reduction(self, ser: pd.Series, op_name: str) -> bool:
-        return op_name in ["min", "max"]
+        return op_name in ["min", "max", "count"]
 
     def test_fillna_limit_frame(self, data_missing):
         # GH#58001
@@ -103,19 +101,9 @@ class TestIntervalArray(base.ExtensionTests):
     def test_fillna_length_mismatch(self, data_missing):
         super().test_fillna_length_mismatch(data_missing)
 
-    @pytest.mark.xfail(reason="copy=False is not Implemented")
-    def test_fillna_readonly(self, data_missing):
-        super().test_fillna_readonly(data_missing)
-
-    @pytest.mark.filterwarnings(
-        "ignore:invalid value encountered in cast:RuntimeWarning"
-    )
     def test_hash_pandas_object(self, data):
         super().test_hash_pandas_object(data)
 
-    @pytest.mark.filterwarnings(
-        "ignore:invalid value encountered in cast:RuntimeWarning"
-    )
     def test_hash_pandas_object_works(self, data, as_frame):
         super().test_hash_pandas_object_works(data, as_frame)
 
@@ -126,9 +114,6 @@ class TestIntervalArray(base.ExtensionTests):
     def test_EA_types(self, engine, data, request):
         super().test_EA_types(engine, data, request)
 
-    @pytest.mark.filterwarnings(
-        "ignore:invalid value encountered in cast:RuntimeWarning"
-    )
     def test_astype_str(self, data):
         super().test_astype_str(data)
 
@@ -139,9 +124,18 @@ class TestIntervalArray(base.ExtensionTests):
     def test_loc_setitem_with_expansion_preserves_ea_index_dtype(self, data):
         super().test_loc_setitem_with_expansion_preserves_ea_index_dtype(data)
 
+    @pytest.mark.xfail(
+        raises=AssertionError,
+        reason="IntervalArray does not support roundtrip as Interval cannot be created "
+        "from dictionary created in JSON serialization",
+    )
+    def test_json_roundtrip(self, data):
+        # GH 65127
+        # IntervalArray does not support roundtrip as Interval cannot be created from
+        # dictionary created in JSON serialization
+        super().test_json_roundtrip(data)
 
-# TODO: either belongs in tests.arrays.interval or move into base tests.
-def test_fillna_non_scalar_raises(data_missing):
-    msg = "can only insert Interval objects and NA into an IntervalArray"
-    with pytest.raises(TypeError, match=msg):
-        data_missing.fillna([1, 1])
+    def test_plot_on_y_axis(self, plot_data):
+        # IntervalArray cannot be plotted on y-axis
+        with pytest.raises(TypeError, match="no numeric data to plot"):
+            super().test_plot_on_y_axis(plot_data)

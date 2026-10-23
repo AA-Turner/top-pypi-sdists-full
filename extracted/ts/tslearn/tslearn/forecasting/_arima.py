@@ -101,7 +101,7 @@ def _varma_next(X, residuals, ar_coeffs, ma_coeffs, intercept):
         ar_forecast += np.dot(X[:, n_samples - k - 1], ar_coeffs[k])
     ma_forecast = np.zeros((n_ts, n_features_in))
     for k in range(ma_coeffs.shape[0]):
-        ma_forecast += np.dot(residuals[:, k], ma_coeffs[k])
+        ma_forecast += np.dot(residuals[:, -k - 1], ma_coeffs[k])
 
     intercept = np.zeros(n_features_in) if intercept.shape[0] == 0 else intercept
 
@@ -296,7 +296,7 @@ class VARIMA(TimeSeriesMixin, BaseEstimator, BaseModelPackage):
         ma_start_params = compute_var(self.q, residuals)[1]
 
         return np.concatenate(
-            (constant_params, ar_start_params.T.ravel(), ma_start_params.T.ravel())
+            (constant_params, ar_start_params.ravel(), ma_start_params.ravel())
         )
 
     def _unravel_params(self, params, n_features_in=None):
@@ -339,9 +339,11 @@ class VARIMA(TimeSeriesMixin, BaseEstimator, BaseModelPackage):
         return _loss(X, intercept, ar_coeffs, ma_coeffs)
 
     def _undifference(self, initial_values, prediction):
+        # x_t = (d-th difference of x_t) - sum_{k=1..d} (-1)^k C(d, k) x_{t-k},
+        # where initial_values[:, -d:] holds x_{t-d}, ..., x_{t-1}
         _ = np.array(
             [
-                (-(1 ** (j + 1))) * scipy.special.binom(j + 1, self.d)
+                (-1) ** (self.d - j) * scipy.special.binom(self.d, j)
                 for j in range(self.d)
             ]
         )

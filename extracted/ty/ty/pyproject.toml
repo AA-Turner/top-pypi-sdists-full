@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.90"
+version = "0.0.91"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -136,6 +136,9 @@ build-constraint-dependencies = [
         "sha256:ff2983983d34813c1aeb0fa89091e76c3a22889ee83ab27c5eeb45100560c049",
     ] },
 ]
+
+[tool.uv.exclude-newer-package]
+certifi = "2026-10-20T02:24:17Z"
 
 [tool.uv.dependency-groups]
 dev = {requires-python = ">=3.12"}

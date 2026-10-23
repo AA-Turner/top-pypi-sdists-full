@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: udtools
-Version: 0.2.8
+Version: 0.2.9
 Summary: Python tools for Universal Dependencies
 Author: Filip Ginter, Sampo Pyysalo, Daniel Zeman, Milan Straka, Martin Popel, Gosse Bouma, John Bauer, Arianna Masciolini, Ludovica Pannitto
 Maintainer-email: Daniel Zeman <zeman@ufal.mff.cuni.cz>

@@ -464,6 +464,9 @@ def _run_scan_command(
         def run_main_analysis(progress_callback=None):
             return run_analyze(
                 scan_path,
+                all_advice=bool(
+                    getattr(args, "all_advice", False) or getattr(args, "select", None)
+                ),
                 conf=args.confidence,
                 enable_secrets=bool(args.secrets),
                 enable_danger=bool(args.danger),
@@ -1051,6 +1054,9 @@ def _run_scan_command(
         result.setdefault("analysis_summary", {})["finding_type_counts"] = (
             summarize_finding_types(result)
         )
+        from skylos.reporting.advice_policy import refresh_listing_summary
+
+        result = refresh_listing_summary(result)
         output_result = result
         _cli_severity = getattr(args, "severity", None)
         _cli_category = getattr(args, "category", None)
@@ -1402,6 +1408,12 @@ def _run_scan_command(
                 output_result,
                 project_root,
                 expand_advice=bool(getattr(args, "expand_advice", False)),
+                **(
+                    {"all_advice": True}
+                    if getattr(args, "all_advice", False)
+                    or getattr(args, "select", None)
+                    else {}
+                ),
             )
             if args.output:
                 _write_scan_output(args.output, llm_report)
@@ -1650,9 +1662,11 @@ def _run_scan_command(
     elif not args.upload:
         display_result = output_result
         _cli_limit = getattr(args, "limit", None)
-        advice_options = (
-            {"expand_advice": True} if getattr(args, "expand_advice", False) else {}
-        )
+        advice_options = {}
+        if getattr(args, "expand_advice", False):
+            advice_options["expand_advice"] = True
+        if getattr(args, "all_advice", False) or getattr(args, "select", None):
+            advice_options["all_advice"] = True
         if getattr(args, "format", "rich") == "pretty":
             render_pretty_results(
                 console,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hdx-python-utilities
-Version: 4.2.3
+Version: 4.2.4
 Summary: HDX Python Utilities for streaming tabular data, date and time handling and other helpful functions
 Project-URL: Homepage, https://github.com/OCHA-DAP/hdx-python-utilities
 Author-email: Michael Rans <rans@email.com>
@@ -30,7 +30,7 @@ Requires-Dist: ijson>=3.5.0
 Requires-Dist: jsonlines>=4.0.0
 Requires-Dist: loguru
 Requires-Dist: openpyxl>=3.1.2
-Requires-Dist: python-dateutil<2.9.1,>=2.9.0
+Requires-Dist: python-dateutil<3.1,>=2.9.0
 Requires-Dist: rapidfuzz
 Requires-Dist: ratelimit
 Requires-Dist: requests-file

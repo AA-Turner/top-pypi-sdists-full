@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .adf_related import RelatedAdfActivity
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -52,19 +59,12 @@ from .power_bi_related import RelatedPowerBIDataflow
 from .process_related import RelatedColumnProcess, RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .sap_related import RelatedSAPColumnProcess
 from .sapbw_related import RelatedSAPBWTransformation
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_related import RelatedFunction, RelatedProcedure
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .sap_related import RelatedSAPColumnProcess
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -845,6 +845,7 @@ def _sap_column_process_to_nested(
         is_incomplete=sap_column_process.is_incomplete,
         provenance_type=sap_column_process.provenance_type,
         home_id=sap_column_process.home_id,
+        delete_handler=sap_column_process.delete_handler,
         depth=sap_column_process.depth,
         immediate_upstream=sap_column_process.immediate_upstream,
         immediate_downstream=sap_column_process.immediate_downstream,
@@ -893,6 +894,7 @@ def _sap_column_process_from_nested(nested: SAPColumnProcessNested) -> SAPColumn
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

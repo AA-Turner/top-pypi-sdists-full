@@ -19,8 +19,6 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
-from .entity import AtlasClassification, Entity
-from .gtc_related import RelatedAtlasGlossaryTerm
 from pyatlan.model.fields.atlan_fields import (
     InternalKeywordField,
     InternalKeywordTextField,
@@ -35,6 +33,8 @@ from pyatlan_v9.model.conversion_utils import (
 )
 from pyatlan_v9.model.serde import Serde, get_serde
 
+from .entity import AtlasClassification, Entity
+from .gtc_related import RelatedAtlasGlossaryTerm
 from .referenceable_related import RelatedReferenceable
 
 # =============================================================================
@@ -306,6 +306,7 @@ class ReferenceableNested(
     is_incomplete: Union[Any, UnsetType] = UNSET
     provenance_type: Union[Any, UnsetType] = UNSET
     home_id: Union[Any, UnsetType] = UNSET
+    delete_handler: Union[Any, UnsetType] = UNSET
     depth: Union[Any, UnsetType] = UNSET
     immediate_upstream: Union[Any, UnsetType] = UNSET
     immediate_downstream: Union[Any, UnsetType] = UNSET
@@ -384,6 +385,7 @@ def _referenceable_to_nested(referenceable: Referenceable) -> ReferenceableNeste
         is_incomplete=referenceable.is_incomplete,
         provenance_type=referenceable.provenance_type,
         home_id=referenceable.home_id,
+        delete_handler=referenceable.delete_handler,
         depth=referenceable.depth,
         immediate_upstream=referenceable.immediate_upstream,
         immediate_downstream=referenceable.immediate_downstream,
@@ -432,6 +434,7 @@ def _referenceable_from_nested(nested: ReferenceableNested) -> Referenceable:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -455,9 +458,7 @@ def _referenceable_from_nested_bytes(data: bytes, serde: Serde) -> Referenceable
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import RelationField  # noqa: E402
 
 Referenceable.QUALIFIED_NAME = KeywordTextField(
     "qualifiedName", "qualifiedName", "qualifiedName.text"

@@ -62,6 +62,25 @@ _GenericCallable = TypeVar('_GenericCallable', bound=Callable[..., Any])
 
 
 @dataclasses.dataclass(frozen=True)
+class AutoConfigClassMethod:
+  """A wrapper for auto_config'd class methods."""
+
+  func: Callable[..., Any]
+  always_inline: bool
+
+  def __get__(self, obj, objtype=None):
+    return AutoConfig(
+        func=types.MethodType(self.func, objtype),
+        buildable_func=types.MethodType(self.func, objtype),
+        always_inline=self.always_inline,
+    )
+
+  @property
+  def __wrapped__(self):
+    return self.func
+
+
+@dataclasses.dataclass(frozen=True)
 class AutoConfig:
   """A function wrapper for auto_config'd functions.
 
@@ -96,20 +115,18 @@ class AutoConfig:
       else:
         object.__setattr__(self, name, value)
 
-  def __call__(self, *args, **kwargs) -> Any:
+  def __call__(self, /, *args, **kwargs) -> Any:
     return self.func(*args, **kwargs)
 
-  def as_buildable(self, *args, **kwargs) -> config.Buildable:
+  def as_buildable(self, /, *args, **kwargs) -> config.Buildable:
     return self.buildable_func(*args, **kwargs)
 
   def __get__(self, obj, objtype=None):
-    # pytype: disable=attribute-error
     return AutoConfig(
         func=self.func.__get__(obj, objtype),
         buildable_func=self.buildable_func.__get__(obj, objtype),
         always_inline=self.always_inline,
     )
-    # pytype: enable=attribute-error
 
   @property
   def __wrapped__(self):
@@ -156,9 +173,9 @@ class _AutoConfigNodeTransformer(ast.NodeTransformer):
     self._temp_var_count = 0
 
   def _location_for(self, node: ast.AST):
-    line_number = self._line_number + node.lineno - 1
-    line = self._lines[node.lineno - 1]
-    return (self._filename, line_number, node.col_offset, line)
+    line_number = self._line_number + node.lineno - 1  # pyrefly: ignore[missing-attribute]
+    line = self._lines[node.lineno - 1]  # pyrefly: ignore[missing-attribute]
+    return (self._filename, line_number, node.col_offset, line)  # pyrefly: ignore[missing-attribute]
 
   def _handle_control_flow(self, node: ast.AST, activatable: bool = False):
     if self._allow_control_flow and activatable:
@@ -220,7 +237,7 @@ class _AutoConfigNodeTransformer(ast.NodeTransformer):
     if isinstance(node.ctx, ast.Load):
       return ast.Call(
           func=ast.Name(id=_ATTR_LOAD_HANDLER_ID, ctx=ast.Load()),
-          args=[self.visit(node.value), ast.Str(s=node.attr)],
+          args=[self.visit(node.value), ast.Constant(value=node.attr)],
           keywords=[],
       )
     return self.generic_visit(node)
@@ -234,7 +251,7 @@ class _AutoConfigNodeTransformer(ast.NodeTransformer):
       return ast.Expr(
           ast.Call(
               func=ast.Name(id=_ATTR_SAVE_HANDLER_ID, ctx=ast.Load()),
-              args=[obj, ast.Str(s=attr), value],
+              args=[obj, ast.Constant(value=attr), value],
               keywords=[],
           )
       )
@@ -326,7 +343,7 @@ class _AutoConfigNodeTransformer(ast.NodeTransformer):
   def visit_Try(self, node: ast.Try):
     return self._handle_control_flow(node)
 
-  def visit_Raise(self, node: ast.Try):
+  def visit_Raise(self, node: ast.Try):  # pyrefly: ignore[bad-override]
     return self._handle_control_flow(node, activatable=True)
 
   def visit_With(self, node: ast.With):
@@ -458,13 +475,13 @@ def _wrap_ast_for_fn_with_closure_vars(
 
 def _find_function_code(code: types.CodeType, fn_name: str):
   """Finds the code object within `code` corresponding to `fn_name`."""
-  code = [
+  code = [  # pyrefly: ignore[bad-assignment]
       const
       for const in code.co_consts
       if inspect.iscode(const) and const.co_name == fn_name
   ]
-  assert len(code) == 1, f"Couldn't find function code for {fn_name!r}."
-  return code[0]
+  assert len(code) == 1, f"Couldn't find function code for {fn_name!r}."  # pyrefly: ignore[bad-argument-type]
+  return code[0]  # pyrefly: ignore[bad-index]
 
 
 def _unwrap_code_for_fn(code: types.CodeType, fn: types.FunctionType):
@@ -489,11 +506,11 @@ def _make_closure_cell(contents):
   """Returns `types.CellType(contents)`."""
   if hasattr(types, 'CellType'):
     # `types.CellType` added in Python 3.8.
-    return types.CellType(contents)  # pytype: disable=wrong-arg-count
+    return types.CellType(contents)
   else:
     # For earlier versions of Python, build a dummy function to get CellType.
     dummy_fn = lambda: contents
-    cell_type = type(dummy_fn.__closure__[0])
+    cell_type = type(dummy_fn.__closure__[0])  # pyrefly: ignore[unsupported-operation]
     return cell_type(contents)
 
 
@@ -596,9 +613,62 @@ def exempt(fn_or_cls: _GenericCallable) -> _GenericCallable:
     A wrapped version of the same callable that will not be transformed to
     config if called inside an auto_config function.
   """
-  return AutoConfig(
+  return AutoConfig(  # pyrefly: ignore[bad-return]
       func=fn_or_cls, buildable_func=fn_or_cls, always_inline=True
   )
+
+
+def inlined_partial(
+    auto_config_fn: AutoConfig, *args, **kwargs
+) -> functools.partial:
+  """Creates a `fdl.Partial` from an auto_config function.
+
+  When `inlined_partial` is called inside another auto_config function, the
+  config returned by `auto_config_fn.as_buildable(*args, **kwargs)` is cast into
+  a `fdl.Partial`, meaning the resulting "internals" of the config structure
+  remain accessible/modifiable during configuration.
+
+  When called outside of an auto_config context, this has the same behavior
+  as `functools.partial`.
+
+  For example:
+
+      @auto_config.auto_config
+      def make_object(arg1):
+        return SomeObject(arg1=arg1, arg2=2)
+
+      @auto_config.auto_config
+      def use_inlined_partial():
+        return auto_config.inlined_partial(make_object, arg1=1)
+
+      assert use_inlined_partial.as_buildable() == fdl.Partial(
+          SomeObject, arg1=1, arg2=2)
+
+  In comparison (retaining `make_object` from above):
+
+      @auto_config.auto_config
+      def use_functools_partial():
+        return functools.partial(make_object, arg1=1)
+
+      assert use_functools_partial.as_buildable() == fdl.Partial(
+          make_object, arg1=1)
+
+  Support for this is special cased as part of `auto_config`. Note that
+  `auto_config_fn.as_buildable()` must return a single `fdl.Config` object;
+  return values of containers or other `fdl.Partial`s are not supported.
+
+  Args:
+      auto_config_fn: The auto_config function to create a corresponding partial
+        from.
+      *args: Positional arguments to forward to `auto_config_fn`.
+      **kwargs: Keyword arguments to forward to `auto_config_fn`.
+
+  Returns:
+    Inside an auto_config function, returns a `fdl.Partial` obtained from
+    casting the return value of `auto_config_fn.as_buildable()`. Outside an
+    auto_config function, returns a standard `functools.partial` instance.
+  """
+  return functools.partial(auto_config_fn, *args, **kwargs)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -696,7 +766,7 @@ def auto_config(
     experimental_always_inline: If true, this function (when called in an
       ``auto_config`` context) will always be ``inline``'d in-place. See the
       documentation on ``inline`` for an example. The default (if unspecified)
-      is currently ``False``, but this may change in the future.
+      is currently ``True``.
     experimental_exemption_policy: An optional policy to control which function
       calls within the body of ``fn`` should be turned into ``fdl.Config``'s and
       which ones should simply be executed normally during the ``as_buildable``
@@ -722,7 +792,7 @@ def auto_config(
   if experimental_exemption_policy is None:
     experimental_exemption_policy = auto_config_policy.latest
 
-  def auto_config_call_handler(fn_or_cls, *args, **kwargs):
+  def auto_config_call_handler(fn_or_cls, /, *args, **kwargs):
     """Handles calls in auto_config'ed functions.
 
     This intercepts calls in an auto-configed function, and determines whether
@@ -759,6 +829,20 @@ def auto_config(
               for name, arg in kwargs.items()
           },
       )
+    elif fn_or_cls is inlined_partial:
+      auto_config_fn, partial_args = args[0], args[1:]
+      if not isinstance(auto_config_fn, AutoConfig):
+        raise ValueError(
+            'inlined_partial should only be applied to auto_config functions,'
+            f' received: {auto_config_fn}'
+        )
+      cfg = auto_config_fn.as_buildable(*partial_args, **kwargs)
+      if not isinstance(cfg, config.Config):
+        raise ValueError(
+            'inlined_partial should only be applied to auto_config functions'
+            f' that create a single top-level Config, received: {cfg}'
+        )
+      return cast_lib.cast(partial_cls, cfg)
 
     if fn_or_cls is exempt:
       return fn_or_cls(*args, **kwargs)
@@ -816,7 +900,7 @@ def auto_config(
     line_number = fn.__code__.co_firstlineno
     node_transformer = _AutoConfigNodeTransformer(
         source=source,
-        filename=filename,
+        filename=filename,  # pyrefly: ignore[bad-argument-type]
         line_number=line_number,
         allow_control_flow=experimental_allow_control_flow,
     )
@@ -838,7 +922,7 @@ def auto_config(
     node = _wrap_ast_for_fn_with_closure_vars(node, fn)
     # Compile the modified AST, and then find the function code object within
     # the returned module-level code object.
-    code = compile(node, inspect.getsourcefile(fn), 'exec')
+    code = compile(node, inspect.getsourcefile(fn), 'exec')  # pyrefly: ignore[bad-argument-type]
     code = _unwrap_code_for_fn(code, fn)
 
     # Insert auto_config_attr_load_handler, auto_config_attr_save_handler,
@@ -902,7 +986,7 @@ def auto_config(
       fn = method_type(fn)
       as_buildable = method_type(as_buildable)
     return AutoConfig(
-        fn, as_buildable, always_inline=experimental_always_inline
+        fn, as_buildable, always_inline=experimental_always_inline  # pyrefly: ignore[bad-argument-type]
     )
 
   # Decorator with empty parenthesis.
@@ -962,7 +1046,8 @@ def auto_unconfig(
   Args:
     fn: The function to convert.
     experimental_always_inline: Whether the output of ``fn`` should always be
-      inlined into the caller's config.
+      inlined into the caller's config. The default (if unspecified) is
+      ``True``.
 
   Returns:
     An ``AutoConfig`` that corresponds to ``fn``.
@@ -974,13 +1059,13 @@ def auto_unconfig(
   def make_unconfig(fn) -> AutoConfig:
     @functools.wraps(fn)
     def python_implementation(*args, **kwargs):
-      previous = building._state.in_build  # pytype: disable=module-attr # pylint: disable=protected-access
-      building._state.in_build = False  # pytype: disable=module-attr # pylint: disable=protected-access
+      previous = building._state.in_build  # pylint: disable=protected-access
+      building._state.in_build = False  # pylint: disable=protected-access
       try:
         cfg = fn(*args, **kwargs)
         return building.build(cfg)
       finally:
-        building._state.in_build = previous  # pytype: disable=module-attr # pylint: disable=protected-access
+        building._state.in_build = previous  # pylint: disable=protected-access
 
     return AutoConfig(
         func=python_implementation,
@@ -1055,7 +1140,7 @@ def inline(buildable: config.Config):
     )
   # Evaluate the `as_buildable` interpretation.
   auto_config_fn = cast(AutoConfig, buildable.__fn_or_cls__)
-  tmp_config = auto_config_fn.as_buildable(**buildable.__arguments__)
+  tmp_config = auto_config_fn.as_buildable(**buildable.__arguments__)  # pyrefly: ignore[bad-unpacking]
   if not isinstance(tmp_config, config.Buildable):
     raise ValueError(
         'You cannot currently inline functions that do not return '
@@ -1100,7 +1185,7 @@ class _LambdaFinder(cst.CSTVisitor):
 
   def visit_Lambda(self, node) -> None:
     loc = self.get_metadata(cst.metadata.PositionProvider, node)
-    if loc.start.line == self.lineno:
+    if loc.start.line == self.lineno:  # pyrefly: ignore[missing-attribute]
       self.candidates.append(node)
 
 
@@ -1109,7 +1194,7 @@ def _getsource_for_lambda(fn: Callable[..., Any]) -> str:
   # Get the source for the module that defines `fn`.
   module = inspect.getmodule(fn)
   filename = inspect.getsourcefile(fn)
-  lines = linecache.getlines(filename, module.__dict__)
+  lines = linecache.getlines(filename, module.__dict__)  # pyrefly: ignore[bad-argument-type]
   source = ''.join(lines)
 
   # Parse the CST for the module, and search for the lambda.

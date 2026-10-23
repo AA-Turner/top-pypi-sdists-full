@@ -1,3 +1,5 @@
+import importlib
+
 from unittest import mock
 
 import pytest
@@ -12,6 +14,13 @@ from ...utils import BASE_URL, extra_params, mock_http_response
 
 API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 NOTEBOOK = Notebook(name="my_notebook")
+
+
+def test_importing_notebook_package_emits_deprecation_warning():
+    import snowflake.core.notebook as notebook_module
+
+    with pytest.warns(DeprecationWarning, match="snowflake.core.notebook is deprecated"):
+        importlib.reload(notebook_module)
 
 
 @pytest.fixture

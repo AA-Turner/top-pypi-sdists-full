@@ -32,7 +32,8 @@ def parse_dictionary(
                 params = parse_params(state, on_duplicate_key)
                 member = (True, params)
         except StructuredFieldError as why:
-            why.context = this_key
+            if why.context is None:
+                why.context = this_key
             raise why
         if on_duplicate_key and this_key in dictionary:
             on_duplicate_key(this_key, "dictionary")
@@ -42,36 +43,28 @@ def parse_dictionary(
             return dictionary
         if state.data[state.cursor] != COMMA:
             if not is_equals:
-                offending_char = state.data[state.cursor]
-                raise StructuredFieldError(
-                    f"'{this_key}' should be followed by '=', not '{chr(offending_char)}'",
-                    position=state.cursor,
-                    offending_char=offending_char,
+                next_char = state.data[state.cursor]
+                state.fail(
+                    f"'{this_key}' should be followed by '=', not {chr(next_char)!r}"
                 )
-            raise StructuredFieldError(
-                f"'{this_key}' has trailing characters after the value",
-                position=state.cursor,
-                offending_char=state.data[state.cursor],
-            )
+            state.fail(f"'{this_key}' has trailing characters after the value")
         state.cursor += 1
         discard_http_ows(state)
         if state.cursor == data_len:
-            raise StructuredFieldError(
-                "Dictionary has trailing comma",
-                position=state.cursor,
-                offending_char=None,
-            )
+            state.fail("Dictionary has trailing comma")
 
 
 def ser_dictionary(dictionary: DictionaryType) -> str:
     if len(dictionary) == 0:
         raise ValueError("No contents; field should not be emitted")
-    return ", ".join(
-        [
-            f"{ser_key(m)}"
-            f"""{ser_params(n[1]) if
-                (isinstance(n, tuple) and n[0] is True)
-                else f'={ser_item_or_inner_list(cast(ItemType, n))}'}"""
-            for m, n in dictionary.items()
-        ]
-    )
+    members = []
+    for member_name, member_value in dictionary.items():
+        member = ser_key(member_name)
+        if member_value is True:
+            pass  # Boolean true without parameters: the key alone
+        elif isinstance(member_value, tuple) and member_value[0] is True:
+            member += ser_params(member_value[1])
+        else:
+            member += f"={ser_item_or_inner_list(cast(ItemType, member_value))}"
+        members.append(member)
+    return ", ".join(members)

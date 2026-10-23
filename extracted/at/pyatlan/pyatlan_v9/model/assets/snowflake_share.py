@@ -20,6 +20,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -52,23 +59,16 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
+from .snowflake_related import (
+    RelatedSnowflakeListing,
+    RelatedSnowflakeSemanticLogicalTable,
+    RelatedSnowflakeShare,
+)
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .snowflake_related import (
-    RelatedSnowflakeListing,
-    RelatedSnowflakeSemanticLogicalTable,
-    RelatedSnowflakeShare,
 )
 
 # =============================================================================
@@ -1055,6 +1055,7 @@ def _snowflake_share_to_nested(snowflake_share: SnowflakeShare) -> SnowflakeShar
         is_incomplete=snowflake_share.is_incomplete,
         provenance_type=snowflake_share.provenance_type,
         home_id=snowflake_share.home_id,
+        delete_handler=snowflake_share.delete_handler,
         depth=snowflake_share.depth,
         immediate_upstream=snowflake_share.immediate_upstream,
         immediate_downstream=snowflake_share.immediate_downstream,
@@ -1103,6 +1104,7 @@ def _snowflake_share_from_nested(nested: SnowflakeShareNested) -> SnowflakeShare
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

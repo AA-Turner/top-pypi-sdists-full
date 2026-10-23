@@ -1,0 +1,92 @@
+name: Validate and Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+    - '*'
+  push:
+    branches:
+    - '*'
+  release:
+    types:
+      - published
+
+jobs:
+  black:
+    name: black
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      with:
+        version-file: ci/requirements.txt
+        python-version: '3.13'
+    - name: Lint with black
+      run: |
+        uv tool run black --version
+        uv tool run black --check --diff .
+  flake8:
+    name: flake8
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      with:
+        version-file: ci/requirements.txt
+        python-version: '3.13'
+    - name: Lint with flake8
+      run: |
+        uv tool run flake8 --version
+        uv tool run flake8
+  isort:
+    name: isort
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      with:
+        version-file: ci/requirements.txt
+        python-version: '3.13'
+    - name: Lint with isort
+      run: uv tool run --from 'isort[colors]' isort --check --diff .
+
+  test:
+    name: ${{ matrix.platform }} Python ${{ matrix.python-version }}
+    needs: [isort, black, flake8]
+    defaults:
+      run:
+        shell: bash
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, windows-11-arm, macos-14]
+        python-version: ['3.11', '3.12', '3.13', '3.14', '3.15']
+        include:
+          - os: ubuntu-latest
+            platform: Ubuntu
+            python-arch: x86_64
+          - os: windows-latest
+            platform: Windows x86_64
+            python-arch: x86_64
+          - os: windows-11-arm
+            platform: Windows ARM64
+            python-arch: aarch64
+          - os: macos-14
+            platform: macOS ARM64
+            python-arch: aarch64
+
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up uv and Python
+      uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      with:
+        version-file: ci/requirements.txt
+        python-version: ${{ matrix.python-version }}
+        python-arch: ${{ matrix.python-arch }}
+        activate-environment: true
+    - name: Build and install test dependencies
+      run: uv pip install -e . pytest
+    - name: Test with pytest
+      run: python -m pytest tests --doctest-glob='*.txt'

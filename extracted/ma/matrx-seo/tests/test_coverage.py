@@ -16,6 +16,7 @@ from matrx_seo.coverage import (
     hit_score,
     mention_dedupe_key,
     share_of_voice,
+    term_hits,
 )
 from matrx_seo.providers.gdelt import build_query, parse_articles
 
@@ -273,7 +274,25 @@ def test_a_source_matched_article_is_kept_even_when_the_headline_omits_the_term(
     )
     assert candidate is not None
     assert candidate.is_competitor is False
-    assert candidate.matched_terms == ["AI Matrx", "aimatrx"]
+    # Kept, but a search hit is not a match: no term claimed; the row waits for the page check.
+    assert candidate.matched_terms == [] and candidate.term_check_pending is True
+
+
+def test_a_source_matched_article_records_only_the_terms_its_headline_or_summary_names():
+    """Live: 102 of 122 All Green rows were filed with every tracker term as matched_terms."""
+    from matrx_seo.coverage import SourceMatch
+
+    candidate = classify_candidate(
+        spec(),
+        url="https://news.example.com/roundup",
+        title="Six platforms worth watching",
+        extra_text="Among them, AI Matrx lets experts build agents.",
+        source="brave",
+        discovered_at=NOW,
+        source_matched=SourceMatch(terms=["AI Matrx", "aimatrx"]),
+    )
+    assert candidate is not None
+    assert candidate.matched_terms == ["AI Matrx"] and candidate.term_check_pending is False
 
 
 def test_a_source_matched_competitor_query_lands_on_the_competitor_side():
@@ -345,3 +364,49 @@ def test_without_a_source_match_the_strict_local_rule_still_applies():
         )
         is None
     )
+
+
+# ── The ways people write one name ──────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "AllGreen's new plant",
+        "All Green opens a second site",
+        "All-Green opens a second site",
+        "ALLGREEN expands",
+        "#AllGreen",
+        "AllGreen-backed startup",
+    ],
+)
+def test_spacing_hyphen_and_joined_spellings_name_the_same_brand(text):
+    assert term_hits(text, ["AllGreen"]) == ["AllGreen"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "allgreenrecycling.com",
+        "https://www.allgreenrecycling.com/news/1",
+        "Visit all-green-recycling.com today",
+        "All-Green Recycling opens",
+        "AllGreen Recycling opens",
+    ],
+)
+def test_a_host_or_joined_spelling_names_a_multi_word_brand(text):
+    assert term_hits(text, ["All Green Recycling"]) == ["All Green Recycling"]
+
+
+@pytest.mark.parametrize(
+    "text, term",
+    [
+        ("allgreenery.com launches", "AllGreen"),  # a host label must BE the name, never contain it
+        ("Greenpeace and allgreenery", "AllGreen"),
+        ("he was all green with envy", "AllGreen"),  # a camel name split apart must still be a name
+        ("He was linked in the report", "LinkedIn"),
+        ("Giorgio Armani", "Arman"),
+    ],
+)
+def test_spelling_variants_never_match_inside_other_words_or_everyday_phrases(text, term):
+    assert term_hits(text, [term]) == []

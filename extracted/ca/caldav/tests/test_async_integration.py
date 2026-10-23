@@ -192,9 +192,6 @@ class AsyncFunctionalTestsBaseClass:
             msg = self._features.find_feature(feature).get("description", feature)
             pytest.skip("Test skipped due to server incompatibility issue: " + msg)
 
-    def check_compatibility_flag(self, flag: str) -> bool:
-        return flag in getattr(self._features, "_old_flags", [])
-
     @pytest.fixture(scope="class")
     @classmethod
     def test_server(cls) -> TestServer:
@@ -1451,6 +1448,38 @@ class AsyncFunctionalTestsBaseClass:
         assert "RRULE" not in r2[1].data
 
     @pytest.mark.asyncio
+    async def test_cancel_single_recurrence(self, async_calendar: Any) -> None:
+        """Async twin of testCancelSingleRecurrence: cancel() keeps an
+        occurrence in its series, as cancelled."""
+        self.skip_unless_support("search.recurrences.includes-implicit.event")
+        c = async_calendar
+        base = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
+            hour=8, minute=7, second=6, microsecond=0
+        )
+        await c.add_event(
+            uid="test1",
+            summary="daily test",
+            dtstart=base,
+            dtend=base + timedelta(hours=1),
+            rrule={"FREQ": "DAILY"},
+        )
+
+        async def search(offset: int) -> list:
+            day = (base + timedelta(days=offset)).replace(hour=0, minute=0, second=0)
+            return await c.search(event=True, start=day, end=day + timedelta(days=1), expand=True)
+
+        [occurrence] = await search(3)
+        await occurrence.cancel()
+        assert len(await search(4)) == 1
+        ## checked on the stored series, as a cancelled occurrence may be
+        ## left out of search results
+        series = await c.get_event_by_uid("test1")
+        if self.is_supported("save-load.event.recurrences.exception.cancelled"):
+            assert [str(x["STATUS"]) for x in series.icalendar_instance.walk("VEVENT")[1:]] == [
+                "CANCELLED"
+            ]
+
+    @pytest.mark.asyncio
     async def test_recurring_date_with_exception_search(self, async_calendar: Any) -> None:
         """Bi-weekly event with exception: expanded search returns correct RECURRENCE-IDs."""
         self.skip_unless_support("search")
@@ -1708,13 +1737,10 @@ class AsyncFunctionalTestsBaseClass:
         foo = 5
         if not self.is_supported("search.recurrences.includes-implicit.todo"):
             foo -= 1
-        if not self.is_supported(
-            "search.time-range.todo.no-dtstart"
-        ) or self.check_compatibility_flag(
-            "vtodo_datesearch_nodtstart_task_is_skipped_in_closed_date_range"
-        ):
-            foo -= 2
-        elif self.check_compatibility_flag("vtodo_datesearch_notime_task_is_skipped"):
+        if not self.is_supported("search.time-range.todo.no-dtstart"):
+            foo -= 1
+        ## follows no-dtstart unless set
+        if not self.is_supported("search.time-range.todo.no-dtstart.no-due"):
             foo -= 1
 
         if implicit_fragile:
@@ -1747,14 +1773,9 @@ class AsyncFunctionalTestsBaseClass:
 
     # ==================== Group E – Properties & Meta ====================
 
-    def _skip_on_compatibility_flag(self, flag: str) -> None:
-        if self.check_compatibility_flag(flag):
-            pytest.skip(f"Test skipped due to compatibility flag: {flag}")
-
     @pytest.mark.asyncio
     async def test_support(self, async_client: Any) -> None:
         """check_dav_support / check_cdav_support / check_scheduling_support."""
-        self._skip_on_compatibility_flag("dav_not_supported")
         assert await async_client.check_dav_support()
         assert await async_client.check_cdav_support()
         if self.is_supported("scheduling", return_type=str) != "unknown":
@@ -2645,7 +2666,7 @@ class _AsyncTestSchedulingBase:
         ## Just verify it completes without raising; response format varies per server.
         await coro
 
-        ## §1.5 regression: a Principal object (not a pre-resolved vCalAddress)
+        ## Regression: a Principal object (not a pre-resolved vCalAddress)
         ## must also work as an attendee.  Both the sync and async freebusy
         ## tests above only ever passed a resolved address, so the
         ## _async_freebusy_request branch that awaits Principal.get_vcal_address()

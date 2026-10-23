@@ -12,12 +12,12 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		self.add(Wedge(213.6035,85.33896,50,-81.42857,-12.85714,yradius=50,annular=False,fillColor=Color(0,1,1,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=2,strokeLineCap=0,strokeLineJoin=1,strokeMiterLimit=0,strokeDashArray=[2,2],strokeOpacity=None))
 		self.add(Wedge(200,100,50,-167.1429,-81.42857,yradius=50,annular=False,fillColor=Color(1,.752941,.796078,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=1,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
 		self.add(Wedge(200,100,50,-270,-167.1429,yradius=50,annular=False,fillColor=Color(1,0,1,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=1,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		self.add(String(208.9425,159.3298,'a',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(233.7992,149.5743,'b',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(258.4957,113.3513,'c',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(273.1186,21.19692,'d',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(1,0,0,1)))
-		self.add(String(166.2008,50.42567,'e',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(153.0901,137.4094,'f',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(208.9425,159.3298,'a',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(233.7992,149.5743,'b',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(258.4957,113.3513,'c',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(273.1186,21.19692,'d',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(1,0,0,1)))
+		self.add(String(166.2008,50.42567,'e',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(153.0901,137.4094,'f',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS

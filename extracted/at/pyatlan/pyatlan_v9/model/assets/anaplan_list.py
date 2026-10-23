@@ -19,7 +19,21 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan.model.enums import AtlanConnectorType
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
+from .anaplan_related import (
+    RelatedAnaplanLineItem,
+    RelatedAnaplanList,
+    RelatedAnaplanModel,
+)
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -47,20 +61,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan.model.enums import AtlanConnectorType
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .anaplan_related import (
-    RelatedAnaplanLineItem,
-    RelatedAnaplanList,
-    RelatedAnaplanModel,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -717,6 +717,7 @@ def _anaplan_list_to_nested(anaplan_list: AnaplanList) -> AnaplanListNested:
         is_incomplete=anaplan_list.is_incomplete,
         provenance_type=anaplan_list.provenance_type,
         home_id=anaplan_list.home_id,
+        delete_handler=anaplan_list.delete_handler,
         depth=anaplan_list.depth,
         immediate_upstream=anaplan_list.immediate_upstream,
         immediate_downstream=anaplan_list.immediate_downstream,
@@ -763,6 +764,7 @@ def _anaplan_list_from_nested(nested: AnaplanListNested) -> AnaplanList:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

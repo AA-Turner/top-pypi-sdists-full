@@ -575,7 +575,7 @@ async def enqueue_manual_run(sb: Any, task_id: str) -> str:
     claims = _claims_from_client(sb)
     async with rls_session(claims, role=claims["role"], database=_database()):
         new_run_id = await call_function(
-            _database(), "public", "sch_enqueue_manual_run", task_id, mode="scalar"
+            _database(), "scheduler", "sch_enqueue_manual_run", task_id, mode="scalar"
         )
     if not new_run_id:
         raise RuntimeError("sch_enqueue_manual_run returned no run id")

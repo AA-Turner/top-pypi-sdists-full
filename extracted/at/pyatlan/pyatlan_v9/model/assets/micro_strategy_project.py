@@ -14,9 +14,18 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -37,22 +46,6 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
-from .model_related import RelatedModelAttribute, RelatedModelEntity
-from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
-from .partial_related import RelatedPartialField, RelatedPartialObject
-from .process_related import RelatedProcess
-from .referenceable_related import RelatedReferenceable
-from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .micro_strategy_related import (
     RelatedMicroStrategyAttribute,
     RelatedMicroStrategyCube,
@@ -64,6 +57,15 @@ from .micro_strategy_related import (
     RelatedMicroStrategyReport,
     RelatedMicroStrategyVisualization,
 )
+from .model_related import RelatedModelAttribute, RelatedModelEntity
+from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
+from .partial_related import RelatedPartialField, RelatedPartialObject
+from .process_related import RelatedProcess
+from .referenceable_related import RelatedReferenceable
+from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .schema_registry_related import RelatedSchemaRegistrySubject
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -314,6 +316,8 @@ class MicroStrategyProject(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/projects/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this MicroStrategyProject instance.
@@ -338,6 +342,11 @@ class MicroStrategyProject(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"MicroStrategyProject validation failed: {errors}")
 
@@ -369,6 +378,36 @@ class MicroStrategyProject(Asset):
         if self.guid is not UNSET:
             return RelatedMicroStrategyProject(guid=self.guid)
         return RelatedMicroStrategyProject(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        micro_strategy_id: str,
+    ) -> "MicroStrategyProject":
+        validate_required_fields(
+            ["name", "connection_qualified_name", "micro_strategy_id"],
+            [name, connection_qualified_name, micro_strategy_id],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/projects/{micro_strategy_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "MicroStrategyProject":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "MicroStrategyProject":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -759,6 +798,7 @@ def _micro_strategy_project_to_nested(
         is_incomplete=micro_strategy_project.is_incomplete,
         provenance_type=micro_strategy_project.provenance_type,
         home_id=micro_strategy_project.home_id,
+        delete_handler=micro_strategy_project.delete_handler,
         depth=micro_strategy_project.depth,
         immediate_upstream=micro_strategy_project.immediate_upstream,
         immediate_downstream=micro_strategy_project.immediate_downstream,
@@ -809,6 +849,7 @@ def _micro_strategy_project_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

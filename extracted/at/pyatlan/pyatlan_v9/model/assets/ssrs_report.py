@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,13 +54,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .ssrs_related import RelatedSSRSDataSet, RelatedSSRSFolder, RelatedSSRSReport
 
 # =============================================================================
@@ -751,6 +751,7 @@ def _ssrs_report_to_nested(ssrs_report: SSRSReport) -> SSRSReportNested:
         is_incomplete=ssrs_report.is_incomplete,
         provenance_type=ssrs_report.provenance_type,
         home_id=ssrs_report.home_id,
+        delete_handler=ssrs_report.delete_handler,
         depth=ssrs_report.depth,
         immediate_upstream=ssrs_report.immediate_upstream,
         immediate_downstream=ssrs_report.immediate_downstream,
@@ -797,6 +798,7 @@ def _ssrs_report_from_nested(nested: SSRSReportNested) -> SSRSReport:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -15,6 +15,7 @@ class ChatCompletionParams(TypedDict, total=False):
   model: Required[str]
   messages: Required[Iterable[ChatMessageParam | Mapping[str, Any]]]
   stream: bool | None
+  disable_thinking: bool | None
   temperature: float | None
   max_tokens: int | None
   """

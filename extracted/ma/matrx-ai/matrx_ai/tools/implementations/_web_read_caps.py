@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from matrx_utils.raw_capture import record_cut
+
 from matrx_ai.tools.output_caps import TOOL_RESULT_SOFT_CAP_CHARS
 
 DEFAULT_CHARS = 8_000
@@ -94,6 +96,11 @@ def window_page_content(
 
     end = min(total_chars, start + window)
     has_more = end < total_chars
+    if end - start < total_chars:
+        # The page's whole extracted text is kept for Watch AI's RAW tier (the HTML original is the
+        # Source's own file, linked by processed_document_id).
+        record_cut(where="web read window", before=total_chars, after=end - start,
+                   limit_name="web.chars (DEFAULT_CHARS)", limit=window, field=url, original=text)
     page: dict[str, Any] = {
         "url": url,
         "content": (text or "")[start:end],
@@ -136,6 +143,7 @@ def enforce_result_budget(
     if _size() <= budget:
         output.setdefault("result_truncated", False)
         return output
+    _before = _size()
 
     # Progressive shrink: cut each page's content by half until under budget.
     for _ in range(12):
@@ -179,4 +187,6 @@ def enforce_result_budget(
                 page["truncation_notice"] = _TRUNCATION_NOTICE
         output["result_truncated"] = True
 
+    record_cut(where="web result budget", before=_before, after=_size(), limit_name="RESULT_BUDGET_CHARS",
+               limit=budget, field="pages[].content")
     return output

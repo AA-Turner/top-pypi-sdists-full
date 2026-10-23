@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.32.3"
+version = "4.32.4"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -34,10 +34,10 @@ classifiers = [
 dependencies = [
   "anyio>=4.5,<5",
   "click>=8.0,<9",
-  "harfile>=0.5.0,<1.0",
+  "harfile>=0.6.0,<1.0",
   "hypothesis>=6.130.12,<7",
-  "hypothesis_graphql>=0.13.2,<1",
-  "jsonschema_rs>=0.59.0,<0.60.0",
+  "hypothesis_graphql>=0.13.5,<1",
+  "jsonschema_rs>=0.60.0,<0.61.0",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=8.4,<10",
   "PyYAML>=5.1,<7.0",
@@ -48,7 +48,8 @@ dependencies = [
 ]
 [project.optional-dependencies]
 tests = [
-  "coverage>=6",
+  # coverage 7.13.3+ can drop modules other threads are importing: coveragepy#2247
+  "coverage>=6,<7.13.3",
   "Django>=5.2,<6",
   "fastapi>=0.86.0",
   "Flask>=2.1.1,<4.0",
@@ -70,8 +71,9 @@ tests = [
   "webfuzzing-commons==0.11.0",
 ]
 allure = ["allure-python-commons>=2.13.0"]
-cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3"]
-bench = ["pytest-codspeed==5.0.3", "pytest-timeout>=2.3,<3.0"]
+# coverage 7.13.3+ can drop modules other threads are importing: coveragepy#2247
+cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3,<7.13.3"]
+bench = ["pytest-asyncio>=1.0,<2.0", "pytest-codspeed==5.0.3", "pytest-timeout>=2.3,<3.0"]
 docs = ["mkdocs-material", "mkdocstrings[python]", "pymdown-extensions<12.2"]
 profiling = ["pyinstrument>=5.1"]
 scripts = ["tracecov>=0.21", "seaborn>=0.13"]
@@ -105,6 +107,7 @@ exclude = [
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 # Fail a test running over 5 minutes and dump every thread's stack, so a stalled CI job names the culprit.
 timeout = 300
+asyncio_default_fixture_loop_scope = "function"
 xfail_strict = true
 # Duplicate parametrize ids hide repeated or mislabelled cases. pytest 9+ only; the pytest 8 tox env drops `--strict-config`.
 strict_parametrization_ids = true

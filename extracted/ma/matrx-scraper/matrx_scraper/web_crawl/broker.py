@@ -82,6 +82,20 @@ class CrawlEventBroker:
         return item is _CLOSED
 
 
+class CrawlRunLive(RuntimeError):
+    """The crawl session's run is live somewhere (this process's broker, another
+    process's run lease, or a racing claimant that won the lease compare-and-swap).
+
+    A ``RuntimeError`` whose message keeps the "already active" wording every
+    older caller keys on; the subclass lets the resume door answer the platform's
+    canonical ``run_in_progress`` 409 (services/runtime/FEATURE.md "Live-run
+    refusal") naming the live request to rejoin, instead of a bare 409."""
+
+    def __init__(self, message: str, *, session_id: str) -> None:
+        super().__init__(message)
+        self.session_id = session_id
+
+
 class CrawlBrokerRegistry:
     _instance: CrawlBrokerRegistry | None = None
 
@@ -98,7 +112,7 @@ class CrawlBrokerRegistry:
     async def create(self, session_id: str) -> CrawlEventBroker:
         async with self._lock:
             if session_id in self._brokers:
-                raise RuntimeError(f"crawl session {session_id} is already active")
+                raise CrawlRunLive(f"crawl session {session_id} is already active", session_id=session_id)
             broker = CrawlEventBroker(session_id)
             self._brokers[session_id] = broker
             return broker

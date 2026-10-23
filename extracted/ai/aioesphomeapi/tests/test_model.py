@@ -79,6 +79,7 @@ from aioesphomeapi.api_pb2 import (
     SerialProxyRequestResponse as SerialProxyRequestResponsePb,
     ServiceArgType,
     SirenStateResponse,
+    StoreYamlCapabilities as StoreYamlCapabilitiesPb,
     SupportsResponseType as SupportsResponseTypePb,
     SwitchStateResponse,
     TextSensorStateResponse,
@@ -187,6 +188,7 @@ from aioesphomeapi.model import (
     SerialProxyStatus,
     SirenInfo,
     SirenState,
+    StoreYamlCapabilities,
     SubDeviceInfo,
     SupportsResponseType,
     SwitchInfo,
@@ -437,6 +439,7 @@ def test_api_version_ord():
         (VoiceAssistantCapabilities, VoiceAssistantCapabilitiesPb),
         (ZWaveProxyCapabilities, ZWaveProxyCapabilitiesPb),
         (WizardCapabilities, WizardCapabilitiesPb),
+        (StoreYamlCapabilities, StoreYamlCapabilitiesPb),
     ],
 )
 def test_basic_pb_conversions(model, pb):
@@ -655,6 +658,46 @@ def test_user_service_conversion_with_metadata():
                 example="two_short:d=4,o=5,b=100:16e6,16e6",
             )
         ],
+    )
+
+
+def test_user_service_conversion_with_optional_args():
+    assert UserService.from_pb(
+        ListEntitiesServicesResponse(
+            args=[
+                ListEntitiesServicesArgument(
+                    name="octave",
+                    type=ServiceArgType.SERVICE_ARG_TYPE_INT,
+                    optional=True,
+                    default_value="5",
+                )
+            ]
+        )
+    ) == UserService(
+        args=[
+            UserServiceArg(
+                name="octave",
+                type=UserServiceArgType.INT,
+                optional=True,
+                default_value="5",
+            )
+        ]
+    )
+    assert UserService.from_dict(
+        {
+            "args": [
+                {"name": "octave", "type": 1, "optional": True, "default_value": "5"}
+            ]
+        }
+    ) == UserService(
+        args=[
+            UserServiceArg(
+                name="octave",
+                type=UserServiceArgType.INT,
+                optional=True,
+                default_value="5",
+            )
+        ]
     )
 
 
@@ -3034,6 +3077,24 @@ def test_device_capabilities_wizard_from_dict() -> None:
     caps = DeviceCapabilities.from_dict({"wizard": {"configured": True}})
     assert caps.wizard == WizardCapabilities(configured=True)
     assert DeviceCapabilities.from_dict({}).wizard == WizardCapabilities()
+
+
+def test_device_capabilities_store_yaml_from_pb() -> None:
+    """DeviceCapabilities decodes store_yaml.supported, defaulting to False when unset."""
+    pb = DeviceCapabilitiesResponse(store_yaml=StoreYamlCapabilitiesPb(supported=True))
+    assert DeviceCapabilities.from_pb(pb).store_yaml == StoreYamlCapabilities(
+        supported=True
+    )
+    assert DeviceCapabilities.from_pb(
+        DeviceCapabilitiesResponse()
+    ).store_yaml == StoreYamlCapabilities(supported=False)
+
+
+def test_device_capabilities_store_yaml_from_dict() -> None:
+    """The dict branch of StoreYamlCapabilities.convert is used by from_dict."""
+    caps = DeviceCapabilities.from_dict({"store_yaml": {"supported": True}})
+    assert caps.store_yaml == StoreYamlCapabilities(supported=True)
+    assert DeviceCapabilities.from_dict({}).store_yaml == StoreYamlCapabilities()
 
 
 _SENDSPIN_CLIENT_ID = "q83vEjRWeJq83vEjRWeJq83vEjRWeJq83vEjRWeJq80"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: abxbus
-Version: 2.5.77
+Version: 2.5.79
 Summary: Advanced Pydantic-powered event bus with async support
 Author: Nick Sweeting, ArchiveBox
 Classifier: Programming Language :: Python :: 3
@@ -13,7 +13,7 @@ Requires-Dist: asyncpg>=0.31.0 ; extra == 'bridges'
 Requires-Dist: nats-py>=2.14.0 ; extra == 'bridges'
 Requires-Dist: redis>=7.4.0 ; extra == 'bridges'
 Requires-Dist: nats-py>=2.14.0 ; extra == 'nats'
-Requires-Dist: opentelemetry-api>=1.44.0 ; extra == 'otel'
+Requires-Dist: opentelemetry-api>=1.45.1 ; extra == 'otel'
 Requires-Dist: asyncpg>=0.31.0 ; extra == 'postgres'
 Requires-Dist: redis>=7.4.0 ; extra == 'redis'
 Requires-Dist: tachyon-ipc>=0.5.0 ; extra == 'tachyon'

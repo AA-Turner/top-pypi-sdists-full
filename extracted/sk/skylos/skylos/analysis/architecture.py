@@ -16,6 +16,93 @@ from pathlib import Path
 from typing import Any
 from skylos.analysis.architecture_findings import generate_architecture_findings
 from skylos.analysis.architecture_layers import get_layer_policy_findings
+from skylos.analysis.metric_imports import MetricImports
+from skylos.core.safe_cache_io import read_text_no_symlink
+
+
+def _export_facade(tree: ast.AST) -> bool:
+    """An explicit static export namespace owns no collaborator implementation.
+
+    Calls, classes, functions, conditional imports, wildcard exports and dynamic
+    export lists make the role unknown; they retain the normal DIP check.
+    """
+    if not isinstance(tree, ast.Module):
+        return False
+    namespace = set()
+    explicit_exports = set()
+    public_exports = None
+
+    def imported_reference(value):
+        while isinstance(value, ast.Attribute):
+            value = value.value
+        return isinstance(value, ast.Name) and value.id in namespace
+
+    for statement in tree.body:
+        if (
+            isinstance(statement, ast.Expr)
+            and isinstance(statement.value, ast.Constant)
+            and isinstance(statement.value.value, str)
+        ):
+            continue
+        if isinstance(statement, (ast.Import, ast.ImportFrom)):
+            if (
+                isinstance(statement, ast.ImportFrom)
+                and statement.module == "__future__"
+            ):
+                continue
+            for alias in statement.names:
+                if alias.name == "*":
+                    return False
+                local = alias.asname or alias.name.split(".", 1)[0]
+                if local in namespace or local == "__all__":
+                    return False
+                namespace.add(local)
+                if alias.asname is not None and not local.startswith("_"):
+                    explicit_exports.add(local)
+            continue
+        if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+            return False
+        target = statement.targets[0]
+        if not isinstance(target, ast.Name) or target.id in namespace:
+            return False
+        if target.id == "__all__":
+            if public_exports is not None or not isinstance(
+                statement.value, (ast.List, ast.Tuple)
+            ):
+                return False
+            if not all(
+                isinstance(item, ast.Constant) and isinstance(item.value, str)
+                for item in statement.value.elts
+            ):
+                return False
+            public_exports = {item.value for item in statement.value.elts}
+        elif imported_reference(statement.value):
+            namespace.add(target.id)
+        else:
+            return False
+    exports = explicit_exports if public_exports is None else public_exports
+    return bool(exports) and exports <= namespace
+
+
+def _module_export_facade(module_name, module_files, module_trees):
+    tree = (module_trees or {}).get(module_name)
+    if tree is not None:
+        return _export_facade(tree)
+    filename = module_files.get(module_name, "")
+    if not filename:
+        return False
+    path = Path(filename)
+    if path.suffix != ".py" or ".." in path.parts:
+        return False
+    try:
+        # Cached worker metrics can omit trees. Read only the candidate's
+        # existing source, bounded and without crossing symlink components.
+        if any(part.is_symlink() for part in (path, *path.parents)):
+            return False
+        source = read_text_no_symlink(path, max_bytes=2_000_000)
+        return source is not None and _export_facade(ast.parse(source))
+    except (OSError, ValueError, SyntaxError, RecursionError):
+        return False
 
 
 @dataclass
@@ -67,6 +154,14 @@ def _compute_abstractness(tree: ast.AST) -> dict[str, Any]:
     type_vars = 0
     protocols = 0
     has_type_checking = False
+    imports = MetricImports(
+        tree,
+        {
+            "abc": {"ABC", "ABCMeta", "abstractmethod"},
+            "typing": {"Protocol", "TypeVar", "TYPE_CHECKING"},
+            "typing_extensions": {"Protocol", "TypeVar", "TYPE_CHECKING"},
+        },
+    )
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
@@ -75,32 +170,27 @@ def _compute_abstractness(tree: ast.AST) -> dict[str, Any]:
             is_protocol = False
 
             for base in node.bases:
-                if isinstance(base, ast.Name):
-                    if base.id in ("ABC", "ABCMeta"):
-                        is_abstract = True
-                    elif base.id == "Protocol":
-                        is_protocol = True
-                elif isinstance(base, ast.Attribute):
-                    if base.attr in ("ABC", "ABCMeta"):
-                        is_abstract = True
-                    elif base.attr == "Protocol":
-                        is_protocol = True
+                identity = imports.resolve(base)
+                if identity == "abc.ABC":
+                    is_abstract = True
+                elif identity in {"typing.Protocol", "typing_extensions.Protocol"}:
+                    is_protocol = True
+            if any(
+                keyword.arg == "metaclass"
+                and imports.resolve(keyword.value) == "abc.ABCMeta"
+                for keyword in node.keywords
+            ):
+                is_abstract = True
 
-            if is_abstract:
-                abstract_classes += 1
             if is_protocol:
                 protocols += 1
+            if is_abstract or is_protocol:
                 abstract_classes += 1
 
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     for dec in item.decorator_list:
-                        if isinstance(dec, ast.Name) and dec.id == "abstractmethod":
-                            abstract_methods += 1
-                        elif (
-                            isinstance(dec, ast.Attribute)
-                            and dec.attr == "abstractmethod"
-                        ):
+                        if imports.resolve(dec) == "abc.abstractmethod":
                             abstract_methods += 1
 
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -108,24 +198,17 @@ def _compute_abstractness(tree: ast.AST) -> dict[str, Any]:
 
         elif isinstance(node, ast.Assign):
             if isinstance(node.value, ast.Call):
-                if (
-                    isinstance(node.value.func, ast.Name)
-                    and node.value.func.id == "TypeVar"
-                ):
-                    type_vars += 1
-                elif (
-                    isinstance(node.value.func, ast.Attribute)
-                    and node.value.func.attr == "TypeVar"
-                ):
+                if imports.resolve(node.value.func) in {
+                    "typing.TypeVar",
+                    "typing_extensions.TypeVar",
+                }:
                     type_vars += 1
 
         elif isinstance(node, ast.If):
-            if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
-                has_type_checking = True
-            elif (
-                isinstance(node.test, ast.Attribute)
-                and node.test.attr == "TYPE_CHECKING"
-            ):
+            if imports.resolve(node.test) in {
+                "typing.TYPE_CHECKING",
+                "typing_extensions.TYPE_CHECKING",
+            }:
                 has_type_checking = True
 
     total_elements = total_classes + total_functions
@@ -213,6 +296,8 @@ def analyze_architecture(
     efferent: dict[str, set[str]] = defaultdict(set)
 
     for module, deps in dependency_graph.items():
+        if module not in all_modules:
+            continue
         for dep in deps:
             if dep in all_modules and dep != module:
                 efferent[module].add(dep)
@@ -279,6 +364,7 @@ def analyze_architecture(
     instability_threshold = 0.3
     # "unstable" means instability > 0.7
     unstable_threshold = 0.7
+    export_facades = {}
 
     for module, deps in efferent.items():
         m_metrics = result.modules.get(module)
@@ -289,7 +375,17 @@ def analyze_architecture(
             dep_metrics = result.modules.get(dep)
             if not dep_metrics:
                 continue
+            # A package that imports its own submodules composes them into
+            # its public surface; it is not a separate component to invert.
+            if dep.startswith(module + "."):
+                continue
             if dep_metrics.instability > unstable_threshold:
+                if module not in export_facades:
+                    export_facades[module] = _module_export_facade(
+                        module, module_files, module_trees
+                    )
+                if export_facades[module]:
+                    continue
                 if m_metrics.instability < 0.1:
                     severity = "HIGH"
                 else:
@@ -317,8 +413,26 @@ def analyze_architecture(
         if not member_metrics:
             continue
 
-        pkg_ca = sum(m.ca for m in member_metrics)
-        pkg_ce = sum(m.ce for m in member_metrics)
+        # Coupling crosses the package boundary. Summing member coupling
+        # double-counts shared providers and turns purely internal wiring
+        # into an external dependency in both directions.
+        member_set = set(members)
+        pkg_ca = len(
+            {
+                importer
+                for member in members
+                for importer in afferent.get(member, ())
+                if importer not in member_set
+            }
+        )
+        pkg_ce = len(
+            {
+                dependency
+                for member in members
+                for dependency in efferent.get(member, ())
+                if dependency not in member_set
+            }
+        )
         pkg_total = pkg_ca + pkg_ce
         pkg_instability = pkg_ce / pkg_total if pkg_total > 0 else 0.0
 
@@ -348,7 +462,7 @@ def analyze_architecture(
     if all_metrics:
         total_deps = 0
         intra_package_deps = 0
-        for module, deps in dependency_graph.items():
+        for module, deps in efferent.items():
             m_pkg = (module_packages or {}).get(module, module.split(".")[0])
             for dep in deps:
                 if dep == module:
@@ -539,7 +653,7 @@ def _filter_contextual_findings(
             continue
 
         if (
-            rule_id == "SKY-Q803"
+            rule_id in {"SKY-Q803", "SKY-Q804"}
             and isinstance(module_name, str)
             and _is_test_module(module_name, finding.get("file", ""))
         ):
@@ -595,5 +709,6 @@ def _is_test_module(module_name: str, file_path: Any) -> bool:
         or ".test_" in module_name
         or basename.startswith("test_")
         or basename.endswith("_test.py")
+        or basename == "conftest.py"
         or "/tests/" in path
     )

@@ -226,13 +226,57 @@ def refusal(
     if _asks_help(args):
         return None  # asking what a command does is never a write
     kind, matched = session_marker.classify_probe_args(list(args))
-    if kind is None:
-        return None
-    if values.get(RUN_ID_ENV) and (
+    run_id = values.get(RUN_ID_ENV)
+    own_work = bool(run_id) and (
         kind == "read"
         or session_marker.daemon_allows_agent(matched)
-        or _runs_own_file(args, matched, values[RUN_ID_ENV])
+        or _runs_own_file(args, matched, run_id)
+    )
+    # The daemon profile: the CLI refuses exactly what the plugin's PreToolUse
+    # hook refuses (`daemon_profile_allows`), so a command that rebuilds its own
+    # name (`eval`, `$(echo probe)`, a renamed copy of the binary) cannot reach a
+    # read, write or removal of the team's records, or a switch move, that the
+    # hook catches on the plain spelling. The daemon's OWN `probe` calls carry no
+    # coding-agent session (only `PROBE_DAEMON_SESSION`), so `session_id` is unset
+    # for them and they never reach here; a run's own work (`PROBE_RUN_ID`) is
+    # exempt as always; `session initialize` is the pi host bridge that seeds the
+    # session, left to the hook.
+    # `mcp call|tools` (the bridge refuses them itself, inline-aware, without a
+    # server round-trip) and the researcher's switch (`_refuse_switch_from_agent`,
+    # with the switch message) already have their own dedicated CLI refusals, so
+    # leave them to those -- a generic profile refusal here would only blur them.
+    dedicated = words[:2] in (["mcp", "call"], ["mcp", "tools"]) or " ".join(
+        words[:2]
+    ) in session_marker.RESEARCHER_SWITCH
+    # `session initialize` is the pi host bridge; `session inline|daemon` are the
+    # takeover commands removed in 2026-10-06 (kept in `DAEMON_PROFILE_KEPT` only
+    # for an old CLI beside a new plugin). This CLI has neither, so let it answer
+    # "no such command" rather than refuse a command it does not have.
+    cli_absent = words[:2] in (["session", "initialize"], ["session", "inline"], ["session", "daemon"])
+    # `daemon worker` IS the daemon: the tap's supervisor starts it with the
+    # session's own environment, which can name the agent's session, so the
+    # profile the daemon holds the agent to must never refuse it. Refused here
+    # (CLI 0.285.2 to 0.290.0), the live run's daemon session ran no worker at
+    # all (its `daemon.worker` check). The hook still refuses the agent's own.
+    the_daemon = words[:2] == ["daemon", "worker"]
+    if (
+        not own_work
+        and not dedicated
+        and not cli_absent
+        and not the_daemon
+        and session_marker.session_profile(session_id) == session_marker.RECORDER_DAEMON
+        and not session_marker.is_inline(session_id, state)
     ):
+        # `split_directed` already stripped the flag; re-add it so the profile
+        # check admits a write the researcher asked for, exactly as the hook does
+        # off the raw command line.
+        probe_args = ([session_marker.DIRECTED_FLAG] if directed else []) + list(args)
+        allowed, profile_matched = session_marker.daemon_profile_allows(probe_args)
+        if not allowed:
+            return session_marker.daemon_profile_deny(probe_args, profile_matched)
+    if own_work:
+        return None
+    if kind is None:
         return None
     if matched[len("probe "):] in session_marker.DIRECTED_ONLY and not directed:
         return DENY_REASON_DIRECTED.format(matched=matched)

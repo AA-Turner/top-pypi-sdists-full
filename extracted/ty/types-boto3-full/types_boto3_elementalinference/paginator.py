@@ -14,6 +14,7 @@ Usage::
     from types_boto3_elementalinference.paginator import (
         ListDictionariesPaginator,
         ListFeedsPaginator,
+        ListScheduleActionsPaginator,
         SearchFixturesPaginator,
     )
 
@@ -22,6 +23,7 @@ Usage::
 
     list_dictionaries_paginator: ListDictionariesPaginator = client.get_paginator("list_dictionaries")
     list_feeds_paginator: ListFeedsPaginator = client.get_paginator("list_feeds")
+    list_schedule_actions_paginator: ListScheduleActionsPaginator = client.get_paginator("list_schedule_actions")
     search_fixtures_paginator: SearchFixturesPaginator = client.get_paginator("search_fixtures")
     ```
 """
@@ -38,6 +40,8 @@ from .type_defs import (
     ListDictionariesResponseTypeDef,
     ListFeedsRequestPaginateTypeDef,
     ListFeedsResponseTypeDef,
+    ListScheduleActionsRequestPaginateTypeDef,
+    ListScheduleActionsResponseTypeDef,
     SearchFixturesRequestPaginateTypeDef,
     SearchFixturesResponseTypeDef,
 )
@@ -48,7 +52,12 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListDictionariesPaginator", "ListFeedsPaginator", "SearchFixturesPaginator")
+__all__ = (
+    "ListDictionariesPaginator",
+    "ListFeedsPaginator",
+    "ListScheduleActionsPaginator",
+    "SearchFixturesPaginator",
+)
 
 
 if TYPE_CHECKING:
@@ -90,6 +99,27 @@ class ListFeedsPaginator(_ListFeedsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListFeeds.html#ElementalInference.Paginator.ListFeeds.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listfeedspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListScheduleActionsPaginatorBase = Paginator[ListScheduleActionsResponseTypeDef]
+else:
+    _ListScheduleActionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListScheduleActionsPaginator(_ListScheduleActionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListScheduleActions.html#ElementalInference.Paginator.ListScheduleActions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listscheduleactionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListScheduleActionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListScheduleActionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListScheduleActions.html#ElementalInference.Paginator.ListScheduleActions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listscheduleactionspaginator)
         """
 
 

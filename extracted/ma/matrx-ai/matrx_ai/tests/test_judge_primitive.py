@@ -348,7 +348,7 @@ async def test_funnel_lane_runs_on_its_mandate_holder(monkeypatch):
             calls=1,
         )
 
-    monkeypatch.setattr("matrx_ai.evaluators.judge.hold_code_call", fake_hold)
+    monkeypatch.setattr("matrx_ai.mandates.hold_code_call", fake_hold)
     monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic_measured", fake_structured)
 
     judge = Judge(_comparative())

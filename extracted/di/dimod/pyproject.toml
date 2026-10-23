@@ -1,37 +1,98 @@
 [build-system]
 requires = [
-    "setuptools>=46.4.0",
-    "wheel",
-    "Cython~=3.0",
+    # Same as dependency-groups.build, last refreshed October 2026
+    "cython~=3.3.0",
+    "meson~=1.12.0",
+    "meson-python~=0.20.0",
+    "ninja~=1.13.0",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = 'mesonpy'
 
-[tool.coverage.run]
-source = [
-    "dimod/",
-    ]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "RuntimeError",
-    "pass",
+[dependency-groups]
+build = [
+    # Same as build-system.requires
+    "cython~=3.3.0",
+    "meson~=1.12.0",
+    "meson-python~=0.20.0",
+    "ninja~=1.13.0",
 ]
+changelog = [
+    "reno==4.1.0",  # latest as of July 2026
+]
+dev = [
+    "numpy==2.0.0; python_version < '3.13'",
+    "numpy~=2.5.0; python_version >= '3.13'",  # first that supports Python 3.15
+    {include-group = "build"},
+    {include-group = "changelog"},
+]
+docs = [
+    "pydata-sphinx-theme==0.14.3",
+    "sphinx==7.3.7",
+    "breathe==4.36.0",
+    "notebook==6.4.11",
+    "networkx==3.2.0",
+]
+test = [
+    "parameterized==0.9.0",
+    "pandas~=2.3.0; python_version < '3.14'",
+    "pandas~=3.0.0; python_version >= '3.14' and python_version < '3.15'",  # no 3.15 wheel as of Sept 2026
+    "networkx==3.2.0",
+    "pymongo~=4.17.0; python_version < '3.15'",  # no 3.15 wheel as of Sept 2026
+]
+
+[project]
+name = "dimod"
+dynamic = ["version"]
+authors = [
+    {name = "D-Wave", email = "tools@dwavesys.com"},
+]
+description = "A shared API for binary quadratic model samplers."
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3 :: Only",
+    'Programming Language :: Python :: Implementation :: CPython',
+]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2",
+]
+
+[project.optional-dependencies]
+all = []  # left in for backward- and forward-compatibility
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Changelog = "https://github.com/dwavesystems/dimod/releases"
+Documentation = "https://docs.dwavequantum.com"
+"Source Code" = "https://github.com/dwavesystems/dimod"
 
 [tool.cibuildwheel]
 build-verbosity = "1"
-skip = "pp* *musllinux*"
-before-test = [
-    # Install local dimod first to make sure test dependencies use the version under test
-    "pip install {package}",
-    "pip install -r {project}/tests/requirements.txt",
-]
-test-command = "python -m unittest discover {project}/tests/"
+skip = "*musllinux*"
+
+test-command = ["python -m unittest"]
+test-groups = ["test"]
+test-sources = ["tests"]
 
 [tool.cibuildwheel.linux]
 archs = "x86_64 aarch64"
-manylinux-x86_64-image = "manylinux2014"
-manylinux-aarch64-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
 
 [tool.cibuildwheel.macos]
 # We follow NumPy and don't build universal wheels, see https://github.com/numpy/numpy/pull/20787
@@ -39,3 +100,15 @@ archs = "x86_64 arm64"
 
 [tool.cibuildwheel.windows]
 archs = "AMD64"
+
+[[tool.cibuildwheel.overrides]]
+# For Python3.12+, rather than building individual wheels we build an abi3
+# wheel. 313t and 314t do not support abi wheels yet.
+select = "cp31[!01]-*"  # uses fnmatch, will fail for 3.20+ but good enough for now
+build-frontend = { name = "build", args = ["-Csetup-args=-Dpython.allow_limited_api=true"] }
+
+# This is, by default, overridden in meson.build. We then override the override
+# in cibuildwheel. It's a bit convoluted, but (as of Sept 2026) it's the only
+# way to get it to work, see https://github.com/mesonbuild/meson-python/issues/787
+[tool.meson-python]
+limited-api = true

@@ -3,6 +3,7 @@
 #
 
 import ast
+import contextlib
 import json
 import logging
 import sys
@@ -45,11 +46,15 @@ from snowflake.snowpark_connect.column_name_handler import (
     ColumnNameMap,
     ColumnQualifier,
     make_column_names_snowpark_compatible,
+    order_by_reuse_fingerprints,
 )
 from snowflake.snowpark_connect.config import (
     get_artifact_repository,
     global_config,
     is_force_create_sproc_enabled,
+    is_nss_enabled,
+    is_nss_posexplode_without_transform_enabled,
+    is_spark_duplicate_column_resolution_enabled,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -62,7 +67,14 @@ from snowflake.snowpark_connect.expression.map_expression import (
     map_expression,
     map_single_column_expression,
 )
-from snowflake.snowpark_connect.expression.map_unresolved_function import unwrap_literal
+from snowflake.snowpark_connect.expression.map_unresolved_function import (
+    _map_key_type_sql,
+    unwrap_literal,
+)
+from snowflake.snowpark_connect.expression.posexplode_flatten import (
+    is_nss_value_path,
+    nss_data_output_flags,
+)
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.relation.map_relation import map_relation
 from snowflake.snowpark_connect.relation.output_struct_utils import (
@@ -106,6 +118,9 @@ from snowflake.snowpark_connect.utils.udtf_utils import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
+from snowflake.snowpark_connect.utils.window_chain_materialization import (
+    maybe_materialize_window_input,
+)
 
 logger = logging.getLogger("snowflake_connect_server")
 
@@ -146,6 +161,27 @@ def _resolve_selected_table_function_columns(
             for col_name in all_result_columns
         ]
     return selected_column_specs
+
+
+def _regenerated_sort_sources(
+    sources: dict[str, str],
+    old_names: list[str],
+    new_names: list[str],
+    same_value: list[bool],
+) -> dict[str, str]:
+    """Carry ORDER BY pass-through sources across regenerated Snowpark names.
+
+    ``select("*")`` over duplicate Spark names regenerates every Snowpark
+    name. ORDER BY resolution through the child must still find the child's
+    column. Cast or extracted outputs are new values and are skipped.
+    """
+    if len(old_names) != len(new_names) or len(same_value) != len(new_names):
+        return {}
+    return {
+        new: sources.get(old, old)
+        for old, new, keep in zip(old_names, new_names, same_value)
+        if keep
+    }
 
 
 def map_drop(
@@ -236,7 +272,7 @@ def map_drop(
         input_container.column_map.column_metadata, surviving_names, surviving_names
     )
 
-    return DataFrameContainer.create_with_column_mapping(
+    result_container = DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=[c.spark_name for c in new_columns],
         snowpark_column_names=[c.snowpark_name for c in new_columns],
@@ -248,7 +284,14 @@ def map_drop(
         ],
         parent_column_name_map=column_map,
         equivalent_snowpark_names=[c.equivalent_snowpark_names for c in new_columns],
+    ).with_known_schema(
+        input_container._known_schema_without(
+            set(column_map.get_snowpark_columns(with_hidden=True))
+            - {c.snowpark_name for c in new_columns}
+        )
     )
+    result_container.column_map.set_sort_resolution_child(column_map)
+    return result_container
 
 
 def map_project(
@@ -284,6 +327,9 @@ def map_project(
         )
     else:
         input_container = map_relation(rel.project.input)
+        input_container = maybe_materialize_window_input(
+            input_container, rel.project.expressions
+        )
 
     input_df = input_container.dataframe
     context.set_df_before_projection(input_container)
@@ -292,6 +338,32 @@ def map_project(
     select_list = []
     new_spark_columns = []
     new_snowpark_columns = []
+    track_nss_data = (
+        bool(input_container.column_map.nss_data_snowpark_columns)
+        and is_nss_posexplode_without_transform_enabled()
+    )
+    nss_data_flags: list[bool] = []
+
+    def add_snowpark_columns(
+        exp: expressions_proto.Expression,
+        names: list[str],
+        mapped_col: object | None = None,
+    ) -> None:
+        # Columns and their NSS data flags are added together so they stay aligned
+        # by position.
+        new_snowpark_columns.extend(names)
+        if not track_nss_data:
+            nss_data_flags.extend([False] * len(names))
+            return
+        sources = names
+        if mapped_col is not None:
+            # A single output reads its source name off the mapped column, which can
+            # be a TableFunctionCall (UDTF) with no name.
+            source = mapped_col.get_name() if isinstance(mapped_col, Column) else None
+            sources = [source or names[0]]
+        nss_data_flags.extend(
+            nss_data_output_flags(exp, input_container.column_map, sources)
+        )
 
     # LCA Support: build DataFrame progressively to allow later expressions to reference earlier aliases
     clear_lca_alias_map()
@@ -326,13 +398,16 @@ def map_project(
     has_multi_column_alias = False
     qualifiers: list[set[ColumnQualifier]] = []
     equivalent_snowpark_names: list[set[str]] = []
+    sort_sources: dict[str, str] = {}
+    # Per output position: the expression of a computed output, else None.
+    sort_expressions: list[expressions_proto.Expression | None] = []
     projected_output_positions: list[int] = []
     projected_output_cast_types: list[DataType | None] = []
     projected_output_extract_fields: list[str | None] = []
     implicit_multi_column_names: list[str] = []
     next_output_position = 1
 
-    typer = ExpressionTyper(input_df)
+    typer = ExpressionTyper(input_df, lift_window_inputs=True)
 
     has_unresolved_star = any(
         exp.WhichOneof("expr_type") == "unresolved_star" for exp in expressions
@@ -414,6 +489,16 @@ def map_project(
                 equivalent_snowpark_names.append(eq_names)
             else:
                 equivalent_snowpark_names.append(set())
+            if _is_attribute(exp) and not is_qualified_reference:
+                # A bare column reference passes the input column through
+                # unchanged, e.g. the second output of select("a", "a").
+                source_name = existing_snowpark_name or mapper.col.get_name()
+                if (
+                    source_name
+                    and source_name != snowpark_column
+                    and source_name in input_container.column_map.snowpark_to_col
+                ):
+                    sort_sources[snowpark_column] = source_name
 
             # TODO: go back to using alias always once SNOW-2203826 is done
             if existing_snowpark_name == snowpark_column and not has_agg_in_input_df:
@@ -426,7 +511,8 @@ def map_project(
                 aliased_col = mapper.col.alias(snowpark_column)
 
             select_list.append(aliased_col)
-            new_snowpark_columns.append(snowpark_column)
+            add_snowpark_columns(exp, [snowpark_column], mapper.col)
+            sort_expressions.append(None if _is_attribute(exp) else exp)
             new_spark_columns.append(spark_name)
             column_types.extend(mapper.field_types)
             qualifiers.append(mapper.get_qualifiers())
@@ -487,7 +573,9 @@ def map_project(
             # Multi-column case ('select *', posexplode, explode, inline, etc.)
             has_multi_column_alias = True
             select_list.append(mapper.col)
-            all_result_columns = input_df.select(mapper.col).columns
+            all_result_columns = (
+                typer.with_window_inputs(input_df).select(mapper.col).columns
+            )
             selected_specs = _resolve_selected_table_function_columns(
                 mapper, all_result_columns
             )
@@ -515,7 +603,8 @@ def map_project(
                 s.extract_field for s in selected_specs
             )
             next_output_position += len(all_result_columns)
-            new_snowpark_columns.extend(result_columns)
+            add_snowpark_columns(exp, result_columns)
+            sort_expressions.extend([None] * len(result_columns))
             new_spark_columns.extend(new_spark_names)
             column_types.extend(mapper.field_types)
             qualifiers.extend(mapper.get_multi_col_qualifiers(len(new_spark_names)))
@@ -546,7 +635,7 @@ def map_project(
             column_is_internal=[True],
         )
 
-    result = input_df.select(*select_list)
+    result = typer.with_window_inputs(input_df).select(*select_list)
 
     expected_output_positions = list(range(1, next_output_position))
     should_project = projected_output_positions != expected_output_positions
@@ -566,6 +655,17 @@ def map_project(
                 new_spark_columns, rel.common.plan_id
             )
             projection_has_final_aliases = True
+            sort_sources = _regenerated_sort_sources(
+                sort_sources,
+                new_snowpark_columns,
+                projection_aliases,
+                [
+                    cast_type is None and extract_field is None
+                    for cast_type, extract_field in zip(
+                        projected_output_cast_types, projected_output_extract_fields
+                    )
+                ],
+            )
             new_snowpark_columns = projection_aliases
 
         projection_cols = []
@@ -597,6 +697,12 @@ def map_project(
                 [f"${i}" for i in range(1, len(new_spark_columns) + 1)]
             )
         result = result.toDF(*final_snowpark_columns)
+        sort_sources = _regenerated_sort_sources(
+            sort_sources,
+            new_snowpark_columns,
+            final_snowpark_columns,
+            [True] * len(final_snowpark_columns),
+        )
         new_snowpark_columns = final_snowpark_columns
 
     column_metadata = _collect_project_column_metadata(
@@ -613,7 +719,7 @@ def map_project(
             for name, direction, null_order in carried_sort_exprs
         ]
 
-    return DataFrameContainer.create_with_column_mapping(
+    container = DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=new_spark_columns,
         snowpark_column_names=new_snowpark_columns,
@@ -626,6 +732,27 @@ def map_project(
         equivalent_snowpark_names=equivalent_snowpark_names,
         sort_exprs=carried_sort_exprs,
     )
+    assert len(sort_expressions) == len(new_snowpark_columns)
+    container.column_map.set_sort_resolution_child(
+        input_container.column_map,
+        sources=sort_sources,
+        expressions=order_by_reuse_fingerprints(
+            list(zip(new_snowpark_columns, new_spark_columns, sort_expressions))
+        ),
+    )
+    if track_nss_data:
+        # Final names may have been regenerated above; flags are positional.
+        if len(nss_data_flags) == len(new_snowpark_columns):
+            container.column_map.nss_data_snowpark_columns = frozenset(
+                name for name, flag in zip(new_snowpark_columns, nss_data_flags) if flag
+            )
+        else:
+            logger.warning(
+                "posexplode NSS data marks dropped: %d flags for %d projected columns",
+                len(nss_data_flags),
+                len(new_snowpark_columns),
+            )
+    return container
 
 
 def _parse_alias_metadata(
@@ -677,18 +804,120 @@ def _collect_project_column_metadata(
     return _parse_alias_metadata(aliases, inherited_metadata)
 
 
+def _is_orderable(datatype: DataType | None) -> bool:
+    """Spark's ``RowOrdering.isOrderable``.
+
+    Maps are not orderable, nor are arrays/structs holding one. Only structured
+    types are inspected: a semi-structured OBJECT (``StructType([],
+    structured=False)``) or Snowflake ARRAY with no element type (``ArrayType()``)
+    is left orderable, as Snowflake orders it today.
+    """
+    match datatype:
+        case MapType() if datatype.structured:
+            return False
+        case ArrayType() if datatype.structured:
+            return _is_orderable(datatype.element_type)
+        case StructType() if datatype.structured:
+            return all(_is_orderable(f.datatype) for f in datatype.fields)
+    return True
+
+
+def _sort_key_type_sql(datatype: DataType | None) -> str:
+    """Spark's SQL name for a sort-key type, keeping nested field names' case.
+
+    Like ``_map_key_type_sql``, but a nested ``StructField`` keeps the name the
+    user wrote (``STRUCT<a: INT>``) instead of Snowpark's upper-cased identifier.
+    """
+    match datatype:
+        case ArrayType() if datatype.element_type is not None:
+            return f"ARRAY<{_sort_key_type_sql(datatype.element_type)}>"
+        case MapType() if (
+            datatype.key_type is not None and datatype.value_type is not None
+        ):
+            key = _sort_key_type_sql(datatype.key_type)
+            return f"MAP<{key}, {_sort_key_type_sql(datatype.value_type)}>"
+        case StructType() if datatype.structured:
+            fields = ", ".join(
+                f"{f.column_identifier._original_name.strip(chr(34))}: "
+                f"{_sort_key_type_sql(f.datatype)}"
+                for f in datatype.fields
+            )
+            return f"STRUCT<{fields}>"
+    return _map_key_type_sql(datatype)
+
+
+def _invalid_ordering_type_error(
+    so: expressions_proto.Expression.SortOrder,
+    spark_name: str,
+    datatype: DataType,
+) -> AnalysisException:
+    """Spark's analysis error for a ``SortOrder`` over an unorderable type."""
+    SortOrder = expressions_proto.Expression.SortOrder
+    if so.direction == SortOrder.SORT_DIRECTION_DESCENDING:
+        direction, default_nulls = "DESC", "NULLS LAST"
+    else:
+        direction, default_nulls = "ASC", "NULLS FIRST"
+    match so.null_ordering:
+        case SortOrder.SORT_NULLS_FIRST:
+            nulls = "NULLS FIRST"
+        case SortOrder.SORT_NULLS_LAST:
+            nulls = "NULLS LAST"
+        case _:
+            nulls = default_nulls
+    exception = AnalysisException(
+        "[DATATYPE_MISMATCH.INVALID_ORDERING_TYPE] Cannot resolve "
+        f'"{spark_name} {direction} {nulls}" due to data type mismatch: '
+        "The `sortorder` does not support ordering on type "
+        f'"{_sort_key_type_sql(datatype)}".;'
+    )
+    attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+    return exception
+
+
+def _sort_key_type(
+    typed_column: TypedColumn, known_schema: StructType | None
+) -> DataType | None:
+    """The sort key's type for the orderability check, or None if unknown.
+
+    Sorting never needed the key's type, so the check only reads a type that is
+    already known: one the ``TypedColumn`` has resolved, or a plain column
+    reference's type in a schema known without a query. Resolving it here would
+    add a DESCRIBE to every sort; an unknown type skips the check and sorts
+    exactly as before.
+    """
+    types = typed_column.resolved_types
+    if types is not None:
+        return types[0] if len(types) == 1 else None
+    if known_schema is None:
+        return None
+    expr = getattr(typed_column.col, "_expression", None)
+    if not isinstance(expr, (Attribute, UnresolvedAttribute)):
+        return None
+    matches = [
+        f.datatype
+        for f in known_schema.fields
+        if f.name == expr.name
+        or (
+            not global_config.spark_sql_caseSensitive
+            and f.name.lower() == expr.name.lower()
+        )
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def build_sorted_container(
     sort: relation_proto.Sort,
     input_container: DataFrameContainer,
-    resolve_child: Callable[[expressions_proto.Expression], Column],
+    resolve_child: Callable[[expressions_proto.Expression], tuple[str, TypedColumn]],
 ) -> DataFrameContainer:
     """Build the sorted ``DataFrameContainer`` for a Sort relation.
 
     The mechanical parts are shared across resolution strategies: ``ORDER BY ALL``
-    expansion, positional (literal) ``ORDER BY`` indices, sort direction / null
-    ordering, and the final sort. ``resolve_child`` turns a non-literal sort
-    expression into a Snowpark ``Column``; callers plug in either plain resolution
-    (against the input column map) or aggregate-aware hybrid resolution.
+    expansion, positional (literal) ``ORDER BY`` indices, the orderability check,
+    sort direction / null ordering, and the final sort. ``resolve_child`` turns a
+    non-literal sort expression into its Spark name and ``TypedColumn``; callers
+    plug in either plain resolution (against the input column map) or
+    aggregate-aware hybrid resolution.
     """
     input_df = input_container.dataframe
     cols = []
@@ -727,6 +956,10 @@ def build_sorted_container(
     from snowflake.snowpark_connect.utils.context import push_processing_order_by_scope
 
     with push_processing_order_by_scope():
+        # SNOW-4298898: Spark-compatible orderability validation is limited to
+        # sessions using the NSS reader; COPY-v1 sessions retain their behavior.
+        check_ordering = is_nss_enabled()
+        known_schema = input_container.known_schema() if check_ordering else None
         for so in sort_order:
             if so.child.HasField("literal"):
                 column_index = unwrap_literal(so.child)
@@ -742,8 +975,27 @@ def build_sorted_container(
                     )
                     attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
                     raise exception
+                datatype = None
+                if known_schema is not None:
+                    try:
+                        datatype = known_schema.fields[column_index - 1].datatype
+                        spark_name = input_container.column_map.get_spark_column_name(
+                            column_index - 1
+                        )
+                    except IndexError:
+                        # SNOW-4298898: column_map can be shorter than known_schema.
+                        datatype = None
             else:
-                col = resolve_child(so.child)
+                spark_name, typed_column = resolve_child(so.child)
+                col = typed_column.col
+                datatype = (
+                    _sort_key_type(typed_column, known_schema)
+                    if check_ordering
+                    else None
+                )
+            if not _is_orderable(datatype):
+                # SNOW-4298898: Spark disallows ordering on these types.
+                raise _invalid_ordering_type_error(so, spark_name, datatype)
 
             match (so.direction, so.null_ordering):
                 case (
@@ -795,9 +1047,16 @@ def build_sorted_container(
         sort_tuples = []
         for so in sort.order:
             if not so.child.HasField("literal"):
-                spark_name, _ = map_single_column_expression(
-                    so.child, input_container.column_map, typer_for_names
-                )
+                # Resolve as ORDER BY does, so a duplicated name resolves the
+                # same way here (SNOW-4222753).
+                with (
+                    push_processing_order_by_scope()
+                    if is_spark_duplicate_column_resolution_enabled()
+                    else contextlib.nullcontext()
+                ):
+                    spark_name, _ = map_single_column_expression(
+                        so.child, input_container.column_map, typer_for_names
+                    )
                 if spark_name:
                     direction = (
                         "desc"
@@ -820,7 +1079,7 @@ def build_sorted_container(
         input_container.table_name,
         cached_schema_getter=lambda: input_df.schema,
         sort_exprs=sort_exprs_for_udtf,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def plain_sort(
@@ -835,11 +1094,10 @@ def plain_sort(
     """
     typer = ExpressionTyper(input_container.dataframe)
 
-    def resolve_child(child: expressions_proto.Expression) -> Column:
-        _, typed_column = map_single_column_expression(
-            child, input_container.column_map, typer
-        )
-        return typed_column.col
+    def resolve_child(
+        child: expressions_proto.Expression,
+    ) -> tuple[str, TypedColumn]:
+        return map_single_column_expression(child, input_container.column_map, typer)
 
     return build_sorted_container(sort, input_container, resolve_child)
 
@@ -921,7 +1179,8 @@ def map_to_df(
             [f for f in input_df.schema.fields if f.name in visible_snowpark_columns]
         ),
         equivalent_snowpark_names=[set()] * len(result_spark_column_names),
-    )
+    ).with_known_schema(visible_container.known_schema())
+    result_container.column_map.set_sort_resolution_child(input_container.column_map)
     context.set_df_before_projection(result_container)
     return result_container
 
@@ -1090,6 +1349,64 @@ def map_to_schema(
     )
 
 
+def rename_target_conflict(
+    rename_map: dict[str, str],
+    has_spark_column: Callable[[str], bool],
+    *,
+    case_sensitive: bool,
+) -> str | None:
+    """The target name ``withColumnsRenamed`` rejects, or ``None``.
+
+    A target that already exists is rejected unless the entry renames a column
+    to itself, and two entries may not share a target. With
+    ``snowpark.connect.sparkDuplicateColumnResolution`` a one-entry map skips this
+    check: that is ``withColumnRenamed``, which Spark allows onto an existing
+    name (SNOW-4222753).
+    """
+    seen = set()
+    for new_name in rename_map.values():
+        sources = [old for old, new in rename_map.items() if new == new_name]
+        if case_sensitive:
+            is_self_rename = any(old == new_name for old in sources)
+        else:
+            is_self_rename = any(old.lower() == new_name.lower() for old in sources)
+        if has_spark_column(new_name) and not is_self_rename:
+            return new_name
+        if (case_sensitive and new_name in seen) or (
+            not case_sensitive and new_name.lower() in [n.lower() for n in seen]
+        ):
+            return new_name
+        seen.add(new_name)
+    return None
+
+
+def rename_result_duplicate(
+    spark_names: list[str],
+    rename_map: dict[str, str],
+    *,
+    case_sensitive: bool,
+) -> str | None:
+    """A name that still appears twice after ``rename_map``, or ``None``.
+
+    Spark ``withColumnsRenamed`` checks the whole projection, including names
+    the map does not change (``Dataset.scala`` ``checkColumnNameDuplication``).
+    A one-entry map is ``withColumnRenamed`` and does not use this check.
+    """
+
+    def _norm(name: str) -> str:
+        return name if case_sensitive else name.lower()
+
+    lookup = {_norm(old): new for old, new in rename_map.items()}
+    seen: dict[str, str] = {}
+    for name in spark_names:
+        renamed = lookup.get(_norm(name), name)
+        key = _norm(renamed)
+        if key in seen:
+            return seen[key]
+        seen[key] = renamed
+    return None
+
+
 def map_with_columns_renamed(
     rel: relation_proto.Relation,
 ) -> DataFrameContainer:
@@ -1181,41 +1498,28 @@ def map_with_columns_renamed(
             f"[COLUMN_ALREADY_EXISTS] The column `{name}` already exists. Consider to choose another name or rename the existing column."
         )
 
-    # Validate for naming conflicts
+    # A one-entry map is withColumnRenamed (Connect sends both APIs as
+    # WithColumnsRenamed). Classic Dataset.withColumnRenamed aliases the column
+    # even when the new name already exists, so the DataFrame keeps both
+    # columns. Multi-entry maps keep the check below. SNOW-4222753.
     rename_map = dict(rel.with_columns_renamed.rename_columns_map)
-    new_names_list = list(rename_map.values())
-    seen = set()
-    for new_name in new_names_list:
-        # Check if this new name conflicts with existing columns
-        # But allow renaming a column to itself (self-rename)
-        is_self_rename = False
-        if global_config.spark_sql_caseSensitive:
-            # In case-sensitive mode, check for exact match
-            is_self_rename = any(
-                old_name == new_name
-                for old_name, new_name_candidate in rename_map.items()
-                if new_name_candidate == new_name
+    duplicate_resolution = is_spark_duplicate_column_resolution_enabled()
+    if not (duplicate_resolution and len(rename_map) == 1):
+        offending = rename_target_conflict(
+            rename_map,
+            column_map.has_spark_column,
+            case_sensitive=global_config.spark_sql_caseSensitive,
+        )
+        if offending is None and duplicate_resolution:
+            # Multi-entry maps also reject a result that already had two
+            # columns of one name. One-entry maps stay allowed.
+            offending = rename_result_duplicate(
+                column_map.get_spark_columns(),
+                rename_map,
+                case_sensitive=global_config.spark_sql_caseSensitive,
             )
-        else:
-            # In case-insensitive mode, check for case-insensitive match
-            source_columns = [
-                old_name
-                for old_name, new_name_candidate in rename_map.items()
-                if new_name_candidate == new_name
-            ]
-            is_self_rename = any(
-                source_col.lower() == new_name.lower() for source_col in source_columns
-            )
-
-        if column_map.has_spark_column(new_name) and not is_self_rename:
-            # Spark doesn't allow reusing existing names, even if the result df will not contain duplicate columns
-            raise _column_exists_error(new_name)
-        if (global_config.spark_sql_caseSensitive and new_name in seen) or (
-            not global_config.spark_sql_caseSensitive
-            and new_name.lower() in [s.lower() for s in seen]
-        ):
-            raise _column_exists_error(new_name)
-        seen.add(new_name)
+        if offending is not None:
+            raise _column_exists_error(offending)
 
     new_spark_names = []
     equivalent_snowpark_names = []
@@ -1263,8 +1567,11 @@ def map_with_columns_renamed(
         cached_schema_getter=lambda: input_df.schema,
         column_is_internal=column_is_internal,
         column_is_qualified_access_only=column_is_qualified_access_only,
-    )
+    ).with_known_schema(input_container.known_schema())
     result_container.column_map.rename_chains = rename_columns_map
+    # ORDER BY of a name this rename duplicated resolves against the input,
+    # where the name is unique (Spark sorts Sort [b#1], the existing column).
+    result_container.column_map.set_sort_resolution_child(input_container.column_map)
 
     return result_container
 
@@ -1321,15 +1628,16 @@ def map_with_columns(
     """
     Add columns to a DataFrame and return a container.
     """
-    input_container = map_relation(rel.with_columns.input)
+    input_container = maybe_materialize_window_input(
+        map_relation(rel.with_columns.input), rel.with_columns.aliases
+    )
     input_df = input_container.dataframe
+    typer = ExpressionTyper(input_df, lift_window_inputs=True)
     with_columns = []
     for alias in rel.with_columns.aliases:
-        spark_names, typed_alias = map_alias(
-            alias, input_container.column_map, ExpressionTyper(input_df)
-        )
+        spark_names, typed_alias = map_alias(alias, input_container.column_map, typer)
         register_lca_alias(spark_names[0], typed_alias)
-        with_columns.append((spark_names, typed_alias))
+        with_columns.append((alias, spark_names, typed_alias))
 
     # we don't need lateral aliases anymore
     clear_lca_alias_map()
@@ -1339,10 +1647,11 @@ def map_with_columns(
     with_columns_names = []
     with_columns_exprs = []
     with_columns_types = []
+    with_columns_aliases = []
     with_column_offset = len(input_container.column_map.get_spark_columns())
     new_spark_names = []
     seen_columns = set()
-    for names_list, expr in with_columns:
+    for alias_proto, names_list, expr in with_columns:
         assert (
             len(names_list) == 1
         ), f"Expected single column name, got {len(names_list)}: {names_list}"
@@ -1366,6 +1675,9 @@ def map_with_columns(
                 attach_custom_error_code(exception, ErrorCodes.COLUMN_NOT_FOUND)
                 raise exception
             with_columns_names.extend(all_instances_of_spark_column_name)
+            with_columns_aliases.extend(
+                [alias_proto] * len(all_instances_of_spark_column_name)
+            )
             with_columns_exprs.extend(
                 [expr.col] * len(all_instances_of_spark_column_name)
             )
@@ -1380,13 +1692,14 @@ def map_with_columns(
                 )[0]
             )
             with_column_offset += 1
+            with_columns_aliases.append(alias_proto)
             with_columns_exprs.append(expr.col)
             with_columns_types.extend(expr.field_types)
             new_spark_names.append(name)
 
     if input_container.has_zero_columns():
         # just select all added columns
-        result = input_df.select(
+        result = typer.with_window_inputs(input_df).select(
             *[
                 col.alias(name)
                 for name, col in zip(with_columns_names, with_columns_exprs)
@@ -1451,9 +1764,12 @@ def map_with_columns(
     ):
         input_df._select_statement.flatten_disabled = False
 
-    result = input_df.with_columns(
-        with_columns_names_deduped, with_columns_exprs_deduped
-    ).select(*new_snowpark_columns)
+    # The trailing select drops the lifted window inputs again.
+    result = (
+        typer.with_window_inputs(input_df)
+        .with_columns(with_columns_names_deduped, with_columns_exprs_deduped)
+        .select(*new_snowpark_columns)
+    )
 
     # SNOW-2306644: the next projection after a withColumn call can completely remove the added column
     # df.withColumn("new").select("foo").filter("new") will fail with a missing column error
@@ -1471,7 +1787,7 @@ def map_with_columns(
         input_container.column_map.column_metadata,
     )
 
-    return DataFrameContainer.create_with_column_mapping(
+    container = DataFrameContainer.create_with_column_mapping(
         dataframe=result,
         spark_column_names=new_spark_columns,
         snowpark_column_names=new_snowpark_columns,
@@ -1491,6 +1807,27 @@ def map_with_columns(
         column_is_internal=column_is_internal,
         column_is_qualified_access_only=column_is_qualified_access_only,
     )
+    # withColumn on an existing name keeps that column's Snowpark name for the
+    # new value, so ORDER BY must not treat it as the input's column.
+    container.column_map.set_sort_resolution_child(
+        input_container.column_map,
+        replaced=set(with_columns_names)
+        & set(input_container.column_map.snowpark_to_col),
+    )
+    input_nss_data = input_container.column_map.nss_data_snowpark_columns
+    if input_nss_data and is_nss_posexplode_without_transform_enabled():
+        # A replaced column keeps its Snowpark name, so its mark comes from the new
+        # expression, not from the input.
+        nss_data = set(input_nss_data) - set(with_columns_names)
+        nss_data.update(
+            name
+            for name, alias_proto in zip(with_columns_names, with_columns_aliases)
+            if is_nss_value_path(alias_proto.expr, input_container.column_map)
+        )
+        container.column_map.nss_data_snowpark_columns = frozenset(
+            name for name in new_snowpark_columns if name in nss_data
+        )
+    return container
 
 
 def map_unpivot(

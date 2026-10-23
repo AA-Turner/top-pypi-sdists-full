@@ -28,6 +28,7 @@ from coverage.data import (
 from coverage.exceptions import ConfigError, DataError, NoDataError
 from coverage.files import PathAliases, canonical_filename
 from coverage.misc import first
+from coverage.sqldata import good_filename_match
 from coverage.types import FilePathClasses, FilePathType, TArc, TLineNo
 from tests import osinfo
 from tests.coveragetest import CoverageTest
@@ -428,13 +429,23 @@ class CoverageDataTest(CoverageTest):
         covdata2 = DebugCoverageData(suffix="2")
         covdata2.add_arcs(ARCS_3)
 
-        msg = "Can't combine branch coverage data with statement data"
-        with pytest.raises(DataError, match=msg):
+        msg = (
+            "Can't combine branch coverage data with statement data: "
+            + r"data file '.*\.coverage\.2' measured branch coverage, "
+            + r"but data file '.*\.coverage\.1' didn't$"
+        )
+        with pytest.raises(DataError, match=msg) as excinfo:
             covdata1.update(covdata2)
+        assert excinfo.value.slug == "cant-combine"
 
-        msg = "Can't combine statement coverage data with branch data"
-        with pytest.raises(DataError, match=msg):
+        msg = (
+            "Can't combine statement coverage data with branch data: "
+            + r"data file '.*\.coverage\.1' didn't measure branch coverage, "
+            + r"but data file '.*\.coverage\.2' did$"
+        )
+        with pytest.raises(DataError, match=msg) as excinfo:
             covdata2.update(covdata1)
+        assert excinfo.value.slug == "cant-combine"
 
     def test_update_file_tracers(self) -> None:
         covdata1 = DebugCoverageData(suffix="1")
@@ -745,7 +756,7 @@ class CoverageDataInTempDirTest(CoverageTest):
     def test_hard_read_error(self) -> None:
         self.make_file("noperms.dat", "go away")
         os.chmod("noperms.dat", 0)
-        with pytest.raises(DataError, match=r"Couldn't .* '.*[/\\]noperms.dat': \S+"):
+        with pytest.raises(DataError, match=r"Couldn't .* '.*[/\\]noperms.dat': .*\(\S+\)$"):
             covdata = DebugCoverageData("noperms.dat")
             covdata.read()
 
@@ -868,6 +879,49 @@ class CoverageDataFilesTest(CoverageTest):
 
         # In addition to being different, the suffixes have the pid in them.
         assert all(str(os.getpid()) in fn for fn in data_files2)
+
+    def test_true_suffix_written_twice(self) -> None:
+        # Two files start with the same data, then record different data and
+        # are written again. Both have to be combined, so the second write has
+        # to update the hash in the file name.
+        for more_lines in [LINES_2, {"d.py": {4}}]:
+            covdata = DebugCoverageData(suffix=True)
+            covdata.add_lines(LINES_1)
+            covdata.write()
+            covdata.add_lines(more_lines)
+            covdata.write()
+        data_files = glob.glob(".coverage.*")
+        assert len(data_files) == 2
+        assert all(good_filename_match(fn)["hash"] for fn in data_files)
+
+        covdata3 = DebugCoverageData()
+        combine_parallel_data(covdata3)
+        assert_line_counts(covdata3, {"a.py": 3, "b.py": 1, "c.py": 1, "d.py": 1})
+        self.assert_file_count(".coverage.*", 0)
+
+    def test_true_suffix_written_twice_same_data(self) -> None:
+        # Files with the same data are still skipped as duplicates when they
+        # were written more than once.
+        data_files = []
+        for _ in range(2):
+            covdata = DebugCoverageData(suffix=True)
+            covdata.add_lines(LINES_1)
+            covdata.write()
+            covdata.add_lines(LINES_2)
+            covdata.write()
+            data_files.append(covdata.data_filename())
+        classifier = DataFileClassifier()
+        assert classifier.classify(data_files[0]) == "combine"
+        assert classifier.classify(data_files[1]) == "skip"
+
+    def test_true_suffix_written_again_without_new_data(self) -> None:
+        covdata = DebugCoverageData(suffix=True)
+        covdata.add_lines(LINES_1)
+        covdata.write()
+        data_file = covdata.data_filename()
+        covdata.write()
+        assert covdata.data_filename() == data_file
+        self.assert_file_count(".coverage.*", 1)
 
     def test_combining(self) -> None:
         self.assert_file_count(".coverage.*", 0)
@@ -1063,6 +1117,39 @@ class CoverageDataFilesTest(CoverageTest):
         msg = "Couldn't combine from non-existent path 'xyzzy'"
         with pytest.raises(NoDataError, match=msg):
             combine_parallel_data(covdata, data_paths=["xyzzy"])
+
+    @pytest.mark.parametrize("arcs_first", [False, True])
+    def test_combining_cant_mix_lines_and_arcs(self, arcs_first: bool) -> None:
+        # The error names the data file that doesn't match the data already
+        # combined, and the data file it is combined into.
+        covdata1 = DebugCoverageData(suffix="1")
+        covdata2 = DebugCoverageData(suffix="2")
+        if arcs_first:
+            covdata1.add_arcs(ARCS_3)
+            covdata2.add_lines(LINES_1)
+            msg = (
+                "Can't combine statement coverage data with branch data: "
+                + r"data file '.*\.coverage\.2' didn't measure branch coverage, "
+                + r"but data file '.*\.coverage' did$"
+            )
+        else:
+            covdata1.add_lines(LINES_1)
+            covdata2.add_arcs(ARCS_3)
+            msg = (
+                "Can't combine branch coverage data with statement data: "
+                + r"data file '.*\.coverage\.2' measured branch coverage, "
+                + r"but data file '.*\.coverage' didn't$"
+            )
+        covdata1.write()
+        covdata2.write()
+
+        covdata3 = DebugCoverageData()
+        with pytest.raises(DataError, match=msg) as excinfo:
+            combine_parallel_data(covdata3)
+        assert excinfo.value.slug == "cant-combine"
+
+        # The data file named in the message is still there to be examined.
+        self.assert_exists(".coverage.2")
 
     def test_interleaved_erasing_bug716(self) -> None:
         # pytest-cov could produce this scenario. #716

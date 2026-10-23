@@ -140,6 +140,7 @@ async fn hydrated_store_update_with_mode(
         super::ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+            sync_trigger: None,
             mmap_project_id: super::MmapProjectId::for_sdk_key("parser-protocol-tests"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode,

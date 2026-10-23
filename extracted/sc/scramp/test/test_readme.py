@@ -4,6 +4,8 @@ from pathlib import Path
 
 def test_readme():
     failure_count, _ = doctest.testfile(
-        str(Path("..") / "README.md"), verbose=False, optionflags=doctest.ELLIPSIS
+        str(Path("..") / "README.md"),
+        verbose=False,
+        optionflags=doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE,
     )
     assert failure_count == 0

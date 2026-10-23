@@ -1,44 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pandas
-Version: 3.0.6
+Version: 3.1.0
 Summary: Powerful data structures for data analysis, time series, and statistics
 Author-Email: The Pandas Development Team <pandas-dev@python.org>
-License: BSD 3-Clause License
-         
-         Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team
-         All rights reserved.
-         
-         Copyright (c) 2011-2026, Open source contributors.
-         
-         Redistribution and use in source and binary forms, with or without
-         modification, are permitted provided that the following conditions are met:
-         
-         * Redistributions of source code must retain the above copyright notice, this
-           list of conditions and the following disclaimer.
-         
-         * Redistributions in binary form must reproduce the above copyright notice,
-           this list of conditions and the following disclaimer in the documentation
-           and/or other materials provided with the distribution.
-         
-         * Neither the name of the copyright holder nor the names of its
-           contributors may be used to endorse or promote products derived from
-           this software without specific prior written permission.
-         
-         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-         AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-         IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-         DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-         FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-         DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-         SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-         CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-         
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+License-File: LICENSES/BOTTLENECK_LICENCE
+License-File: LICENSES/DATEUTIL_LICENSE
+License-File: LICENSES/HAVEN_LICENSE
+License-File: LICENSES/HAVEN_MIT
+License-File: LICENSES/KLIB_LICENSE
+License-File: LICENSES/MUSL_LICENSE
+License-File: LICENSES/NUMPY_LICENSE
+License-File: LICENSES/PACKAGING_LICENSE
+License-File: LICENSES/PSF_LICENSE
+License-File: LICENSES/PYPERCLIP_LICENSE
+License-File: LICENSES/PYUPGRADE_LICENSE
+License-File: LICENSES/SAS7BDAT_LICENSE
+License-File: LICENSES/STATSBASE_JL_LICENSE
+License-File: LICENSES/ULTRAJSON_LICENSE
+License-File: LICENSES/XSIMD_LICENSE
+License-File: subprojects/fast_float-8.2.10/LICENSE-APACHE
+License-File: subprojects/fast_float-8.2.10/LICENSE-BOOST
+License-File: subprojects/fast_float-8.2.10/LICENSE-MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
@@ -51,116 +38,117 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Project-URL: homepage, https://pandas.pydata.org
+Project-URL: source, https://github.com/pandas-dev/pandas
 Project-URL: documentation, https://pandas.pydata.org/docs/
-Project-URL: repository, https://github.com/pandas-dev/pandas
+Project-URL: changelog, https://pandas.pydata.org/docs/whatsnew/index.html
+Project-URL: issues, https://github.com/pandas-dev/pandas/issues
+Project-URL: funding, https://opencollective.com/pandas
 Requires-Python: >=3.11
-Requires-Dist: numpy>=1.26.0; python_version < "3.14"
+Requires-Dist: numpy>=2.0.2; python_version < "3.14"
 Requires-Dist: numpy>=2.3.3; python_version >= "3.14"
-Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: python-dateutil>=2.9.0
 Requires-Dist: tzdata; sys_platform == "win32"
 Requires-Dist: tzdata; sys_platform == "emscripten"
 Provides-Extra: test
-Requires-Dist: hypothesis>=6.116.0; extra == "test"
-Requires-Dist: pytest<9.1,>=8.3.4; extra == "test"
+Requires-Dist: pytest>=8.3.4; extra == "test"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "test"
 Provides-Extra: pyarrow
-Requires-Dist: pyarrow>=13.0.0; extra == "pyarrow"
+Requires-Dist: pyarrow>=16.0.0; extra == "pyarrow"
 Provides-Extra: performance
-Requires-Dist: bottleneck>=1.4.2; extra == "performance"
-Requires-Dist: numba>=0.60.0; extra == "performance"
-Requires-Dist: numexpr>=2.10.2; extra == "performance"
+Requires-Dist: bottleneck>=1.5.0; extra == "performance"
+Requires-Dist: numba>=0.61.2; extra == "performance"
+Requires-Dist: numexpr!=2.14.1,>=2.11.0; extra == "performance"
 Provides-Extra: computation
-Requires-Dist: scipy>=1.14.1; extra == "computation"
-Requires-Dist: xarray>=2024.10.0; extra == "computation"
+Requires-Dist: scipy>=1.16.1; extra == "computation"
+Requires-Dist: xarray>=2025.7.1; extra == "computation"
 Provides-Extra: fss
-Requires-Dist: fsspec>=2024.10.0; extra == "fss"
+Requires-Dist: fsspec>=2025.7.0; extra == "fss"
 Provides-Extra: aws
-Requires-Dist: s3fs>=2024.10.0; extra == "aws"
+Requires-Dist: s3fs>=2025.7.0; extra == "aws"
 Provides-Extra: gcp
-Requires-Dist: gcsfs>=2024.10.0; extra == "gcp"
+Requires-Dist: gcsfs>=2025.7.0; extra == "gcp"
 Provides-Extra: excel
 Requires-Dist: odfpy>=1.4.1; extra == "excel"
 Requires-Dist: openpyxl>=3.1.5; extra == "excel"
-Requires-Dist: python-calamine>=0.3.0; extra == "excel"
+Requires-Dist: python-calamine>=0.4.0; extra == "excel"
 Requires-Dist: pyxlsb>=1.0.10; extra == "excel"
-Requires-Dist: xlrd>=2.0.1; extra == "excel"
-Requires-Dist: xlsxwriter>=3.2.0; extra == "excel"
+Requires-Dist: xlrd>=2.0.2; extra == "excel"
+Requires-Dist: xlsxwriter>=3.2.5; extra == "excel"
 Provides-Extra: parquet
 Requires-Dist: pyarrow>=13.0.0; extra == "parquet"
 Provides-Extra: feather
 Requires-Dist: pyarrow>=13.0.0; extra == "feather"
 Provides-Extra: iceberg
-Requires-Dist: pyiceberg>=0.8.1; extra == "iceberg"
+Requires-Dist: pyiceberg>=0.9.1; extra == "iceberg"
 Provides-Extra: hdf5
-Requires-Dist: tables>=3.10.1; extra == "hdf5"
+Requires-Dist: tables>=3.10.2; extra == "hdf5"
 Provides-Extra: spss
-Requires-Dist: pyreadstat>=1.2.8; extra == "spss"
+Requires-Dist: pyreadstat>=1.3.0; extra == "spss"
 Provides-Extra: postgresql
-Requires-Dist: SQLAlchemy>=2.0.36; extra == "postgresql"
+Requires-Dist: SQLAlchemy>=2.0.42; extra == "postgresql"
 Requires-Dist: psycopg2>=2.9.10; extra == "postgresql"
-Requires-Dist: adbc-driver-postgresql>=1.2.0; extra == "postgresql"
+Requires-Dist: adbc-driver-postgresql>=1.7.0; extra == "postgresql"
 Provides-Extra: mysql
-Requires-Dist: SQLAlchemy>=2.0.36; extra == "mysql"
+Requires-Dist: SQLAlchemy>=2.0.42; extra == "mysql"
 Requires-Dist: pymysql>=1.1.1; extra == "mysql"
 Provides-Extra: sql-other
-Requires-Dist: SQLAlchemy>=2.0.36; extra == "sql-other"
-Requires-Dist: adbc-driver-postgresql>=1.2.0; extra == "sql-other"
-Requires-Dist: adbc-driver-sqlite>=1.2.0; extra == "sql-other"
+Requires-Dist: SQLAlchemy>=2.0.42; extra == "sql-other"
+Requires-Dist: adbc-driver-postgresql>=1.7.0; extra == "sql-other"
+Requires-Dist: adbc-driver-sqlite>=1.7.0; extra == "sql-other"
 Provides-Extra: html
-Requires-Dist: beautifulsoup4>=4.12.3; extra == "html"
+Requires-Dist: beautifulsoup4>=4.13.4; extra == "html"
 Requires-Dist: html5lib>=1.1; extra == "html"
-Requires-Dist: lxml>=5.3.0; extra == "html"
+Requires-Dist: lxml>=6.0.0; extra == "html"
 Provides-Extra: xml
-Requires-Dist: lxml>=5.3.0; extra == "xml"
+Requires-Dist: lxml>=6.0.0; extra == "xml"
 Provides-Extra: plot
-Requires-Dist: matplotlib>=3.9.3; extra == "plot"
+Requires-Dist: matplotlib>=3.10.5; extra == "plot"
 Provides-Extra: output-formatting
-Requires-Dist: jinja2>=3.1.5; extra == "output-formatting"
+Requires-Dist: jinja2>=3.1.6; extra == "output-formatting"
 Requires-Dist: tabulate>=0.9.0; extra == "output-formatting"
 Provides-Extra: clipboard
-Requires-Dist: PyQt5>=5.15.9; extra == "clipboard"
-Requires-Dist: qtpy>=2.4.2; extra == "clipboard"
+Requires-Dist: PyQt5>=5.15.11; extra == "clipboard"
+Requires-Dist: qtpy>=2.4.3; extra == "clipboard"
 Provides-Extra: compression
 Requires-Dist: zstandard>=0.23.0; extra == "compression"
 Provides-Extra: timezone
 Requires-Dist: pytz>=2020.1; extra == "timezone"
 Provides-Extra: all
-Requires-Dist: adbc-driver-postgresql>=1.2.0; extra == "all"
-Requires-Dist: adbc-driver-sqlite>=1.2.0; extra == "all"
-Requires-Dist: beautifulsoup4>=4.12.3; extra == "all"
-Requires-Dist: bottleneck>=1.4.2; extra == "all"
+Requires-Dist: adbc-driver-postgresql>=1.7.0; extra == "all"
+Requires-Dist: adbc-driver-sqlite>=1.7.0; extra == "all"
+Requires-Dist: beautifulsoup4>=4.13.4; extra == "all"
+Requires-Dist: bottleneck>=1.5.0; extra == "all"
 Requires-Dist: fastparquet>=2024.11.0; extra == "all"
-Requires-Dist: fsspec>=2024.10.0; extra == "all"
-Requires-Dist: gcsfs>=2024.10.0; extra == "all"
+Requires-Dist: fsspec>=2025.7.0; extra == "all"
+Requires-Dist: gcsfs>=2025.7.0; extra == "all"
 Requires-Dist: html5lib>=1.1; extra == "all"
-Requires-Dist: hypothesis>=6.116.0; extra == "all"
-Requires-Dist: jinja2>=3.1.5; extra == "all"
-Requires-Dist: lxml>=5.3.0; extra == "all"
-Requires-Dist: matplotlib>=3.9.3; extra == "all"
-Requires-Dist: numba>=0.60.0; extra == "all"
-Requires-Dist: numexpr>=2.10.2; extra == "all"
+Requires-Dist: jinja2>=3.1.6; extra == "all"
+Requires-Dist: lxml>=6.0.0; extra == "all"
+Requires-Dist: matplotlib>=3.10.5; extra == "all"
+Requires-Dist: numba>=0.61.2; extra == "all"
+Requires-Dist: numexpr!=2.14.1,>=2.11.0; extra == "all"
 Requires-Dist: odfpy>=1.4.1; extra == "all"
 Requires-Dist: openpyxl>=3.1.5; extra == "all"
 Requires-Dist: psycopg2>=2.9.10; extra == "all"
-Requires-Dist: pyarrow>=13.0.0; extra == "all"
-Requires-Dist: pyiceberg>=0.8.1; extra == "all"
+Requires-Dist: pyarrow>=16.0.0; extra == "all"
+Requires-Dist: pyiceberg>=0.9.1; extra == "all"
 Requires-Dist: pymysql>=1.1.1; extra == "all"
-Requires-Dist: PyQt5>=5.15.9; extra == "all"
-Requires-Dist: pyreadstat>=1.2.8; extra == "all"
+Requires-Dist: PyQt5>=5.15.11; extra == "all"
+Requires-Dist: pyreadstat>=1.3.0; extra == "all"
 Requires-Dist: pytest>=8.3.4; extra == "all"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "all"
-Requires-Dist: python-calamine>=0.3.0; extra == "all"
+Requires-Dist: python-calamine>=0.4.0; extra == "all"
 Requires-Dist: pytz>=2020.1; extra == "all"
 Requires-Dist: pyxlsb>=1.0.10; extra == "all"
-Requires-Dist: qtpy>=2.4.2; extra == "all"
-Requires-Dist: scipy>=1.14.1; extra == "all"
-Requires-Dist: s3fs>=2024.10.0; extra == "all"
-Requires-Dist: SQLAlchemy>=2.0.36; extra == "all"
-Requires-Dist: tables>=3.10.1; extra == "all"
+Requires-Dist: qtpy>=2.4.3; extra == "all"
+Requires-Dist: scipy>=1.16.1; extra == "all"
+Requires-Dist: s3fs>=2025.7.0; extra == "all"
+Requires-Dist: SQLAlchemy>=2.0.42; extra == "all"
+Requires-Dist: tables>=3.10.2; extra == "all"
 Requires-Dist: tabulate>=0.9.0; extra == "all"
-Requires-Dist: xarray>=2024.10.0; extra == "all"
-Requires-Dist: xlrd>=2.0.1; extra == "all"
-Requires-Dist: xlsxwriter>=3.2.0; extra == "all"
+Requires-Dist: xarray>=2025.7.1; extra == "all"
+Requires-Dist: xlrd>=2.0.2; extra == "all"
+Requires-Dist: xlsxwriter>=3.2.5; extra == "all"
 Requires-Dist: zstandard>=0.23.0; extra == "all"
 Description-Content-Type: text/markdown
 
@@ -281,7 +269,7 @@ details, see the commit logs at https://github.com/pandas-dev/pandas.
 ## Dependencies
 - [NumPy - Adds support for large, multi-dimensional arrays, matrices and high-level mathematical functions to operate on these arrays](https://www.numpy.org)
 - [python-dateutil - Provides powerful extensions to the standard datetime module](https://dateutil.readthedocs.io/en/stable/index.html)
-- [tzdata - Provides an IANA time zone database](https://tzdata.readthedocs.io/en/latest/) (Only required on Windows/Emscripten)
+- [tzdata - Provides an IANA time zone database](https://tzdata.python.org) (Only required on Windows/Emscripten)
 
 See the [full installation instructions](https://pandas.pydata.org/pandas-docs/stable/install.html#dependencies) for minimum supported versions of required, recommended and optional dependencies.
 
@@ -340,8 +328,6 @@ Additional information on the communication channels can be found on the [contri
 All contributions, bug reports, bug fixes, documentation improvements, enhancements, and ideas are welcome.
 
 A detailed overview on how to contribute can be found in the **[contributing guide](https://pandas.pydata.org/docs/dev/development/contributing.html)**.
-
-If you are simply looking to start working with the pandas codebase, navigate to the [GitHub "issues" tab](https://github.com/pandas-dev/pandas/issues) and start looking through interesting issues. There are a number of issues listed under [Docs](https://github.com/pandas-dev/pandas/issues?q=is%3Aissue%20state%3Aopen%20label%3ADocs%20sort%3Aupdated-desc) and [good first issue](https://github.com/pandas-dev/pandas/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22%20sort%3Aupdated-desc) where you could start out.
 
 You can also triage issues which may include reproducing bug reports, or asking for vital information such as version numbers or reproduction instructions. If you would like to start triaging issues, one easy way to get started is to [subscribe to pandas on CodeTriage](https://www.codetriage.com/pandas-dev/pandas).
 

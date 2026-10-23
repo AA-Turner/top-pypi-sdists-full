@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -40,6 +47,12 @@ from .dbt_related import (
     RelatedDbtSeed,
     RelatedDbtSource,
     RelatedDbtTest,
+)
+from .dynamo_db_related import (
+    RelatedDynamoDBAttribute,
+    RelatedDynamoDBGlobalSecondaryIndex,
+    RelatedDynamoDBLocalSecondaryIndex,
+    RelatedDynamoDBTable,
 )
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
@@ -64,19 +77,6 @@ from .sql_related import (
     RelatedSchema,
     RelatedTable,
     RelatedTablePartition,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .dynamo_db_related import (
-    RelatedDynamoDBAttribute,
-    RelatedDynamoDBGlobalSecondaryIndex,
-    RelatedDynamoDBLocalSecondaryIndex,
-    RelatedDynamoDBTable,
 )
 
 # =============================================================================
@@ -1425,6 +1425,7 @@ def _dynamo_db_table_to_nested(dynamo_db_table: DynamoDBTable) -> DynamoDBTableN
         is_incomplete=dynamo_db_table.is_incomplete,
         provenance_type=dynamo_db_table.provenance_type,
         home_id=dynamo_db_table.home_id,
+        delete_handler=dynamo_db_table.delete_handler,
         depth=dynamo_db_table.depth,
         immediate_upstream=dynamo_db_table.immediate_upstream,
         immediate_downstream=dynamo_db_table.immediate_downstream,
@@ -1473,6 +1474,7 @@ def _dynamo_db_table_from_nested(nested: DynamoDBTableNested) -> DynamoDBTable:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

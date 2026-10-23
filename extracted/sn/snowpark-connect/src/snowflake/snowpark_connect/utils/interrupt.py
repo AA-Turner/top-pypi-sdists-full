@@ -4,6 +4,7 @@
 
 import concurrent.futures
 
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 
 
@@ -11,9 +12,9 @@ def interrupt_all_queries() -> list[str]:
     snowpark_session = get_or_create_snowpark_session()
 
     sql, params = _build_sql_for_select_running_queries()
-    running_queries = snowpark_session.sql(sql, params=params).collect()
-
-    snowpark_session.cancel_all()
+    with scos_internal_query_tag():
+        running_queries = snowpark_session.sql(sql, params=params).collect()
+        snowpark_session.cancel_all()
 
     return [row[0] for row in running_queries]
 
@@ -22,9 +23,10 @@ def interrupt_queries_with_tag(tag: str) -> list[str]:
     snowpark_session = get_or_create_snowpark_session()
 
     sql, params = _build_sql_for_select_running_queries(tag=tag)
-    running_queries_with_tag_result = [
-        row[0] for row in snowpark_session.sql(sql, params=params).collect()
-    ]
+    with scos_internal_query_tag():
+        running_queries_with_tag_result = [
+            row[0] for row in snowpark_session.sql(sql, params=params).collect()
+        ]
 
     # Final list of canceled queries might be slightly smaller than running_queries_with_tag_result, because
     # some jobs can finish in the meantime
@@ -54,9 +56,12 @@ def interrupt_query(query_id: str) -> list[str]:
 
 
 def _cancel_query(snowpark_session, query_id: str) -> str | None:
-    cancel_result = snowpark_session.sql(
-        "SELECT SYSTEM$CANCEL_QUERY(?)", params=[query_id]
-    ).collect()
+    # Tagged here rather than in the callers: `interrupt_queries_with_tag`
+    # submits this to a ThreadPoolExecutor, and the marker is thread-local.
+    with scos_internal_query_tag():
+        cancel_result = snowpark_session.sql(
+            "SELECT SYSTEM$CANCEL_QUERY(?)", params=[query_id]
+        ).collect()
 
     return query_id if _is_cancel_query_successful(cancel_result[0][0]) else None
 

@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from probe.sdk.agent_session import AGENT_HEADER, AGENT_SESSION_HEADER
+from probe.sdk.durable import write_text_atomic
 
 #: What this host calls itself on the wire. A CONSTANT for a Codex install, so
 #: it rides the static header where it works today -- pointing it at an env var
@@ -254,14 +255,12 @@ def write_mcp_bearer(name: str, *, url: str, token: str, path: Path | None = Non
     _validated(updated, what="the updated Codex config")
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(target.name + ".probe.tmp")
     try:
-        temporary.write_text(updated, encoding="utf-8")
-        # The file now holds a credential. It may not have before.
-        temporary.chmod(0o600)
-        os.replace(temporary, target)
+        # The file now holds a credential. It may not have before: 0600 from
+        # its first byte, and a symlinked config.toml is replaced, never
+        # written through, so the token does not land in a dotfiles repo.
+        write_text_atomic(target, updated, mode=0o600)
     except OSError as exc:
-        temporary.unlink(missing_ok=True)
         raise ConfigError(f"could not write {target}: {exc}") from exc
     return WriteResult(path=target, changed=True, previous=previous)
 
@@ -309,13 +308,9 @@ def remove_mcp_server(name: str, *, path: Path | None = None) -> WriteResult:
     updated = "".join(lines[: span[0]]) + "".join(lines[span[1] :])
     _validated(updated, what="the updated Codex config")
 
-    temporary = target.with_name(target.name + ".probe.tmp")
     try:
-        temporary.write_text(updated, encoding="utf-8")
-        temporary.chmod(0o600)
-        os.replace(temporary, target)
+        write_text_atomic(target, updated, mode=0o600)
     except OSError as exc:
-        temporary.unlink(missing_ok=True)
         raise ConfigError(f"could not write {target}: {exc}") from exc
     return WriteResult(path=target, changed=True)
 
@@ -402,13 +397,9 @@ def write_top_level(key: str, value: str | None, *, path: Path | None = None) ->
         return WriteResult(path=target, changed=False, previous=previous)
 
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_name(target.name + ".probe.tmp")
     try:
-        mode = target.stat().st_mode & 0o7777 if existed else 0o600
-        temporary.write_bytes(updated.encode("utf-8"))
-        temporary.chmod(mode)
-        os.replace(temporary, target)
+        # `updated` keeps the file's own line endings; the write adds none.
+        write_text_atomic(target, updated, mode=0o600, keep_mode=True)
     except OSError as exc:
-        temporary.unlink(missing_ok=True)
         raise ConfigError(f"could not write {target}: {exc}") from exc
     return WriteResult(path=target, changed=True, previous=previous)

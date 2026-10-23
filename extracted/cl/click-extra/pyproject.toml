@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "9.4.1"
+version = "9.5.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -100,7 +100,7 @@ pygments = ["pygments>=2.14"]
 pytest = ["pytest>=9"]
 sphinx = [
     "docutils>=0.20",
-    "pygments>=2.14",
+    "pygments>=2.18",
     "sphinx>=8",
 ]
 toml = ["tomlkit>=0.13"]
@@ -109,7 +109,7 @@ yaml = ["pyyaml>=6.0.3"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.4.1"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.5.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -157,11 +157,11 @@ test = [
     "extra-platforms[pytest]>=13.4",
     "jsonschema>=4.18",
     "mkdocs>=1.4",
-    "mkdocs-click>=0.8",
+    "mkdocs-click>=0.8.1",
     "myst-parser>=4",
     "pymdown-extensions>=10",
     "pytest>=9",
-    "pytest-cov>=4",
+    "pytest-cov>=7",
     "pytest-github-actions-annotate-failures>=0.2",
     "pytest-httpserver>=1.1",
     "pytest-randomly>=3",
@@ -189,6 +189,7 @@ docs = [
     "sphinx-design>=0.6",
     "sphinxcontrib-mermaid>=1.2.3",
     "sphinxext-opengraph>=0.13",
+    "tomlkit>=0.13",
     "xmltodict>=1",
 ]
 typing = [
@@ -213,6 +214,9 @@ exclude-newer = "1 week"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.14"
+
+[tool.uv.exclude-newer-package]
+certifi = "2026-10-22T00:00:00Z"
 
 [tool.uv.build-backend]
 module-root = ""
@@ -249,6 +253,7 @@ docstring-code-format = true
 extend-select = ["PLW1514"]
 ignore = [
     "B008",
+    "D301",
     "D400",
     "ERA001",
     "LOG015",
@@ -270,7 +275,6 @@ extend-ignore-identifiers-re = [
     "fAlsE",
     "nd",
     "mey",
-    "certifi",
     "optoin",
 ]
 
@@ -286,8 +290,17 @@ Typescript = "TypeScript"
 
 [tool.typos.default.extend-words]
 astroid = "astroid"
+certifi = "certifi"
 oject = "oject"
 sur = "sur"
+
+[tool.typos.files]
+ignore-hidden = false
+extend-exclude = [
+    ".git",
+    ".gitignore",
+    ".mailmap",
+]
 
 [tool.typos.type.svg]
 check-file = false
@@ -338,7 +351,7 @@ fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "9.4.1"
+current_version = "9.5.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -451,6 +464,10 @@ all-extras = true
 all-groups = false
 no-extras = ["all"]
 
+[tool.repomatic.lint-repo.declined.pytest.addopts]
+"--cov-report=term" = "The matrix job of tests.yaml passes the coverage flags."
+"--numprocesses=auto" = "The suite is not pytest-xdist-safe."
+
 [tool.repomatic.manpages]
 script = "click_extra.cli:demo"
 
@@ -503,6 +520,11 @@ python-version = "3.15"
 [[tool.repomatic.test-matrix.exclude]]
 os = "windows-2025"
 python-version = "3.15"
+
+[[tool.repomatic.test-matrix.full-include]]
+os = "ubuntu-26.04-arm"
+python-version = "3.10"
+resolution = "lowest-direct"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"

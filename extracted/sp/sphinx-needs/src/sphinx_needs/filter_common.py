@@ -7,18 +7,22 @@ from __future__ import annotations
 
 import ast
 import json
+import math
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
+from functools import lru_cache
 from pathlib import Path
 from timeit import default_timer as timer
 from types import CodeType
-from typing import Any, TypedDict, overload
+from typing import Any, Literal, TypedDict, TypeVar, overload
 
 from docutils import nodes
 from docutils.parsers.rst import directives
+from docutils.statemachine import StringList
 from sphinx.application import Sphinx
 from sphinx.util.docutils import SphinxDirective
 
+from sphinx_needs import _read_watch
 from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import NeedsFilteredBaseType, NeedsMutable
 from sphinx_needs.debug import measure_time, measure_time_func
@@ -26,19 +30,25 @@ from sphinx_needs.exceptions import NeedsInvalidFilter
 from sphinx_needs.logging import log_warning
 from sphinx_needs.need_item import NeedItem, NeedPartItem
 from sphinx_needs.needs_schema import AllowedTypes
-from sphinx_needs.ubquery import try_build_simple_predicate
+from sphinx_needs.ubquery import ORIGIN_KEY, CompiledFilter, compile_portable
 from sphinx_needs.utils import check_and_get_external_filter_func
 from sphinx_needs.utils import logger as log
 from sphinx_needs.views import NeedsAndPartsListView, NeedsView
+
+_NeedOrPartT = TypeVar("_NeedOrPartT", bound=NeedItem | NeedPartItem)
+"""A need or a need part: what a filter selects from, and so what it returns."""
 
 
 class FilterAttributesType(TypedDict):
     status: list[str]
     tags: list[str]
     types: list[str]
-    filter: str
-    sort_by: str
-    filter_code: list[str]
+    filter: str | None
+    """``:filter:`` option value, None if the option was not given."""
+    sort_by: str | None
+    """``:sort_by:`` option value, None if the option was not given."""
+    filter_code: StringList
+    """The directive's content: filter code, empty if it has none."""
     filter_func: str | None
     filter_warning: str | None
     """If set, the filter is exported with this ID in the needs.json file."""
@@ -66,16 +76,12 @@ class FilterBase(SphinxDirective):
             else []
         )
 
-        status = self.options.get("status")
-        if status:
-            try:
-                status = str(status)
-                status = [stat.strip() for stat in re.split(";|,", status)]
-            except Exception:
-                # If we could not transform/use status information, we just skip this status
-                pass
-        else:
-            status = []
+        status_option = self.options.get("status")
+        status = (
+            [stat.strip() for stat in re.split(";|,", str(status_option))]
+            if status_option
+            else []
+        )
 
         types = self.options.get("types", [])
         if isinstance(types, str):
@@ -91,16 +97,43 @@ class FilterBase(SphinxDirective):
 
         # Add the need and all needed information
         collected_filter_options: FilterAttributesType = {
-            "status": status,  # ty: ignore[invalid-argument-type]
+            "status": status,
             "tags": tags,
             "types": types,
-            "filter": self.options.get("filter"),  # ty: ignore[invalid-argument-type]
-            "sort_by": self.options.get("sort_by"),  # ty: ignore[invalid-argument-type]
-            "filter_code": self.content,  # ty: ignore[invalid-argument-type]
+            "filter": self.options.get("filter"),
+            "sort_by": self.options.get("sort_by"),
+            "filter_code": self.content,
             "filter_func": self.options.get("filter-func"),
             "filter_warning": self.options.get("filter_warning"),
         }
         return collected_filter_options
+
+
+def sort_key(value: object, /, *, ignore_case: bool) -> tuple[Any, ...]:
+    """The key a need is sorted by, from its value of the sort field.
+
+    An unset value (``None``) comes first, whatever the field's type, as an empty
+    string always has. The values are then grouped in bands, so that two values never
+    meet in a comparison Python refuses: booleans, then numbers, then text. A list is
+    compared as its items' text joined with ``", "``, and any other value as its text.
+    A NaN comes after the other numbers. Callers break ties by the need's id (#2253).
+
+    :param value: The need's value of the sort field.
+    :param ignore_case: Compare text lower-cased, so that ``"Z"`` does not come before
+        ``"a"`` (``needtable``'s ``:sort:``; ``:sort_by:`` compares it as it is).
+    :return: A key every other value's key compares with.
+    """
+    if value is None:
+        return (0,)
+    if isinstance(value, bool):
+        return (1, value)
+    if isinstance(value, int | float):
+        # a NaN compares neither below nor above anything, so it is placed on its own
+        return (2, 1, 0) if math.isnan(value) else (2, 0, value)
+    if isinstance(value, list | tuple):
+        value = ", ".join(str(item) for item in value)
+    text = str(value)
+    return (3, text.lower() if ignore_case else text)
 
 
 def process_filters(
@@ -151,6 +184,8 @@ def process_filters(
     )
 
     found_needs: list[NeedItem | NeedPartItem] = []
+    # which tier answered the filter, and why one reached eval: the debug report's
+    tier: tuple[_FilterTier, str | None]
 
     if (not filter_code or filter_code.isspace()) and not ff_result:
         # TODO these may not be correct for parts
@@ -181,19 +216,26 @@ def process_filters(
             location=location,
             origin_docname=filter_data["docname"],
         )
+        tier = (
+            _filter_tier(filter_data["filter"])
+            if needs_config.debug_filters
+            else ("index", None)
+        )
     else:
         # The filter results may be dirty, as it may continue manipulated needs.
         found_dirty_needs: list[NeedItem | NeedPartItem] = []
 
         if filter_code:  # code from content
             full_filter.append(filter_code)
-            # TODO better context type
-            context: dict[str, NeedsAndPartsListView] = {
+            # the namespace the filter code runs in: it is the user's code that
+            # leaves the matches under `results`, so its values are not ours to type
+            context: dict[str, Any] = {
                 "needs": needs_view.to_list_with_parts(),
                 "results": [],
-            }  # ty: ignore[invalid-assignment]
+            }
             exec(filter_code, context)
-            found_dirty_needs = context["results"]  # ty: ignore[invalid-assignment]
+            found_dirty_needs = context["results"]
+            tier = ("eval", "filter-code")
         elif ff_result:  # code from external file
             full_filter.append(ff_result.sig)
             args = []
@@ -210,6 +252,7 @@ def process_filters(
                 results=found_dirty_needs,
                 **args_context,
             )
+            tier = ("eval", "filter-func")
         else:
             log_warning(
                 log, "Something went wrong running filter", "filter", location=location
@@ -226,16 +269,21 @@ def process_filters(
                 if need["id_complete"] in found_need_ids:
                     found_needs.append(need)
 
-    if sort_key := filter_data["sort_by"]:
+    if sort_by := filter_data["sort_by"]:
         try:
             found_needs = sorted(
                 found_needs,
-                key=lambda node: node[sort_key] or "",
+                # equal values are ordered by id: the needs' own order changes
+                # between a fresh and an incremental build
+                key=lambda node: (
+                    sort_key(node[sort_by], ignore_case=False),
+                    node["id_complete"],
+                ),
             )
         except KeyError as e:
             log_warning(
                 log,
-                f"Sorting parameter {sort_key} not valid: Error: {e}",
+                f"Sorting parameter {sort_by} not valid: Error: {e}",
                 "filter",
                 location=location,
             )
@@ -257,22 +305,136 @@ def process_filters(
     if needs_config.debug_filters and full_filter:
         # Store basic filter configuration and result global list.
         # Needed mainly for exporting the result to needs.json (if builder "needs" is used).
-        json_line = json.dumps(
-            {
-                "origin": origin,
-                "source": str(location.source) if location.source else None,
-                "line": location.line,
-                "filter": full_filter[0]
-                if len(full_filter) == 1
-                else " and ".join(f"({f})" for f in full_filter),
-                "needs_count": len(found_needs),
-                "runtime": duration,
-            }
-        )
+        record: dict[str, Any] = {
+            "origin": origin,
+            "source": str(location.source) if location.source else None,
+            "line": location.line,
+            "filter": full_filter[0]
+            if len(full_filter) == 1
+            else " and ".join(f"({f})" for f in full_filter),
+            "needs_count": len(found_needs),
+            "runtime": duration,
+            "tier": tier[0],
+        }
+        if tier[0] == "eval":
+            record["fallback_reason"] = tier[1]
+        json_line = json.dumps(record)
         with Path(str(app.outdir), "debug_filters.jsonl").open("a") as f:
             f.write(json_line + "\n")
 
     return found_needs
+
+
+_FilterTier = Literal["index", "fast", "eval", "refused"]
+"""The tier of filter evaluation that answers a filter string: the index path, the
+fast path of the portable grammar (:mod:`sphinx_needs.ubquery`), or Python's ``eval``;
+or ``"refused"`` for a constant, which no tier answers (:func:`_is_constant_filter`)."""
+
+
+@lru_cache(maxsize=256)
+def _is_constant_filter(filter_string: str) -> bool:
+    """Whether *filter_string* is a constant, which every tier refuses.
+
+    A filter is read for its truth, need by need, and a constant has the same truth on
+    every need, so it says nothing about one: a literal (``"x"``, ``0``, ``1.5``,
+    ``None``, ``b"x"``, ``...``), a number with one sign (``-5``, ``+5``), a tuple,
+    list, set or dict display with no unpacking, whatever it holds (``[1]``, ``{1}``,
+    ``{}``, ``("x",)``, and so the trailing-comma typo ``status == "open",``), a
+    generator expression (``(t for t in tags)``, a generator object, true whatever it
+    would yield), or an f-string with no placeholder (``f"x"``), parenthesised or not.
+    Such a filter is reported, once, before any tier runs, and selects nothing.
+    ``True`` and ``False`` are the exception: they are the spelling of "every need" and
+    "no need". A constant inside a larger filter (``True and owner``) is an operand like
+    any other, and so is a constant expression (``-True``, ``--5``, ``not 1``,
+    ``1 == 1``); a display that unpacks (``[*tags]``, ``{**x}``), a list, set or dict
+    comprehension and an f-string with a placeholder depend on the need, and are read
+    by their truth, as any filter is.
+
+    Leading spaces and tabs are read past, as Python's ``eval`` reads past them.
+    It is decided by the string alone, once per string: the engine's tiers ask it on
+    every call, :func:`filter_single_need` need by need.
+    """
+    try:
+        node = ast.parse(filter_string.lstrip(" \t"), mode="eval").body
+    except (SyntaxError, ValueError):
+        return False
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
+        # a signed number; a signed boolean, or a second sign, is arithmetic
+        node = node.operand
+        return (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, int | float | complex)
+            and not isinstance(node.value, bool)
+        )
+    if isinstance(node, ast.Tuple | ast.List | ast.Set):
+        # a display holds as many items on every need, unless it unpacks one
+        return not any(isinstance(item, ast.Starred) for item in node.elts)
+    if isinstance(node, ast.Dict):
+        # a None key is a ** unpack
+        return None not in node.keys
+    if isinstance(node, ast.GeneratorExp):
+        # a generator object is true, whatever it would yield
+        return True
+    if isinstance(node, ast.JoinedStr):
+        # an f-string with no placeholder is a string
+        return not any(isinstance(value, ast.FormattedValue) for value in node.values)
+    return isinstance(node, ast.Constant) and not isinstance(node.value, bool)
+
+
+def _constant_filter_message(filter_string: str, prefix: str = "Filter") -> str:
+    """The report of a constant filter (see :func:`_is_constant_filter`)."""
+    return (
+        f"{prefix} {filter_string!r} not valid. Error: it is a constant, "
+        "which says nothing about a need, so it selects none."
+    )
+
+
+def _report_constant_filter(
+    filter_string: str,
+    location: tuple[str, int | None] | nodes.Node | None,
+    append_warning: str,
+) -> None:
+    """Report a constant filter as one ``needs.filter`` warning."""
+    if append_warning:
+        append_warning = f" {append_warning}"
+    log_warning(
+        log,
+        f"{_constant_filter_message(filter_string)}{append_warning}",
+        "filter",
+        location=location,
+    )
+
+
+def _filter_tier(filter_string: str | None) -> tuple[_FilterTier, str | None]:
+    """The tier that answers *filter_string* over a view of needs, as
+    :func:`filter_needs_view` and :func:`filter_needs_parts` take it, and, for ``eval``,
+    the construct that kept the string out of the portable grammar.
+
+    The first two tiers decide by the string alone, never by the needs, so this asks
+    each the question it asks itself: the index path whether it answers the whole
+    string (its own analysis, over an empty view), the fast path whether the string
+    compiles. No filter at all is answered by the view's indexes.
+
+    :return: The tier, and the reason for ``eval`` (None for the others).
+    """
+    if not filter_string:
+        return "index", None
+    if _is_constant_filter(filter_string):
+        return "refused", None
+    try:
+        body = ast.parse(filter_string).body
+    except Exception:
+        body = []
+    if len(body) == 1 and isinstance((expr := body[0]), ast.Expr):
+        _, requires_eval = _analyze_and_apply_expr(
+            NeedsView._from_needs({}), expr.value
+        )
+        if not requires_eval:
+            return "index", None
+    compiled = compile_portable(filter_string)
+    if compiled.predicate is not None:
+        return "fast", None
+    return "eval", compiled.rejection
 
 
 def filter_scope_ids(
@@ -432,7 +594,8 @@ def _analyze_and_apply_expr(
     """
     if isinstance(expr, ast.Constant):
         if isinstance(expr.value, str | bool):
-            # "value" / True / False
+            # True / False, or a string beside `and` ("value" and ...), read by its
+            # truth; a string alone is refused before this (_is_constant_filter)
             return needs if expr.value else needs.filter_ids([]), False
 
     elif isinstance(expr, ast.Name):
@@ -464,17 +627,23 @@ def _analyze_and_apply_expr(
                 return needs, True
 
             if field == "id":
-                # id == value
-                return needs.filter_ids([value]), False  # ty: ignore[invalid-argument-type]
+                # id == value; an id is a string, so no other constant matches
+                ids = [value] if isinstance(value, str) else []
+                return needs.filter_ids(ids), False
             elif field == "type":
-                # type == value
-                return needs.filter_types([value]), False  # ty: ignore[invalid-argument-type]
+                # type == value; a type is a string, so no other constant matches
+                types = [value] if isinstance(value, str) else []
+                return needs.filter_types(types), False
             elif field == "status":
-                # status == value
-                return needs.filter_statuses([value]), False  # ty: ignore[invalid-argument-type]
+                # status == value; a status is a string or None
+                statuses = [value] if value is None or isinstance(value, str) else []
+                return needs.filter_statuses(statuses), False
             elif field == "is_external":
-                # is_external == value
-                return needs.filter_is_external(value), False  # ty: ignore[invalid-argument-type]
+                # is_external == value; as in Python, a constant equal to a bool
+                # (True, 1, 0.0) selects as that bool, and any other matches nothing
+                if value in (True, False):
+                    return needs.filter_is_external(bool(value)), False
+                return needs.filter_ids([]), False
 
         elif len(expr.ops) == 1 and isinstance(expr.ops[0], ast.In):
             # <expr1> in <expr2>
@@ -486,17 +655,23 @@ def _analyze_and_apply_expr(
                     isinstance(elt, ast.Constant) for elt in expr.comparators[0].elts
                 )
             ):
-                values = [
+                constants = [
                     elt.value
                     for elt in expr.comparators[0].elts
-                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
+                    if isinstance(elt, ast.Constant)
                 ]
+                values = [value for value in constants if isinstance(value, str)]
                 if expr.left.id == "id":
                     # id in ["a", "b", ...]
                     return needs.filter_ids(values), False
                 if expr.left.id == "status":
-                    # status in ["a", "b", ...]
-                    return needs.filter_statuses(values), False
+                    # status in ["a", "b", ...]; a status is a string or None
+                    statuses = [
+                        value
+                        for value in constants
+                        if value is None or isinstance(value, str)
+                    ]
+                    return needs.filter_statuses(statuses), False
                 elif expr.left.id == "type":
                     # type in ["a", "b", ...]
                     return needs.filter_types(values), False
@@ -534,6 +709,9 @@ def filter_needs_view(
 ) -> list[NeedItem]:
     if not filter_string:
         return list(needs.values())
+    if _is_constant_filter(filter_string):
+        _report_constant_filter(filter_string, location, append_warning)
+        return []
 
     try:
         body = ast.parse(filter_string).body
@@ -575,6 +753,9 @@ def filter_needs_parts(
 ) -> list[NeedItem | NeedPartItem]:
     if not filter_string:
         return list(needs)
+    if _is_constant_filter(filter_string):
+        _report_constant_filter(filter_string, location, append_warning)
+        return []
 
     try:
         body = ast.parse(filter_string).body
@@ -622,12 +803,12 @@ def filter_needs(
         location=location,
         append_warning=append_warning,
         origin_docname=origin_docname,
-    )  # ty: ignore[invalid-return-type]
+    )
 
 
 @measure_time("filtering")
 def filter_needs_and_parts(
-    needs: Iterable[NeedItem | NeedPartItem],
+    needs: Iterable[_NeedOrPartT],
     config: NeedsSphinxConfig,
     filter_string: str | None = "",
     current_need: NeedItem | NeedPartItem | None = None,
@@ -635,12 +816,13 @@ def filter_needs_and_parts(
     location: tuple[str, int | None] | nodes.Node | None = None,
     append_warning: str = "",
     origin_docname: str | None = None,
-) -> list[NeedItem | NeedPartItem]:
+) -> list[_NeedOrPartT]:
     """
     Filters given needs based on a given filter string.
     Returns all needs, which pass the given filter.
 
-    :param needs: list of needs, which shall be filtered
+    :param needs: list of needs, which shall be filtered;
+        the result holds items of it, so needs alone give needs alone
     :param config: NeedsSphinxConfig object
     :param filter_string: strings, which gets evaluated against each need
     :param current_need: current need, which uses the filter.
@@ -651,31 +833,43 @@ def filter_needs_and_parts(
     """
     if not filter_string:
         return list(needs)
+    if _is_constant_filter(filter_string):
+        _report_constant_filter(filter_string, location, append_warning)
+        return []
+    if (watch := _read_watch.current) is not None and not watch.active:
+        # the check of the order of the pass sees what the filter reads
+        watch.active = True
+        try:
+            return filter_needs_and_parts(
+                needs,
+                config,
+                filter_string,
+                current_need,
+                location=location,
+                append_warning=append_warning,
+                origin_docname=origin_docname,
+            )
+        finally:
+            watch.active = False
 
     # === Fast path: try compiled predicate to avoid eval() entirely ===
-    simple_pred = try_build_simple_predicate(filter_string)
-    var_proxy = config.variant_data_proxy
+    compiled = compile_portable(filter_string)
+    simple_pred = compiled.predicate
 
     if simple_pred is not None:
-        fallback: dict[str, Any] | None = None
-        if config.filter_data or var_proxy is not None:
-            fallback = dict(config.filter_data) if config.filter_data else {}
-            if var_proxy is not None:
-                fallback["var"] = var_proxy
-        found_needs: list[NeedItem | NeedPartItem] = []
+        fallback = _fast_path_context(
+            config.filter_data, config.variant_data_proxy, compiled, origin_docname
+        )
+        found_needs: list[_NeedOrPartT] = []
         error_reported = False
         for filter_need in needs:
             try:
-                result = simple_pred(filter_need, fallback)
-                if not isinstance(result, bool):
-                    raise NeedsInvalidFilter(
-                        f"Filter did not evaluate to a boolean, instead {type(result)}: {result}"
-                    )
-                if result:
+                # read for its truth: a value's own method may give no boolean
+                if simple_pred(filter_need, fallback):
                     found_needs.append(filter_need)
-            except NeedsInvalidFilter:
-                raise
             except Exception as e:
+                # whatever a value's method raises, as the eval loop below: the need
+                # is excluded and the filter reported once, and the build goes on
                 if not error_reported:
                     if append_warning:
                         append_warning = f" {append_warning}"
@@ -689,7 +883,7 @@ def filter_needs_and_parts(
         return found_needs
 
     # === Slow path: fall back to eval() per item ===
-    found_needs_slow: list[NeedItem | NeedPartItem] = []
+    found_needs_slow: list[_NeedOrPartT] = []
 
     # https://docs.python.org/3/library/functions.html?highlight=compile#compile
     filter_compiled = compile(filter_string, "<string>", "eval")
@@ -721,6 +915,37 @@ def filter_needs_and_parts(
     return found_needs_slow
 
 
+def _fast_path_context(
+    filter_data: Mapping[str, Any],
+    var_proxy: Any,
+    compiled: CompiledFilter,
+    origin_docname: str | None,
+) -> dict[str, Any] | None:
+    """The mapping a compiled filter's predicate reads beside the need.
+
+    What the ``eval`` tier's context holds besides the need's fields: the
+    ``needs_filter_data`` keys, the variant data under ``var``, and, for a predicate
+    that reads it (``c.this_doc()``), the document the filter is written in. The
+    document is passed per call, never compiled in: one compiled filter serves every
+    document a string is written in.
+
+    The caller passes the two configuration values it has read: a read of one costs
+    more than the rest of a per-need call, and :func:`filter_single_need` is called
+    need by need.
+
+    :return: The mapping, or None when the predicate needs nothing of it.
+    """
+    origin = origin_docname if compiled.reads_origin else None
+    if not filter_data and var_proxy is None and origin is None:
+        return None
+    fallback: dict[str, Any] = dict(filter_data) if filter_data else {}
+    if var_proxy is not None:
+        fallback["var"] = var_proxy
+    if origin is not None:
+        fallback[ORIGIN_KEY] = origin
+    return fallback
+
+
 def need_search(*args: Any, **kwargs: Any) -> bool:
     return re.search(*args, **kwargs) is not None
 
@@ -748,8 +973,10 @@ def apply_default_predicate(
 ) -> bool:
     """Checks if a single need passes a default predicate.
 
-    :raises NeedsInvalidFilter: if the predicate is not valid
+    :raises NeedsInvalidFilter: if the predicate is not valid, or is a constant
     """
+    if _is_constant_filter(predicate):
+        raise NeedsInvalidFilter(_constant_filter_message(predicate, "Predicate"))
     predicate_context: dict[str, Any] = {
         **context,
         **extras,
@@ -761,11 +988,8 @@ def apply_default_predicate(
     try:
         # Set filter_context as globals and not only locals in eval()!
         # Otherwise, the vars not be accessed in list comprehensions.
-        result = eval(predicate, predicate_context)
-        if not isinstance(result, bool):
-            raise NeedsInvalidFilter(
-                f"Did not evaluate to a boolean, instead {type(result)}: {result}"
-            )
+        # a predicate is read for its truth, as a filter is
+        result = bool(eval(predicate, predicate_context))
     except Exception as e:
         raise NeedsInvalidFilter(f"Predicate {predicate!r} not valid. Error: {e}.")
     return result
@@ -774,7 +998,12 @@ def apply_default_predicate(
 def filter_import_item(
     context: dict[str, Any], config: NeedsSphinxConfig, filter_string: str
 ) -> bool:
-    """Filters a single item from an imported needs.json file."""
+    """Filters a single item from an imported needs.json file.
+
+    :raises NeedsInvalidFilter: if the filter is not valid, or is a constant
+    """
+    if _is_constant_filter(filter_string):
+        raise NeedsInvalidFilter(_constant_filter_message(filter_string))
     filter_context = context.copy()
     # Get needs external filter data and merge to filter_context
     filter_context.update(config.filter_data)
@@ -784,11 +1013,8 @@ def filter_import_item(
     try:
         # Set filter_context as globals and not only locals in eval()!
         # Otherwise, the vars not be accessed in list comprehensions.
-        result = eval(filter_string, filter_context)
-        if not isinstance(result, bool):
-            raise NeedsInvalidFilter(
-                f"Filter did not evaluate to a boolean, instead {type(result)}: {result}"
-            )
+        # a filter is read for its truth, whatever its value
+        result = bool(eval(filter_string, filter_context))
     except Exception as e:
         raise NeedsInvalidFilter(f"Filter {filter_string!r} not valid. Error: {e}.")
     return result
@@ -816,58 +1042,84 @@ def filter_single_need(
     :param origin_docname: The origin docname that the filter was called from, if any
 
     :return: True, if need passes the filter_string, else False
+    :raises NeedsInvalidFilter: if the filter fails on the need, or is a constant
     """
-    var_proxy = config.variant_data_proxy
+    if _is_constant_filter(filter_string):
+        raise NeedsInvalidFilter(_constant_filter_message(filter_string))
+    # the check of the order of the pass sees what the filter reads, while it watches
+    # the filters of a call
+    watch = _read_watch.current
+    if watch is not None and not watch.active:
+        watch.active = True
+    else:
+        watch = None
+    try:
+        var_proxy = config.variant_data_proxy
 
-    # === Fast path: short-circuit simple expressions ===
-    simple_pred = try_build_simple_predicate(filter_string)
-    if simple_pred is not None:
-        fallback: dict[str, Any] | None = None
-        if config.filter_data or var_proxy is not None:
-            fallback = dict(config.filter_data) if config.filter_data else {}
-            if var_proxy is not None:
-                fallback["var"] = var_proxy
-        try:
-            result = simple_pred(need, fallback)
-            if not isinstance(result, bool):
+        # === Fast path: short-circuit simple expressions ===
+        compiled = compile_portable(filter_string)
+        simple_pred = compiled.predicate
+        if simple_pred is not None:
+            # called need by need: the mapping is built only for a predicate that reads it
+            filter_data = config.filter_data
+            fallback = (
+                _fast_path_context(filter_data, var_proxy, compiled, origin_docname)
+                if filter_data
+                or var_proxy is not None
+                or (origin_docname is not None and compiled.reads_origin)
+                else None
+            )
+            try:
+                # read for its truth: a value's own method may give no boolean
+                return bool(simple_pred(need, fallback))
+            except NeedsInvalidFilter:
+                raise
+            except Exception as e:
                 raise NeedsInvalidFilter(
-                    f"Filter did not evaluate to a boolean, instead {type(result)}: {result}"
+                    f"Filter {filter_string!r} not valid. Error: {e}."
                 )
-            return result
-        except NeedsInvalidFilter:
-            raise
+
+        # === Slow path: fall back to eval() ===
+        filter_context: dict[str, Any] = need.filter_context()
+        if needs:
+            filter_context["needs"] = needs
+        if current_need:
+            filter_context["current_need"] = current_need
+        else:
+            filter_context["current_need"] = need
+
+        # Get needs external filter data and merge to filter_context
+        filter_context.update(config.filter_data)
+        if var_proxy is not None:
+            filter_context["var"] = var_proxy
+
+        filter_context["search"] = need_search
+
+        filter_context["c"] = NeedCheckContext(need, origin_docname)
+        if _read_watch.current is not None:
+            # the names the evaluation reads, for the check of the order of the pass; the
+            # need's fields are what the context does not set over them
+            not_fields = {"needs", "current_need", "search", "c", "var"}
+            not_fields.update(config.filter_data)
+            if isinstance(need, NeedPartItem):
+                # what a part sets over its need's fields (its id, its links) is
+                # no read of the need
+                not_fields.update(need._overrides)
+            filter_context = _read_watch.ReadingContext(
+                filter_context, need["id_parent"], not_fields
+            )
+
+        try:
+            # Set filter_context as globals and not only locals in eval()!
+            # Otherwise, the vars not be accessed in list comprehensions.
+            # a filter is read for its truth, whatever its value (#1773)
+            result = bool(eval(filter_compiled or filter_string, filter_context))
         except Exception as e:
             raise NeedsInvalidFilter(f"Filter {filter_string!r} not valid. Error: {e}.")
-
-    # === Slow path: fall back to eval() ===
-    filter_context: dict[str, Any] = need.filter_context()
-    if needs:
-        filter_context["needs"] = needs
-    if current_need:
-        filter_context["current_need"] = current_need
-    else:
-        filter_context["current_need"] = need
-
-    # Get needs external filter data and merge to filter_context
-    filter_context.update(config.filter_data)
-    if var_proxy is not None:
-        filter_context["var"] = var_proxy
-
-    filter_context["search"] = need_search
-
-    filter_context["c"] = NeedCheckContext(need, origin_docname)
-
-    try:
-        # Set filter_context as globals and not only locals in eval()!
-        # Otherwise, the vars not be accessed in list comprehensions.
-        result = eval(filter_compiled or filter_string, filter_context)
-        if not isinstance(result, bool):
-            raise NeedsInvalidFilter(
-                f"Filter did not evaluate to a boolean, instead {type(result)}: {result}"
-            )
-    except Exception as e:
-        raise NeedsInvalidFilter(f"Filter {filter_string!r} not valid. Error: {e}.")
-    return result
+        return result
+    finally:
+        if watch is not None:
+            watch.active = False
 
 
 class NeedCheckContext:

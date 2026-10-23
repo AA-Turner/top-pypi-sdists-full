@@ -2549,6 +2549,8 @@ class Cdk8sTypeScriptApp(
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+        npm_verify_published: typing.Optional[builtins.bool] = None,
+        npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2719,6 +2721,8 @@ class Cdk8sTypeScriptApp(
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
+        :param npm_verify_published: (experimental) Wait until the published package version is available from the npm registry before the publish job completes. Enable this when packages that depend on the published package are released right after. Default: false
+        :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -2891,6 +2895,8 @@ class Cdk8sTypeScriptApp(
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
+            npm_verify_published=npm_verify_published,
+            npm_verify_published_timeout_seconds=npm_verify_published_timeout_seconds,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -3027,6 +3033,8 @@ class Cdk8sTypeScriptApp(
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
+        "npm_verify_published": "npmVerifyPublished",
+        "npm_verify_published_timeout_seconds": "npmVerifyPublishedTimeoutSeconds",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -3204,6 +3212,8 @@ class Cdk8sTypeScriptAppOptions(
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+        npm_verify_published: typing.Optional[builtins.bool] = None,
+        npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3374,6 +3384,8 @@ class Cdk8sTypeScriptAppOptions(
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
+        :param npm_verify_published: (experimental) Wait until the published package version is available from the npm registry before the publish job completes. Enable this when packages that depend on the published package are released right after. Default: false
+        :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -3613,6 +3625,8 @@ class Cdk8sTypeScriptAppOptions(
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
+            check_type(argname="argument npm_verify_published", value=npm_verify_published, expected_type=type_hints["npm_verify_published"])
+            check_type(argname="argument npm_verify_published_timeout_seconds", value=npm_verify_published_timeout_seconds, expected_type=type_hints["npm_verify_published_timeout_seconds"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -3842,6 +3856,10 @@ class Cdk8sTypeScriptAppOptions(
             self._values["npm_token_secret"] = npm_token_secret
         if npm_trusted_publishing is not None:
             self._values["npm_trusted_publishing"] = npm_trusted_publishing
+        if npm_verify_published is not None:
+            self._values["npm_verify_published"] = npm_verify_published
+        if npm_verify_published_timeout_seconds is not None:
+            self._values["npm_verify_published_timeout_seconds"] = npm_verify_published_timeout_seconds
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -4864,6 +4882,32 @@ class Cdk8sTypeScriptAppOptions(
         '''
         result = self._values.get("npm_trusted_publishing")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def npm_verify_published(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Wait until the published package version is available from the npm registry before the publish job completes.
+
+        Enable this when packages that depend on the published package are released right after.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_verify_published")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def npm_verify_published_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) How long to wait, in seconds, for the published package version to be available.
+
+        Requires ``npmVerifyPublished`` to be enabled.
+
+        :default: 3600
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_verify_published_timeout_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def package_manager(
@@ -6396,6 +6440,8 @@ class ConstructLibraryCdk8s(
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+        npm_verify_published: typing.Optional[builtins.bool] = None,
+        npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6574,6 +6620,8 @@ class ConstructLibraryCdk8s(
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
+        :param npm_verify_published: (experimental) Wait until the published package version is available from the npm registry before the publish job completes. Enable this when packages that depend on the published package are released right after. Default: false
+        :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -6754,6 +6802,8 @@ class ConstructLibraryCdk8s(
             npm_registry_url=npm_registry_url,
             npm_token_secret=npm_token_secret,
             npm_trusted_publishing=npm_trusted_publishing,
+            npm_verify_published=npm_verify_published,
+            npm_verify_published_timeout_seconds=npm_verify_published_timeout_seconds,
             package_manager=package_manager,
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
@@ -6889,6 +6939,8 @@ class ConstructLibraryCdk8s(
         "npm_registry_url": "npmRegistryUrl",
         "npm_token_secret": "npmTokenSecret",
         "npm_trusted_publishing": "npmTrustedPublishing",
+        "npm_verify_published": "npmVerifyPublished",
+        "npm_verify_published_timeout_seconds": "npmVerifyPublishedTimeoutSeconds",
         "package_manager": "packageManager",
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
@@ -7071,6 +7123,8 @@ class ConstructLibraryCdk8sOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+        npm_verify_published: typing.Optional[builtins.bool] = None,
+        npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
         package_manager: typing.Optional["_javascript_eb5dbe11.NodePackageManager"] = None,
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -7249,6 +7303,8 @@ class ConstructLibraryCdk8sOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
+        :param npm_verify_published: (experimental) Wait until the published package version is available from the npm registry before the publish job completes. Enable this when packages that depend on the published package are released right after. Default: false
+        :param npm_verify_published_timeout_seconds: (experimental) How long to wait, in seconds, for the published package version to be available. Requires ``npmVerifyPublished`` to be enabled. Default: 3600
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
@@ -7506,6 +7562,8 @@ class ConstructLibraryCdk8sOptions(_cdk_bb21cefa.ConstructLibraryOptions):
             check_type(argname="argument npm_registry_url", value=npm_registry_url, expected_type=type_hints["npm_registry_url"])
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument npm_trusted_publishing", value=npm_trusted_publishing, expected_type=type_hints["npm_trusted_publishing"])
+            check_type(argname="argument npm_verify_published", value=npm_verify_published, expected_type=type_hints["npm_verify_published"])
+            check_type(argname="argument npm_verify_published_timeout_seconds", value=npm_verify_published_timeout_seconds, expected_type=type_hints["npm_verify_published_timeout_seconds"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
@@ -7746,6 +7804,10 @@ class ConstructLibraryCdk8sOptions(_cdk_bb21cefa.ConstructLibraryOptions):
             self._values["npm_token_secret"] = npm_token_secret
         if npm_trusted_publishing is not None:
             self._values["npm_trusted_publishing"] = npm_trusted_publishing
+        if npm_verify_published is not None:
+            self._values["npm_verify_published"] = npm_verify_published
+        if npm_verify_published_timeout_seconds is not None:
+            self._values["npm_verify_published_timeout_seconds"] = npm_verify_published_timeout_seconds
         if package_manager is not None:
             self._values["package_manager"] = package_manager
         if package_name is not None:
@@ -8778,6 +8840,32 @@ class ConstructLibraryCdk8sOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         '''
         result = self._values.get("npm_trusted_publishing")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def npm_verify_published(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Wait until the published package version is available from the npm registry before the publish job completes.
+
+        Enable this when packages that depend on the published package are released right after.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_verify_published")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def npm_verify_published_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) How long to wait, in seconds, for the published package version to be available.
+
+        Requires ``npmVerifyPublished`` to be enabled.
+
+        :default: 3600
+
+        :stability: experimental
+        '''
+        result = self._values.get("npm_verify_published_timeout_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def package_manager(
@@ -10825,6 +10913,8 @@ def _typecheckingstub__38d5838b3dba3e0494a1842bc0bf0513fd0a9baecf03b52c6bb2ef53e
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+    npm_verify_published: typing.Optional[builtins.bool] = None,
+    npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
     package_manager: typing.Optional[_javascript_eb5dbe11.NodePackageManager] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -10999,6 +11089,8 @@ def _typecheckingstub__af97c045aa0635813d6575f726d794c22aabe3eb1e51bf1ae61d8f28b
     npm_registry_url: typing.Optional[builtins.str] = None,
     npm_token_secret: typing.Optional[builtins.str] = None,
     npm_trusted_publishing: typing.Optional[builtins.bool] = None,
+    npm_verify_published: typing.Optional[builtins.bool] = None,
+    npm_verify_published_timeout_seconds: typing.Optional[jsii.Number] = None,
     package_manager: typing.Optional[_javascript_eb5dbe11.NodePackageManager] = None,
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,

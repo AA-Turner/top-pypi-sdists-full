@@ -42,81 +42,12 @@ def remember_report_locations(
 ) -> None:
     locations = config.stash.setdefault(REPORT_LOCATIONS_KEY, {})
     for format in _PYTEST_FORMATS:
-        if getattr(reports, format.value).enabled:
+        if reports.get(format).enabled:
             path = path_of(format)
             # Point at the page itself so it opens in one click.
             if format == ReportFormat.HTML:
                 path = path / "index.html"
             locations.setdefault(path, format.display_name)
-
-
-@dataclass(slots=True)
-class _WriterOptions:
-    output: OutputConfig
-    preserve_bytes: bool
-    seed: int | None
-    command: str
-    api_title: str | None
-    location: str | None
-    base_url: str | None
-    checks: list[str]
-    started_at: float
-
-
-def _open_vcr(path: Path, options: _WriterOptions) -> VcrWriter:
-    from schemathesis.reporting.vcr import VcrWriter
-
-    writer = VcrWriter(output=path, config=options.output, preserve_bytes=options.preserve_bytes)
-    writer.open(seed=options.seed, command=options.command)
-    return writer
-
-
-def _open_har(path: Path, options: _WriterOptions) -> HarWriter:
-    from schemathesis.reporting.har import HarWriter
-
-    writer = HarWriter(output=path, config=options.output, preserve_bytes=options.preserve_bytes)
-    writer.open(seed=options.seed)
-    return writer
-
-
-def _open_junit(path: Path, options: _WriterOptions) -> JunitXmlWriter:
-    from schemathesis.reporting.junitxml import JunitXmlWriter
-
-    return JunitXmlWriter(output=path, config=options.output)
-
-
-def _open_allure(path: Path, options: _WriterOptions) -> AllureWriter:
-    try:
-        from schemathesis.reporting.allure import AllureWriter
-    except ImportError as exc:
-        raise pytest.UsageError(str(exc)) from exc
-
-    return AllureWriter(output_dir=path, config=options.output, api_title=options.api_title)
-
-
-def _open_html(path: Path, options: _WriterOptions) -> HtmlWriter:
-    from schemathesis.reporting.html.writer import HtmlWriter
-
-    return HtmlWriter(
-        path,
-        config=options.output,
-        location=options.location,
-        base_url=options.base_url,
-        command=options.command,
-        seed=options.seed,
-        checks=options.checks,
-        started_at=options.started_at,
-    )
-
-
-# In the order the writers are opened.
-_WRITER_OPENERS: tuple[tuple[ReportFormat, Callable[[Path, _WriterOptions], _ReportWriter]], ...] = (
-    (ReportFormat.VCR, _open_vcr),
-    (ReportFormat.HAR, _open_har),
-    (ReportFormat.JUNIT, _open_junit),
-    (ReportFormat.ALLURE, _open_allure),
-    (ReportFormat.HTML, _open_html),
-)
 
 
 def open_writers(
@@ -134,22 +65,50 @@ def open_writers(
     started_at: float,
 ) -> list[_ReportWriter]:
     """Open a writer for every enabled report, closing the opened ones if a later one fails."""
-    options = _WriterOptions(
-        output=output,
-        preserve_bytes=reports.preserve_bytes,
-        seed=seed,
-        command=command,
-        api_title=api_title,
-        location=location,
-        base_url=base_url,
-        checks=checks,
-        started_at=started_at,
-    )
     writers: list[_ReportWriter] = []
     try:
-        for format, open_writer in _WRITER_OPENERS:
-            if getattr(reports, format.value).enabled:
-                writers.append(open_writer(path_of(format), options))
+        if reports.vcr.enabled:
+            from schemathesis.reporting.vcr import VcrWriter
+
+            vcr_writer = VcrWriter(
+                output=path_of(ReportFormat.VCR), config=output, preserve_bytes=reports.preserve_bytes
+            )
+            vcr_writer.open(seed=seed, command=command)
+            writers.append(vcr_writer)
+        if reports.har.enabled:
+            from schemathesis.reporting.har import HarWriter
+
+            har_writer = HarWriter(
+                output=path_of(ReportFormat.HAR), config=output, preserve_bytes=reports.preserve_bytes
+            )
+            har_writer.open(seed=seed)
+            writers.append(har_writer)
+        if reports.junit.enabled:
+            from schemathesis.reporting.junitxml import JunitXmlWriter
+
+            writers.append(JunitXmlWriter(output=path_of(ReportFormat.JUNIT), config=output))
+        if reports.allure.enabled:
+            try:
+                from schemathesis.reporting.allure import AllureWriter
+            except ImportError as exc:
+                raise pytest.UsageError(str(exc)) from exc
+
+            writers.append(AllureWriter(output_dir=path_of(ReportFormat.ALLURE), config=output, api_title=api_title))
+        if reports.html.enabled:
+            from schemathesis.reporting.html.writer import HtmlWriter
+
+            writers.append(
+                HtmlWriter(
+                    path_of(ReportFormat.HTML),
+                    config=output,
+                    location=location,
+                    base_url=base_url,
+                    command=command,
+                    seed=seed,
+                    checks=checks,
+                    started_at=started_at,
+                )
+            )
     except Exception:
         for writer in writers:
             writer.close()
@@ -198,14 +157,14 @@ class PytestReportDispatcher:
         label = case.operation.label
         self._start_times.setdefault(label, time.monotonic())
         recorder = self._recorders.setdefault(label, ScenarioRecorder(label=label, config=self._schema.config.output))
-        recorder.record_case(parent_id=None, case=case, transition=None, is_transition_applied=False)
+        recorder.record_case(case=case)
         recorder.record_response(case_id=case.id, response=response)
 
     def _on_after_network_error(self, context: HookContext, case: Case, request: requests.PreparedRequest) -> None:
         label = case.operation.label
         self._start_times.setdefault(label, time.monotonic())
         recorder = self._recorders.setdefault(label, ScenarioRecorder(label=label, config=self._schema.config.output))
-        recorder.record_case(parent_id=None, case=case, transition=None, is_transition_applied=False)
+        recorder.record_case(case=case)
         recorder.record_request(case_id=case.id, request=request)
 
     def _on_after_validate(

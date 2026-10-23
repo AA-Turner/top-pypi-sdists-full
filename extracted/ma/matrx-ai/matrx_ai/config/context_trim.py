@@ -355,6 +355,255 @@ async def resolve_trim_policy(organization_id: str | None) -> TrimPolicy:
     return policy
 
 
+# --------------------------------------------------------------------------- #
+# THE CONDENSE DECISION — when older turns become one summary                  #
+# --------------------------------------------------------------------------- #
+#
+# Trimming only clears stale tool traffic; an ordinary chat still grows until
+# the pre-flight refuses it at the DECLARED window (1M on some models, while the
+# product limit is 200,000 tokens — conversation 9b224bf5 crashed there). The
+# cache law (execution-runtime VISION, Arman): nothing touches the cache except
+# through this one system, balancing context length against duplicate calls. So
+# WHEN to condense is decided here, beside the trim gate, from the same numbers:
+#
+#   * condensing rewrites the whole history after the authored template, so it
+#     is the most expensive cache event there is — it happens only near the
+#     limit, never as an optimisation (the trim gate's ``forced_near_limit``
+#     posture), and only when it frees at least ``cache_gate_min_saved_tokens``;
+#   * the trigger is the LOWER of the ``condense_trigger_tokens`` knob (the
+#     product ceiling for a conversation) and ``payback_force_window_percent`` of
+#     the model's effective window (its declared window, capped by a platform
+#     window ceiling when the caller names one), so a small-window model is
+#     condensed before its own limit too;
+#   * after a condense the prompt is ~keep + summary, far under the trigger, so
+#     one condense buys many turns — never a condense per turn;
+#   * below that ceiling a condense is taken only when it PAYS BACK, by the trim
+#     gate's own rule (``payback_pays``): the tokens it frees, read on each of the
+#     ``payback_expected_remaining_calls`` sends, against re-writing the kept tail
+#     + summary into the cache and the condenser reading the conversation once —
+#     at the model's catalog prices. Unpriced, only the ceiling decides.
+#
+# Knobs: ``agents.context_trim`` / ``condense_trigger_tokens``,
+# ``condense_keep_recent_tokens``, ``condense_summary_target_tokens``
+# (org-overridable; read by the host — never on the send hot path, which is why
+# they are not in ``TRIM_POLICY_KNOB_KEYS``). The runner that acts on a "yes":
+# aidream ``services/conversation_condense``.
+
+#: Starting values (agent-set 2026-10-22; the knob rows carry basis + review date).
+CONDENSE_TRIGGER_TOKENS = 120_000
+CONDENSE_KEEP_RECENT_TOKENS = 30_000
+CONDENSE_SUMMARY_TARGET_TOKENS = 4_000
+
+#: Integer knobs under ``TRIM_POLICY_KNOB_FEATURE`` that shape the condense decision.
+CONDENSE_KNOB_KEYS: tuple[str, ...] = (
+    "condense_trigger_tokens",
+    "condense_keep_recent_tokens",
+    "condense_summary_target_tokens",
+)
+
+
+#: The trim knobs the condense decision shares (same rows, same values as the trim gate).
+CONDENSE_SHARED_TRIM_KEYS: tuple[str, ...] = (
+    "cache_gate_min_saved_tokens",
+    "payback_force_window_percent",
+    "payback_expected_remaining_calls",
+)
+
+
+@dataclass(frozen=True)
+class CondensePolicy:
+    """The condense knobs, plus the two trim knobs the decision shares."""
+
+    trigger_tokens: int = CONDENSE_TRIGGER_TOKENS
+    keep_recent_tokens: int = CONDENSE_KEEP_RECENT_TOKENS
+    summary_target_tokens: int = CONDENSE_SUMMARY_TARGET_TOKENS
+    #: Shared with the trim gate: the smallest saving worth breaking a cache for.
+    min_saved_tokens: int = CACHE_GATE_MIN_SAVED_TOKENS
+    #: Shared with the trim gate: the share of the window treated as "near the limit".
+    force_window_percent: int = PAYBACK_FORCE_WINDOW_PERCENT
+    #: Shared with the trim gate: how many more sends a freed token is expected to be saved on.
+    expected_remaining_calls: int = PAYBACK_EXPECTED_REMAINING_CALLS
+    source: str = "package_default"
+
+
+@dataclass(frozen=True)
+class CachePrices:
+    """USD per million tokens for the conversation's model: a cache READ, the cache WRITE tier
+    that covers rewritten history, and fresh INPUT (what the condenser pays to read it once — an
+    upper bound when a cheaper model condenses). Built by the send boundary's price reader
+    (``send_boundary.model_cache_prices``)."""
+
+    read_price: float
+    write_price: float
+    input_price: float | None = None
+
+
+def payback_pays(
+    *,
+    freed_tokens: int,
+    rewrite_tokens: int,
+    read_price: float,
+    write_price: float,
+    expected_remaining_calls: int,
+    extra_cost_usd: float = 0.0,
+) -> tuple[bool, float, float]:
+    """THE payback rule, shared by the trim gate and the condense decision:
+    ``freed × read × calls ≥ rewrite × (write − read) + extra``. Returns ``(pays, benefit, cost)``
+    in USD."""
+    calls = max(1, int(expected_remaining_calls))
+    benefit = freed_tokens * read_price * calls / 1_000_000
+    cost = rewrite_tokens * max(0.0, write_price - read_price) / 1_000_000 + max(0.0, extra_cost_usd)
+    return benefit >= cost, benefit, cost
+
+
+def condense_policy_from_knobs(values: dict[str, Any]) -> CondensePolicy:
+    """Every key REQUIRED (``CONDENSE_KNOB_KEYS`` + ``CONDENSE_SHARED_TRIM_KEYS``) — a missing one
+    raises ``KeyError`` naming it."""
+    return CondensePolicy(
+        trigger_tokens=int(values["condense_trigger_tokens"]),
+        keep_recent_tokens=int(values["condense_keep_recent_tokens"]),
+        summary_target_tokens=int(values["condense_summary_target_tokens"]),
+        min_saved_tokens=int(values["cache_gate_min_saved_tokens"]),
+        force_window_percent=int(values["payback_force_window_percent"]),
+        expected_remaining_calls=int(values["payback_expected_remaining_calls"]),
+        source="org_knobs",
+    )
+
+
+@dataclass(frozen=True)
+class CondenseDecision:
+    """One verdict of :func:`decide_condense` — the audit IS the decision."""
+
+    condense: bool
+    #: below_trigger | too_little_to_free | remainder_at_trigger | payback | payback_hold |
+    #: at_trigger | forced_near_limit
+    rule: str
+    estimated_prompt_tokens: int
+    trigger_tokens: int
+    effective_window_tokens: int | None
+    est_freed_tokens: int
+    keep_recent_tokens: int
+    summary_target_tokens: int
+    #: The payback audit (USD), when prices were known below the ceiling.
+    benefit_usd: float | None = None
+    cost_usd: float | None = None
+    expected_remaining_calls: int | None = None
+
+    def to_snapshot(self) -> dict[str, Any]:
+        return {
+            "condense": self.condense,
+            "rule": self.rule,
+            "estimated_prompt_tokens": self.estimated_prompt_tokens,
+            "trigger_tokens": self.trigger_tokens,
+            "effective_window_tokens": self.effective_window_tokens,
+            "est_freed_tokens": self.est_freed_tokens,
+            "keep_recent_tokens": self.keep_recent_tokens,
+            "summary_target_tokens": self.summary_target_tokens,
+            "benefit_usd": None if self.benefit_usd is None else round(self.benefit_usd, 6),
+            "cost_usd": None if self.cost_usd is None else round(self.cost_usd, 6),
+            "expected_remaining_calls": self.expected_remaining_calls,
+        }
+
+
+def model_context_window(model_ref: str | None) -> int | None:
+    """The model's DECLARED window from the catalog, or None when it declares none."""
+    if not model_ref:
+        return None
+    try:
+        from matrx_ai.catalog.manager import ai_catalog_manager
+
+        window = ai_catalog_manager.context_window(model_ref)
+        return int(window) if window else None
+    except Exception:  # noqa: BLE001 — an unknown window means "use the knob trigger"
+        return None
+
+
+def decide_condense(
+    *,
+    estimated_prompt_tokens: int,
+    policy: CondensePolicy,
+    model_window_tokens: int | None = None,
+    window_ceiling_tokens: int | None = None,
+    prices: CachePrices | None = None,
+    fixed_prefix_tokens: int = 0,
+    condensable_tokens: int | None = None,
+) -> CondenseDecision:
+    """Should this conversation's older turns be condensed now? Pure.
+
+    ``estimated_prompt_tokens`` is the prompt as the model will read it (the ONE
+    estimator, ``context_preflight.estimate_prompt_tokens``). The effective window
+    is the declared window capped by ``window_ceiling_tokens`` (the host's per-call
+    budget when one applies to the conversation's runs). At or past the ceiling
+    (``payback_force_window_percent`` of that window, or the ``condense_trigger_tokens``
+    product ceiling) a condense is taken whenever it frees enough; below it, only
+    when it pays back at ``prices`` (the trim gate's rule); unpriced, it holds.
+
+    Only the HISTORY is condensable: the system prompt, the tools and the agent's authored
+    template are not. ``condensable_tokens`` (the rows a condense would replace, known once the
+    transcript is split) makes the freed tokens exact: ``condensable − summary target``;
+    otherwise ``fixed_prefix_tokens`` (the uncondensable prefix, when known) is taken off the
+    estimate before the kept turns and the summary are. A condense whose REMAINDER would still be
+    at the trigger is not taken (``remainder_at_trigger``) — a large fixed prefix would otherwise
+    buy a paid condense every few turns — unless the prompt is past the effective window itself,
+    where any condense that frees enough is needed to fit.
+    """
+    estimated = max(0, int(estimated_prompt_tokens))
+    windows = [w for w in (model_window_tokens, window_ceiling_tokens) if w and w > 0]
+    effective = min(windows) if windows else None
+    force_at = (
+        int(effective * max(1, int(policy.force_window_percent)) / 100) if effective else None
+    )
+    trigger = int(policy.trigger_tokens)
+    if force_at is not None:
+        trigger = min(trigger, force_at)
+    keep_after = int(policy.keep_recent_tokens) + int(policy.summary_target_tokens)
+    fixed = max(0, int(fixed_prefix_tokens or 0))
+    if condensable_tokens is not None:
+        condensable = max(0, int(condensable_tokens))
+        freed = max(0, condensable - int(policy.summary_target_tokens))
+    else:
+        condensable = max(0, estimated - fixed)
+        freed = max(0, condensable - keep_after)
+    remainder = estimated - freed
+
+    def verdict(condense: bool, rule: str, benefit: float | None = None, cost: float | None = None) -> CondenseDecision:
+        return CondenseDecision(
+            condense=condense,
+            rule=rule,
+            estimated_prompt_tokens=estimated,
+            trigger_tokens=trigger,
+            effective_window_tokens=effective,
+            est_freed_tokens=freed,
+            keep_recent_tokens=int(policy.keep_recent_tokens),
+            summary_target_tokens=int(policy.summary_target_tokens),
+            benefit_usd=benefit,
+            cost_usd=cost,
+            expected_remaining_calls=int(policy.expected_remaining_calls) if benefit is not None else None,
+        )
+
+    if estimated >= trigger:
+        if freed < int(policy.min_saved_tokens):
+            return verdict(False, "too_little_to_free")
+        past_window = effective is not None and estimated > effective
+        if remainder >= trigger and not past_window:
+            return verdict(False, "remainder_at_trigger")
+        if force_at is not None and estimated >= force_at:
+            return verdict(True, "forced_near_limit")
+        return verdict(True, "at_trigger")
+    if prices is None or freed < int(policy.min_saved_tokens):
+        return verdict(False, "below_trigger")
+    condenser_read = condensable * float(prices.input_price or 0.0) / 1_000_000
+    pays, benefit, cost = payback_pays(
+        freed_tokens=freed,
+        rewrite_tokens=keep_after,
+        read_price=float(prices.read_price),
+        write_price=float(prices.write_price),
+        expected_remaining_calls=int(policy.expected_remaining_calls),
+        extra_cost_usd=condenser_read,
+    )
+    return verdict(pays, "payback" if pays else "payback_hold", benefit, cost)
+
+
 @dataclass
 class TrimReport:
     """Audit of one ``trim_messages_context`` pass.
@@ -855,9 +1104,13 @@ def _decide_cache_gate(
         )
         return legacy("payback_unpriced:legacy_floor")
 
-    benefit_usd = est_savings_tokens * read_price * calls / 1_000_000
-    cost_usd = rewrite_tokens * max(0.0, write_price - read_price) / 1_000_000
-    take = benefit_usd >= cost_usd
+    take, benefit_usd, cost_usd = payback_pays(
+        freed_tokens=est_savings_tokens,
+        rewrite_tokens=rewrite_tokens,
+        read_price=read_price,
+        write_price=write_price,
+        expected_remaining_calls=calls,
+    )
     return {
         **base,
         "skipped": not take,

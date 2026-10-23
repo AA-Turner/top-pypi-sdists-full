@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -165,3 +168,166 @@ def test_doctor_asks_codex_for_a_codex_report(monkeypatch):
     monkeypatch.setattr(codex_hooks, "status", lambda *a, **k: found)
     rows = doctor.codex_hook_rows(Capabilities(agent_source="codex", codex_available=True))
     assert rows[0] == "Codex hooks" and f"all {found.total} approved" in rows[1]
+
+
+# -- `probe status`: Codex's answer, cached, and the heartbeat ------------------
+
+MARKET = "research-os-agent"
+TAP_END = f"probe-research-tap@{MARKET}:hooks/hooks.json:sessionEnd:0:0"
+TAP_START = f"probe-research-tap@{MARKET}:hooks/hooks.json:sessionStart:0:0"
+SID = "019a0b1c-2d3e-7f40-8152-637485960a1b"
+
+
+def _answer(**trust: str) -> dict:
+    keys = {"end": TAP_END, "start": TAP_START}
+    return {"data": [{"hooks": [{"key": keys[k], "trustStatus": v, "enabled": True} for k, v in trust.items()],
+                      "warnings": []}]}
+
+
+@pytest.fixture
+def device(tmp_path, monkeypatch):
+    """A home of its own: Codex's folder, the CLI's state, and a `codex` that
+    logs each start and answers hooks/list with what `answering` set."""
+    home = tmp_path / "home"
+    (home / ".codex").mkdir(parents=True)
+    (home / ".codex" / "config.toml").write_text(f'[plugins."probe-research-tap@{MARKET}"]\nenabled = true\n')
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setenv("XDG_STATE_HOME", str(home / ".local" / "state"))
+    calls = tmp_path / "calls.log"
+    calls.touch()
+    answer = tmp_path / "answer.json"
+    fake = tmp_path / "codex"
+    fake.write_text(
+        f"#!/bin/sh\necho \"codex $*\" >> '{calls}'\n"
+        f"while read -r line; do case \"$line\" in *hooks/list*) "
+        f"printf '{{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":%s}}\\n' \"$(cat '{answer}')\";; esac; done\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    state = SimpleNamespace(home=home, calls=calls, fake=fake, binary=str(fake))
+
+    def answering(result: dict) -> None:
+        answer.write_text(json.dumps(result), encoding="utf-8")
+
+    state.answering = answering
+    state.asked = lambda: calls.read_text().splitlines()
+    monkeypatch.setattr(codex_hooks, "codex_binary", lambda: state.binary)
+    answering(_answer(end="untrusted", start="trusted"))
+    return state
+
+
+def _install(device, *versions: str, plugin: str = "probe-research-tap") -> None:
+    for version in versions:
+        (device.home / ".codex" / "plugins" / "cache" / MARKET / plugin / version).mkdir(parents=True)
+
+
+def _expect(device, sid: str, flag: str, *, age: float, alive: bool = False) -> None:
+    hooks = device.home / ".local" / "state" / "probe" / "hooks"
+    (hooks / "expect").mkdir(parents=True, exist_ok=True)
+    record = hooks / "expect" / sid
+    record.write_text(flag + "\n")
+    os.utime(record, (time.time() - age,) * 2)
+    if alive:
+        (hooks / "alive").mkdir(parents=True, exist_ok=True)
+        (hooks / "alive" / sid).touch()
+
+
+def test_status_asks_nothing_where_codex_has_no_probe_plugin(device):
+    assert codex_hooks.status_snapshot() == codex_hooks.blank_snapshot(codex_hooks.HooksState.NONE)
+    assert device.asked() == []
+
+
+def test_status_names_the_hooks_waiting_for_approval_and_keeps_the_answer(device):
+    _install(device, "0.9.25")
+    first = codex_hooks.status_snapshot()
+    assert first["state"] == "needs_approval" and first["untrusted"] == [TAP_END]
+    assert isinstance(first["checked_at"], int)
+    assert device.asked() == ["codex app-server"]
+    assert codex_hooks.status_snapshot() == first, "the cached answer"
+    assert device.asked() == ["codex app-server"], "asked once per TTL"
+    line = codex_hooks.status_line(first)
+    assert "1 Probe hook switched off" in line and "/hooks" in line
+
+
+def test_an_update_an_approval_or_the_ttl_asks_again(device):
+    _install(device, "0.9.25")
+    codex_hooks.status_snapshot()
+    _install(device, "0.9.26")
+    device.answering(_answer(end="trusted", start="trusted"))
+    assert codex_hooks.status_snapshot()["state"] == "approved", "a new Probe version is asked about"
+    assert len(device.asked()) == 2
+    config = device.home / ".codex" / "config.toml"
+    os.utime(config, (time.time() + 5,) * 2)
+    device.answering(_answer(end="untrusted", start="trusted"))
+    assert codex_hooks.status_snapshot()["state"] == "needs_approval", "Codex's config moved: an approval, maybe"
+    assert len(device.asked()) == 3
+    assert codex_hooks.status_snapshot(now=time.time() + codex_hooks.STATUS_TTL_S + 1)["state"] == "needs_approval"
+    assert len(device.asked()) == 4, "older than the TTL"
+
+
+def test_a_hung_codex_costs_status_its_timeout_once(device):
+    _install(device, "0.9.25")
+    device.fake.write_text(f"#!/bin/sh\necho \"codex $*\" >> '{device.calls}'\nexec sleep 30\n", encoding="utf-8")
+    started = time.monotonic()
+    assert codex_hooks.status_snapshot()["state"] == "unknown"
+    assert time.monotonic() - started < codex_hooks.STATUS_TIMEOUT_S + 1.5
+    started = time.monotonic()
+    assert codex_hooks.status_snapshot()["state"] == "unknown"
+    assert time.monotonic() - started < 0.5 and len(device.asked()) == 1, "not waited on again within the TTL"
+
+
+def test_no_codex_binary_reads_the_heartbeat_alone(device):
+    _install(device, "0.9.25")
+    device.binary = None
+    _expect(device, SID, "1", age=120)
+    found = codex_hooks.status_snapshot()
+    assert (found["state"], found["unheard_session"], found["checked_at"]) == ("needs_approval", SID, None)
+    assert device.asked() == []
+    assert "Probe's hooks are off" in codex_hooks.status_line(found)
+
+
+@pytest.mark.parametrize(
+    "records, unheard",
+    [
+        ([(SID, "1", 120, True)], None),
+        ([(SID, "1", 5, False)], None),  # inside the grace: its heartbeat may still be coming
+        ([(SID, "0", 120, False)], None),  # started before the hooks moved behind dispatch.sh
+        ([(SID, "1", codex_hooks.HEARTBEAT_WINDOW_S + 60, False)], None),
+        ([("older", "1", 600, False), (SID, "1", 120, True)], None),  # the newest one heard them
+        ([("older", "1", 600, True), (SID, "1", 120, False), ("newest-off", "0", 90, False)], SID),
+    ],
+    ids=["heard", "too-young", "not-expected", "too-old", "newest-heard", "newest-expecting-unheard"],
+)
+def test_the_heartbeat_rule(device, records, unheard):
+    for sid, flag, age, alive in records:
+        _expect(device, sid, flag, age=age, alive=alive)
+    (device.home / ".local" / "state" / "probe" / "hooks" / "expect" / f"{SID}.shown").write_text("3\n")
+    assert codex_hooks.unheard_session() == unheard
+
+
+def test_codexs_own_answer_decides_over_an_old_unheard_session(device):
+    _install(device, "0.9.25")
+    device.answering(_answer(end="trusted", start="trusted"))
+    _expect(device, SID, "1", age=3600)
+    found = codex_hooks.status_snapshot()
+    assert (found["state"], found["unheard_session"]) == ("approved", SID)
+    assert codex_hooks.status_line(found) == "all approved"
+
+
+def test_no_enabled_probe_hook_is_none(device):
+    _install(device, "0.9.25")
+    device.answering({"data": [{"hooks": [], "warnings": []}]})
+    assert codex_hooks.status_snapshot()["state"] == "none"
+    assert codex_hooks.status_line({"state": "none"}) is None
+
+
+def test_a_broken_cache_is_asked_again(device):
+    _install(device, "0.9.25")
+    codex_hooks.status_snapshot()
+    cache = device.home / ".local" / "state" / "probe" / codex_hooks.STATUS_CACHE
+    good = json.loads(cache.read_text())
+    for broken in ("{", "[]", json.dumps({**good, "installed": "x"}), json.dumps({**good, "untrusted": "x"})):
+        cache.write_text(broken)
+        assert codex_hooks.status_snapshot()["state"] == "needs_approval"
+    assert len(device.asked()) == 5

@@ -331,29 +331,144 @@ def start_backfill(key):
         return [_public_job(_owned_job(j, saved["account"]), identity=saved["account"], summary=True) for j in saved["jobs"]]
 
 
-def snapshot_delivery(identity=None):
+class ServiceState:
+    """`snapshot_delivery`'s `serviceState`: the Probe service as the Overview
+    found it, and so why its counts are there, partial or missing."""
+    RUNNING = "running"
+    #: Discovering: open sessions are still checking in, so counts may be low.
+    STARTING = "starting"
+    #: An update cycle is running.
+    UPDATING = "updating"
+    #: Nothing answers at its socket: none runs (or it is restarting).
+    NOT_RUNNING = "not_running"
+    #: It refused the call, or its socket's folder is not this user's alone.
+    REFUSED = "refused"
+    #: It did not answer in time, or answered something unreadable.
+    UNREACHABLE = "unreachable"
+    #: No service on this platform yet (Windows).
+    UNSUPPORTED = "unsupported"
+
+
+#: What a person reads when the counts are there, per state.
+_COUNTED = {
+    ServiceState.RUNNING: "Active counts come from the local live-session registry.",
+    ServiceState.STARTING: "The Probe service is starting: open sessions are still checking in, so active counts may be low for a few seconds.",
+    ServiceState.UPDATING: "Probe is installing an update; active counts come from the local live-session registry.",
+}
+#: ... and when they are not. `{detail}` is what failed.
+_UNCOUNTED = {
+    ServiceState.STARTING: "The Probe service is starting and has not listed live sessions yet. Try again in a few seconds.",
+    ServiceState.UPDATING: "The Probe service is installing an update and could not list live sessions. Try again in a minute.",
+    ServiceState.NOT_RUNNING: "The Probe service is not running, so live sessions cannot be counted. It starts with the next coding-agent session, or run `probe service start`.",
+    ServiceState.REFUSED: "The Probe service refused to list live sessions ({detail}).",
+    ServiceState.UNREACHABLE: "The Probe service could not list live sessions: {detail}.",
+    ServiceState.UNSUPPORTED: "The Probe service does not run on this system yet, so live sessions cannot be counted.",
+}
+#: A socket folder someone else could have made: the client will not connect.
+_FOREIGN_FOLDER = "Probe will not ask the service for live sessions: its folder is not private to this user."
+_NO_RECEIPTS = "Delivery receipts are unavailable."
+#: Last received and Pending come from each recorder's own state (D29).
+_RECEIPTS = "Last received and Pending are the recorder's own: its last upload, and what waits to go."
+#: Seconds for each of the two calls: the listing, then the service's state.
+_LIST_TIMEOUT_S = 3
+_STATE_TIMEOUT_S = 1
+
+
+def _live_sessions():
+    """(sessions or None, ServiceState, the reason's text or None for the
+    state's own), fail-soft: the listing, then `service.status` for what the
+    service is doing (an update, its discovery window) when it answers at all."""
+    import os
     from probe import __version__
-    from probe.harness import get_registry
     from probe.service import client
-    from probe.service.protocol import Method
-    rows = get_registry().captured()
+    from probe.service.protocol import Method, State
+    if os.name != "posix":
+        return None, ServiceState.UNSUPPORTED, None
+    sessions, state, text = None, ServiceState.RUNNING, None
     try:
-        listing = client.call(Method.SESSION_LIST, client="app", client_version=__version__, timeout=3)
+        listing = client.call(Method.SESSION_LIST, client="app", client_version=__version__, timeout=_LIST_TIMEOUT_S)
         sessions = listing["sessions"]
         if not isinstance(sessions, list):
             raise ValueError("Unreadable service registry")
+    except (FileNotFoundError, ConnectionRefusedError):
+        return None, ServiceState.NOT_RUNNING, None
+    except PermissionError:
+        return None, ServiceState.REFUSED, _FOREIGN_FOLDER
+    except TimeoutError:
+        # A service that did not answer the listing will not answer the next call either.
+        return None, ServiceState.UNREACHABLE, _UNCOUNTED[ServiceState.UNREACHABLE].format(detail="it did not answer in time")
+    except client.ServiceError as exc:
+        sessions, state = None, ServiceState.REFUSED
+        text = _UNCOUNTED[state].format(detail=exc.message or f"error {exc.code}")
+    except OSError as exc:
+        sessions, state = None, ServiceState.UNREACHABLE
+        text = _UNCOUNTED[state].format(detail=f"the connection failed ({exc})" if str(exc) else "the connection failed")
+    except (ValueError, KeyError, TypeError):
+        sessions, state = None, ServiceState.UNREACHABLE
+        text = _UNCOUNTED[state].format(detail="its answer could not be read")
+    try:
+        status = client.call(Method.STATUS, client="app", client_version=__version__, timeout=_STATE_TIMEOUT_S)
     except (OSError, client.ServiceError, ValueError, KeyError, TypeError):
-        sessions = None
-    agents = [{"source": row.id,
-               "activeAgents": (sum(1 for session in sessions
-                   if session.get("harness") == row.id and session.get("alive") is True)
-                   if sessions is not None else None),
-               "lastReceived": None, "pending": None} for row in rows]
+        status = None
+    if isinstance(status, dict):
+        update = status.get("update")
+        if isinstance(update, dict) and update.get("in_progress") is True:
+            state, text = ServiceState.UPDATING, None
+        elif status.get("state") == State.DISCOVERING:
+            state, text = ServiceState.STARTING, None
+    return sessions, state, text
+
+
+def _receipts(row):
+    """(last received as ISO 8601 UTC, pending batches) from the recorder's own
+    state (`<capture state dir>/state.db`, the tap's: `meta.last_successful_post_at`
+    and the outbox), read-only and briefly; (None, None) when it cannot be read
+    (no recorder yet, locked, another schema). Plan D29."""
+    import sqlite3
+    import time
+    try:
+        path = row.capture.state_dir() / "state.db"
+        if not path.is_file():
+            return None, None
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=0.5)
+    except Exception:  # noqa: BLE001 -- the Overview shows unknown, never fails
+        return None, None
+    try:
+        pending = conn.execute("SELECT COUNT(*) FROM outbox").fetchone()[0]
+        found = conn.execute("SELECT v FROM meta WHERE k = 'last_successful_post_at'").fetchone()
+    except sqlite3.Error:
+        return None, None
+    finally:
+        conn.close()
+    last = None
+    try:
+        if found is not None and int(found[0]) > 0:
+            last = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(int(found[0])))
+    except (TypeError, ValueError, OverflowError):
+        last = None
+    return last, int(pending) if isinstance(pending, int) else None
+
+
+def snapshot_delivery(identity=None):
+    from probe.harness import get_registry
+    rows = get_registry().captured()
+    sessions, state, text = _live_sessions()
+    agents = []
+    for row in rows:
+        last, pending = _receipts(row)
+        agents.append({"source": row.id,
+                       "activeAgents": (sum(1 for session in sessions
+                           if session.get("harness") == row.id and session.get("alive") is True)
+                           if sessions is not None else None),
+                       "lastReceived": last, "pending": pending})
+    reason = (_COUNTED.get(state, _COUNTED[ServiceState.RUNNING]) if sessions is not None
+              else text or _UNCOUNTED[state])
+    receipts = any(a["lastReceived"] is not None or a["pending"] is not None for a in agents)
     return {"available": sessions is not None, "agents": agents,
             **({"scope": _scope(identity)} if identity is not None else {}),
             "captureControlSupported": False,
-            "reason": "Active counts come from the local live-session registry. Delivery receipts are unavailable."
-                      if sessions is not None else "The local live-session registry is unavailable. Delivery receipts are unavailable."}
+            "serviceState": state,
+            "reason": f"{reason} {_RECEIPTS if receipts else _NO_RECEIPTS}"}
 
 
 def analytics_policy():

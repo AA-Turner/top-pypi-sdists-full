@@ -243,6 +243,7 @@ __all__ = (
     "ApplicationOutputTypeDef",
     "ApplicationTypeDef",
     "ApplicationUnionTypeDef",
+    "ApproximateDriftedResourceCountTypeDef",
     "AssignSlaActionDefinitionOutputTypeDef",
     "AssignSlaActionDefinitionTypeDef",
     "AssignSlaActionDefinitionUnionTypeDef",
@@ -1029,6 +1030,9 @@ __all__ = (
     "ListQuickConnectsResponseTypeDef",
     "ListRealtimeContactAnalysisSegmentsV2RequestTypeDef",
     "ListRealtimeContactAnalysisSegmentsV2ResponseTypeDef",
+    "ListReplicationFindingsRequestPaginateTypeDef",
+    "ListReplicationFindingsRequestTypeDef",
+    "ListReplicationFindingsResponseTypeDef",
     "ListRoutingProfileManualAssignmentQueuesRequestPaginateTypeDef",
     "ListRoutingProfileManualAssignmentQueuesRequestTypeDef",
     "ListRoutingProfileManualAssignmentQueuesResponseTypeDef",
@@ -1277,8 +1281,10 @@ __all__ = (
     "ReplicateInstanceRequestTypeDef",
     "ReplicateInstanceResponseTypeDef",
     "ReplicationConfigurationTypeDef",
+    "ReplicationFindingTypeDef",
     "ReplicationStatusSummaryTypeDef",
     "RequiredFieldInfoTypeDef",
+    "ResourceReplicationStatusTypeDef",
     "ResourceTagsSearchCriteriaTypeDef",
     "ResponseMetadataTypeDef",
     "ResumeContactRecordingRequestTypeDef",
@@ -1898,6 +1904,12 @@ ApplicationTypeDef = TypedDict(
         "Type": NotRequired[ApplicationTypeType],
     },
 )
+
+
+class ApproximateDriftedResourceCountTypeDef(TypedDict):
+    Region: str
+    Count: int
+    Timestamp: datetime
 
 
 class AssociateAnalyticsDataSetRequestTypeDef(TypedDict):
@@ -4324,6 +4336,29 @@ class ListRealtimeContactAnalysisSegmentsV2RequestTypeDef(TypedDict):
     SegmentTypes: Sequence[RealTimeContactAnalysisSegmentTypeType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class ListReplicationFindingsRequestTypeDef(TypedDict):
+    InstanceId: str
+    ResourceType: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ReplicationFindingTypeDef(TypedDict):
+    Arn: str
+    Id: str
+    ResourceType: str
+    Region: NotRequired[str]
+    Name: NotRequired[str]
+    Operation: NotRequired[str]
+    ReferenceCode: NotRequired[str]
+    Message: NotRequired[str]
+
+
+class ResourceReplicationStatusTypeDef(TypedDict):
+    Region: str
+    Status: str
 
 
 class ListRoutingProfileManualAssignmentQueuesRequestTypeDef(TypedDict):
@@ -7811,6 +7846,12 @@ class ListQuickConnectsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListReplicationFindingsRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    ResourceType: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListRoutingProfileManualAssignmentQueuesRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     RoutingProfileId: str
@@ -8201,6 +8242,14 @@ class ListQuickConnectsResponseTypeDef(TypedDict):
 
 class ListQueuesResponseTypeDef(TypedDict):
     QueueSummaryList: list[QueueSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListReplicationFindingsResponseTypeDef(TypedDict):
+    ReplicationFindingsList: list[ReplicationFindingTypeDef]
+    ApproximateDriftedResourceCounts: list[ApproximateDriftedResourceCountTypeDef]
+    ResourceReplicationStatuses: list[ResourceReplicationStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9808,6 +9857,7 @@ class GetTrafficDistributionResponseTypeDef(TypedDict):
     Arn: str
     SignInConfig: SignInConfigOutputTypeDef
     AgentConfig: AgentConfigOutputTypeDef
+    LastFailoverTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 

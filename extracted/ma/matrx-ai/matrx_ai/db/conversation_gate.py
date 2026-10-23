@@ -381,7 +381,7 @@ def _stamp_origin(
 # and every one of them took ``ctx.source_app`` / ``ctx.source_feature`` at face
 # value. A door that declared neither produced an UNATTRIBUTED row: it cannot be
 # filtered, costed or classified, and ``chat.conversation_lane(...)`` — the live
-# function behind the Work area's ``public.cvx_audience`` buckets — drops a row
+# function behind the Work area's ``chat.cvx_audience`` buckets — drops a row
 # with a blank ``source_app`` into the 'matrx' lane, where it appears in a
 # person's chat sidebar as if they had started it.
 #
@@ -1883,6 +1883,7 @@ async def create_pending_user_request(
         id_key="agent_id",
         version_key="agent_version_id",
     )
+    _stamp_launch_binding(create_kwargs, ctx)
     stamp_row_owner(create_kwargs, safe_user_id)
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
 
@@ -2117,6 +2118,27 @@ def _run_identity_metadata(ctx: Any) -> dict[str, Any]:
     return {k: str(meta[k]) for k in _RESERVATION_IDENTITY_KEYS if meta.get(k)}
 
 
+#: The surface binding whose Run door started this run, put on ``AppContext.metadata`` by the host
+#: only after it checked the binding exists and is in the caller's reach. Stamped into the
+#: ``chat.user_request.binding_id`` column at reservation (mandate runs set the same column from
+#: their resolution, later, through the run record).
+LAUNCH_BINDING_ID_KEY = "launch_binding_id"
+
+
+def _stamp_launch_binding(create_kwargs: dict[str, Any], ctx: Any) -> None:
+    meta = (getattr(ctx, "metadata", None) or {}) if ctx is not None else {}
+    value = meta.get(LAUNCH_BINDING_ID_KEY)
+    if not value:
+        return
+    if _is_valid_uuid(value):
+        create_kwargs["binding_id"] = str(value)
+    else:
+        vcprint(
+            f"[ConversationGate] launch binding id {value!r} is not a uuid — the request row is written without it",
+            color="yellow",
+        )
+
+
 def _lineage_metadata(ctx: Any) -> dict[str, Any]:
     """The request this one ran under, when it is an independent child run."""
     parent = (getattr(ctx, "metadata", None) or {}).get(PARENT_REQUEST_ID_KEY) if ctx is not None else None
@@ -2212,6 +2234,7 @@ async def _create_user_request(
         id_key="agent_id",
         version_key="agent_version_id",
     )
+    _stamp_launch_binding(create_kwargs, ctx)
     create_kwargs["created_by"] = user_id
     stamp_org_id(create_kwargs, getattr(ctx, "organization_id", None))
     _refuse_person_request_in_platform_tenant(ctx, user_id, create_kwargs.get("organization_id"))

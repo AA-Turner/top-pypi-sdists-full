@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
 
-    import jsonschema_rs
     from hypothesis.strategies import SearchStrategy
     from requests.structures import CaseInsensitiveDict
 
@@ -27,23 +25,11 @@ if TYPE_CHECKING:
     from schemathesis.generation import GenerationMode
     from schemathesis.generation.case import Case
     from schemathesis.generation.feedback import FeedbackSources
-    from schemathesis.generation.meta import CaseMetadata
+    from schemathesis.generation.meta import CaseMetadata, TestPhase
     from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput
     from schemathesis.hooks import HookDispatcher
     from schemathesis.resources import ExtraDataSource, ResourcePool
     from schemathesis.schemas import APIOperation
-
-
-@dataclass
-class CoverageCapabilities:
-    """Coverage-phase data the engine asks of a specification.
-
-    Specs that do not participate in coverage generation can return an empty instance
-    (`update_pattern=None`, `validator_cls=None`).
-    """
-
-    update_pattern: Callable[[str, int | None, int | None], str] | None
-    validator_cls: type[jsonschema_rs.Validator] | None
 
 
 class SchemaMetadata(Protocol):
@@ -66,12 +52,6 @@ class SchemaMetadata(Protocol):
     def get_base_url(self) -> str: ...  # pragma: no cover
 
     def get_local_hook_dispatcher(self) -> HookDispatcher | None: ...  # pragma: no cover
-
-
-class SchemaWarnings(Protocol):
-    """Static-analysis warnings collected from the schema."""
-
-    def iter_schema_warnings(self) -> list[SchemaWarning]: ...  # pragma: no cover
 
 
 class Scheduler(Protocol):
@@ -117,8 +97,11 @@ class AuthFlow(Protocol):
     def authenticate(self, credentials: dict[str, JsonValue], token: str) -> None: ...  # pragma: no cover
 
 
-class ApiSchema(SchemaMetadata, SchemaWarnings, Protocol):
+class ApiSchema(SchemaMetadata, Protocol):
     """Full schema contract."""
+
+    # Static-analysis warnings collected from the schema.
+    def iter_schema_warnings(self) -> list[SchemaWarning]: ...  # pragma: no cover
 
     # Operation enumeration, lookup, statistics, and unit-phase scheduling.
     @property
@@ -142,7 +125,14 @@ class ApiSchema(SchemaMetadata, SchemaWarnings, Protocol):
         auth_storage: AuthStorage | None = ...,
         generation_mode: GenerationMode = ...,
         feedback: FeedbackSources = ...,
-        **kwargs: Any,
+        *,
+        path_parameters: dict[str, Any] | None = ...,
+        headers: dict[str, Any] | None = ...,
+        cookies: dict[str, Any] | None = ...,
+        query: dict[str, Any] | None = ...,
+        body: Any = ...,
+        media_type: str | None = ...,
+        phase: TestPhase = ...,
     ) -> SearchStrategy[Case]: ...  # pragma: no cover
 
     def make_case(
@@ -165,15 +155,9 @@ class ApiSchema(SchemaMetadata, SchemaWarnings, Protocol):
         self, operation: APIOperation, feedback: FeedbackSources = ..., **kwargs: Any
     ) -> list[SearchStrategy[Case]]: ...  # pragma: no cover
 
-    def get_custom_format_strategies(
-        self, generation_config: GenerationConfig, mode: GenerationMode
-    ) -> dict[str, SearchStrategy]: ...  # pragma: no cover
-
     def revalidate_case_metadata(self, case: Case) -> None: ...  # pragma: no cover
 
     # Coverage-phase generation.
-    def get_coverage_capabilities(self) -> CoverageCapabilities: ...  # pragma: no cover
-
     def iter_coverage_cases(
         self,
         operation: APIOperation,

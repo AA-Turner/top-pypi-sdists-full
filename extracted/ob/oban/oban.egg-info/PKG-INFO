@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oban
-Version: 0.6.7
+Version: 0.7.0
 Summary: Job orchestration framework, backed by PostgreSQL.
 Author-email: "Soren, LLC" <support@oban.pro>
 License-Expression: Apache-2.0

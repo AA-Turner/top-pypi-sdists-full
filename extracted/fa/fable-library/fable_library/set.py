@@ -40,7 +40,7 @@ from .system import NotSupportedException__ctor_Z721C83C5
 from .util import UNIT, Disposable, Unit, get_enumerator, ignore, nullable, structural_hash
 
 
-def _expr183(gen0: TypeInfo) -> TypeInfo:
+def _expr175(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.SetTreeLeaf`1", Array([gen0]), SetTreeLeaf_1)
 
 
@@ -49,7 +49,7 @@ class SetTreeLeaf_1[T]:
         self.k: Any = k
 
 
-SetTreeLeaf_1_reflection = _expr183
+SetTreeLeaf_1_reflection = _expr175
 
 
 def SetTreeLeaf_1__ctor_2B595[T](k: T = UNIT) -> SetTreeLeaf_1[T]:
@@ -60,7 +60,7 @@ def SetTreeLeaf_1__get_Key[T](_: SetTreeLeaf_1[T]) -> T:
     return _.k
 
 
-def _expr193(gen0: TypeInfo) -> TypeInfo:
+def _expr176(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.SetTreeNode`1", Array([gen0]), SetTreeNode_1, SetTreeLeaf_1_reflection(gen0))
 
 
@@ -72,7 +72,7 @@ class SetTreeNode_1[T](SetTreeLeaf_1):
         self.h: int = h
 
 
-SetTreeNode_1_reflection = _expr193
+SetTreeNode_1_reflection = _expr176
 
 
 def SetTreeNode_1__ctor_5F465FC9[T](
@@ -176,7 +176,7 @@ def SetTreeModule_rebalance[T](
         if isinstance(match_value, SetTreeNode_1):
             t2_0027: SetTreeNode_1[Any] = match_value
 
-            def _arrow196(__unit: Unit = UNIT) -> int:
+            def _arrow177(__unit: Unit = UNIT) -> int:
                 t_2: SetTreeLeaf_1[Any] | None = erase(SetTreeNode_1__get_Left(t2_0027))
                 if t_2 is not None:
                     t2_3: SetTreeLeaf_1[Any] = t_2
@@ -185,7 +185,7 @@ def SetTreeModule_rebalance[T](
                 else:
                     return 0
 
-            if _arrow196() > ((t1h + 1) if (t1h <= 2147483646) else int32(t1h + 1)):
+            if _arrow177() > ((t1h + 1) if (t1h <= 2147483646) else int32(t1h + 1)):
                 match_value_1: SetTreeLeaf_1[Any] = value_1(SetTreeNode_1__get_Left(t2_0027))
                 if isinstance(match_value_1, SetTreeNode_1):
                     t2l: SetTreeNode_1[Any] = match_value_1
@@ -221,7 +221,7 @@ def SetTreeModule_rebalance[T](
         if isinstance(match_value_2, SetTreeNode_1):
             t1_0027: SetTreeNode_1[Any] = match_value_2
 
-            def _arrow197(__unit: Unit = UNIT) -> int:
+            def _arrow178(__unit: Unit = UNIT) -> int:
                 t_3: SetTreeLeaf_1[Any] | None = erase(SetTreeNode_1__get_Right(t1_0027))
                 if t_3 is not None:
                     t2_4: SetTreeLeaf_1[Any] = t_3
@@ -230,7 +230,7 @@ def SetTreeModule_rebalance[T](
                 else:
                     return 0
 
-            if _arrow197() > ((t2h + 1) if (t2h <= 2147483646) else int32(t2h + 1)):
+            if _arrow178() > ((t2h + 1) if (t2h <= 2147483646) else int32(t2h + 1)):
                 match_value_3: SetTreeLeaf_1[Any] = value_1(SetTreeNode_1__get_Right(t1_0027))
                 if isinstance(match_value_3, SetTreeNode_1):
                     t1r: SetTreeNode_1[Any] = match_value_3
@@ -639,24 +639,24 @@ def SetTreeModule_exists[T](f_mut: Callable[[T], bool], t_mut: SetTreeLeaf_1[T] 
 def SetTreeModule_subset[_A](
     comparer: IComparer_1[_A], a: SetTreeLeaf_1[_A] | None = None, b: SetTreeLeaf_1[_A] | None = None
 ) -> bool:
-    def _arrow198(x: _A = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
+    def _arrow182(x: _A = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
         return SetTreeModule_mem(comparer, x, b)
 
-    return SetTreeModule_forall(_arrow198, a)
+    return SetTreeModule_forall(_arrow182, a)
 
 
 def SetTreeModule_properSubset[T](
     comparer: IComparer_1[T], a: SetTreeLeaf_1[T] | None = None, b: SetTreeLeaf_1[T] | None = None
 ) -> bool:
-    def _arrow199(x: T = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
+    def _arrow183(x: T = UNIT, comparer: Any = comparer, b: Any = b) -> bool:
         return SetTreeModule_mem(comparer, x, b)
 
-    if SetTreeModule_forall(_arrow199, a):
+    if SetTreeModule_forall(_arrow183, a):
 
-        def _arrow200(x_1: T = UNIT, comparer: Any = comparer, a: Any = a) -> bool:
+        def _arrow184(x_1: T = UNIT, comparer: Any = comparer, a: Any = a) -> bool:
             return not SetTreeModule_mem(comparer, x_1, a)
 
-        return SetTreeModule_exists(_arrow200, b)
+        return SetTreeModule_exists(_arrow184, b)
 
     else:
         return False
@@ -975,7 +975,7 @@ def SetTreeModule_maximumElement[_A](s: SetTreeLeaf_1[_A] | None = None) -> _A:
         return value_1(match_value)
 
 
-def _expr201(gen0: TypeInfo) -> TypeInfo:
+def _expr191(gen0: TypeInfo) -> TypeInfo:
     return record_type(
         "Set.SetTreeModule.SetIterator`1",
         Array([gen0]),
@@ -997,7 +997,7 @@ class SetTreeModule_SetIterator_1[T](Record):
         return int(self.GetHashCode())
 
 
-SetTreeModule_SetIterator_1_reflection = _expr201
+SetTreeModule_SetIterator_1_reflection = _expr191
 
 
 def SetTreeModule_collapseLHS[T](stack_mut: FSharpList[SetTreeLeaf_1[T] | None]) -> FSharpList[SetTreeLeaf_1[T] | None]:
@@ -1091,7 +1091,7 @@ def SetTreeModule_moveNext[T](i: SetTreeModule_SetIterator_1[T]) -> bool:
 def SetTreeModule_mkIEnumerator[A](s: SetTreeLeaf_1[A] | None = None) -> IEnumerator[A]:
     i: SetTreeModule_SetIterator_1[Any] = SetTreeModule_mkIterator(s)
 
-    class ObjectExpr202(EnumeratorBase[Any], DisposableBase):
+    class ObjectExpr196(EnumeratorBase[Any], DisposableBase):
         def System_Collections_Generic_IEnumerator_1_get_Current(self, __unit: Unit = UNIT) -> A:
             return SetTreeModule_current(i)
 
@@ -1108,7 +1108,7 @@ def SetTreeModule_mkIEnumerator[A](s: SetTreeLeaf_1[A] | None = None) -> IEnumer
         def Dispose(self, __unit: Unit = UNIT) -> None:
             pass
 
-    return ObjectExpr202()
+    return ObjectExpr196()
 
 
 def SetTreeModule_compareStacks[T](

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nFsentry_protos/billing/v1/services/events/v1/contract_rolled_over.proto\x12+sentry_protos.billing.v1.services.events.v1\"\x14\n\x12\x43ontractRolledOverb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nFsentry_protos/billing/v1/services/events/v1/contract_rolled_over.proto\x12+sentry_protos.billing.v1.services.events.v1\"F\n\x12\x43ontractRolledOver\x12\x17\n\x0fold_contract_id\x18\x01 \x01(\x04\x12\x17\n\x0fnew_contract_id\x18\x02 \x01(\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,5 +32,5 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_CONTRACTROLLEDOVER']._serialized_start=119
-  _globals['_CONTRACTROLLEDOVER']._serialized_end=139
+  _globals['_CONTRACTROLLEDOVER']._serialized_end=189
 # @@protoc_insertion_point(module_scope)

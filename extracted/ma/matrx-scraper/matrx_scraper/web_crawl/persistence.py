@@ -88,7 +88,7 @@ from matrx_scraper.source_landing import (
     crawl_snapshot_landing,
     land_result,
 )
-from matrx_scraper.web_crawl.broker import CrawlEventBroker
+from matrx_scraper.web_crawl.broker import CrawlEventBroker, CrawlRunLive
 from matrx_scraper.web_crawl.candidates import DiscoveredCandidate, SiteIdentity
 from matrx_utils.web_page_class import (
     HTML_CONTENT_TYPE,
@@ -1076,12 +1076,13 @@ class WebCrawlRepository:
                 raise LookupError(f"crawl session {session_id} does not exist")
             if run_lease_is_live(session):
                 lease = read_run_lease(session)
-                raise RuntimeError(
+                raise CrawlRunLive(
                     f"crawl session {session_id} is already active elsewhere "
                     f"(lease owner {lease.get('owner') or 'unknown'} on host "
                     f"{lease.get('host') or 'unknown'}, last heartbeat "
                     f"{lease.get('heartbeat_at') or session.updated_at}) — "
-                    "wait for it to finish or crash before resuming"
+                    "wait for it to finish or crash before resuming",
+                    session_id=session_id,
                 )
             observed_version = int(getattr(session, "version", None) or 0)
             metadata = dict(session.metadata or {})
@@ -1128,9 +1129,10 @@ class WebCrawlRepository:
                     "active for this site — wait for it to finish or cancel it"
                 ) from None
             if not result.rows_affected:
-                raise RuntimeError(
+                raise CrawlRunLive(
                     f"crawl session {session_id} is already active elsewhere — another "
-                    "process claimed the run lease while this one was preparing"
+                    "process claimed the run lease while this one was preparing",
+                    session_id=session_id,
                 )
             return token, attempt
 
@@ -2098,6 +2100,8 @@ def snapshot_evidence_columns(
             "internal": summary.internal_links,
             "external": summary.external_links,
             "total": summary.link_count,
+            # Distinct same-site pages linked onward (`dead_end_page`).
+            "onward_internal": summary.onward_internal_links,
         },
         "images": {
             "count": summary.images_count,
@@ -2144,6 +2148,13 @@ def snapshot_evidence_columns(
             "pagination": summary.pagination,
             "content_type": summary.mime_type,
             "resources": summary.resources,
+            # {"app_root", "executable_script", "visible_words"} — the markup half of the
+            # `is_js_shell` page fact (`seo_audit.page_is_js_shell`). Absent on
+            # older snapshots, which `content_needs_rendering` reads as unknown.
+            "app_shell": summary.app_shell,
+            # {"kind", "reason"} when the crawl kept a page the content gate
+            # failed (an app shell, a soft 404) instead of dropping it.
+            "kept_from_failed_read": summary.kept_from_failed_read,
             "page_identity": summary.page_identity,
             "custom": extractor_results,
         },

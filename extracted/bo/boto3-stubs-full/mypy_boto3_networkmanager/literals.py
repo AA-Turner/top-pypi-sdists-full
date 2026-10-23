@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_networkmanager.literals import AttachmentErrorCodeType
 
-    data: AttachmentErrorCodeType = "DIRECT_CONNECT_GATEWAY_EXISTING_ATTACHMENTS"
+    data: AttachmentErrorCodeType = "CREATION_FAILED"
     ```
 """
 
@@ -52,6 +52,7 @@ __all__ = (
     "GetNetworkResourceCountsPaginatorName",
     "GetNetworkResourceRelationshipsPaginatorName",
     "GetNetworkResourcesPaginatorName",
+    "GetNetworkRoutesPaginatorName",
     "GetNetworkTelemetryPaginatorName",
     "GetSitesPaginatorName",
     "GetTransitGatewayConnectPeerAssociationsPaginatorName",
@@ -59,6 +60,7 @@ __all__ = (
     "GlobalNetworkStateType",
     "LinkAssociationStateType",
     "LinkStateType",
+    "ListAttachmentNatConfigurationsPaginatorName",
     "ListAttachmentRoutingPolicyAssociationsPaginatorName",
     "ListAttachmentsPaginatorName",
     "ListConnectPeersPaginatorName",
@@ -67,6 +69,9 @@ __all__ = (
     "ListCoreNetworkRoutingInformationPaginatorName",
     "ListCoreNetworksPaginatorName",
     "ListPeeringsPaginatorName",
+    "NatGatewaySupportStateType",
+    "NatGatewaySupportValueType",
+    "NatRuleStateType",
     "NetworkManagerServiceName",
     "PaginatorName",
     "PeeringErrorCodeType",
@@ -91,19 +96,25 @@ __all__ = (
 
 
 AttachmentErrorCodeType = Literal[
+    "CREATION_FAILED",
+    "DELETION_FAILED",
     "DIRECT_CONNECT_GATEWAY_EXISTING_ATTACHMENTS",
     "DIRECT_CONNECT_GATEWAY_NOT_FOUND",
     "DIRECT_CONNECT_GATEWAY_NO_PRIVATE_VIF",
+    "DIRECT_CONNECT_GATEWAY_TOPOLOGY_RESTRICTIONS",
     "MAXIMUM_NO_ENCAP_LIMIT_EXCEEDED",
+    "SECURITY_GROUP_REFERENCING_UNSUPPORTED_AVAILABILITY_ZONE",
     "SUBNET_DUPLICATED_IN_AVAILABILITY_ZONE",
     "SUBNET_NOT_FOUND",
     "SUBNET_NO_FREE_ADDRESSES",
     "SUBNET_NO_IPV6_CIDRS",
     "SUBNET_UNSUPPORTED_AVAILABILITY_ZONE",
+    "UPDATE_FAILED",
     "VPC_NOT_FOUND",
     "VPC_UNSUPPORTED_FEATURES",
     "VPN_CONNECTION_NOT_FOUND",
     "VPN_EXISTING_ASSOCIATIONS",
+    "VPN_STATIC_ROUTES_NAT_UNSUPPORTED",
 ]
 AttachmentStateType = Literal[
     "AVAILABLE",
@@ -147,6 +158,8 @@ ChangeTypeType = Literal[
 ]
 ConnectPeerAssociationStateType = Literal["AVAILABLE", "DELETED", "DELETING", "PENDING"]
 ConnectPeerErrorCodeType = Literal[
+    "CREATION_FAILED",
+    "DELETION_FAILED",
     "EDGE_LOCATION_NO_FREE_IPS",
     "EDGE_LOCATION_PEER_DUPLICATE",
     "INVALID_INSIDE_CIDR_BLOCK",
@@ -174,6 +187,7 @@ GetLinksPaginatorName = Literal["get_links"]
 GetNetworkResourceCountsPaginatorName = Literal["get_network_resource_counts"]
 GetNetworkResourceRelationshipsPaginatorName = Literal["get_network_resource_relationships"]
 GetNetworkResourcesPaginatorName = Literal["get_network_resources"]
+GetNetworkRoutesPaginatorName = Literal["get_network_routes"]
 GetNetworkTelemetryPaginatorName = Literal["get_network_telemetry"]
 GetSitesPaginatorName = Literal["get_sites"]
 GetTransitGatewayConnectPeerAssociationsPaginatorName = Literal[
@@ -183,6 +197,7 @@ GetTransitGatewayRegistrationsPaginatorName = Literal["get_transit_gateway_regis
 GlobalNetworkStateType = Literal["AVAILABLE", "DELETING", "PENDING", "UPDATING"]
 LinkAssociationStateType = Literal["AVAILABLE", "DELETED", "DELETING", "PENDING"]
 LinkStateType = Literal["AVAILABLE", "DELETING", "PENDING", "UPDATING"]
+ListAttachmentNatConfigurationsPaginatorName = Literal["list_attachment_nat_configurations"]
 ListAttachmentRoutingPolicyAssociationsPaginatorName = Literal[
     "list_attachment_routing_policy_associations"
 ]
@@ -195,11 +210,29 @@ ListCoreNetworkPrefixListAssociationsPaginatorName = Literal[
 ListCoreNetworkRoutingInformationPaginatorName = Literal["list_core_network_routing_information"]
 ListCoreNetworksPaginatorName = Literal["list_core_networks"]
 ListPeeringsPaginatorName = Literal["list_peerings"]
+NatGatewaySupportStateType = Literal[
+    "DISABLED", "DISABLING", "ENABLED", "ENABLING", "PENDING_ATTACHMENT_ACCEPTANCE"
+]
+NatGatewaySupportValueType = Literal["DISABLE", "ENABLE"]
+NatRuleStateType = Literal[
+    "ACTIVATED",
+    "ACTIVATING",
+    "CREATING",
+    "DEACTIVATED",
+    "DEACTIVATING",
+    "DELETING",
+    "FAILED",
+    "MODIFYING",
+    "PENDING_ATTACHMENT_ACCEPTANCE",
+]
 PeeringErrorCodeType = Literal[
+    "CREATION_FAILED",
+    "DELETION_FAILED",
     "EDGE_LOCATION_PEER_DUPLICATE",
     "INTERNAL_ERROR",
     "INVALID_TRANSIT_GATEWAY_STATE",
     "MISSING_PERMISSIONS",
+    "TRANSIT_GATEWAY_ENCRYPTION_NOT_SUPPORTED",
     "TRANSIT_GATEWAY_NOT_FOUND",
     "TRANSIT_GATEWAY_PEERS_LIMIT_EXCEEDED",
 ]
@@ -224,7 +257,7 @@ RouteStateType = Literal["ACTIVE", "BLACKHOLE"]
 RouteTableTypeType = Literal[
     "CORE_NETWORK_SEGMENT", "NETWORK_FUNCTION_GROUP", "TRANSIT_GATEWAY_ROUTE_TABLE"
 ]
-RouteTypeType = Literal["PROPAGATED", "STATIC"]
+RouteTypeType = Literal["PROPAGATED", "STATIC", "SYSTEM"]
 RoutingPolicyDirectionType = Literal["inbound", "outbound"]
 SegmentActionServiceInsertionType = Literal["send-to", "send-via"]
 SendViaModeType = Literal["dual-hop", "single-hop"]
@@ -345,6 +378,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -688,10 +722,12 @@ PaginatorName = Literal[
     "get_network_resource_counts",
     "get_network_resource_relationships",
     "get_network_resources",
+    "get_network_routes",
     "get_network_telemetry",
     "get_sites",
     "get_transit_gateway_connect_peer_associations",
     "get_transit_gateway_registrations",
+    "list_attachment_nat_configurations",
     "list_attachment_routing_policy_associations",
     "list_attachments",
     "list_connect_peers",

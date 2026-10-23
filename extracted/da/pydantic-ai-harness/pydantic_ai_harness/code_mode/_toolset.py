@@ -8,6 +8,7 @@ import math
 import re
 import warnings
 from collections.abc import Callable, Coroutine, Mapping, Sequence
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field, replace
 from functools import partial
 from itertools import islice
@@ -63,6 +64,7 @@ from pydantic_ai_harness._monty_exec import (
 from pydantic_ai_harness._warn import HarnessDeprecationWarning
 from pydantic_ai_harness.code_mode._parts import RUN_CODE_KIND, RunCodeArgs
 from pydantic_ai_harness.code_mode._repl_store import CodeModeReplStore, PersistentRepl
+from pydantic_ai_harness.guardrails._capability import input_guardrails_allow
 
 if TYPE_CHECKING:
     from pydantic_ai_harness.code_mode._speculation import SpeculationCoordinator
@@ -263,9 +265,10 @@ def _describe_started_calls(calls: dict[str, ToolCallPart], returns: dict[str, T
     used = 0
     for call_id, call in calls.items():
         result = returns.get(call_id)
-        # `ToolReturnPart.outcome` also allows 'failed' and 'interrupted', but this function only
-        # ever sees parts built above, which set 'denied' or leave the default 'success'. Record
-        # any further outcome here rather than letting it fall through and read as a return.
+        # `ToolReturnPart.outcome` also allows 'failed', 'interrupted' and 'retried', but this
+        # function only ever sees parts built above, which set 'denied' or leave the default
+        # 'success'. Record any further outcome here rather than letting it fall through and read
+        # as a return.
         if result is None:
             outcome = 'did not finish, so it may have applied a partial change'
         elif result.outcome == 'denied':
@@ -313,11 +316,23 @@ def _resolve_resource_limits(limits: CodeModeResourceLimits | Literal['unlimited
                 f'Unknown `resource_limits` key(s): {sorted(unknown)}. '
                 f'Valid keys are {sorted(CodeModeResourceLimits.__annotations__)}.'
             )
-    max_duration_secs = 30 if limits is None else limits.get('max_duration_secs', 30)
-    max_memory = 256 * 1024 * 1024 if limits is None else limits.get('max_memory', 256 * 1024 * 1024)
-    max_suspensions = 1000 if limits is None else limits.get('max_suspensions', 1000)
-    if max_suspensions < 1:
-        raise UserError('`max_suspensions` must be at least 1')
+    # Read as `object` so values from untyped code are checked rather than trusted.
+    max_duration_secs: object = 30 if limits is None else limits.get('max_duration_secs', 30)
+    max_memory: object = 256 * 1024 * 1024 if limits is None else limits.get('max_memory', 256 * 1024 * 1024)
+    max_suspensions: object = 1000 if limits is None else limits.get('max_suspensions', 1000)
+    # Monty stores each limit as an unsigned 64-bit integer, or seconds for the duration; anything else fails
+    # every snippet. An explicit `None` for memory or duration keeps reaching Monty, which reads it as no limit.
+    if not (type(max_suspensions) is int and 1 <= max_suspensions < 2**64):
+        raise UserError('`max_suspensions` must be an integer of at least 1 and below 2**64')
+    if not (
+        max_duration_secs is None
+        or (
+            (type(max_duration_secs) is int or isinstance(max_duration_secs, float)) and 0 < max_duration_secs < 2.0**64
+        )
+    ):
+        raise UserError('`max_duration_secs` must be a positive number of seconds below 2**64')
+    if not (max_memory is None or (type(max_memory) is int and 0 < max_memory < 2**64)):
+        raise UserError('`max_memory` must be a positive integer number of bytes below 2**64')
     return {
         'max_feed_duration_secs': max_duration_secs,
         'max_memory': max_memory,
@@ -469,26 +484,35 @@ def _base_description(*, has_os: bool, has_mount: bool) -> str:
 
 def _functions_header(*, has_sync: bool, has_async: bool) -> str:
     """Build the functions-header paragraph for the `run_code` tool description."""
+    if has_sync and not has_async:
+        return (
+            '\nThe following functions are available inside the sandbox. Call them directly '
+            '(do **not** redefine or import them). All parameters are keyword-only.'
+            ' All tool functions are synchronous: call them directly, e.g. `tool_name(arg=value)`.'
+        )
     base = (
-        '\nThe following functions are available inside the sandbox. Call them directly '
-        '(do **not** redefine or import them). All parameters are keyword-only.'
+        '\nThe following functions are available inside the sandbox. These functions are already defined'
+        ' in the sandbox; call them by name without redefining or importing them.'
+        ' All parameters are keyword-only.'
     )
     if has_async and not has_sync:
         return base + (
             ' All tool functions are async: invoke them with `await`,'
             ' e.g. `await tool_name(arg=value)`.'
             ' Calling without `await` returns an unresolved future, not the value.'
-            ' For concurrency, use `await asyncio.gather(...)` with positional awaitables.'
+            # A separate paragraph that leads with the import: next to "without importing them",
+            # models drop `import asyncio` and the first snippet fails the type check.
+            '\n\nTo run calls concurrently, first `import asyncio`, then use `await asyncio.gather(...)`'
+            ' with positional awaitables.'
             ' Monty does not support `asyncio.gather` keyword arguments or other task creation'
             ' and wait APIs.'
         )
-    if has_sync and not has_async:
-        return base + (' All tool functions are synchronous: call them directly, e.g. `tool_name(arg=value)`.')
     return base + (
         ' Async functions (`async def`) must be invoked with `await`,'
         ' e.g. `await tool_name(arg=value)`.'
         ' Sync functions (`def`) are called directly, e.g. `tool_name(arg=value)`.'
-        ' For concurrent async calls, use `await asyncio.gather(...)` with positional awaitables.'
+        '\n\nTo run async calls concurrently, first `import asyncio`, then use `await asyncio.gather(...)`'
+        ' with positional awaitables.'
         ' Monty does not support `asyncio.gather` keyword arguments or other task creation'
         ' and wait APIs.'
     )
@@ -648,6 +672,15 @@ async def run_nested_call(tool_manager: ToolManager[AgentDepsT], call_part: Tool
     tool_kind = tool_def.tool_kind if tool_def is not None else None
     ctx = tool_manager.ctx
     assert ctx is not None, 'the nested `ToolManager` is built with the run context'
+    # Eager and speculative execution dispatch while the model is still streaming, possibly before a
+    # parallel input guard has decided. The verdict comes first, as it does for a non-eager call.
+    if not await input_guardrails_allow(ctx):
+        return NestedCallOutcome(
+            error=RuntimeError(
+                f'Tool {call_part.tool_name!r} did not run: an input guardrail did not allow the prompt.'
+            ),
+            tool_kind=tool_kind,
+        )
     usage_limits = ctx.usage_limits
     reserved = 0
     if usage_limits is not None and usage_limits.tool_calls_limit is not None:
@@ -829,7 +862,7 @@ class CodeModeToolset(WrapperToolset[AgentDepsT]):
     mount: CodeModeMount | None = None
     """Host directories to expose to sandboxed `pathlib` code; each mount's `mode` controls whether writes reach the host."""
 
-    monty_sandbox_url: str | None = field(default=None, kw_only=True)
+    monty_sandbox_url: str | None = field(default=None, kw_only=True, repr=False)
     """Run sandboxed code on remote Monty workers reached over this `ws://` or `wss://` URL.
 
     Only execution moves: tool dispatch, mounts, `os_access`, and print capture stay
@@ -1079,7 +1112,8 @@ class CodeModeToolset(WrapperToolset[AgentDepsT]):
         run_code_tool = self._as_run_code_tool(tool)
         if run_code_tool is None:
             # Native (non-sandboxed) tool -- pass through to the wrapped toolset.
-            return await self.wrapped.call_tool(name, tool_args, ctx, tool)
+            with self.speculation.unsafe_call() if self.speculation is not None else nullcontext():
+                return await self.wrapped.call_tool(name, tool_args, ctx, tool)
 
         code = tool_args['code']
         restart = tool_args.get('restart', False)
@@ -1206,9 +1240,13 @@ class CodeModeToolset(WrapperToolset[AgentDepsT]):
             sees it at the `await` site.
             """
             execution.nested_calls[call_part.tool_call_id] = call_part
+            guard: AbstractContextManager[None] = nullcontext()
             if speculation is not None and speculation.eligible(sandbox_name):
                 await speculation.report_miss(ctx, execution, sandbox_name, call_part)
-            return execution.finish(call_part, await run_nested_call(tool_manager, call_part))
+            elif speculation is not None:
+                guard = speculation.unsafe_call()
+            with guard:
+                return execution.finish(call_part, await run_nested_call(tool_manager, call_part))
 
         # Type-check only the first executed snippet. Monty's checker can reject valid later
         # snippets that reuse imports or pass a runtime-validated dict to a TypedDict parameter.

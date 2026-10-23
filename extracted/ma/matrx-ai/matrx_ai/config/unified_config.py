@@ -3,6 +3,7 @@ Unified AI API Configuration System for OpenAI, Anthropic, and Google Gemini
 Preserves ALL content types and metadata from all providers
 """
 
+import copy
 from collections.abc import Callable
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any, Literal
@@ -16,7 +17,7 @@ from .dictionary_config import DictionaryConfig
 from .enums import Role
 from .llm_params import LLMParams, normalize_max_output_tokens
 from .llm_wire_types import CompactionSettings, ImageLora
-from .message_config import MessageList, UnifiedMessage
+from .message_config import HOST_AUTHORED_BY, MessageList, UnifiedMessage
 from .response_format import ResponseFormat
 from .tts_config import TTSVoiceConfig
 from .unified_content import (
@@ -248,6 +249,10 @@ class UnifiedConfig:
     # It is deliberately omitted from ``to_storage_dict``.
     prompt_cache_key: str | None = None
 
+    # Which cache marks this send writes (``all`` | ``prefix`` | ``none``), stamped per send by
+    # the send boundary (config/cache_plan.py); ``None`` = no plan, every mark. Never stored.
+    prompt_cache_marks: str | None = None
+
     # The agent's LONG CACHE setting (agent.definition.settings.extended_prompt_cache):
     # keep the stable prefix cached longer than the provider default. Anthropic: the
     # system and template marks carry ``ttl: "1h"``; OpenAI: ``prompt_cache_retention:
@@ -451,6 +456,11 @@ class UnifiedConfig:
     # xAI Grok native X (Twitter) search — modeled on internal_url_context.
     # Honored by the xAI translator; dropped (yellow warning) for other providers.
     internal_x_search: bool | None = None
+    # A provider-run (hosted) tool's OWN options for this one call, keyed by the setting that turns the tool
+    # on (``internal_x_search`` → ``{"allowed_x_handles": [...], "from_date": "..."}``), plus ``max_turns``:
+    # the ceiling on the provider's server-side tool loop. Never turns a tool on: the setting itself does.
+    # Per-call data a site narrows the search with (the handle it is reading), never an agent setting.
+    hosted_tool_options: dict[str, Any] | None = None
 
     # =====================================================================
     # Media generation: dimensions
@@ -925,6 +935,7 @@ class UnifiedConfig:
             internal_web_search=data.get("internal_web_search"),
             internal_url_context=data.get("internal_url_context"),
             internal_x_search=data.get("internal_x_search"),
+            hosted_tool_options=data.get("hosted_tool_options"),
             # Media: dimensions
             aspect_ratio=data.get("aspect_ratio"),
             width=data.get("width"),
@@ -1353,6 +1364,51 @@ class UnifiedConfig:
             self.system_instruction = si
         si.opening_turn = f"{si.opening_turn}\n\n{opening}" if si.opening_turn else opening
         return True
+
+    def mark_unspoken_opening_turn(self) -> bool:
+        """Record the definition's own opening user turn as host-authored when the person said nothing.
+
+        🚨 THE AGENT SPEAKS FIRST (live 2026-10-22, design-system board,
+        chat.conversation 8cc40245-a443-4951-a6f3-64a04ec4c4da position 0). A
+        surface that starts its job by itself sends no ``user_input`` and no
+        host turn; the agent's seeded user message (its template, filled from
+        page values) was stored with ``user_content`` NULL — "no authorship
+        recorded" — so every client fell back to ``content`` and showed the
+        template as the person's bubble. It is the host's turn, not hers:
+        ``user_content=[]`` and ``authored_by: host`` (the same record
+        :func:`host_authored_user_turn` writes). Only the opening turn, before
+        anything was answered. Returns True when it stamped something.
+        """
+        if self.system_prompt_frozen or not len(self.messages):
+            return False
+        last = self.messages[-1]
+        if last.role != Role.USER or last.user_content is not None:
+            return False
+        if any(m.role in (Role.ASSISTANT, Role.TOOL) for m in self.messages):
+            return False
+        last.user_content = []
+        last.metadata = {
+            **(last.metadata or {}),
+            "authored_by": HOST_AUTHORED_BY,
+            "authored_reason": "agent_opening",
+        }
+        return True
+
+    def for_child_call(self, *, messages: MessageList, **overrides: Any) -> "UnifiedConfig":
+        """A NEW config for a separate child call: a deep copy carrying its own message list.
+
+        The live run's config is never touched (rewriting its message list at send time rebuilds
+        the cached prefix — tests/test_send_boundary_guard.py), and no ``dataclasses.replace`` is
+        added (it raises once this type is a pydantic model —
+        tests/pydantic_migration/test_dataclass_api_inventory.py). Attribute assignment on the
+        copy works for both shapes. An unknown override name raises, never silently lands.
+        """
+        child = copy.deepcopy(self)
+        for name, value in {"messages": messages, **overrides}.items():
+            if not hasattr(child, name):
+                raise AttributeError(f"UnifiedConfig has no field {name!r}")
+            setattr(child, name, value)
+        return child
 
     def replace_variables(
         self,

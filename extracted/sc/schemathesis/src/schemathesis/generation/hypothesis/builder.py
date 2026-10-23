@@ -14,11 +14,10 @@ from hypothesis import strategies as st
 from hypothesis._settings import CI, all_settings
 from hypothesis.errors import Unsatisfiable
 from jsonschema_rs import ValidationError
-from requests.models import CaseInsensitiveDict
 
 from schemathesis.auths import AuthStorage, AuthStorageMark
 from schemathesis.config import GenerationConfig, ProjectConfig
-from schemathesis.core import INJECTED_PATH_PARAMETER_KEY, NOT_SET, SpecificationFeature
+from schemathesis.core import SpecificationFeature
 from schemathesis.core.errors import (
     IncorrectUsage,
     InvalidSchema,
@@ -27,14 +26,15 @@ from schemathesis.core.errors import (
     is_regex_validation_error,
 )
 from schemathesis.core.marks import Mark
-from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case, adjust_urlencoded_payload, find_invalid_headers
+from schemathesis.generation.drivers import missing_path_parameters_error
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.hypothesis import examples, setup
 from schemathesis.generation.hypothesis.examples import add_single_example
 from schemathesis.generation.hypothesis.given import GivenInput, format_given_and_schema_examples_error
 from schemathesis.generation.meta import TestPhase, content_type_probes_first
+from schemathesis.generation.overrides import Override
 from schemathesis.hooks import (
     GLOBAL_HOOK_DISPATCHER,
     HookContext,
@@ -64,10 +64,23 @@ class HypothesisTestConfig:
     # Whether the `ci` profile Hypothesis loads on its own in CI environments applies; the CLI skips it.
     apply_ci_profile: bool = True
     seed: int | None = None
-    as_strategy_kwargs: dict[str, Any] = field(default_factory=dict)
+    override: Override = field(default_factory=Override)
     feedback: FeedbackSources = field(default_factory=FeedbackSources)
     given_args: tuple[GivenInput, ...] = ()
     given_kwargs: dict[str, GivenInput] = field(default_factory=dict)
+
+
+def _fuzzing_strategy(
+    operation: APIOperation, config: HypothesisTestConfig, strategy_kwargs: dict[str, Any]
+) -> st.SearchStrategy[Case]:
+    """Draw a case in any of the configured generation modes."""
+    generation = config.project.generation_for(operation=operation, phase=HypothesisTestMode.FUZZING.value)
+    return st.one_of(
+        [
+            operation.as_strategy(generation_mode=mode, feedback=config.feedback, **strategy_kwargs)
+            for mode in generation.modes
+        ]
+    )
 
 
 def create_test(
@@ -83,17 +96,11 @@ def create_test(
     strategy_kwargs = {
         "hooks": hook_dispatcher,
         "auth_storage": auth_storage,
-        **config.as_strategy_kwargs,
+        **config.override.as_strategy_kwargs(),
     }
-    generation = config.project.generation_for(operation=operation, phase=HypothesisTestMode.FUZZING.value)
-    strategy = st.one_of(
-        operation.as_strategy(generation_mode=mode, feedback=config.feedback, **strategy_kwargs)
-        for mode in generation.modes
-    )
-
     hypothesis_test = create_base_test(
         test_function=test_func,
-        strategy=strategy,
+        strategy=_fuzzing_strategy(operation, config, strategy_kwargs),
         args=config.given_args,
         kwargs=config.given_kwargs,
     )
@@ -118,6 +125,8 @@ def create_test(
         user_settings = given_settings
 
     default = hypothesis.settings.default
+    # Hypothesis always has a loaded profile.
+    assert default is not None
     if user_settings.verbosity == default.verbosity:
         user_settings = hypothesis.settings(user_settings, verbosity=Verbosity.quiet)
 
@@ -161,7 +170,7 @@ def create_test(
         settings = user_settings
 
     if Phase.explain in settings.phases:
-        phases = tuple(phase for phase in settings.phases if phase != Phase.explain)
+        phases: tuple[Phase, ...] = tuple(phase for phase in settings.phases if phase != Phase.explain)
         settings = hypothesis.settings(settings, phases=phases)
 
     # Remove `reuse` & `generate` phases to avoid yielding any test cases if we don't do fuzzing
@@ -222,23 +231,15 @@ def create_test(
             operation,
             coverage_generation.modes,
             auth_storage,
-            config.as_strategy_kwargs,
+            config.override,
             feedback=config.feedback,
             generation_config=coverage_generation,
             hooks=hook_dispatcher,
         )
 
-    injected_path_parameter_names = [
-        parameter.name
-        for parameter in operation.path_parameters
-        if parameter.definition.get(INJECTED_PATH_PARAMETER_KEY)
-    ]
-    if injected_path_parameter_names:
-        names = ", ".join(f"'{name}'" for name in injected_path_parameter_names)
-        plural = "s" if len(injected_path_parameter_names) > 1 else ""
-        verb = "are" if len(injected_path_parameter_names) > 1 else "is"
-        error = InvalidSchema(f"Path parameter{plural} {names} {verb} not defined")
-        MissingPathParameters.set(hypothesis_test, error)
+    missing_path_parameters = missing_path_parameters_error(operation)
+    if missing_path_parameters is not None:
+        MissingPathParameters.set(hypothesis_test, missing_path_parameters)
 
     # A seed takes precedence over `derandomize`, so deterministic mode gets one only when the user provided it.
     if (
@@ -273,7 +274,8 @@ def create_base_test(
     funcobj = hypothesis.given(*args, **{**kwargs, "case": strategy})(test_wrapper)
 
     if inspect.iscoroutinefunction(test_function):
-        funcobj.hypothesis.inner_test = make_async_test(test_function)
+        # `hypothesis.inner_test` is documented Hypothesis API that its annotations leave out.
+        funcobj.hypothesis.inner_test = make_async_test(test_function)  # type: ignore[attr-defined]
     return funcobj
 
 
@@ -370,7 +372,7 @@ def add_coverage(
     operation: APIOperation,
     generation_modes: list[GenerationMode],
     auth_storage: AuthStorage | None,
-    as_strategy_kwargs: dict[str, Any],
+    override: Override,
     feedback: FeedbackSources,
     generation_config: GenerationConfig,
     hooks: HookDispatcher | None = None,
@@ -382,7 +384,7 @@ def add_coverage(
         generation_modes=generation_modes,
         generation_config=generation_config,
         auth_storage=auth_storage,
-        as_strategy_kwargs=as_strategy_kwargs,
+        override=override,
         feedback=feedback,
         hooks=hooks,
     )
@@ -393,17 +395,6 @@ def add_coverage(
     if unserializable:
         UnserializablePayloadMark.set(test, sorted(unserializable))
     return test
-
-
-def _case_to_kwargs(case: Case) -> dict:
-    kwargs = {}
-    for container_name in LOCATION_TO_CONTAINER.values():
-        value = getattr(case, container_name)
-        if isinstance(value, CaseInsensitiveDict) and value:
-            kwargs[container_name] = dict(value)
-        elif value and value is not NOT_SET:
-            kwargs[container_name] = value
-    return kwargs
 
 
 UnsatisfiableExampleMark = Mark[Unsatisfiable](attr_name="unsatisfiable_example")

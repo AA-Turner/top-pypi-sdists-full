@@ -327,6 +327,105 @@ async def _capture_tool_result_kind_unavailable(
     )
 
 
+# ---------------------------------------------------------------------------
+# Watch AI raw capture (matrx_utils.raw_capture) — the RAW tier and cut trail of one tool call.
+# ---------------------------------------------------------------------------
+
+
+def _content_chars(content: Any) -> int:
+    if content is None:
+        return 0
+    if isinstance(content, str):
+        return len(content)
+    try:
+        return len(json.dumps(content, ensure_ascii=False, default=str))
+    except (TypeError, ValueError):
+        return len(str(content))
+
+
+def _note_gate_cut(before: Any, after: Any, *, truncated: bool) -> None:
+    """The size gate's cut on the call's capture scope, plus what was sent. Never raises."""
+    from matrx_utils import raw_capture
+
+    scope = raw_capture.current_scope()
+    if scope is None:
+        return
+    try:
+        sent = _content_chars(after)
+        scope.facts["sent_chars"] = sent
+        scope.facts["gate_truncated"] = bool(truncated)
+        if truncated:
+            from .output_caps import TOOL_RESULT_SOFT_CAP_CHARS
+
+            raw_capture.record_cut(
+                where="size gate",
+                before=_content_chars(before),
+                after=sent,
+                limit_name="TOOL_RESULT_SOFT_CAP_CHARS",
+                limit=TOOL_RESULT_SOFT_CAP_CHARS,
+                original=before if isinstance(before, str) else None,
+            )
+    except Exception as exc:  # noqa: BLE001 — watching never changes the call
+        logger.warning("[ToolExecutor] raw capture: gate cut not recorded (%s: %s)", type(exc).__name__, exc)
+
+
+def tool_capture_facts(result: ToolResult, scope: Any) -> None:
+    """Fill ``scope`` with the call's own sizes and its whole result when anything was cut.
+
+    RAW for a tool call is what its source returned: a transport body a feeder recorded, the pre-cut
+    value a cut primitive kept, or — when no cut happened at all — the stored ``chat.tool_call.output``
+    itself (a pointer, nothing copied). When the result was shortened for storage (100,000 chars) or
+    by the size gate, the whole result is kept as its own raw item."""
+    from matrx_utils import raw_capture
+
+    if result.output is None:
+        full, output_type = "", "text"
+    else:
+        from .models import tool_output_text
+
+        full, output_type = tool_output_text(result.output)
+    limit = ToolExecutionLogger._MAX_OUTPUT_CHARS
+    scope.facts.update(
+        {
+            "tool_name": result.tool_name,
+            "success": bool(result.success),
+            "result_chars": len(full),
+            "stored_chars": min(len(full), limit),
+            "output_self_capped": bool(result.output_self_capped),
+        }
+    )
+    stored_cut = len(full) > limit
+    if stored_cut:
+        scope.cuts.append(
+            raw_capture.CutRecord(
+                where="storage (chat.tool_call.output)",
+                before=len(full),
+                after=limit,
+                limit_name="ToolExecutionLogger._MAX_OUTPUT_CHARS",
+                limit=limit,
+            )
+        )
+    gate_cut = bool(scope.facts.get("gate_truncated"))
+    if stored_cut or gate_cut:
+        scope.items.append(
+            raw_capture.RawItem(
+                label="Tool result as returned",
+                source="tool_result",
+                data=full.encode("utf-8"),
+                content_type="application/json" if output_type == "json" else "text/plain; charset=utf-8",
+            )
+        )
+    else:
+        scope.items.append(
+            raw_capture.RawItem(
+                label="Tool result as returned",
+                source="tool_result",
+                ref={"table": "chat.tool_call", "column": "output", "chars": len(full)},
+            )
+        )
+
+
+
 async def _capture_tool_result_size_unmanaged(*, ctx: ToolContext, tool_name: str) -> None:
     """Capture an owned tool that reached the universal blunt size gate."""
     from matrx_connect.streaming.error_capture import capture_error
@@ -935,6 +1034,52 @@ class ToolExecutor:
     # ------------------------------------------------------------------
 
     async def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        ctx: ToolContext,
+        client_tools: frozenset[str] | None = None,
+        allowed_tools: frozenset[str] | None = None,
+    ) -> tuple[dict[str, Any], ToolResult]:
+        """Execute one tool call inside its Watch AI capture scope (``matrx_utils.raw_capture``).
+
+        Everything the call's source returned (transport bodies, values a cut primitive shortened, the
+        size gate's pre-cut text) is collected on the scope; when the call ends the scope goes to the
+        host's sink with the call's sizes, which stores it and indexes it on the ``chat.tool_call``
+        row (``metadata.raw_capture``). No sink → nothing kept, the call is unchanged."""
+        from matrx_utils import raw_capture
+
+        from matrx_ai.providers.keys import platform_keys_only
+
+        # A tool is OUR work: any model it calls runs on our key and charges, even
+        # inside a turn on the person's own key (owner ruling 2026-10-15 #6).
+        with raw_capture.capture_scope({"target": "tool_call"}) as scope, platform_keys_only():
+            content_dict, result = await self._execute_pipeline(
+                tool_name, arguments, ctx, client_tools=client_tools, allowed_tools=allowed_tools
+            )
+        if raw_capture.has_raw_capture_sink():
+            try:
+                from matrx_ai.context.app_context import try_get_app_context
+
+                _app = try_get_app_context()
+                scope.target.update(
+                    {
+                        "row_id": self.execution_logger.row_id_for_call(ctx) or None,
+                        "call_id": ctx.call_id,
+                        "conversation_id": str(getattr(_app, "conversation_id", "") or "") or None,
+                        "user_id": str(getattr(_app, "user_id", "") or "") or None,
+                        # Carried verbatim, never defaulted: an empty organization is
+                        # refused BY NAME at the sink (it files nothing), not stored as None.
+                        "organization_id": str(getattr(_app, "organization_id", "") or ""),
+                    }
+                )
+                tool_capture_facts(result, scope)
+            except Exception as exc:  # noqa: BLE001 — watching never changes the call
+                logger.warning("[ToolExecutor] raw capture facts failed (%s: %s)", type(exc).__name__, exc)
+            raw_capture.deliver(scope)
+        return content_dict, result
+
+    async def _execute_pipeline(
         self,
         tool_name: str,
         arguments: dict[str, Any],
@@ -2596,6 +2741,7 @@ class ToolExecutor:
         _gate_context = getattr(ctx, "gate_context", None)
         if _gate_context is not None and isinstance(arguments, dict) and arguments:
             _gate_context = replace(_gate_context, tool_input=arguments, iteration=ctx.iteration)
+        _pre_gate_content = content_dict.get("content")
         content_dict, _gate_truncated = await apply_size_gate_async(
             content_dict,
             output_self_capped=result.output_self_capped,
@@ -2605,6 +2751,8 @@ class ToolExecutor:
             user_id=_trace_user_id,
             gate_context=_gate_context,
         )
+        # Watch AI's cut trail (matrx_utils.raw_capture): what the gate cut, with the pre-cut text kept.
+        _note_gate_cut(_pre_gate_content, content_dict.get("content"), truncated=_gate_truncated)
         if _gate_truncated:
             if _tool_kind in ("native", "agent"):
                 await _capture_tool_result_size_unmanaged(ctx=ctx, tool_name=tool_name)

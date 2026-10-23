@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +43,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .fabric_related import RelatedFabricPage, RelatedFabricVisual
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -47,14 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .fabric_related import RelatedFabricPage, RelatedFabricVisual
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -322,6 +323,45 @@ class FabricVisual(Asset):
         if self.guid is not UNSET:
             return RelatedFabricVisual(guid=self.guid)
         return RelatedFabricVisual(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        page_qualified_name: str,
+        page_name: str,
+    ) -> "FabricVisual":
+        validate_required_fields(
+            ["name", "page_qualified_name", "page_name"],
+            [name, page_qualified_name, page_name],
+        )
+        fields = page_qualified_name.split("/")
+        if len(fields) != 6:
+            raise ValueError(
+                f"Invalid page_qualified_name: {page_qualified_name}. "
+                "Expected format: "
+                "default/fabric/<epoch>/<workspace_id>/<report_id>/<page_id>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{page_qualified_name}/{name}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            asset_space_qualified_name="/".join(fields[:4]),
+            fabric_page_qualified_name=page_qualified_name,
+            fabric_page_name=page_name,
+            fabric_page=RelatedFabricPage(qualified_name=page_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "FabricVisual":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "FabricVisual":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -634,6 +674,7 @@ def _fabric_visual_to_nested(fabric_visual: FabricVisual) -> FabricVisualNested:
         is_incomplete=fabric_visual.is_incomplete,
         provenance_type=fabric_visual.provenance_type,
         home_id=fabric_visual.home_id,
+        delete_handler=fabric_visual.delete_handler,
         depth=fabric_visual.depth,
         immediate_upstream=fabric_visual.immediate_upstream,
         immediate_downstream=fabric_visual.immediate_downstream,
@@ -682,6 +723,7 @@ def _fabric_visual_from_nested(nested: FabricVisualNested) -> FabricVisual:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

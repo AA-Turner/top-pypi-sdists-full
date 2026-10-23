@@ -25,6 +25,11 @@ from typing import Any, Optional
 
 from matrx_utils import vcprint
 
+#: A mandate key that arrives as DATA at this boundary (the memory package's Observer/Reflector names it per
+#: call): a runtime-keyed door, its offer checked by the runner's completeness gate before any spend
+#: (``scripts/check_provision_offers.py`` reads the annotation).
+MandateKeyParam = str
+
 logger = logging.getLogger(__name__)
 
 _BG_TASKS: set[asyncio.Task[Any]] = set()
@@ -82,6 +87,14 @@ def _extract_response_text(response: Any) -> str:
     return ""
 
 
+#: Extra sends a transient, unbilled provider refusal gets for an Observer /
+#: Reflector call, at the shared dispatch seam
+#: (``UnifiedAIClient._dispatch_with_billing_net``) — classifier-aware, a billing
+#: refusal is never retried. Neither runner has a retry loop for a provider
+#: failure of its own (the Observer's retry is for unusable OUTPUT). CAPS.
+MEMORY_TRANSIENT_RETRIES = 2
+
+
 class MemoryLLMAdapter:
     """The Observer/Reflector ``llm_call_fn``: ``(mandate_key=, messages=, model=)``.
 
@@ -104,7 +117,7 @@ class MemoryLLMAdapter:
     async def __call__(
         self,
         *,
-        mandate_key: str,
+        mandate_key: MandateKeyParam,
         messages: list[dict[str, Any]],
         model: Optional[str] = None,
         variables: Optional[dict[str, Any]] = None,
@@ -127,7 +140,7 @@ class MemoryLLMAdapter:
     async def _invoke(
         self,
         *,
-        mandate_key: str,
+        mandate_key: MandateKeyParam,
         model: Optional[str],
         messages: list[dict[str, Any]],
         variables: Optional[dict[str, Any]],
@@ -137,12 +150,25 @@ class MemoryLLMAdapter:
         # Deferred imports avoid pulling the full provider stack at module load
         # time (important because the memory package must remain usable even
         # when matrx_ai hasn't been configured yet, e.g. in unit tests).
-        from matrx_ai.mandates import held_request_config, hold_code_call
+        from matrx_ai.mandates import (
+            Offer,
+            RunOptions,
+            carried_principal,
+            get_mandate_runner,
+            held_request_config,
+        )
         from matrx_ai.orchestrator.requests import AIMatrixRequest
 
-        held = await hold_code_call(
-            mandate_key, consumer=f"memory.{event_type}", variables=variables
+        # Runner plan 25 step 6: prepared through the one runner for the carried principal; this site
+        # sends its own request and closes the run with the runner's ``finish``.
+        runner = get_mandate_runner()
+        prepared = await runner.prepare(
+            mandate_key,
+            Offer.given_values(variables),
+            who=carried_principal(),
+            opts=RunOptions(door="package_code_call", consumer=f"memory.{event_type}"),
         )
+        held = prepared.held_call()
         # The Holder authors the user turn that frames the material and states
         # the task; ``messages`` (a retry's exchange) follow it. A Holder that
         # authors none is refused in words, never sent as an empty prompt.
@@ -188,7 +214,9 @@ class MemoryLLMAdapter:
         output_tokens = 0
 
         try:
-            response = await client.execute(request)
+            response = await client.execute(
+                request, transient_retries=MEMORY_TRANSIENT_RETRIES
+            )
             text_out = _extract_response_text(response)
             usage = getattr(response, "usage", None)
             if usage is not None:
@@ -250,7 +278,7 @@ class MemoryLLMAdapter:
                 )
             )
 
-        await held.finish(text_out, success=error_text is None, error=error_text)
+        await runner.finish(prepared, text_out if error_text is None else RuntimeError(error_text))
         if error_text is not None:
             # Propagate so OM's internal error handling converts this to a log
             # entry without blowing up the main conversation turn.

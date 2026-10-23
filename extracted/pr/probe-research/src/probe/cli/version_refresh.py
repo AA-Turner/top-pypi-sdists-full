@@ -79,16 +79,37 @@ def _refresh() -> None:
     means releasing THAT claim, not whatever claim happens to be there now.
     """
     from probe import version_policy
-    from probe.sdk.tls import ssl_context
 
     owner = os.environ.get(version_policy.REFRESH_OWNER_ENV)
     try:
-        version_policy.refresh(context=ssl_context())
+        _fetch()
     finally:
         try:
             version_policy.release_refresh(int(owner) if owner else None)
         except (TypeError, ValueError):
             version_policy.release_refresh()
+    _flush_update_reports(version_policy.base_url())
+
+
+def _fetch() -> None:
+    from probe import version_policy
+    from probe.sdk.tls import ssl_context
+
+    version_policy.refresh(context=ssl_context())
+
+
+def refresh_cache() -> None:
+    """This refresher's work without its single-flight claim: fetch and cache
+    the manifest, then send the update reports still waiting. What the Probe
+    service runs (`probe.core.run version {"refresh": true}`) when a CLI asks
+    it instead of spawning this process; the service keeps it to one at a
+    time itself. Never raises: a failed fetch is recorded in the cache's `ok`."""
+    from probe import version_policy
+
+    try:
+        _fetch()
+    except Exception:  # noqa: BLE001 -- `refresh` already records a failed fetch
+        pass
     _flush_update_reports(version_policy.base_url())
 
 

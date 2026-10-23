@@ -136,13 +136,13 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         from matrx_ai.tools.structured_surface_write import read_prior, structured_surface_write
 
         if action == "list_owners":
-            r = await call_function(database, "public", "dict_list_owners_for", user_id)
+            r = await call_function(database, "dictionary", "dict_list_owners_for", user_id)
             return _ok(ctx, started, _json(r))
 
         if action == "resolve":
             r = await call_function(
                 database,
-                "public",
+                "dictionary",
                 "dict_resolve_for",
                 user_id,
                 parsed.include_personal,
@@ -158,7 +158,7 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if action == "list_entries":
             oid = _owner_id(parsed, user_id)
             rows = await call_function(
-                database, "public", "dict_list_entries_for", user_id, parsed.level, oid, mode="rows"
+                database, "dictionary", "dict_list_entries_for", user_id, parsed.level, oid, mode="rows"
             )
             return _ok(ctx, started, {"entries": _rows(rows)})
 
@@ -168,14 +168,14 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             async def _read_entries() -> list[dict[str, Any]]:
                 return _rows(
                     await call_function(
-                        database, "public", "dict_list_entries_for", user_id, parsed.level, oid, mode="rows"
+                        database, "dictionary", "dict_list_entries_for", user_id, parsed.level, oid, mode="rows"
                     )
                 )
 
             prior = await read_prior(_read_entries, what=f"dictionary entries {parsed.level}:{oid}")
             rows = await call_function(
                 database,
-                "public",
+                "dictionary",
                 "dict_upsert_entries_for",
                 user_id,
                 parsed.level,
@@ -198,7 +198,7 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             # After 1355 this function ARCHIVES (sets deleted_at); it never deletes.
             n = await call_function(
                 database,
-                "public",
+                "dictionary",
                 "dict_delete_entries_for",
                 user_id,
                 parsed.level,
@@ -218,7 +218,7 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             oid = _owner_id(parsed, user_id)
             n = await call_function(
                 database,
-                "public",
+                "dictionary",
                 "dict_restore_entries_for",
                 user_id,
                 parsed.level,
@@ -230,7 +230,7 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if action == "get_settings":
             oid = _owner_id(parsed, user_id)
             r = await call_function(
-                database, "public", "dict_get_settings_for", user_id, parsed.level, oid
+                database, "dictionary", "dict_get_settings_for", user_id, parsed.level, oid
             )
             return _ok(ctx, started, _json(r))
 
@@ -240,14 +240,14 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             async def _read_settings() -> Any:
                 return _json(
                     await call_function(
-                        database, "public", "dict_get_settings_for", user_id, parsed.level, oid
+                        database, "dictionary", "dict_get_settings_for", user_id, parsed.level, oid
                     )
                 )
 
             prior = await read_prior(_read_settings, what=f"dictionary settings {parsed.level}:{oid}")
             r = await call_function(
                 database,
-                "public",
+                "dictionary",
                 "dict_set_settings_for",
                 user_id,
                 parsed.level,

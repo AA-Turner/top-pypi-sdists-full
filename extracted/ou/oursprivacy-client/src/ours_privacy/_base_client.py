@@ -33,10 +33,8 @@ from typing import (
 from typing_extensions import Literal, override, get_origin
 
 import anyio
-import httpx
 import distro
 import pydantic
-from httpx import URL
 from pydantic import PrivateAttr
 
 from . import _exceptions
@@ -80,6 +78,7 @@ from ._constants import (
     DEFAULT_CONNECTION_LIMITS,
 )
 from ._streaming import Stream, SSEDecoder, AsyncStream, SSEBytesDecoder
+from .lib._httpx import URL, HTTPX_DEFAULT_TIMEOUT, httpx
 from ._exceptions import (
     APIStatusError,
     APITimeoutError,
@@ -100,19 +99,6 @@ _T_co = TypeVar("_T_co", covariant=True)
 
 _StreamT = TypeVar("_StreamT", bound=Stream[Any])
 _AsyncStreamT = TypeVar("_AsyncStreamT", bound=AsyncStream[Any])
-
-if TYPE_CHECKING:
-    from httpx._config import (
-        DEFAULT_TIMEOUT_CONFIG,  # pyright: ignore[reportPrivateImportUsage]
-    )
-
-    HTTPX_DEFAULT_TIMEOUT = DEFAULT_TIMEOUT_CONFIG
-else:
-    try:
-        from httpx._config import DEFAULT_TIMEOUT_CONFIG as HTTPX_DEFAULT_TIMEOUT
-    except ImportError:
-        # taken from https://github.com/encode/httpx/blob/3ba5fe0d7ac70222590e759c31442b1cab263791/httpx/_config.py#L366
-        HTTPX_DEFAULT_TIMEOUT = Timeout(5.0)
 
 
 class PageInfo:
@@ -727,7 +713,7 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         # which is more precise than integer-seconds `retry-after`
         try:
             retry_ms_header = response_headers.get("retry-after-ms", None)
-            return float(retry_ms_header) / 1000
+            return float(retry_ms_header or "") / 1000
         except (TypeError, ValueError):
             pass
 
@@ -736,7 +722,7 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         try:
             # note: the spec indicates that this should only ever be an integer
             # but if someone sends a float there's no reason for us to not respect it
-            return float(retry_header)
+            return float(retry_header or "")
         except (TypeError, ValueError):
             pass
 
@@ -873,7 +859,7 @@ class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
 
         if http_client is not None and not isinstance(http_client, httpx.Client):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise TypeError(
-                f"Invalid `http_client` argument; Expected an instance of `httpx.Client` but got {type(http_client)}"
+                f"Invalid `http_client` argument; Expected an instance of `httpx2.Client` but got {type(http_client)}"
             )
 
         super().__init__(
@@ -1379,7 +1365,7 @@ class _DefaultAsyncHttpxClient(httpx.AsyncClient):
 
 
 try:
-    import httpx_aiohttp
+    from httpx_aiohttp.httpx2 import Httpx2AiohttpClient
 except ImportError:
 
     class _DefaultAioHttpClient(httpx.AsyncClient):
@@ -1387,7 +1373,7 @@ except ImportError:
             raise RuntimeError("To use the aiohttp client you must have installed the package with the `aiohttp` extra")
 else:
 
-    class _DefaultAioHttpClient(httpx_aiohttp.HttpxAiohttpClient):  # type: ignore
+    class _DefaultAioHttpClient(Httpx2AiohttpClient):  # type: ignore
         def __init__(self, **kwargs: Any) -> None:
             kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
             kwargs.setdefault("limits", DEFAULT_CONNECTION_LIMITS)
@@ -1455,7 +1441,7 @@ class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
 
         if http_client is not None and not isinstance(http_client, httpx.AsyncClient):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise TypeError(
-                f"Invalid `http_client` argument; Expected an instance of `httpx.AsyncClient` but got {type(http_client)}"
+                f"Invalid `http_client` argument; Expected an instance of `httpx2.AsyncClient` but got {type(http_client)}"
             )
 
         super().__init__(

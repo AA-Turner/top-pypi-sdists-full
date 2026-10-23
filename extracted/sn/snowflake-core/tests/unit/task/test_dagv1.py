@@ -257,6 +257,30 @@ def test_add_condition_escapes_backslash_before_quote_in_task_name():
     assert "= 'x\\\\'' OR TRUE -- '" in successor.condition
 
 
+@pytest.mark.snowpark
+@pytest.mark.parametrize(
+    ("task_imports", "task_packages", "expected_imports", "expected_packages"),
+    [
+        (None, None, ["@dag_stage/dag_dep.py"], ["dag-package"]),
+        ([], [], [], []),
+        (["@task_stage/task_dep.py"], ["task-package"], ["@task_stage/task_dep.py"], ["task-package"]),
+    ],
+    ids=["inherit_dag_defaults", "empty_opts_out", "task_values_override"],
+)
+def test_stored_procedure_call_imports_and_packages_override_dag_defaults(
+    task_imports, task_packages, expected_imports, expected_packages
+):
+    with DAG("dag", stage_location="fake_stage", imports=["@dag_stage/dag_dep.py"], packages=["dag-package"]):
+        task = DAGTask(
+            "task",
+            StoredProcedureCall(foo1, stage_location="fake_stage", imports=task_imports, packages=task_packages),
+        )
+
+    definition = task._to_low_level_task().definition
+    assert definition._imports == expected_imports
+    assert definition._packages == expected_packages
+
+
 class TestDAGOverlapPolicyBehavior:
     @pytest.mark.parametrize("overlap_policy", itertools.chain(OverlapPolicy, (None,)))
     def test_valid_constructions_with_overlap_policy(self, overlap_policy: OverlapPolicy | None):

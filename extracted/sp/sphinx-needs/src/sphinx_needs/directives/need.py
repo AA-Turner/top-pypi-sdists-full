@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Final
 
 from docutils import nodes
@@ -10,6 +10,7 @@ from sphinx.application import Sphinx
 from sphinx.environment import BuildEnvironment
 from sphinx.util.docutils import SphinxDirective
 
+from sphinx_needs._wording import joined
 from sphinx_needs.api import InvalidNeedException, add_need
 from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import NeedsMutable, SphinxNeedsData
@@ -25,7 +26,7 @@ from sphinx_needs.layout import build_need_repr
 from sphinx_needs.logging import WarningSubTypes, get_logger, log_warning
 from sphinx_needs.need_constraints import process_constraints
 from sphinx_needs.need_item import NeedItem, NeedItemSourceDirective, NeedLink
-from sphinx_needs.needs_schema import FieldsSchema
+from sphinx_needs.needs_schema import FieldsSchema, LinkTargetTypes
 from sphinx_needs.nodes import Need
 from sphinx_needs.utils import (
     DummyOptionSpec,
@@ -96,7 +97,7 @@ class NeedDirective(SphinxDirective):
 
         title, full_title = _get_title(
             self.arguments,
-            self.content,  # ty: ignore[invalid-argument-type]
+            self.content,
             title_optional=needs_config.title_optional,
             title_from_content=title_from_content,
             max_title_length=needs_config.max_title_length,
@@ -118,8 +119,10 @@ class NeedDirective(SphinxDirective):
         extras: dict[str, str] = {}
         links: dict[str, str] = {}
 
-        link_keys = set(needs_schema.iter_link_field_names())
-        extra_keys = set(needs_schema.iter_extra_field_names())
+        # the options of a need of this type (the directive's name)
+        type_schema = needs_schema.for_type(self.name)
+        link_keys = set(type_schema.iter_link_field_names())
+        extra_keys = set(type_schema.iter_extra_field_names())
 
         while options:
             key, value = options.popitem()
@@ -215,7 +218,7 @@ class NeedDirective(SphinxDirective):
 
 def _get_title(
     args: list[str],
-    content: str,
+    content: Iterable[str],
     *,
     title_optional: bool,
     title_from_content: bool,
@@ -405,6 +408,12 @@ def process_need_nodes(app: Sphinx, doctree: nodes.document, fromdocname: str) -
     Event handler to add title meta data (status, tags, links, ...) information to the Need node. Also processes
     constraints.
     """
+    # first, before either early return: no writer has a visitor for a needextend's
+    # node, which has done its work by now (#2296). The other directive nodes are
+    # processed by ``process_creator``, which neither return skips.
+    for extend_node in list(doctree.findall(Needextend)):
+        remove_node_from_tree(extend_node)
+
     needs_config = NeedsSphinxConfig(app.config)
     if not needs_config.include_needs:
         for node in doctree.findall(Need):
@@ -417,9 +426,6 @@ def process_need_nodes(app: Sphinx, doctree: nodes.document, fromdocname: str) -
     # If no needs were defined, we do not need to do anything
     if not needs_data.get_needs_view():
         return
-
-    for extend_node in list(doctree.findall(Needextend)):
-        remove_node_from_tree(extend_node)
 
     format_need_nodes(app, doctree, fromdocname, list(doctree.findall(Need)))
 
@@ -493,10 +499,31 @@ def resolve_links(
         need.sort_links()
 
 
-def _dead_links(need: NeedItem, needs: NeedsMutable) -> list[tuple[str, NeedLink]]:
-    """The links of ``need`` to an unknown need, or to an unknown part of a known one."""
+def _unions(
+    schema: FieldsSchema, need: NeedItem, cache: dict[str, frozenset[str]]
+) -> frozenset[str]:
+    """The link types a ``union`` computed on ``need``
+    (:meth:`~sphinx_needs.needs_schema.LinkSchema.union_on`), read once per need type:
+    their links are their members', which alone report dead links and conditions.
+    None on a need from a needs.json, whose links no rule computed."""
+    if need["is_import"] or need["is_external"]:
+        return frozenset()
+    if (unions := cache.get(need["type"])) is None:
+        unions = cache[need["type"]] = frozenset(
+            link.name for link in schema.iter_link_fields() if link.union_on(need)
+        )
+    return unions
+
+
+def _dead_links(
+    need: NeedItem, needs: NeedsMutable, unions: frozenset[str] = frozenset()
+) -> list[tuple[str, NeedLink]]:
+    """The links of ``need`` to an unknown need, or to an unknown part of a known one;
+    never those of the link types ``unions``, a union's, which are its members'."""
     dead_links: list[tuple[str, NeedLink]] = []
     for link_type, references in need.iter_links_items(as_str=False):
+        if link_type in unions:
+            continue
         for need_link in references:
             linked_need = needs.get(need_link.id)
             if linked_need is None or (
@@ -539,26 +566,54 @@ def build_backlinks(
     allow_dead_links = {
         link.name: link.allow_dead_links for link in schema.iter_link_fields()
     }
+    unions_by_type: dict[str, frozenset[str]] = {}
     for need in needs.values():
         need.sort_backlinks()
+        # every dead link, a union's too; a union's computed links do not decide
+        # which are forbidden: its members do
         dead_links = _dead_links(need, needs)
+        unions = _unions(schema, need, unions_by_type)
         need["has_dead_links"] = bool(dead_links)
         need["has_forbidden_dead_links"] = bool(
-            any(not allow_dead_links.get(lt, False) for lt, _ in dead_links)
+            any(
+                not allow_dead_links.get(lt, False)
+                for lt, _ in dead_links
+                if lt not in unions
+            )
         )
 
 
 def check_links(
     needs: NeedsMutable, config: NeedsSphinxConfig, schema: FieldsSchema
 ) -> None:
-    """Assess the link conditions, and report the links to unknown needs.
+    """Assess the target types and the link conditions, and report the links to
+    unknown needs.
 
     Called once every value is computed, so a condition reads the target's computed
-    fields and its complete back links. The needs are checked in the order they were
-    read in, each need's conditions before its dead links.
+    fields and its complete back links, and every link checked is final. The needs are
+    checked in the order they were read in, each need's target types, then its
+    conditions, then its dead links. The target types are checked whether or not the
+    schema validation runs; a link failing both its target types and its condition is
+    reported for each. A union's links are its members': it reports neither a condition
+    nor a dead link of its own.
     """
+    #: need type -> link type -> its target types, as the type declares them: read
+    #: once per need type, not per link
+    target_types: dict[str, dict[str, LinkTargetTypes]] = {}
+    unions_by_type: dict[str, frozenset[str]] = {}
     for need in needs.values():
+        unions = _unions(schema, need, unions_by_type)
+        if (declared := target_types.get(need_type := need["type"])) is None:
+            declared = target_types[need_type] = {
+                link.name: link.target_types
+                for link in schema.for_type(need_type).iter_link_fields()
+                if link.target_types is not None
+            }
+        if declared:
+            _check_target_types(need, needs, declared)
         for link_type, references in need.iter_links_items(as_str=False):
+            if link_type in unions:
+                continue
             for need_link in references:
                 if need_link.condition is None:
                     continue
@@ -588,9 +643,70 @@ def check_links(
                     )
 
         if need["has_forbidden_dead_links"] and config.report_dead_links:
-            for link_type, need_link in _dead_links(need, needs):
+            for link_type, need_link in _dead_links(need, needs, unions):
                 message = f"Need '{need.id}' has unknown outgoing link '{need_link.to_filter_string()}' in field '{link_type}'"
                 _emit_link_warning(need, message, "link_outgoing")
+
+
+def _check_target_types(
+    need: NeedItem,
+    needs: NeedsMutable,
+    declared: dict[str, LinkTargetTypes],
+) -> None:
+    """Report each resolved link of ``need`` to a need whose type its link type's
+    target types, as the need's type declares them, do not accept: one
+    ``needs.link_target_type`` warning per link.
+
+    A dead link is left to the dead-link check, whether or not dead links are allowed;
+    a link to a part is checked by the type of the need owning it. ``links`` takes no
+    target types beside a link type that copies into it (refused where the schema is
+    built), so a copy is never checked against them.
+
+    :param declared: Each link type with target types on the need's type.
+    """
+    for link_type, references in need.iter_links_items(as_str=False):
+        if (allowed := declared.get(link_type)) is None:
+            continue
+        # one finding per distinct link, as needs.json writes the links
+        for need_link in dict.fromkeys(references):
+            target = needs.get(need_link.id)
+            if target is None or (
+                need_link.part is not None and target.get_part(need_link.part) is None
+            ):
+                continue  # a dead link has no type: the dead-link check reports it
+            if target["type"] in allowed.types:
+                continue
+            _emit_link_warning(
+                need,
+                f"Need '{need.id}' link '{need_link.to_link_string()}' "
+                f"in field '{link_type}': target need type '{target['type']}' "
+                f"{_not_one_of(allowed)}",
+                "link_target_type",
+            )
+
+
+def _not_one_of(allowed: LinkTargetTypes) -> str:
+    """What a refused target's type is not, as a ``needs.link_target_type`` warning
+    says it: the declared names (not their expansion), and the need type declaring
+    them, where a need type does."""
+    names = [repr(name) for name in allowed.names]
+    listed = joined(names, "or")
+    declared_by = (
+        ""
+        if allowed.declared_by is None
+        else f", as need type {allowed.declared_by!r} declares it"
+    )
+    return (
+        f"is not one of {listed} (or a type inheriting from "
+        f"{'it' if len(names) == 1 else 'them'}){declared_by}"
+    )
+
+
+#: the subtype of a link warning about an external need, where it has its own
+_EXTERNAL_SUBTYPES: Final[dict[WarningSubTypes, WarningSubTypes]] = {
+    "link_outgoing": "external_link_outgoing",
+    "link_target_type": "external_link_target_type",
+}
 
 
 def _emit_link_warning(need: NeedItem, message: str, subtype: WarningSubTypes) -> None:
@@ -599,7 +715,7 @@ def _emit_link_warning(need: NeedItem, message: str, subtype: WarningSubTypes) -
         log_warning(
             LOGGER,
             f"{need['external_url']}: {message}",
-            "external_link_outgoing" if subtype == "link_outgoing" else subtype,
+            _EXTERNAL_SUBTYPES.get(subtype, subtype),
             None,
         )
     else:

@@ -9,8 +9,21 @@ from rpy2.robjects import r as R
 from sklearn.exceptions import NotFittedError
 
 import prince
-from tests import load_df_from_R
+from tests import DATAFRAME_IMPLEMENTATIONS, assert_dataframe_implementation_matches, load_df_from_R
 from tests.test_ca import TestCA as _TestCA
+
+
+@pytest.mark.parametrize("implementation", DATAFRAME_IMPLEMENTATIONS)
+def test_dataframe_input(implementation):
+    X_pandas = pd.DataFrame(
+        {
+            "color": ["red", "blue", "red", "green", "blue", "green"],
+            "size": ["s", "m", "l", "s", "l", "m"],
+        }
+    )
+    assert_dataframe_implementation_matches(
+        prince.MCA(n_components=2, engine="scipy"), X_pandas, implementation
+    )
 
 
 class TestMCA(_TestCA):
@@ -309,6 +322,23 @@ def test_non_subset_correction_matches_ca_mjca():
     )
 
 
+def test_greenacre_percentages_with_few_components():
+    """Greenacre percentages don't depend on how many components are computed.
+
+    The adjusted total inertia has to use the squares of all the principal inertias, not
+    only the ones of the computed components, otherwise the percentages can turn negative.
+    """
+    wines = prince.datasets.load_burgundy_wines().drop(columns=["Oak type"], level=0)
+    wines.columns = [f"{a}_{b}" for a, b in wines.columns]
+
+    full = prince.MCA(n_components=4, correction="greenacre").fit(wines)
+    for n_components in (1, 2):
+        mca = prince.MCA(n_components=n_components, correction="greenacre").fit(wines)
+        np.testing.assert_allclose(
+            mca.percentage_of_variance_, full.percentage_of_variance_[:n_components]
+        )
+
+
 def test_subset_greenacre_matches_ca_mjca():
     """Subset-MCA Greenacre correction matches R's ``ca::mjca(lambda='adjusted', subsetcat=...)``.
 
@@ -400,3 +430,23 @@ def test_get_feature_names_out():
 def test_get_feature_names_out_checks_is_fitted():
     with pytest.raises(NotFittedError):
         prince.MCA().get_feature_names_out()
+
+
+def test_duplicate_row_labels():
+    """Duplicated row labels, as left by pd.concat, don't change the results."""
+    dataset = prince.datasets.load_hearthstone_cards().head(100)
+    mca = prince.MCA(n_components=2, random_state=42).fit(dataset)
+
+    duplicated = pd.concat((dataset.iloc[:50], dataset.iloc[50:]))
+    duplicated.index = np.arange(len(duplicated)) % 50
+    mca_dup = prince.MCA(n_components=2, random_state=42).fit(duplicated)
+    for method in (
+        "row_coordinates",
+        "row_cosine_similarities",
+        "column_coordinates",
+        "column_cosine_similarities",
+    ):
+        np.testing.assert_allclose(
+            getattr(mca_dup, method)(duplicated).to_numpy(),
+            getattr(mca, method)(dataset).to_numpy(),
+        )

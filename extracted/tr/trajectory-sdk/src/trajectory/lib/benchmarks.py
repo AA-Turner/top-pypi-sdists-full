@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
+import stat
+import sys
 import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import CancelledError
@@ -166,19 +169,31 @@ class _BenchmarkPackage:
     if not self._root.is_dir():
       raise ValueError(f"Benchmark root {self._root} is not a directory")
     self._ignore = self._load_dockerignore()
-    self._tree_cache: dict[Path, set[Path]] = {}
+    # Each build folder's files, keyed like Path equality: (walked path, size, path to read).
+    self._tree_cache: dict[Path, dict[str, tuple[str, int, str]]] = {}
     self._validate_and_collect()
-    for directory, paths in self._tree_cache.items():
+    for directory, tree in self._tree_cache.items():
       SubmissionUpload.validate_runtime_context(
         directory.relative_to(self._root).as_posix(),
-        len(paths),
-        sum(path.stat().st_size for path in paths),
+        len(tree),
+        sum(size for _, size, _ in tree.values()),
       )
 
   def files(self) -> Iterator[UploadFile]:
-    paths = sorted({path for paths in self._tree_cache.values() for path in paths})
-    for path in paths:
-      yield self._upload_file(path)
+    files: dict[str, tuple[str, int, str]] = {}
+    for tree in self._tree_cache.values():
+      for key, file in tree.items():
+        files.setdefault(key, file)
+    # Order by path segments, as sorting POSIX Path objects did.
+    by_segments = sorted(files.values(), key=lambda file: self._get_upload_path(file[0]).split("/"))
+    for walked, size, source in by_segments:
+      yield UploadFile._from_checked_source(
+        Path(source),
+        path=self._get_upload_path(walked),
+        size_bytes=size,
+        # A symlink's type comes from its own name, as when it was opened by that name.
+        content_type=UploadFile._guess_content_type(Path(walked)),
+      )
 
   def _validate_and_collect(self) -> None:
     default_runtime = self.manifest.runtime
@@ -246,27 +261,120 @@ class _BenchmarkPackage:
     dockerfile = self._resolve_declared_path(task_name, source.dockerfile_path)
     if not dockerfile.is_file():
       raise ValueError(f"Task {task_name!r} Dockerfile {source.dockerfile_path!r} is not a file")
-    self._collect_tree(task_name, dockerfile.parent).add(dockerfile)
+    tree = self._collect_tree(task_name, dockerfile.parent)
+    tree.setdefault(
+      self._get_path_key(str(dockerfile)),
+      (str(dockerfile), dockerfile.stat().st_size, str(dockerfile.resolve())),
+    )
 
-  def _collect_tree(self, task_name: str, directory: Path) -> set[Path]:
-    key = directory
-    if key in self._tree_cache:
-      return self._tree_cache[key]
-    collected: set[Path] = set()
-    for candidate in sorted(directory.rglob("*")):
-      relative_path = candidate.relative_to(self._root).as_posix()
-      if relative_path == _MANIFEST_PATH or self._is_ignored(candidate):
-        continue
+  def _collect_tree(self, task_name: str, directory: Path) -> dict[str, tuple[str, int, str]]:
+    """Walk a build folder once, checking each entry's type from its directory listing."""
+    if directory in self._tree_cache:
+      return self._tree_cache[directory]
+    collected: dict[str, tuple[str, int, str]] = {}
+    # Each folder is listed at its resolved location, so a link retargeted after packaging
+    # cannot redirect reads; upload paths keep the walked spelling. A folder under an ignored
+    # Windows junction may be outside the root, so each entry under it is checked on its own.
+    real_directory = str(self._require_inside_root(task_name, directory))
+    folders = [(str(directory), real_directory, False)]
+    while folders:
+      walked_folder, real_folder, check_each = folders.pop()
       try:
-        resolved = candidate.resolve(strict=True)
-      except OSError as error:
-        raise ValueError(f"Task {task_name!r} contains an invalid path {candidate}") from error
-      if not resolved.is_relative_to(self._root):
-        raise ValueError(f"Task {task_name!r} path {candidate} resolves outside benchmark root")
-      if candidate.is_file():
-        collected.add(candidate)
-    self._tree_cache[key] = collected
+        entries = os.scandir(real_folder)
+      except PermissionError:
+        # rglob skipped folders it could not read, so packaging does too.
+        continue
+      listed: list[tuple[str, str, os.stat_result]] = []
+      with entries:
+        for entry in entries:
+          walked = os.path.join(walked_folder, entry.name)
+          is_symlink = entry.is_symlink()
+          if entry.is_dir(follow_symlinks=False) and not is_symlink:
+            # Folders and junctions are descended; their files are matched on their own.
+            check = check_each or self._is_reparse_point(entry)
+            real = entry.path
+            if check and not self._is_ignored(self._get_upload_path(walked), True):
+              real = str(self._require_inside_root(task_name, Path(entry.path), walked))
+              check = False
+            folders.append((walked, real, check))
+            continue
+          relative_path = self._get_upload_path(walked)
+          if relative_path == _MANIFEST_PATH or self._is_ignored(
+            relative_path, self._is_dir(entry)
+          ):
+            continue
+          source = entry.path
+          if is_symlink or check_each or self._is_reparse_point(entry):
+            source = str(self._require_inside_root(task_name, Path(entry.path), walked))
+            # Like rglob, list folder symlinks but do not descend into them.
+            if entry.is_dir():
+              continue
+          if entry.is_file():
+            listed.append((walked, source, self._stat_listed_file(entry)))
+      if not check_each:
+        # A folder swapped for a link during the walk would have been listed outside the root.
+        self._require_unchanged_folder(task_name, real_folder, walked_folder)
+      for walked, source, listed_stat in listed:
+        # The folder may have been swapped back after listing; keep only the files listed.
+        self._require_same_file(task_name, source, listed_stat, walked)
+        collected.setdefault(self._get_path_key(walked), (walked, listed_stat.st_size, source))
+    self._tree_cache[directory] = collected
     return collected
+
+  @staticmethod
+  def _require_unchanged_folder(task_name: str, real_folder: str, walked: str) -> None:
+    try:
+      current = os.path.realpath(real_folder, strict=True)
+    except OSError as error:
+      raise ValueError(f"Task {task_name!r} folder {walked} changed while packaging") from error
+    if os.path.normcase(current) != os.path.normcase(real_folder):
+      raise ValueError(f"Task {task_name!r} folder {walked} changed while packaging")
+
+  @staticmethod
+  def _stat_listed_file(entry: os.DirEntry[str]) -> os.stat_result:
+    # On Windows a directory entry's cached stat has no device or file number.
+    return os.stat(entry.path) if sys.platform == "win32" else entry.stat()
+
+  @staticmethod
+  def _require_same_file(task_name: str, source: str, listed: os.stat_result, walked: str) -> None:
+    try:
+      current = os.stat(source)
+    except OSError as error:
+      raise ValueError(f"Task {task_name!r} file {walked} changed while packaging") from error
+    if (current.st_dev, current.st_ino) != (listed.st_dev, listed.st_ino):
+      raise ValueError(f"Task {task_name!r} file {walked} changed while packaging")
+
+  @staticmethod
+  def _is_dir(entry: os.DirEntry[str]) -> bool:
+    # Like Path.is_dir, a link that cannot be followed (a loop or missing target) is not a folder.
+    try:
+      return entry.is_dir()
+    except OSError:
+      return False
+
+  @staticmethod
+  def _get_path_key(path: str) -> str:
+    # Matches Path equality: Windows paths that differ only in case name the same file.
+    return os.path.normcase(path)
+
+  def _require_inside_root(self, task_name: str, path: Path, walked: str | None = None) -> Path:
+    # Errors name the path as the user's folders spell it, not where it was listed.
+    shown = path if walked is None else walked
+    try:
+      resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+      # Python 3.11 and 3.12 report a symlink loop as RuntimeError.
+      raise ValueError(f"Task {task_name!r} contains an invalid path {shown}") from error
+    if not resolved.is_relative_to(self._root):
+      raise ValueError(f"Task {task_name!r} path {shown} resolves outside benchmark root")
+    return resolved
+
+  @staticmethod
+  def _is_reparse_point(entry: os.DirEntry[str]) -> bool:
+    # Windows junctions are folder links that is_symlink() does not report.
+    return sys.platform == "win32" and bool(
+      entry.stat(follow_symlinks=False).st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
 
   def _resolve_declared_path(self, task_name: str, value: str) -> Path:
     if not isinstance(value, str) or not value:
@@ -289,14 +397,15 @@ class _BenchmarkPackage:
       return None
     return GitIgnoreSpec.from_lines(path.read_text().splitlines())
 
-  def _is_ignored(self, path: Path) -> bool:
+  def _is_ignored(self, relative_path: str, is_dir: bool) -> bool:
     if self._ignore is None:
       return False
-    relative_path = path.relative_to(self._root).as_posix()
-    return self._ignore.match_file(relative_path + "/" if path.is_dir() else relative_path)
+    return self._ignore.match_file(relative_path + "/" if is_dir else relative_path)
 
-  def _upload_file(self, path: Path) -> UploadFile:
-    return UploadFile.from_path(path, path=path.relative_to(self._root).as_posix())
+  def _get_upload_path(self, source: str) -> str:
+    # The joined separator keeps a filesystem root such as "/" from losing a character.
+    relative_path = source[len(os.path.join(self._root, "")) :]
+    return relative_path if os.sep == "/" else relative_path.replace(os.sep, "/")
 
 
 def wait_for_benchmark_images(

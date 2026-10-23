@@ -35,6 +35,7 @@ from .literals import (
     CapacityProviderStatusCodeType,
     CapacityProviderStatusType,
     CapacityReservationPreferenceType,
+    CircuitBreakerModeType,
     ClaimMatchOperatorTypeType,
     ClientAuthenticationMethodTypeType,
     ClusteringFrequencyType,
@@ -57,6 +58,7 @@ from .literals import (
     EvaluatorStatusType,
     EvaluatorTypeType,
     ExtractionTypeType,
+    FallbackErrorType,
     FilterOperatorType,
     FindingTypeType,
     GatewayInterceptionPointType,
@@ -76,6 +78,7 @@ from .literals import (
     IncludedDataType,
     KeyTypeType,
     ListingModeType,
+    MatchOperatorType,
     MemoryStatusType,
     MemoryStrategyStatusType,
     MemoryStrategyTypeType,
@@ -188,6 +191,7 @@ __all__ = (
     "CertificateConfigurationTypeDef",
     "CertificateLocationTypeDef",
     "CertificateTypeDef",
+    "CircuitBreakerConfigurationTypeDef",
     "ClaimMatchValueTypeOutputTypeDef",
     "ClaimMatchValueTypeTypeDef",
     "ClaimMatchValueTypeUnionTypeDef",
@@ -385,6 +389,8 @@ __all__ = (
     "DerivedEvaluatorConfigOutputTypeDef",
     "DerivedEvaluatorConfigTypeDef",
     "DescriptorsTypeDef",
+    "DimensionRatingScaleOutputTypeDef",
+    "DimensionRatingScaleTypeDef",
     "EbsVolumeConfigurationTypeDef",
     "Ec2ConfigurationOutputTypeDef",
     "Ec2ConfigurationTypeDef",
@@ -402,6 +408,8 @@ __all__ = (
     "EpisodicReflectionConfigurationInputTypeDef",
     "EpisodicReflectionConfigurationTypeDef",
     "EpisodicReflectionOverrideTypeDef",
+    "EvaluationDimensionOutputTypeDef",
+    "EvaluationDimensionTypeDef",
     "EvaluatorConfigOutputTypeDef",
     "EvaluatorConfigTypeDef",
     "EvaluatorConfigUnionTypeDef",
@@ -413,6 +421,15 @@ __all__ = (
     "ExtractionConfigTypeDef",
     "ExtractionConfigUnionTypeDef",
     "ExtractionConfigurationTypeDef",
+    "FallbackOutputTypeDef",
+    "FallbackTargetOutputTypeDef",
+    "FallbackTargetTypeDef",
+    "FallbackTargetUnionTypeDef",
+    "FallbackTriggersOutputTypeDef",
+    "FallbackTriggersTypeDef",
+    "FallbackTriggersUnionTypeDef",
+    "FallbackTypeDef",
+    "FallbackUnionTypeDef",
     "FilesystemConfigurationTypeDef",
     "FilterTypeDef",
     "FilterValueTypeDef",
@@ -769,6 +786,10 @@ __all__ = (
     "ManagedVpcResourceOutputTypeDef",
     "ManagedVpcResourceTypeDef",
     "ManagedVpcResourceUnionTypeDef",
+    "MatchModelEntryTypeDef",
+    "MatchModelsOutputTypeDef",
+    "MatchModelsTypeDef",
+    "MatchModelsUnionTypeDef",
     "MatchPathsOutputTypeDef",
     "MatchPathsTypeDef",
     "MatchPathsUnionTypeDef",
@@ -947,7 +968,9 @@ __all__ = (
     "StartPolicyGenerationRequestTypeDef",
     "StartPolicyGenerationResponseTypeDef",
     "StaticOverrideTypeDef",
+    "StaticRouteOutputTypeDef",
     "StaticRouteTypeDef",
+    "StaticRouteUnionTypeDef",
     "StickinessConfigurationOutputTypeDef",
     "StickinessConfigurationTypeDef",
     "StrategyConfigurationTypeDef",
@@ -1289,6 +1312,9 @@ class SecretsManagerCertificateConfigurationTypeDef(TypedDict):
 
 class SecretsManagerLocationTypeDef(TypedDict):
     secretArn: str
+
+class CircuitBreakerConfigurationTypeDef(TypedDict):
+    mode: NotRequired[CircuitBreakerModeType]
 
 class ClaimMatchValueTypeTypeDef(TypedDict):
     matchValueString: NotRequired[str]
@@ -1725,6 +1751,11 @@ class DeleteResourcePolicyRequestTypeDef(TypedDict):
 class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
+class NumericalScaleDefinitionTypeDef(TypedDict):
+    definition: str
+    value: float
+    label: str
+
 class EbsVolumeConfigurationTypeDef(TypedDict):
     name: str
     sizeGiB: int
@@ -1788,6 +1819,14 @@ class EvaluatorSummaryTypeDef(TypedDict):
     level: NotRequired[EvaluatorLevelType]
     lockedForModification: NotRequired[bool]
     kmsKeyArn: NotRequired[str]
+
+class FallbackTriggersOutputTypeDef(TypedDict):
+    statusCodes: NotRequired[list[str]]
+    errors: NotRequired[list[FallbackErrorType]]
+
+class FallbackTriggersTypeDef(TypedDict):
+    statusCodes: NotRequired[Sequence[str]]
+    errors: NotRequired[Sequence[FallbackErrorType]]
 
 class S3FilesAccessPointConfigurationTypeDef(TypedDict):
     accessPointArn: str
@@ -2499,6 +2538,14 @@ class ManagedVpcResourceTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     routingDomain: NotRequired[str]
 
+MatchModelEntryTypeDef = TypedDict(
+    "MatchModelEntryTypeDef",
+    {
+        "value": str,
+        "operator": NotRequired[MatchOperatorType],
+    },
+)
+
 class MatchPathsTypeDef(TypedDict):
     anyOf: Sequence[str]
 
@@ -2540,11 +2587,6 @@ class NamespaceKeyValidationTypeDef(TypedDict):
 class NumberValidationTypeDef(TypedDict):
     minValue: NotRequired[float]
     maxValue: NotRequired[float]
-
-class NumericalScaleDefinitionTypeDef(TypedDict):
-    definition: str
-    value: float
-    label: str
 
 class OAuthCredentialProviderTypeDef(TypedDict):
     providerArn: str
@@ -2618,9 +2660,6 @@ class RegistryRecordOAuthCredentialProviderTypeDef(TypedDict):
 class RequestHeaderConfigurationTypeDef(TypedDict):
     requestHeaderAllowlist: NotRequired[Sequence[str]]
 
-class StaticRouteTypeDef(TypedDict):
-    targetName: str
-
 class SamplingConfigTypeDef(TypedDict):
     samplingPercentage: float
 
@@ -2678,20 +2717,6 @@ class SynchronizeGatewayTargetsRequestTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
-
-class TargetTrafficSplitEntryOutputTypeDef(TypedDict):
-    name: str
-    weight: int
-    targetName: str
-    description: NotRequired[str]
-    metadata: NotRequired[dict[str, str]]
-
-class TargetTrafficSplitEntryTypeDef(TypedDict):
-    name: str
-    weight: int
-    targetName: str
-    description: NotRequired[str]
-    metadata: NotRequired[Mapping[str, str]]
 
 class TimeBasedTriggerInputTypeDef(TypedDict):
     idleSessionTimeout: NotRequired[int]
@@ -3745,6 +3770,14 @@ class ListDatasetVersionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class DimensionRatingScaleOutputTypeDef(TypedDict):
+    numerical: NotRequired[list[NumericalScaleDefinitionTypeDef]]
+    categorical: NotRequired[list[CategoricalScaleDefinitionTypeDef]]
+
+class DimensionRatingScaleTypeDef(TypedDict):
+    numerical: NotRequired[Sequence[NumericalScaleDefinitionTypeDef]]
+    categorical: NotRequired[Sequence[CategoricalScaleDefinitionTypeDef]]
+
 class VolumeConfigurationTypeDef(TypedDict):
     ebsConfiguration: NotRequired[EbsVolumeConfigurationTypeDef]
 
@@ -3757,6 +3790,14 @@ class ListEvaluatorsResponseTypeDef(TypedDict):
     evaluators: list[EvaluatorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class FallbackTargetOutputTypeDef(TypedDict):
+    targetName: str
+    model: NotRequired[str]
+    triggerOn: NotRequired[FallbackTriggersOutputTypeDef]
+    firstByteTimeoutMilliseconds: NotRequired[int]
+
+FallbackTriggersUnionTypeDef = Union[FallbackTriggersTypeDef, FallbackTriggersOutputTypeDef]
 
 class FilesystemConfigurationTypeDef(TypedDict):
     sessionStorage: NotRequired[SessionStorageConfigurationTypeDef]
@@ -4248,6 +4289,13 @@ class MCPGatewayConfigurationTypeDef(TypedDict):
     disableMcpListToolsPagination: NotRequired[bool]
 
 ManagedVpcResourceUnionTypeDef = Union[ManagedVpcResourceTypeDef, ManagedVpcResourceOutputTypeDef]
+
+class MatchModelsOutputTypeDef(TypedDict):
+    anyOf: list[MatchModelEntryTypeDef]
+
+class MatchModelsTypeDef(TypedDict):
+    anyOf: Sequence[MatchModelEntryTypeDef]
+
 MatchPathsUnionTypeDef = Union[MatchPathsTypeDef, MatchPathsOutputTypeDef]
 
 class UpdatedServerDefinitionTypeDef(TypedDict):
@@ -4274,15 +4322,6 @@ class NamespaceKeyEntryOutputTypeDef(TypedDict):
 NamespaceKeyValidationUnionTypeDef = Union[
     NamespaceKeyValidationTypeDef, NamespaceKeyValidationOutputTypeDef
 ]
-
-class RatingScaleOutputTypeDef(TypedDict):
-    numerical: NotRequired[list[NumericalScaleDefinitionTypeDef]]
-    categorical: NotRequired[list[CategoricalScaleDefinitionTypeDef]]
-
-class RatingScaleTypeDef(TypedDict):
-    numerical: NotRequired[Sequence[NumericalScaleDefinitionTypeDef]]
-    categorical: NotRequired[Sequence[CategoricalScaleDefinitionTypeDef]]
-
 OAuthCredentialProviderUnionTypeDef = Union[
     OAuthCredentialProviderTypeDef, OAuthCredentialProviderOutputTypeDef
 ]
@@ -4352,13 +4391,6 @@ class ValidationOutputTypeDef(TypedDict):
     numberValidation: NotRequired[NumberValidationTypeDef]
 
 StringValidationUnionTypeDef = Union[StringValidationTypeDef, StringValidationOutputTypeDef]
-
-class WeightedRouteOutputTypeDef(TypedDict):
-    trafficSplit: list[TargetTrafficSplitEntryOutputTypeDef]
-
-TargetTrafficSplitEntryUnionTypeDef = Union[
-    TargetTrafficSplitEntryTypeDef, TargetTrafficSplitEntryOutputTypeDef
-]
 
 class TriggerConditionInputTypeDef(TypedDict):
     messageBasedTrigger: NotRequired[MessageBasedTriggerInputTypeDef]
@@ -4702,6 +4734,16 @@ class CreateDatasetRequestTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
+class EvaluationDimensionOutputTypeDef(TypedDict):
+    dimensionName: str
+    dimensionInstruction: str
+    dimensionRatingScale: DimensionRatingScaleOutputTypeDef
+
+class EvaluationDimensionTypeDef(TypedDict):
+    dimensionName: str
+    dimensionInstruction: str
+    dimensionRatingScale: DimensionRatingScaleTypeDef
+
 class LaunchParametersOutputTypeDef(TypedDict):
     operatingSystem: OperatingSystemType
     instanceRequirements: InstanceRequirementsOutputTypeDef
@@ -4723,6 +4765,18 @@ class LaunchParametersTypeDef(TypedDict):
     sshKeyName: NotRequired[str]
     instanceProfileArn: NotRequired[str]
     propagatedTags: NotRequired[Mapping[str, str]]
+
+class FallbackOutputTypeDef(TypedDict):
+    targetFallback: list[FallbackTargetOutputTypeDef]
+    triggerOn: NotRequired[FallbackTriggersOutputTypeDef]
+    firstByteTimeoutMilliseconds: NotRequired[int]
+    circuitBreaker: NotRequired[CircuitBreakerConfigurationTypeDef]
+
+class FallbackTargetTypeDef(TypedDict):
+    targetName: str
+    model: NotRequired[str]
+    triggerOn: NotRequired[FallbackTriggersUnionTypeDef]
+    firstByteTimeoutMilliseconds: NotRequired[int]
 
 class HarnessAgentCoreRuntimeEnvironmentTypeDef(TypedDict):
     agentRuntimeArn: str
@@ -4877,6 +4931,8 @@ class GatewayProtocolConfigurationTypeDef(TypedDict):
 class PrivateEndpointTypeDef(TypedDict):
     selfManagedLatticeResource: NotRequired[SelfManagedLatticeResourceTypeDef]
     managedVpcResource: NotRequired[ManagedVpcResourceUnionTypeDef]
+
+MatchModelsUnionTypeDef = Union[MatchModelsTypeDef, MatchModelsOutputTypeDef]
 
 class DescriptorsTypeDef(TypedDict):
     mcp: NotRequired[McpDescriptorTypeDef]
@@ -5078,13 +5134,6 @@ class ValidationTypeDef(TypedDict):
     stringListValidation: NotRequired[StringListValidationUnionTypeDef]
     numberValidation: NotRequired[NumberValidationTypeDef]
 
-class RouteToTargetActionOutputTypeDef(TypedDict):
-    staticRoute: NotRequired[StaticRouteTypeDef]
-    weightedRoute: NotRequired[WeightedRouteOutputTypeDef]
-
-class WeightedRouteTypeDef(TypedDict):
-    trafficSplit: Sequence[TargetTrafficSplitEntryUnionTypeDef]
-
 class ModifySelfManagedConfigurationTypeDef(TypedDict):
     triggerConditions: NotRequired[Sequence[TriggerConditionInputTypeDef]]
     invocationConfiguration: NotRequired[ModifyInvocationConfigurationInputTypeDef]
@@ -5267,11 +5316,37 @@ class HarnessToolConfigurationOutputTypeDef(TypedDict):
     inlineFunction: NotRequired[HarnessInlineFunctionConfigOutputTypeDef]
     agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
 
+class RatingScaleOutputTypeDef(TypedDict):
+    numerical: NotRequired[list[NumericalScaleDefinitionTypeDef]]
+    categorical: NotRequired[list[CategoricalScaleDefinitionTypeDef]]
+    multiDimensional: NotRequired[list[EvaluationDimensionOutputTypeDef]]
+
+class RatingScaleTypeDef(TypedDict):
+    numerical: NotRequired[Sequence[NumericalScaleDefinitionTypeDef]]
+    categorical: NotRequired[Sequence[CategoricalScaleDefinitionTypeDef]]
+    multiDimensional: NotRequired[Sequence[EvaluationDimensionTypeDef]]
+
 class LaunchTemplateSourceOutputTypeDef(TypedDict):
     launchParameters: NotRequired[LaunchParametersOutputTypeDef]
 
 class LaunchTemplateSourceTypeDef(TypedDict):
     launchParameters: NotRequired[LaunchParametersTypeDef]
+
+class StaticRouteOutputTypeDef(TypedDict):
+    targetName: str
+    model: NotRequired[str]
+    fallback: NotRequired[FallbackOutputTypeDef]
+
+class TargetTrafficSplitEntryOutputTypeDef(TypedDict):
+    targetName: str
+    name: str
+    weight: int
+    model: NotRequired[str]
+    fallback: NotRequired[FallbackOutputTypeDef]
+    description: NotRequired[str]
+    metadata: NotRequired[dict[str, str]]
+
+FallbackTargetUnionTypeDef = Union[FallbackTargetTypeDef, FallbackTargetOutputTypeDef]
 
 class HarnessEnvironmentProviderTypeDef(TypedDict):
     agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentTypeDef]
@@ -5313,6 +5388,7 @@ HarnessSkillUnionTypeDef = Union[HarnessSkillTypeDef, HarnessSkillOutputTypeDef]
 class ConditionOutputTypeDef(TypedDict):
     matchPrincipals: NotRequired[MatchPrincipalsOutputTypeDef]
     matchPaths: NotRequired[MatchPathsOutputTypeDef]
+    matchModels: NotRequired[MatchModelsOutputTypeDef]
 
 MatchPrincipalsUnionTypeDef = Union[MatchPrincipalsTypeDef, MatchPrincipalsOutputTypeDef]
 
@@ -5385,18 +5461,8 @@ class DerivedEvaluatorConfigOutputTypeDef(TypedDict):
     baseEvaluatorId: str
     modelConfig: EvaluatorModelConfigOutputTypeDef
 
-class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
-    instructions: str
-    ratingScale: RatingScaleOutputTypeDef
-    modelConfig: EvaluatorModelConfigOutputTypeDef
-
 class DerivedEvaluatorConfigTypeDef(TypedDict):
     baseEvaluatorId: str
-    modelConfig: EvaluatorModelConfigTypeDef
-
-class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
-    instructions: str
-    ratingScale: RatingScaleTypeDef
     modelConfig: EvaluatorModelConfigTypeDef
 
 class ListPolicyGenerationAssetsResponseTypeDef(TypedDict):
@@ -5451,7 +5517,6 @@ class ExtractionConfigOutputTypeDef(TypedDict):
     llmExtractionConfig: NotRequired[LlmExtractionConfigOutputTypeDef]
 
 ValidationUnionTypeDef = Union[ValidationTypeDef, ValidationOutputTypeDef]
-WeightedRouteUnionTypeDef = Union[WeightedRouteTypeDef, WeightedRouteOutputTypeDef]
 OnBehalfOfTokenExchangeConfigTypeUnionTypeDef = Union[
     OnBehalfOfTokenExchangeConfigTypeTypeDef, OnBehalfOfTokenExchangeConfigTypeOutputTypeDef
 ]
@@ -5479,11 +5544,6 @@ class CustomClaimValidationTypeTypeDef(TypedDict):
 AgentRuntimeArtifactUnionTypeDef = Union[
     AgentRuntimeArtifactTypeDef, AgentRuntimeArtifactOutputTypeDef
 ]
-
-class ActionOutputTypeDef(TypedDict):
-    configurationBundle: NotRequired[ConfigurationBundleActionOutputTypeDef]
-    routeToTarget: NotRequired[RouteToTargetActionOutputTypeDef]
-
 WeightedOverrideUnionTypeDef = Union[WeightedOverrideTypeDef, WeightedOverrideOutputTypeDef]
 StreamDeliveryResourcesUnionTypeDef = Union[
     StreamDeliveryResourcesTypeDef, StreamDeliveryResourcesOutputTypeDef
@@ -5496,6 +5556,16 @@ HarnessToolOutputTypeDef = TypedDict(
         "config": NotRequired[HarnessToolConfigurationOutputTypeDef],
     },
 )
+
+class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
+    instructions: str
+    ratingScale: RatingScaleOutputTypeDef
+    modelConfig: EvaluatorModelConfigOutputTypeDef
+
+class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
+    instructions: str
+    ratingScale: RatingScaleTypeDef
+    modelConfig: EvaluatorModelConfigTypeDef
 
 class Ec2ConfigurationOutputTypeDef(TypedDict):
     launchTemplateSource: LaunchTemplateSourceOutputTypeDef
@@ -5510,6 +5580,15 @@ class Ec2ConfigurationTypeDef(TypedDict):
     volumes: NotRequired[Sequence[VolumeConfigurationTypeDef]]
     lifecycleConfiguration: NotRequired[InstanceLifecycleConfigurationTypeDef]
     rootVolume: NotRequired[RootVolumeConfigurationTypeDef]
+
+class WeightedRouteOutputTypeDef(TypedDict):
+    trafficSplit: list[TargetTrafficSplitEntryOutputTypeDef]
+
+class FallbackTypeDef(TypedDict):
+    targetFallback: Sequence[FallbackTargetUnionTypeDef]
+    triggerOn: NotRequired[FallbackTriggersUnionTypeDef]
+    firstByteTimeoutMilliseconds: NotRequired[int]
+    circuitBreaker: NotRequired[CircuitBreakerConfigurationTypeDef]
 
 class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigName: str
@@ -5545,6 +5624,7 @@ HarnessMemoryConfigurationUnionTypeDef = Union[
 class ConditionTypeDef(TypedDict):
     matchPrincipals: NotRequired[MatchPrincipalsUnionTypeDef]
     matchPaths: NotRequired[MatchPathsUnionTypeDef]
+    matchModels: NotRequired[MatchModelsUnionTypeDef]
 
 InterceptorInputConfigurationUnionTypeDef = Union[
     InterceptorInputConfigurationTypeDef, InterceptorInputConfigurationOutputTypeDef
@@ -5572,16 +5652,6 @@ class CredentialProviderConfigurationTypeDef(TypedDict):
 class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
     gatewayArn: str
     outboundAuth: NotRequired[HarnessGatewayOutboundAuthUnionTypeDef]
-
-class EvaluatorConfigOutputTypeDef(TypedDict):
-    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
-    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
-    derived: NotRequired[DerivedEvaluatorConfigOutputTypeDef]
-
-class EvaluatorConfigTypeDef(TypedDict):
-    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
-    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
-    derived: NotRequired[DerivedEvaluatorConfigTypeDef]
 
 class AuthorizerConfigurationOutputTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationOutputTypeDef]
@@ -5641,10 +5711,6 @@ class LlmExtractionConfigTypeDef(TypedDict):
     llmExtractionInstruction: NotRequired[str]
     validation: NotRequired[ValidationUnionTypeDef]
 
-class RouteToTargetActionTypeDef(TypedDict):
-    staticRoute: NotRequired[StaticRouteTypeDef]
-    weightedRoute: NotRequired[WeightedRouteUnionTypeDef]
-
 class HarnessEnvironmentProviderRequestTypeDef(TypedDict):
     agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentRequestTypeDef]
 
@@ -5652,65 +5718,31 @@ CustomClaimValidationTypeUnionTypeDef = Union[
     CustomClaimValidationTypeTypeDef, CustomClaimValidationTypeOutputTypeDef
 ]
 
-class CreateGatewayRuleResponseTypeDef(TypedDict):
-    ruleId: str
-    gatewayArn: str
-    priority: int
-    conditions: list[ConditionOutputTypeDef]
-    actions: list[ActionOutputTypeDef]
-    description: str
-    createdAt: datetime
-    status: GatewayRuleStatusType
-    system: SystemManagedBlockTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GatewayRuleDetailTypeDef(TypedDict):
-    ruleId: str
-    gatewayArn: str
-    priority: int
-    actions: list[ActionOutputTypeDef]
-    createdAt: datetime
-    status: GatewayRuleStatusType
-    conditions: NotRequired[list[ConditionOutputTypeDef]]
-    description: NotRequired[str]
-    system: NotRequired[SystemManagedBlockTypeDef]
-    updatedAt: NotRequired[datetime]
-
-class GetGatewayRuleResponseTypeDef(TypedDict):
-    ruleId: str
-    gatewayArn: str
-    priority: int
-    conditions: list[ConditionOutputTypeDef]
-    actions: list[ActionOutputTypeDef]
-    description: str
-    createdAt: datetime
-    status: GatewayRuleStatusType
-    system: SystemManagedBlockTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateGatewayRuleResponseTypeDef(TypedDict):
-    ruleId: str
-    gatewayArn: str
-    priority: int
-    conditions: list[ConditionOutputTypeDef]
-    actions: list[ActionOutputTypeDef]
-    description: str
-    createdAt: datetime
-    status: GatewayRuleStatusType
-    system: SystemManagedBlockTypeDef
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class ConfigurationBundleActionTypeDef(TypedDict):
     staticOverride: NotRequired[StaticOverrideTypeDef]
     weightedOverride: NotRequired[WeightedOverrideUnionTypeDef]
+
+class EvaluatorConfigOutputTypeDef(TypedDict):
+    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
+    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+    derived: NotRequired[DerivedEvaluatorConfigOutputTypeDef]
+
+class EvaluatorConfigTypeDef(TypedDict):
+    llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
+    codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+    derived: NotRequired[DerivedEvaluatorConfigTypeDef]
 
 class ComputeConfigurationOutputTypeDef(TypedDict):
     ec2Configuration: NotRequired[Ec2ConfigurationOutputTypeDef]
 
 class ComputeConfigurationTypeDef(TypedDict):
     ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
+
+class RouteToTargetActionOutputTypeDef(TypedDict):
+    staticRoute: NotRequired[StaticRouteOutputTypeDef]
+    weightedRoute: NotRequired[WeightedRouteOutputTypeDef]
+
+FallbackUnionTypeDef = Union[FallbackTypeDef, FallbackOutputTypeDef]
 
 class UpdatedHarnessMemoryConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
@@ -5735,24 +5767,6 @@ CredentialProviderConfigurationUnionTypeDef = Union[
 HarnessAgentCoreGatewayConfigUnionTypeDef = Union[
     HarnessAgentCoreGatewayConfigTypeDef, HarnessAgentCoreGatewayConfigOutputTypeDef
 ]
-
-class GetEvaluatorResponseTypeDef(TypedDict):
-    evaluatorArn: str
-    evaluatorId: str
-    evaluatorName: str
-    description: str
-    evaluatorConfig: EvaluatorConfigOutputTypeDef
-    evaluatorType: EvaluatorTypeType
-    provider: ProviderType
-    level: EvaluatorLevelType
-    status: EvaluatorStatusType
-    createdAt: datetime
-    updatedAt: datetime
-    lockedForModification: bool
-    kmsKeyArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
 
 class CreateGatewayResponseTypeDef(TypedDict):
     gatewayArn: str
@@ -6033,18 +6047,27 @@ class MemoryRecordSchemaOutputTypeDef(TypedDict):
 LlmExtractionConfigUnionTypeDef = Union[
     LlmExtractionConfigTypeDef, LlmExtractionConfigOutputTypeDef
 ]
-RouteToTargetActionUnionTypeDef = Union[
-    RouteToTargetActionTypeDef, RouteToTargetActionOutputTypeDef
-]
-
-class ListGatewayRulesResponseTypeDef(TypedDict):
-    gatewayRules: list[GatewayRuleDetailTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 ConfigurationBundleActionUnionTypeDef = Union[
     ConfigurationBundleActionTypeDef, ConfigurationBundleActionOutputTypeDef
 ]
+
+class GetEvaluatorResponseTypeDef(TypedDict):
+    evaluatorArn: str
+    evaluatorId: str
+    evaluatorName: str
+    description: str
+    evaluatorConfig: EvaluatorConfigOutputTypeDef
+    evaluatorType: EvaluatorTypeType
+    provider: ProviderType
+    level: EvaluatorLevelType
+    status: EvaluatorStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    lockedForModification: bool
+    kmsKeyArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+EvaluatorConfigUnionTypeDef = Union[EvaluatorConfigTypeDef, EvaluatorConfigOutputTypeDef]
 
 class GetCapacityProviderOutputTypeDef(TypedDict):
     capacityProviderId: str
@@ -6063,6 +6086,25 @@ class GetCapacityProviderOutputTypeDef(TypedDict):
 ComputeConfigurationUnionTypeDef = Union[
     ComputeConfigurationTypeDef, ComputeConfigurationOutputTypeDef
 ]
+
+class ActionOutputTypeDef(TypedDict):
+    configurationBundle: NotRequired[ConfigurationBundleActionOutputTypeDef]
+    routeToTarget: NotRequired[RouteToTargetActionOutputTypeDef]
+
+class StaticRouteTypeDef(TypedDict):
+    targetName: str
+    model: NotRequired[str]
+    fallback: NotRequired[FallbackUnionTypeDef]
+
+class TargetTrafficSplitEntryTypeDef(TypedDict):
+    targetName: str
+    name: str
+    weight: int
+    model: NotRequired[str]
+    fallback: NotRequired[FallbackUnionTypeDef]
+    description: NotRequired[str]
+    metadata: NotRequired[Mapping[str, str]]
+
 GatewayInterceptorConfigurationUnionTypeDef = Union[
     GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
 ]
@@ -6096,23 +6138,6 @@ class HarnessToolConfigurationTypeDef(TypedDict):
     agentCoreGateway: NotRequired[HarnessAgentCoreGatewayConfigUnionTypeDef]
     inlineFunction: NotRequired[HarnessInlineFunctionConfigUnionTypeDef]
     agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
-
-class CreateEvaluatorRequestTypeDef(TypedDict):
-    evaluatorName: str
-    evaluatorConfig: EvaluatorConfigUnionTypeDef
-    level: EvaluatorLevelType
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    kmsKeyArn: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-class UpdateEvaluatorRequestTypeDef(TypedDict):
-    evaluatorId: str
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    evaluatorConfig: NotRequired[EvaluatorConfigUnionTypeDef]
-    level: NotRequired[EvaluatorLevelType]
-    kmsKeyArn: NotRequired[str]
 
 class CreateHarnessResponseTypeDef(TypedDict):
     harness: HarnessTypeDef
@@ -6234,9 +6259,22 @@ class EpisodicReflectionOverrideTypeDef(TypedDict):
 class ExtractionConfigTypeDef(TypedDict):
     llmExtractionConfig: NotRequired[LlmExtractionConfigUnionTypeDef]
 
-class ActionTypeDef(TypedDict):
-    configurationBundle: NotRequired[ConfigurationBundleActionUnionTypeDef]
-    routeToTarget: NotRequired[RouteToTargetActionUnionTypeDef]
+class CreateEvaluatorRequestTypeDef(TypedDict):
+    evaluatorName: str
+    evaluatorConfig: EvaluatorConfigUnionTypeDef
+    level: EvaluatorLevelType
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    kmsKeyArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateEvaluatorRequestTypeDef(TypedDict):
+    evaluatorId: str
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    evaluatorConfig: NotRequired[EvaluatorConfigUnionTypeDef]
+    level: NotRequired[EvaluatorLevelType]
+    kmsKeyArn: NotRequired[str]
 
 class CreateCapacityProviderInputTypeDef(TypedDict):
     name: str
@@ -6246,6 +6284,60 @@ class CreateCapacityProviderInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
+class CreateGatewayRuleResponseTypeDef(TypedDict):
+    ruleId: str
+    gatewayArn: str
+    priority: int
+    conditions: list[ConditionOutputTypeDef]
+    actions: list[ActionOutputTypeDef]
+    description: str
+    createdAt: datetime
+    status: GatewayRuleStatusType
+    system: SystemManagedBlockTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GatewayRuleDetailTypeDef(TypedDict):
+    ruleId: str
+    gatewayArn: str
+    priority: int
+    actions: list[ActionOutputTypeDef]
+    createdAt: datetime
+    status: GatewayRuleStatusType
+    conditions: NotRequired[list[ConditionOutputTypeDef]]
+    description: NotRequired[str]
+    system: NotRequired[SystemManagedBlockTypeDef]
+    updatedAt: NotRequired[datetime]
+
+class GetGatewayRuleResponseTypeDef(TypedDict):
+    ruleId: str
+    gatewayArn: str
+    priority: int
+    conditions: list[ConditionOutputTypeDef]
+    actions: list[ActionOutputTypeDef]
+    description: str
+    createdAt: datetime
+    status: GatewayRuleStatusType
+    system: SystemManagedBlockTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGatewayRuleResponseTypeDef(TypedDict):
+    ruleId: str
+    gatewayArn: str
+    priority: int
+    conditions: list[ConditionOutputTypeDef]
+    actions: list[ActionOutputTypeDef]
+    description: str
+    createdAt: datetime
+    status: GatewayRuleStatusType
+    system: SystemManagedBlockTypeDef
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+StaticRouteUnionTypeDef = Union[StaticRouteTypeDef, StaticRouteOutputTypeDef]
+TargetTrafficSplitEntryUnionTypeDef = Union[
+    TargetTrafficSplitEntryTypeDef, TargetTrafficSplitEntryOutputTypeDef
+]
 CustomJWTAuthorizerConfigurationUnionTypeDef = Union[
     CustomJWTAuthorizerConfigurationTypeDef, CustomJWTAuthorizerConfigurationOutputTypeDef
 ]
@@ -6302,7 +6394,14 @@ class CustomReflectionConfigurationTypeDef(TypedDict):
     episodicReflectionOverride: NotRequired[EpisodicReflectionOverrideTypeDef]
 
 ExtractionConfigUnionTypeDef = Union[ExtractionConfigTypeDef, ExtractionConfigOutputTypeDef]
-ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
+
+class ListGatewayRulesResponseTypeDef(TypedDict):
+    gatewayRules: list[GatewayRuleDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class WeightedRouteTypeDef(TypedDict):
+    trafficSplit: Sequence[TargetTrafficSplitEntryUnionTypeDef]
 
 class AuthorizerConfigurationTypeDef(TypedDict):
     customJWTAuthorizer: NotRequired[CustomJWTAuthorizerConfigurationUnionTypeDef]
@@ -6343,23 +6442,7 @@ MetadataSchemaEntryTypeDef = TypedDict(
         "extractionConfig": NotRequired[ExtractionConfigUnionTypeDef],
     },
 )
-
-class CreateGatewayRuleRequestTypeDef(TypedDict):
-    gatewayIdentifier: str
-    priority: int
-    actions: Sequence[ActionUnionTypeDef]
-    clientToken: NotRequired[str]
-    conditions: NotRequired[Sequence[ConditionUnionTypeDef]]
-    description: NotRequired[str]
-
-class UpdateGatewayRuleRequestTypeDef(TypedDict):
-    gatewayIdentifier: str
-    ruleId: str
-    priority: NotRequired[int]
-    conditions: NotRequired[Sequence[ConditionUnionTypeDef]]
-    actions: NotRequired[Sequence[ActionUnionTypeDef]]
-    description: NotRequired[str]
-
+WeightedRouteUnionTypeDef = Union[WeightedRouteTypeDef, WeightedRouteOutputTypeDef]
 AuthorizerConfigurationUnionTypeDef = Union[
     AuthorizerConfigurationTypeDef, AuthorizerConfigurationOutputTypeDef
 ]
@@ -6380,6 +6463,10 @@ StrategyConfigurationTypeDef = TypedDict(
 MetadataSchemaEntryUnionTypeDef = Union[
     MetadataSchemaEntryTypeDef, MetadataSchemaEntryOutputTypeDef
 ]
+
+class RouteToTargetActionTypeDef(TypedDict):
+    staticRoute: NotRequired[StaticRouteUnionTypeDef]
+    weightedRoute: NotRequired[WeightedRouteUnionTypeDef]
 
 class CreateAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeName: str
@@ -6532,6 +6619,10 @@ MemoryStrategyTypeDef = TypedDict(
 class MemoryRecordSchemaTypeDef(TypedDict):
     metadataSchema: NotRequired[Sequence[MetadataSchemaEntryUnionTypeDef]]
 
+RouteToTargetActionUnionTypeDef = Union[
+    RouteToTargetActionTypeDef, RouteToTargetActionOutputTypeDef
+]
+
 class UpdateHarnessRequestTypeDef(TypedDict):
     harnessId: str
     clientToken: NotRequired[str]
@@ -6594,6 +6685,10 @@ MemoryTypeDef = TypedDict(
 )
 MemoryRecordSchemaUnionTypeDef = Union[MemoryRecordSchemaTypeDef, MemoryRecordSchemaOutputTypeDef]
 
+class ActionTypeDef(TypedDict):
+    configurationBundle: NotRequired[ConfigurationBundleActionUnionTypeDef]
+    routeToTarget: NotRequired[RouteToTargetActionUnionTypeDef]
+
 class CreateMemoryOutputTypeDef(TypedDict):
     memory: MemoryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6642,6 +6737,8 @@ class UserPreferenceMemoryStrategyInputTypeDef(TypedDict):
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
     recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
 
+ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
+
 class CustomReflectionConfigurationInputTypeDef(TypedDict):
     episodicReflectionOverride: NotRequired[EpisodicOverrideReflectionConfigurationInputTypeDef]
 
@@ -6658,6 +6755,22 @@ class EpisodicMemoryStrategyInputTypeDef(TypedDict):
     reflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]
     memoryRecordSchema: NotRequired[MemoryRecordSchemaUnionTypeDef]
     recordExpirySpecification: NotRequired[RecordExpirySpecificationTypeDef]
+
+class CreateGatewayRuleRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    priority: int
+    actions: Sequence[ActionUnionTypeDef]
+    clientToken: NotRequired[str]
+    conditions: NotRequired[Sequence[ConditionUnionTypeDef]]
+    description: NotRequired[str]
+
+class UpdateGatewayRuleRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    ruleId: str
+    priority: NotRequired[int]
+    conditions: NotRequired[Sequence[ConditionUnionTypeDef]]
+    actions: NotRequired[Sequence[ActionUnionTypeDef]]
+    description: NotRequired[str]
 
 class ModifyReflectionConfigurationTypeDef(TypedDict):
     episodicReflectionConfiguration: NotRequired[EpisodicReflectionConfigurationInputTypeDef]

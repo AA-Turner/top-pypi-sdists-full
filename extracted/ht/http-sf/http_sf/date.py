@@ -1,23 +1,22 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from .errors import StructuredFieldError
 from .integer import parse_integer
 from .state import ParserState
+from .util import datetime_from_timestamp
 
 
 def parse_date(state: ParserState) -> datetime:
     state.cursor += 1  # consume "@"
+    number_start = state.cursor
     value = parse_integer(state)
     if not isinstance(value, int):
-        raise StructuredFieldError(
-            "Non-integer Date", position=state.cursor, offending_char=None
-        )
+        # The "." is what made the number a Decimal.
+        state.fail("Non-integer Date", state.data.index(b".", number_start))
     try:
-        return datetime.fromtimestamp(value, tz=timezone.utc)
-    except (ValueError, OSError) as why:
-        raise StructuredFieldError(
-            "Date value out of range", position=state.cursor, offending_char=None
-        ) from why
+        date = datetime_from_timestamp(value)
+    except OverflowError as why:
+        state.fail("Date value out of range", cause=why)
+    return date
 
 
 def ser_date(inval: datetime) -> str:

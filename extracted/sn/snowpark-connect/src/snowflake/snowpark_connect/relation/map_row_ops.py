@@ -11,6 +11,9 @@ from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentExc
 import snowflake.snowpark_connect.relation.utils as utils
 from snowflake import snowpark
 from snowflake.snowpark import functions as snowpark_fn
+from snowflake.snowpark.dataframe_na_functions import (
+    _is_value_type_matching_for_na_function,
+)
 from snowflake.snowpark.functions import (
     col,
     expr as snowpark_expr,
@@ -42,7 +45,10 @@ from snowflake.snowpark_connect.column_name_handler import (
     set_schema_getter,
     union_restorable_name,
 )
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_spark_duplicate_column_resolution_enabled,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -97,7 +103,7 @@ def cast_columns(
             partition_hint=df_container.partition_hint,
             dataframe_hint=df_container.dataframe_hint,
             can_be_cached=df_container.can_be_cached,
-            can_be_materialized=df_container.can_be_materialized,
+            materialization_policy=df_container.materialization_policy,
             aggregate_metadata=df_container._aggregate_metadata,
         )
         # Assign directly — do NOT pass through the constructor, which calls
@@ -439,13 +445,20 @@ def map_deduplicate(
     else:
         result: snowpark.DataFrame = input_df.drop_duplicates(*subset_snowpark_columns)
 
+    column_map = input_container.column_map
+    if not (rel.deduplicate.all_columns_as_keys or rel.deduplicate.column_names):
+        # Only SQL DISTINCT (map_sql "Distinct") sends no keys; Spark Connect
+        # rejects that from clients. Spark's ORDER BY resolution does not look
+        # below a Distinct, unlike DataFrame distinct() (SNOW-4222753).
+        column_map = column_map.without_sort_resolution_child()
+
     return DataFrameContainer(
         result,
-        input_container.column_map,
+        column_map,
         input_container.table_name,
         input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def map_dropna(
@@ -463,6 +476,17 @@ def map_dropna(
     else:
         thresh = None
         how = "any"
+    if len(rel.drop_na.cols) == 0 and is_spark_duplicate_column_resolution_enabled():
+        # Spark resolves every output name. Two attributes that share a name
+        # raise AMBIGUOUS_REFERENCE. One attribute projected twice does not.
+        ambiguous = input_container.column_map.ambiguous_duplicate_name()
+        if ambiguous is not None:
+            exception = AnalysisException(
+                f"[AMBIGUOUS_REFERENCE] Reference `{ambiguous}` is ambiguous, "
+                f"could be: [`{ambiguous}`, `{ambiguous}`]."
+            )
+            attach_custom_error_code(exception, ErrorCodes.AMBIGUOUS_COLUMN_NAME)
+            raise exception
     if len(rel.drop_na.cols) > 0:
         columns: list[str] = []
         nested_columns: list[str] = []
@@ -547,7 +571,7 @@ def map_dropna(
         input_container.table_name,
         input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def map_fillna(
@@ -627,7 +651,7 @@ def map_fillna(
                 input_container.table_name,
                 input_container.alias,
                 cached_schema_getter=lambda: input_df.schema,
-            )
+            ).with_known_schema(input_container.known_schema())
 
         assert len(columns) == len(
             values
@@ -643,9 +667,8 @@ def map_fillna(
             for col_name, val in zip(columns, values)
         ]
 
-        result = input_df.fillna(
-            dict(zip(columns, converted_values)), include_decimal=True
-        )
+        fill_map = dict(zip(columns, converted_values))
+        result = input_df.fillna(fill_map, include_decimal=True)
     else:
         assert len(rel.fill_na.values) == 1
         proto_value: expressions_proto.Expression.Literal = rel.fill_na.values[0]
@@ -659,6 +682,7 @@ def map_fillna(
         ]
 
         # Spark casts float fill values to int for integer columns; Snowpark doesn't
+        fill_map = {name: fill_value for name in visible_columns}
         if isinstance(fill_value, float):
             visible_columns_set = set(visible_columns)
             fill_value_dict: dict[str, float | int] = {
@@ -668,6 +692,7 @@ def map_fillna(
                 for field in input_df.schema.fields
                 if field.name in visible_columns_set
             }
+            fill_map = fill_value_dict
             result = input_df.fillna(fill_value_dict, include_decimal=True)
         elif has_hidden_columns or METADATA_FILENAME_COLUMN in schema_fields:
             result = input_df.fillna(
@@ -678,11 +703,32 @@ def map_fillna(
 
     return DataFrameContainer(
         result,
-        input_container.column_map,
+        input_container.column_map.with_sort_resolution_replaced(
+            _fillna_rewritten_columns(fill_map, schema_fields)
+        ),
         input_container.table_name,
         input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
+
+
+def _fillna_rewritten_columns(
+    fill_map: dict[str, object], schema_fields: dict
+) -> set[str]:
+    """Columns whose values fillna may change: those its value's type matches.
+
+    Snowpark's fillna skips a column the value does not match (a string fill
+    on an int column), so that column keeps its value and ORDER BY may still
+    resolve to it (SNOW-4222753).
+    """
+    return {
+        name
+        for name, value in fill_map.items()
+        if name in schema_fields
+        and _is_value_type_matching_for_na_function(
+            value, schema_fields[name].datatype, include_decimal=True
+        )
+    }
 
 
 def _check_set_op_column_name_duplication(column_map) -> None:
@@ -863,9 +909,10 @@ def map_union(
         result = left_df.unionAll(right_df)
         _left_schema = get_schema_from_result(left_result)
         _right_schema = get_schema_from_result(right_result)
+        # Rows from the right side are not the left side's NSS data.
         return DataFrameContainer(
             result,
-            column_map=left_result.column_map,
+            column_map=left_result.column_map.without_sort_resolution_child().without_nss_data(),
             cached_schema_getter=lambda: StructType(
                 [
                     StructField(
@@ -884,7 +931,7 @@ def map_union(
         # union operation does not preserve column qualifiers
         return DataFrameContainer(
             result,
-            column_map=left_result.column_map,
+            column_map=left_result.column_map.without_sort_resolution_child().without_nss_data(),
             cached_schema_getter=lambda: StructType(
                 [
                     StructField(
@@ -960,7 +1007,7 @@ def map_intersect(
 
     return DataFrameContainer(
         dataframe=result,
-        column_map=left_result.column_map,
+        column_map=left_result.column_map.without_sort_resolution_child(),
         table_name=left_result.table_name,
         cached_schema_getter=left_result.cached_schema_getter,
     )
@@ -1055,7 +1102,7 @@ def map_except(
     # union operation does not preserve column qualifiers
     return DataFrameContainer(
         dataframe=result_df,
-        column_map=left_result.column_map,
+        column_map=left_result.column_map.without_sort_resolution_child(),
         table_name=left_result.table_name,
         cached_schema_getter=left_result.cached_schema_getter,
     )
@@ -1087,7 +1134,7 @@ def map_filter(
         input_container.table_name,
         input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def map_limit(
@@ -1114,7 +1161,7 @@ def map_limit(
         table_name=input_container.table_name,
         alias=input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def map_offset(
@@ -1140,7 +1187,7 @@ def map_offset(
         table_name=input_container.table_name,
         alias=input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def map_replace(
@@ -1194,7 +1241,8 @@ def map_replace(
     def replace_case_expr(col_name: str, old_vals: list, new_vals: list):
         """
         Generate a SQL CASE expression to replace values in a DataFrame column,
-        matching PySpark's DataFrame.replace() behavior exactly.
+        matching PySpark's DataFrame.replace() behavior exactly. ``None`` when
+        no replacement applies to the column's type.
 
         - Numeric columns:
             - Non-numeric replacement values are skipped.
@@ -1283,7 +1331,7 @@ def map_replace(
                     ov_expr = f"'{ov}'"
                     case_expr += f" WHEN {col_name} = {ov_expr} THEN {nv_expr}"
         if case_expr == "CASE":
-            return col(col_name)
+            return None
         else:
             case_expr += f" ELSE {col_name} END"
             return snowpark_expr(case_expr)
@@ -1310,8 +1358,13 @@ def map_replace(
             for c in result.column_map.columns
             if c.is_visible and c.snowpark_name != METADATA_FILENAME_COLUMN
         ]
+    case_exprs = [replace_case_expr(c, to_replace, values) for c in columns]
+    # A column no replacement applies to keeps its value, so ORDER BY may still
+    # resolve to it (SNOW-4222753).
+    rewritten = {c for c, expr in zip(columns, case_exprs) if expr is not None}
     input_df = input_df.with_columns(
-        columns, [replace_case_expr(c, to_replace, values) for c in columns]
+        columns,
+        [col(c) if expr is None else expr for c, expr in zip(columns, case_exprs)],
     )
 
     result_df = input_df.select(*[col(c) for c in ordered_columns])
@@ -1319,7 +1372,7 @@ def map_replace(
 
     return DataFrameContainer(
         result_df,
-        column_map=column_map,
+        column_map=column_map.with_sort_resolution_replaced(rewritten),
         table_name=table_name,
         cached_schema_getter=lambda: original_schema,
     )
@@ -1366,7 +1419,7 @@ def map_sample(
             table_name=input_container.table_name,
             alias=input_container.alias,
             cached_schema_getter=lambda: input_df.schema,
-        )
+        ).with_known_schema(input_container.known_schema())
 
 
 def map_tail(
@@ -1391,7 +1444,7 @@ def map_tail(
         table_name=input_container.table_name,
         alias=input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())
 
 
 def _union_by_name_optimized(

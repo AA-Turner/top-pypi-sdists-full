@@ -473,10 +473,10 @@ def test_main_entry_point_survives_absent_distribution_metadata(monkeypatch):
 
     A Nuitka standalone binary ships no distribution metadata, so
     ``distribution_of()`` answers ``None`` for the CLI's own package just as it
-    does for ecosystem plumbing, and the walk lands on ``click_extra.__main__``.
-    That entry point must survive: traded for the root command's callback
-    module, it loses the ``__main__`` exemption and ``--version`` renders
-    nothing at all.
+    does for ecosystem plumbing, and the CLI module resolves to
+    ``click_extra.__main__``. That entry point must survive: traded for the root
+    command's callback module, it loses the ``__main__`` exemption and
+    ``--version`` renders nothing at all.
     """
     fake_main = types.ModuleType("click_extra.__main__")
     fake_main.__package__ = "click_extra"
@@ -506,6 +506,68 @@ def test_main_entry_point_survives_absent_distribution_metadata(monkeypatch):
         # The pre-baked ``__version__`` of the parent package, which is the only
         # place a metadata-less binary can read a version from.
         assert option.module_version == __version__
+
+
+@pytest.mark.parametrize("module_name", ("orchard.__main__", "orchard.cli"))
+def test_prebaked_fields_read_from_the_package(monkeypatch, module_name):
+    """A field baked into the package `__init__.py` reaches the CLI module beside it.
+
+    `click-extra prebake all` writes its dunders into the `__init__.py` of each
+    package a console script enters, while the CLI sits in a sibling module.
+    """
+    package = types.ModuleType("orchard")
+    package.__package__ = "orchard"
+    vars(package).update({"__git_tag__": "v1.2.3", "__build_os__": "Linux 6.1"})
+    cli = types.ModuleType(module_name)
+    cli.__package__ = "orchard"
+    monkeypatch.setitem(sys.modules, "orchard", package)
+    monkeypatch.setitem(sys.modules, module_name, cli)
+
+    option = VersionOption(["--version"])
+    option.pin_field("module", cli)
+    # No live Git and no archive: the baked value is the only source left.
+    option.pin_field("git_repo_path", None)
+    option.__dict__["_archival_data"] = {}
+
+    assert option.git_tag == "v1.2.3"
+    assert option.build_os == "Linux 6.1"
+
+
+def test_prebaked_fields_skip_the_package_of_ecosystem_plumbing(monkeypatch):
+    """A walk ending on a `CliRunner` never reads Click Extra's own baked fields."""
+    monkeypatch.setattr("click_extra.__git_tag__", "v9.9.9", raising=False)
+
+    option = VersionOption(["--version"])
+    option.pin_field("module", sys.modules["click_extra.testing"])
+    option.pin_field("git_repo_path", None)
+    option.__dict__["_archival_data"] = {}
+
+    assert option.git_tag is None
+
+
+@pytest.mark.parametrize(
+    ("module_name", "package", "expected"),
+    (
+        pytest.param("orchard.__main__", "orchard", "orchard", id="package_main"),
+        pytest.param("__main__", "orchard", "orchard", id="python_m"),
+        pytest.param("orchard.cli", "orchard", "orchard.cli", id="package_module"),
+        pytest.param("__main__", "", "weather.py", id="script"),
+    ),
+)
+def test_exec_name(module_name, package, expected):
+    """A `__main__` entry point is named after its package, however it started.
+
+    `python -m orchard` runs the entry point under the `__main__` name, while a
+    console script or a compiled binary imports it as `orchard.__main__`.
+    """
+    module = types.ModuleType(module_name)
+    module.__package__ = package
+    module.__file__ = "/fruits/weather.py"
+
+    option = VersionOption(["--version"])
+    option.pin_field("module", module)
+
+    assert option.exec_name == expected
 
 
 def test_package_version_resolves_import_name_to_distribution(monkeypatch):
@@ -578,9 +640,9 @@ def test_cli_frame_fallback(monkeypatch):
     saved_names: dict[int, tuple[dict, object]] = {}
     missing = object()
 
-    def patched_stack():
+    def patched_stack(context=1):
         """Make every frame look like it belongs to click_extra."""
-        frames = original_stack()
+        frames = original_stack(context)
         for frame_info in frames:
             frame_globals = frame_info.frame.f_globals
             saved_names.setdefault(
@@ -716,6 +778,94 @@ def test_command_string_cli(tmp_path, args, expected):
             strip_ansi(result.stderr),
             re.MULTILINE,
         )
+
+
+NUITKA_RUNNER = dedent("""\
+    import sys
+    import {module} as user_main
+    sys.exit(user_main.{function}())
+    """)
+"""What Nuitka compiles for `--main-entry-point={{name}}={{module}}:{{function}}`.
+
+A `__main__` with no package and no `__version__`, which binds the entry point
+module and calls its function: a compiled binary starts here.
+"""
+
+
+@pytest.mark.parametrize(
+    ("module", "function"),
+    (
+        pytest.param("click_extra.__main__", "main", id="main_function"),
+        pytest.param("click_extra.cli", "demo", id="command_object"),
+    ),
+)
+def test_nuitka_runner_resolves_the_entry_point_version(tmp_path, module, function):
+    """The runner of a compiled binary prints the version `python -m` prints.
+
+    An entry point function stops the stack walk in its own module. A command
+    object leaves no frame of its module on the stack, and the walk ends on the
+    runner: the module of the command's callback then names the CLI.
+    """
+    runner = tmp_path / "click-extra.py"
+    runner.write_text(
+        NUITKA_RUNNER.format(module=module, function=function), encoding="UTF-8"
+    )
+
+    outputs = []
+    for argv in ((str(runner),), ("-m", "click_extra")):
+        result = subprocess.run(
+            [sys.executable, *argv, "--version"],
+            capture_output=True,
+            text=True,
+            encoding="UTF-8",
+            cwd=tmp_path,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        outputs.append(strip_ansi(result.stdout))
+
+    assert outputs[1].startswith("Click Extra, version ")
+    assert "None" not in outputs[1]
+    assert outputs[0] == outputs[1]
+
+
+def test_nuitka_runner_of_a_package_without_metadata(tmp_path):
+    """A binary whose entry point is a command object reads its package version.
+
+    The runner imports a package no distribution provides, as in a compiled
+    binary, so the version can only come from the `__version__` of its
+    `__init__.py`.
+    """
+    package = tmp_path / "orchard"
+    package.mkdir()
+    (package / "__init__.py").write_text('__version__ = "1.2.3"\n', encoding="UTF-8")
+    (package / "cli.py").write_text(
+        dedent("""\
+            from click_extra import command, echo
+
+
+            @command
+            def cli():
+                echo("Sunny.")
+            """),
+        encoding="UTF-8",
+    )
+    runner = tmp_path / "orchard-runner.py"
+    runner.write_text(
+        NUITKA_RUNNER.format(module="orchard.cli", function="cli"), encoding="UTF-8"
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(runner), "--version"],
+        capture_output=True,
+        text=True,
+        encoding="UTF-8",
+        cwd=tmp_path,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert strip_ansi(result.stdout) == "cli, version 1.2.3\n"
 
 
 @pytest.mark.parametrize(

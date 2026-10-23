@@ -12,17 +12,26 @@ import contextlib
 import hashlib
 import json
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping
+from dataclasses import dataclass
 from operator import itemgetter
 from typing import Any
 
 from docutils import nodes
 from sphinx.application import Sphinx
 
+from sphinx_needs import _read_watch
 from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import NeedsMutable, SphinxNeedsData
-from sphinx_needs.derive import NO_DEFAULT, DeriveRule, fingerprint_names
+from sphinx_needs.derive import (
+    NO_DEFAULT,
+    DeriveRule,
+    fingerprint_names,
+    join_name_problem,
+)
 from sphinx_needs.exceptions import NeedsInvalidFilter
 from sphinx_needs.filter_common import (
+    _constant_filter_message,
+    _is_constant_filter,
     filter_needs_and_parts,
     filter_single_need,
 )
@@ -38,7 +47,12 @@ from sphinx_needs.need_item import (
     NeedPartItem,
     _natural_sort_key_total,
 )
-from sphinx_needs.needs_schema import FieldSchema, FieldsSchema, LinkSchema
+from sphinx_needs.needs_schema import (
+    FieldSchema,
+    FieldShape,
+    FieldsSchema,
+    LinkSchema,
+)
 from sphinx_needs.nodes import Need
 from sphinx_needs.roles.need_ref import NeedRef
 from sphinx_needs.utils import logger
@@ -504,6 +518,14 @@ def links_from_content(
 
     Same links are only added once.
 
+    It is the per-need spelling of a :ref:`derived link type <needs_derive>` of the kind
+    ``content_links``, with ``from`` for ``need_id`` and ``where`` for ``filter``
+    (see :ref:`dynamic_functions_derived`).
+    A link type filled by the call, like one deriving ``content_links``, may be a member of
+    a :ref:`union <needs_derive_union>`, which then holds its links; while its ``filter``
+    cannot be read, such as one reading ``current_need`` by a key that is not written out,
+    the call runs after the other built-in functions, and the union after it.
+
     .. versionchanged:: 8.0.0
 
        Previously used a regex on raw RST source text to extract ``:need:`` references.
@@ -635,7 +657,12 @@ def links_from_filter(
     The linked needs come in need-id order, comparing ids as strings
     (so ``REQ_10`` comes before ``REQ_9``); the link list is sorted for the output anyway.
     It is the per-need spelling of a :ref:`derived link type <needs_derive>` of the kind
-    ``links``.
+    ``links``, with ``filter`` for ``where`` and the same ``include_self`` and
+    ``include_parts`` (see :ref:`dynamic_functions_derived`).
+    A link type filled by the call, like one deriving ``links``, may be a member of a
+    :ref:`union <needs_derive_union>`, which then holds its links; while its ``filter``
+    cannot be read, such as one naming ``needs``, the call runs after the other built-in
+    functions, and the union after it.
 
     The need that contains the call is not linked, even if it passes the filter, and
     neither are its own parts: set ``include_self=True`` to keep them.
@@ -689,8 +716,11 @@ def links_from_filter(
         )
     candidates = _every_need_and_part(needs, include_parts=include_parts)
     config = NeedsSphinxConfig(app.config)
-    # a filter that does not parse fails the call
+    # a filter that does not parse fails the call, as one that is a constant does:
+    # every candidate would refuse it, and the call would link nothing, silently
     compiled = compile(filter, "<links_from_filter>", "eval")
+    if _is_constant_filter(filter):
+        raise ValueError(_constant_filter_message(filter))
     origin_docname = need["docname"] if need else None
     found: list[NeedItem | NeedPartItem] = []
     for candidate in candidates:
@@ -710,6 +740,124 @@ def links_from_filter(
         if passes:
             found.append(candidate)
     return _links_to(found, need, include_self=include_self)
+
+
+@records_reads
+def links_from_match(
+    app: Sphinx,
+    need: NeedItem | NeedPartItem | None,
+    needs: NeedsMutable | NeedsView,
+    field: str,
+    equals: str,
+    include_self: bool = False,
+    filter: str | None = None,
+    *,
+    reads: UnresolvedReads | None = None,
+) -> list[NeedLink]:
+    """
+    Links to every need whose ``field`` equals one of this need's ``equals`` values.
+
+    .. versionadded:: 9.1.0
+
+    It is the per-need spelling of a :ref:`derived link type <needs_derive>` of the kind
+    ``links`` with the role :ref:`join <needs_derive_join>`, ``join = { field = …,
+    equals = … }``, and it links to the same needs.
+    A link type filled by the call, like one deriving ``links`` with ``join``, may be a
+    member of a :ref:`union <needs_derive_union>`, which then holds its links; while its
+    ``filter`` cannot be read, such as one naming ``needs``, the call runs after the other
+    built-in functions, and the union after it.
+
+    Both fields hold text, a string or an array of strings, and both are read the same
+    way: a string is split on ``,``, an array taken item by item, each value stripped of
+    whitespace, empty values dropped. A need matches when its ``field`` and this need's
+    ``equals`` share a value, compared exactly (case-sensitive). Each need is linked
+    once, however many values it shares, in need-id order, comparing ids as strings
+    (so ``REQ_10`` comes before ``REQ_9``); the link list is sorted for the output
+    anyway. Only whole needs are candidates, never their parts. The need that contains
+    the call is not linked, even if it matches, unless ``include_self=True``.
+
+    ``filter`` keeps only the matches that pass it, and is read as
+    :func:`links_from_filter` reads its filter (``current_need`` is the need that
+    contains the call). No match gives no links. The call fails, and links nothing, if
+    ``field`` or ``equals`` is empty, or names a field that does not hold text (a number,
+    a boolean, a link type).
+
+    .. syntax-example::
+
+        .. spec:: login
+           :id: LFM_SPEC_1
+
+        .. spec:: logout
+           :id: LFM_SPEC_2
+
+        .. test:: Session tests
+           :id: LFM_TEST_1
+           :value: login, logout
+           :links: [[links_from_match("title", "value")]]
+
+           Links to the specs titled one of its values, ``LFM_SPEC_1`` and ``LFM_SPEC_2``.
+
+    The nearest spelling of sphinx-test-reports' ``tr_link(test_option, target_option)``
+    is ``links_from_match(target_option, test_option, include_self=True)`` -- note the
+    arguments' order, swapped. ``tr_link`` links a need once per value that matches it,
+    in the order the project holds the needs, compares each need's ``target_option``
+    whole (so an array, a number or a comma-separated value never matches, and an
+    unstripped one only as written), and fails when this need's ``test_option`` is an
+    array or a number; ``links_from_match`` reads both sides by value and fails the call
+    on a number or boolean field.
+
+    :param field: The field read on every need.
+    :param equals: The field of this need whose values a need's ``field`` must share.
+    :param include_self: If True, the current need is linked too, if it matches.
+    :param filter: :ref:`filter_string`, which a matching need must pass too.
+    :return: The links to the needs that match.
+    """
+    for key, name in (("field", field), ("equals", equals)):
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError(f"links_from_match needs a non-empty {key!r}")
+    schema = SphinxNeedsData(app.env).get_schema()
+    link_fields = frozenset(schema.iter_link_field_names())
+    for key, name in (("field", field), ("equals", equals)):
+        if (problem := join_name_problem(name, schema, link_fields)) is not None:
+            raise ValueError(
+                f"links_from_match: the argument {key!r} names {name!r}{problem}"
+            )
+    # a filter that does not parse fails the call, as one that is a constant does:
+    # every candidate would refuse it, and the call would link nothing, silently
+    compiled = None if not filter else compile(filter, "<links_from_match>", "eval")
+    if filter and _is_constant_filter(filter):
+        raise ValueError(_constant_filter_message(filter))
+    if need is None:
+        return []
+    matched = join_matches(
+        need, needs, field, equals, include_self=include_self, reads=reads
+    )
+    if filter:
+        # imported here, as the order module imports this one
+        from sphinx_needs.functions.order import filter_names
+
+        config = NeedsSphinxConfig(app.config)
+        # every need, for a filter naming ``needs``; built only for one
+        every = list(needs.values()) if filter_names(filter).opaque else None
+        kept: list[NeedItem] = []
+        for candidate in matched:
+            try:
+                passes = filter_single_need(
+                    candidate,
+                    config,
+                    filter,
+                    every,
+                    need,
+                    filter_compiled=compiled,
+                    origin_docname=need["docname"],
+                )
+            except NeedsInvalidFilter:
+                # it cannot be evaluated on this candidate: the candidate does not pass
+                passes = False
+            if passes:
+                kept.append(candidate)
+        matched = kept
+    return [NeedLink(id=candidate["id"]) for candidate in matched]
 
 
 def _every_need_and_part(
@@ -798,6 +946,22 @@ def execute_rule(
     """
     config = NeedsSphinxConfig(app.config)
     link_fields = frozenset(schema.iter_link_field_names())
+    if rule.join is not None:
+        matched = join_matches(
+            need,
+            needs,
+            rule.join.field,
+            rule.join.equals,
+            include_self=rule.include_self,
+            reads=reads,
+        )
+        if rule.kind == "links":
+            return [
+                NeedLink(id=match["id"])
+                for match in matched
+                if _passes(match, rule.where, config, reads)
+            ]
+        return _rule_copy_over(need, matched, rule, field_schema, reads)
     if rule.kind == "links":
         return _rule_links(need, needs, rule, config, cache)
     if rule.kind == "content_links":
@@ -817,6 +981,8 @@ def execute_rule(
             for link in found
             if link.id in needs and _passes(needs[link.id], rule.where, config, None)
         ]
+    if rule.kind == "union":
+        return _rule_union(need, rule, reads)
     if rule.kind == "hash":
         return _rule_hash(need, rule, link_fields, reads)
     if rule.kind == "fingerprint":
@@ -875,6 +1041,93 @@ def execute_rule(
                         collected.append(value)
             return collected
     raise ValueError(f"unknown kind {rule.kind!r}")
+
+
+def join_values(value: Any) -> list[str]:
+    """The values a join compares a field by, on both sides of the join.
+
+    A string is split on ``,``; an array gives its string items, each one value (an
+    item is not split again); each value is stripped of whitespace (as Python's
+    ``str.strip()`` strips it) and an empty one dropped. Anything else (``None``, a
+    number, a boolean) gives none.
+    """
+    if isinstance(value, str):
+        items = value.split(",")
+    elif isinstance(value, list | tuple):
+        items = [item for item in value if isinstance(item, str)]
+    else:
+        return []
+    return [stripped for item in items if (stripped := item.strip())]
+
+
+@dataclass(frozen=True, slots=True)
+class _JoinIndex:
+    """Every need by the values of one field (:func:`join_values`).
+
+    :ivar ids: Each value, with the ids of the needs holding it, as the needs come
+        (:func:`join_matches` takes each match once, in need-id order).
+    :ivar pending: The needs whose field was not computed yet when the index was
+        built (by your own function, which runs after every rule of the stratum).
+    """
+
+    ids: dict[str, list[str]]
+    pending: tuple[str, ...]
+
+
+def _join_index(
+    needs: NeedsMutable | NeedsView, field: str, reads: UnresolvedReads | None
+) -> _JoinIndex:
+    """Index every need by the values of ``field``."""
+    ids: dict[str, list[str]] = {}
+    pending: list[str] = []
+    # neither the order nor a need listed twice matters: join_matches sorts a set
+    for need_id, candidate in needs.items():
+        if reads is not None and reads.is_pending(need_id, field):
+            pending.append(need_id)
+        for value in join_values(candidate.get(field)):
+            ids.setdefault(value, []).append(need_id)
+    return _JoinIndex(ids, tuple(pending))
+
+
+def join_matches(
+    need: NeedItem | NeedPartItem,
+    needs: NeedsMutable | NeedsView,
+    field: str,
+    equals: str,
+    *,
+    include_self: bool,
+    reads: UnresolvedReads | None,
+) -> list[NeedItem]:
+    """The needs whose ``field`` shares a value with ``need``'s ``equals``.
+
+    Both sides are compared by :func:`join_values`; each need matched once, however many
+    values it shares, in need-id order (the ids compared as strings). Needs only: a
+    part is never one. ``need`` itself only with ``include_self``.
+
+    The index of ``field`` is built once per stratum of the pass (the link fields, the
+    other fields, the late rules), shared by every rule and call of the stratum reading
+    it (``reads.shared``); outside the pass, once per call.
+    """
+    shared = None if reads is None else reads.shared
+    key = ("join", field)
+    index: _JoinIndex | None = None if shared is None else shared.get(key)
+    if index is None:
+        index = _join_index(needs, field, reads)
+        if shared is not None:
+            shared[key] = index
+    values = join_values(need.get(equals))
+    if reads is not None:
+        reads.note_read(need, equals)
+        # a need without values matches nothing, whatever the others hold
+        if values:
+            for need_id in index.pending:
+                reads.note_read(needs[need_id], field)
+    found: set[str] = set()
+    for value in values:
+        found.update(index.ids.get(value, ()))
+    if not include_self:
+        found.discard(need["id"])
+    return [needs[need_id] for need_id in sorted(found)]
 
 
 def over_candidates(
@@ -940,8 +1193,13 @@ def _items(value: Any) -> list[Any]:
 
 def _order_of(schema: FieldsSchema, name: str) -> Callable[[Any], Any] | None:
     """How ``min`` / ``max`` order the values of a field: numbers by value, an enum by
-    its declared order; ``None`` for a value outside the order."""
-    field = schema.get_extra_field(name) or schema.get_core_field(name)
+    its declared order; ``None`` for a value outside the order.
+
+    One order per field, for the needs of every type: the enum of the field's global
+    declaration. A need type that narrows the enum declares a subset of it, whose own
+    order is not read.
+    """
+    field = schema.global_declaration(name)
     if field is not None and field.type == "string":
         enum = list(field.schema.get("enum", ()))
         return lambda value: enum.index(value) if value in enum else None
@@ -1012,6 +1270,24 @@ def _rule_copy_over(
     return setting[0][1][rule.field]
 
 
+def _rule_union(
+    need: NeedItem, rule: DeriveRule, reads: UnresolvedReads | None
+) -> list[NeedLink]:
+    """The links of the members, in the order the rule names them, each in its
+    member's order: each link once, by its target, part and condition, carried as
+    written (``REQ_1`` and ``REQ_1[status == 'open']`` are two links)."""
+    links: list[NeedLink] = []
+    seen: set[NeedLink] = set()
+    for name in rule.fields:
+        if reads is not None:
+            reads.note_read(need, name)
+        for link in need.get_links(name, as_str=False):
+            if link not in seen:
+                seen.add(link)
+                links.append(link)
+    return links
+
+
 def _rule_hash(
     need: NeedItem,
     rule: DeriveRule,
@@ -1068,7 +1344,7 @@ def _rule_fingerprint(
     out once per pass (``cache``).
     """
     key = ("fingerprint", rule.exclude)
-    names: list[tuple[str, FieldSchema | None, str | None]] | None = (
+    names: list[tuple[str, FieldShape | None, str | None]] | None = (
         None if cache is None else cache.get(key)
     )
     if names is None:
@@ -1135,22 +1411,30 @@ def _rule_links(
     """
     assert rule.where is not None, "links has a where"
     key = ("links", rule.where, rule.include_parts)
-    found: list[tuple[NeedLink, str]] | None = None if cache is None else cache.get(key)
-    if found is None:
-        found = [
-            (
-                NeedLink(id=candidate["id_parent"], part=candidate["id"])
-                if candidate["is_part"]
-                else NeedLink(id=candidate["id"]),
-                candidate["id_parent"] if candidate["is_part"] else candidate["id"],
-            )
-            for candidate in _every_need_and_part(
-                needs, include_parts=rule.include_parts
-            )
-            if _passes(candidate, rule.where, config, None)
-        ]
+    cached: tuple[list[tuple[NeedLink, str]], list[tuple[str, str]]] | None = (
+        None if cache is None else cache.get(key)
+    )
+    if cached is None:
+        # what ``where`` read, for the check of the order of the pass: each need
+        # computing the rule reads it, though it is tested once
+        with _read_watch.recording() as read:
+            found = [
+                (
+                    NeedLink(id=candidate["id_parent"], part=candidate["id"])
+                    if candidate["is_part"]
+                    else NeedLink(id=candidate["id"]),
+                    candidate["id_parent"] if candidate["is_part"] else candidate["id"],
+                )
+                for candidate in _every_need_and_part(
+                    needs, include_parts=rule.include_parts
+                )
+                if _passes(candidate, rule.where, config, None)
+            ]
         if cache is not None:
-            cache[key] = found
+            cache[key] = (found, read)
+    else:
+        found, read = cached
+        _read_watch.replay(read)
     if rule.include_self:
         return [link for link, _ in found]
     return [link for link, owner in found if owner != need["id"]]

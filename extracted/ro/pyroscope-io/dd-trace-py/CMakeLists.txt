@@ -85,6 +85,7 @@ set(STACK_SOURCES
         ${PROFILING_DIR}/stack/src/sampler.cpp
         ${PROFILING_DIR}/stack/src/span_links.cpp
         ${PROFILING_DIR}/stack/src/stack_renderer.cpp
+        ${PROFILING_DIR}/stack/src/cpu_timer.cpp
 )
 
 set(FULL_EXTENSION_NAME "datadog_mem_profiler")

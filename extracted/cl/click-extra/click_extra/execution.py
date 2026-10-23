@@ -42,7 +42,6 @@ import sys
 import threading
 import time
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
 from gettext import gettext as _, ngettext
@@ -52,24 +51,22 @@ from typing import Final, NoReturn, TypeVar, cast
 
 import click
 from boltons.iterutils import flatten
-from boltons.strutils import strip_ansi
 from click import echo
 from click._utils import UNSET
 from click.core import ParameterSource
 from click.shell_completion import CompletionItem
-from extra_platforms import is_windows
 
 from . import context
 from ._deprecated import warn_deprecated_argument
-from ._utils import exception_chain
+from ._utils import IS_WINDOWS, exception_chain
 from .envvar import env_copy
 from .parameters import ExtraOption
 from .theme import get_current_theme
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Iterator, Sequence
-    from concurrent.futures import Future
+    from collections.abc import Callable, Generator, Iterable, Sequence
+    from concurrent.futures import Future, ThreadPoolExecutor
     from pathlib import Path
     from types import FrameType
     from typing import IO, Any
@@ -90,6 +87,20 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 R = TypeVar("R")
+
+
+def is_windows() -> bool:
+    """Whether the running platform is Windows, per `extra_platforms`.
+
+    A thin wrapper around `extra_platforms.is_windows()` with a deferred
+    import, which keeps extra_platforms off the startup path of every CLI.
+    Kept under the same name so the POSIX-only signal reads below stay under a
+    guard `tests/test_execution.py` recognizes.
+    """
+    # Deferred import: keeps extra_platforms off the startup path of every CLI.
+    from extra_platforms import is_windows as platform_is_windows
+
+    return platform_is_windows()
 
 
 def _logical_cpu_count() -> int | None:
@@ -424,11 +435,43 @@ def _resolve_worker_cap(ctx: click.Context | None, serial_at_debug: bool) -> int
     return resolve_jobs(ctx, sys.maxsize, serial_at_debug=serial_at_debug)
 
 
+_JOIN_POLL: Final = 0.1
+"""Seconds between two checks while the main thread waits on another thread.
+
+A bounded wait returns to the interpreter that often, which is when a pending
+Ctrl+C is handled. Two cases need it. On Windows, no signal interrupts a wait on
+a lock. On every platform, a signal that lands after the interpreter last checked
+for one and before the thread blocked in the C library interrupts nothing: its
+handler runs only when the wait returns. {func}`_exit_interrupted` joins the
+running threads in such slices, and {func}`_wait_result` waits on each task of
+{func}`run_jobs` and {func}`run_lanes` the same way.
+"""
+
+
+def _wait_result(future: Future[R]) -> R:
+    """The result of `future`, waited for in slices of {data}`_JOIN_POLL` seconds.
+
+    A Ctrl+C that lands as the main thread enters the wait is then handled within
+    one slice. An unbounded wait would hand it to the handler only once the task
+    returns, however long it runs: see {data}`_JOIN_POLL`.
+
+    The future is read once it is done, never with a timeout of its own. A timed
+    read that runs out raises the {exc}`TimeoutError` a task may raise itself,
+    like a {exc}`socket.timeout`, and the two could not be told apart.
+    """
+    # Deferred import: keeps concurrent.futures off the startup path of every CLI.
+    from concurrent.futures import wait
+
+    while not future.done():
+        wait((future,), timeout=_JOIN_POLL)
+    return future.result()
+
+
 @contextmanager
 def _interruptible_pool(
     max_workers: int,
     stop: threading.Event | None = None,
-) -> Iterator[ThreadPoolExecutor]:
+) -> Generator[ThreadPoolExecutor, None, None]:
     """Yield a thread pool whose teardown honors a prompt interrupt.
 
     Wraps a {class}`~concurrent.futures.ThreadPoolExecutor` for a `with` body
@@ -449,6 +492,9 @@ def _interruptible_pool(
 
     Shared by {func}`run_jobs` and {func}`run_lanes`, the two parallel drivers.
     """
+    # Deferred import: keeps concurrent.futures off the startup path of every CLI.
+    from concurrent.futures import ThreadPoolExecutor
+
     executor = ThreadPoolExecutor(max_workers=max_workers)
     try:
         yield executor
@@ -496,7 +542,7 @@ def _windowed_map(
         executor.submit(func, item) for item in islice(stream, window)
     )
     while pending:
-        result = pending.popleft().result()
+        result = _wait_result(pending.popleft())
         # Refill the freed slot before handing the result over, so a worker does
         # not sit idle while the caller processes what it just got.
         for item in islice(stream, 1):
@@ -783,7 +829,7 @@ class ZeroExitOption(ExtraOption):
 # make Ctrl+C abort in-flight children instead of hanging a concurrent fan-out.
 
 
-PROMPT = (">" if is_windows() else "$") + " "
+PROMPT = (">" if IS_WINDOWS else "$") + " "
 """Prompt used to simulate the CLI execution.
 
 ```{hint}
@@ -914,9 +960,14 @@ from several worker threads at once.
 """
 
 
-_LIVE_PROCESSES_LOCK: Final = threading.Lock()
-"""Guards {data}`_LIVE_PROCESSES` and {data}`_GROUP_LEADERS` against concurrent
-mutation by worker threads."""
+_LIVE_PROCESSES_LOCK: Final = threading.RLock()
+"""Guards {data}`_LIVE_PROCESSES`, {data}`_GROUP_LEADERS` and
+{data}`_STRAY_DESCENDANTS` against concurrent mutation by worker threads.
+
+Reentrant, because the Ctrl+C handlers call {func}`terminate_live_processes` in
+the main thread, which can hold the lock at that moment: an interrupted run takes
+it when its grace period ends. A plain lock would block the handler for good.
+"""
 
 
 _GROUP_LEADERS: Final[set[subprocess.Popen[str]]] = set()
@@ -943,7 +994,7 @@ alone cannot tell it from an unrelated process that took its PID. Guarded by
 """
 
 
-_KILL_SIGNAL: Final = signal.SIGTERM if is_windows() else signal.SIGKILL
+_KILL_SIGNAL: Final = getattr(signal, "SIGKILL", signal.SIGTERM)
 """The signal that ends the children of {func}`run_cli` at once.
 
 Windows has no `SIGKILL`: {func}`terminate_live_processes` uses its single
@@ -1233,7 +1284,7 @@ def _record_interrupt(signum: int, frame: FrameType | None) -> None:
 
 
 @contextmanager
-def _interrupt_handling() -> Iterator[None]:
+def _interrupt_handling() -> Generator[None, None, None]:
     """Track Ctrl+C, and what the run ends on, for the duration of a CLI run.
 
     Installs a `SIGINT` handler that behaves like Python's default one, but
@@ -1261,7 +1312,7 @@ def _interrupt_handling() -> Iterator[None]:
 
 
 @contextmanager
-def _run_end_watch() -> Iterator[None]:
+def _run_end_watch() -> Generator[None, None, None]:
     """Record the exception the block raises, as one the run in progress ends on.
 
     A Click Extra command wraps the two ways out of its run in it: building the
@@ -1336,14 +1387,6 @@ They get `SIGTERM` as the run aborts, so they can clean up, and
 """
 
 
-_JOIN_POLL: Final = 0.1
-"""Seconds between two checks while an interrupted run waits for its threads.
-
-A bounded join returns to the interpreter that often, so a second Ctrl+C is
-handled at once on every platform.
-"""
-
-
 def _exit_interrupted() -> NoReturn:
     """End an interrupted run once its running threads finish.
 
@@ -1385,7 +1428,7 @@ def _exit_interrupted() -> NoReturn:
 
 
 @contextmanager
-def _deferred_interrupt() -> Iterator[None]:
+def _deferred_interrupt() -> Generator[None, None, None]:
     """Hold back a Ctrl+C for the duration of the block, then deliver it.
 
     Shields a short critical section that must run whole: the kill in
@@ -1494,6 +1537,9 @@ def _pump_stream(
     (`debug:mas: ...`) rather than polluting the message text itself.
     """
     extra = {"label": label} if label else None
+    # Deferred import: keeps boltons.strutils off the startup path of every CLI.
+    from boltons.strutils import strip_ansi
+
     for line in pipe:
         sink.append(line)
         text = strip_ansi(line).rstrip()

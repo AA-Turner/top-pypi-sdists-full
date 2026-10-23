@@ -13,9 +13,11 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 from snowflake.snowpark_connect.utils.cache import (
     analyze_memo_get,
     analyze_memo_put,
+    claimed_persist,
+    df_cache_map_force_materialize,
     df_cache_map_get,
     df_cache_map_put_if_absent,
-    pending_persist_discard,
+    pending_persist_peek,
     sql_plan_cache_get,
     sql_plan_cache_put,
 )
@@ -34,6 +36,9 @@ from snowflake.snowpark_connect.utils.context import (
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
+)
+from snowflake.snowpark_connect.utils.window_chain_materialization import (
+    is_window_chain_materialization_enabled,
 )
 
 # Spark doesn't have proto for NaturalJoin as Spark DF doesn't have API for it.
@@ -73,7 +78,7 @@ def _clone_container_for_reuse(
         partition_hint=cached_container.partition_hint,
         dataframe_hint=cached_container.dataframe_hint,
         can_be_cached=cached_container.can_be_cached,
-        can_be_materialized=cached_container.can_be_materialized,
+        materialization_policy=cached_container.materialization_policy,
         aggregate_metadata=cached_container._aggregate_metadata,
         cached_local_relation_arrow_table=(
             cached_container.cached_local_relation_arrow_table
@@ -83,6 +88,7 @@ def _clone_container_for_reuse(
         sort_exprs=copy.copy(cached_container.sort_exprs),
     )
     result_container._known_row_count = cached_container.known_row_count
+    result_container._static_schema = cached_container.static_schema
     return result_container
 
 
@@ -140,8 +146,21 @@ def map_relation(
         ):
             # TODO: remove get_session_id() when we host SAS in Snowflake server
             # Check for cached relation
-            cache_entry = df_cache_map_get((get_spark_session_id(), rel.common.plan_id))
+            persist_key = (get_spark_session_id(), rel.common.plan_id)
+            cache_entry = df_cache_map_get(persist_key)
             if cache_entry is not None:
+                # A memoized entry is not necessarily a materialized one -- an NSS read is
+                # inserted here lazily by map_read. Returning it unconditionally meant a
+                # pending persist recorded against an already-memoized plan was never
+                # consumed, so df.cache() stayed a no-op for the cache()-then-schema
+                # ordering (SNOW-4231637). AnalyzePlan stays lazy: resolving a schema must
+                # not trigger a table write.
+                if not is_analyze_plan_request():
+                    with claimed_persist(persist_key) as claimed:
+                        if claimed:
+                            materialized = df_cache_map_force_materialize(persist_key)
+                            if materialized is not None:
+                                cache_entry = materialized
                 if isinstance(cache_entry, DataFrameContainer):
                     set_plan_id_map(rel.common.plan_id, cache_entry)
                 return cache_entry
@@ -150,19 +169,37 @@ def map_relation(
             # does no work until the first action, so we resolve and materialize here on the
             # first ExecutePlan resolution. AnalyzePlan resolutions (e.g. schema) stay lazy
             # and leave the plan pending.
-            if not is_analyze_plan_request() and pending_persist_discard(
-                (get_spark_session_id(), rel.common.plan_id)
-            ):
+            if not is_analyze_plan_request() and pending_persist_peek(persist_key):
                 from snowflake.snowpark_connect.relation.read.metadata_utils import (
                     without_hidden_columns,
                 )
 
-                return df_cache_map_put_if_absent(
-                    (get_spark_session_id(), rel.common.plan_id),
-                    lambda: without_hidden_columns(
-                        map_relation(rel, reuse_parsed_plan=reuse_parsed_plan)
-                    ),
-                )
+                # Claim rather than consume. The claim does double duty: it keeps the
+                # request recoverable when cache_result() raises (consuming it up front
+                # lost the intent permanently, since the persist handler would then see a
+                # lazy map entry and record nothing new), AND it stops THIS THREAD from
+                # taking the request again while the compute_fn below recurses into
+                # map_relation with this same rel. Without that guard the nested call
+                # re-enters this branch and recurses until RecursionError, breaking any
+                # fresh .cache() + action on every engine (SNOW-4231637). The guard is
+                # thread-scoped so an independent request for the same plan still claims
+                # and materializes rather than being handed the lazy container.
+                with claimed_persist(persist_key) as claimed:
+                    if not claimed:
+                        # Another thread took it between the peek and the claim; fall
+                        # through to normal dispatch rather than waiting.
+                        return map_relation(rel, reuse_parsed_plan=reuse_parsed_plan)
+                    return df_cache_map_put_if_absent(
+                        (get_spark_session_id(), rel.common.plan_id),
+                        lambda: without_hidden_columns(
+                            map_relation(rel, reuse_parsed_plan=reuse_parsed_plan)
+                        ),
+                        # Safe to force only here and on the cache-hit path above: both
+                        # are gated on a claimed pending-persist token, whose key is written
+                        # exclusively by the "persist" AnalyzePlan handler, so the client
+                        # really did ask for a cache (SNOW-4231637).
+                        force_materialize=True,
+                    )
 
             if not _is_server_generated_plan_id(rel.common.plan_id):
                 memo_hit = analyze_memo_get(
@@ -172,7 +209,12 @@ def map_relation(
                     if is_analyze_plan_request():
                         set_plan_id_map(rel.common.plan_id, memo_hit)
                         return memo_hit
-                    if rel.common.plan_id == get_execute_root_plan_id():
+                    # The memo was mapped by AnalyzePlan, which never applies
+                    # window-chain materialization, so re-map when it is on.
+                    if (
+                        rel.common.plan_id == get_execute_root_plan_id()
+                        and not is_window_chain_materialization_enabled()
+                    ):
                         reused_container = _clone_container_for_reuse(memo_hit)
                         set_plan_id_map(rel.common.plan_id, reused_container)
                         return reused_container
@@ -273,9 +315,13 @@ def map_relation(
                     case "limit":
                         result = map_row_ops.map_limit(rel)
                     case "local_relation":
+                        # never_materialize, not without_materialization: a client-side
+                        # literal is already cheap, so an explicit cache() has nothing to
+                        # gain from a temp table either. Saying so here keeps an NSS fix
+                        # from changing this path as a side effect (SNOW-4231637).
                         result = map_local_relation.map_local_relation(
                             rel
-                        ).without_materialization()
+                        ).never_materialize()
                         df_cache_map_put_if_absent(
                             (get_spark_session_id(), rel.common.plan_id), lambda: result
                         )

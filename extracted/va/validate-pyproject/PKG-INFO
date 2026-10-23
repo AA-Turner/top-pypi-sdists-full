@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: validate-pyproject
-Version: 0.26
+Version: 0.27
 Summary: Validation library and CLI tool for checking on 'pyproject.toml' files using JSON Schema
 Author-email: Anderson Bravalheri <andersonbravalheri@gmail.com>
 License: MPL-2.0 and MIT and BSD-3-Clause
@@ -16,13 +16,12 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 License-File: AUTHORS.rst
-Requires-Dist: fastjsonschema<=3,>=2.16.2; python_version >= "3.10"
-Requires-Dist: fastjsonschema!=2.22.0,<=3,>=2.16.2; python_version < "3.10"
+Requires-Dist: fastjsonschema<=3,>=2.16.2
 Provides-Extra: all
 Requires-Dist: packaging>=24.2; extra == "all"
 Requires-Dist: tomli>=1.2.1; python_version < "3.11" and extra == "all"
@@ -47,9 +46,9 @@ Dynamic: license-file
 .. image:: https://img.shields.io/badge/-PyScaffold-005CA0?logo=pyscaffold
     :alt: Project generated with PyScaffold
     :target: https://pyscaffold.org/
-.. image:: https://api.cirrus-ci.com/github/abravalheri/validate-pyproject.svg?branch=main
+.. image:: https://github.com/abravalheri/validate-pyproject/actions/workflows/ci.yml/badge.svg?branch=main
     :alt: Built Status
-    :target: https://cirrus-ci.com/github/abravalheri/validate-pyproject
+    :target: https://github.com/abravalheri/validate-pyproject/actions/workflows/ci.yml
 .. image:: https://readthedocs.org/projects/validate-pyproject/badge/?version=latest
     :alt: ReadTheDocs
     :target: https://validate-pyproject.readthedocs.io

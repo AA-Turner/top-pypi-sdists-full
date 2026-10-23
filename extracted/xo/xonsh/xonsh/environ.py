@@ -2001,6 +2001,15 @@ class PromptHistorySetting(Xettings):
         "Common abbreviations, such as '6 months' or '1 GB' are also allowed.",
         doc_default="``(8128, 'commands')`` or ``'8128 commands'``",
     )
+    XONSH_HISTORY_EXIT_FLUSH_TIMEOUT = Var.with_default(
+        2.0,
+        "Number of seconds the final history flush waits for an earlier, still "
+        "unfinished history write when the shell is exiting. Once the timeout "
+        "expires the buffered commands are dropped and shutdown continues, so "
+        "that a history file on an unresponsive filesystem cannot keep the "
+        "shell alive. Only the ``json`` history backend uses this.",
+        doc_default="2.0",
+    )
     XONSH_STORE_STDOUT = Var.with_default(
         False,
         "Store the ``stdout`` and ``stderr`` streams to the history. "
@@ -3001,10 +3010,34 @@ class Env(cabc.MutableMapping):
         except KeyError:
             return default
 
-    def get_stringified(self, key, default=None):
-        value = self.get(key, default)
-        detyper = self.get_detyper(key)
-        return detyper(value)
+    def get_stringified(self, key, default=""):
+        """Return ``key`` detyped the way bare ``$NAME`` is in subprocess mode.
+
+        An unset key returns ``default``. A missing detyper, or a detyper that
+        returns ``None``, falls back to ``str(value)``. Bare ``${expr}``
+        subprocess arguments and ``expandvars`` both use this.
+
+        Parameters
+        ----------
+        key : object
+            Environment variable name, usually a ``str``.
+        default : object, optional
+            Returned when ``key`` is not set. ``""`` by default.
+
+        Returns
+        -------
+        object
+            Detyped string, or ``default`` when the key is absent.
+        """
+        try:
+            val = self[key]
+        except KeyError:
+            return default
+        # Non-string keys are not registered names; pattern matching would
+        # raise. Fall back to str() for those.
+        detyper = self.get_detyper(key) if isinstance(key, str) else None
+        value = str(val) if detyper is None else detyper(val)
+        return str(val) if value is None else value
 
     def rawkeys(self):
         """An iterator that returns all environment keys in their original form.

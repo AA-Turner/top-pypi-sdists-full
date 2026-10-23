@@ -26,7 +26,12 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListDictionariesPaginator, ListFeedsPaginator, SearchFixturesPaginator
+from .paginator import (
+    ListDictionariesPaginator,
+    ListFeedsPaginator,
+    ListScheduleActionsPaginator,
+    SearchFixturesPaginator,
+)
 from .type_defs import (
     AssociateFeedRequestTypeDef,
     AssociateFeedResponseTypeDef,
@@ -34,11 +39,15 @@ from .type_defs import (
     CreateDictionaryResponseTypeDef,
     CreateFeedRequestTypeDef,
     CreateFeedResponseTypeDef,
+    CreateScheduleActionRequestTypeDef,
+    CreateScheduleActionResponseTypeDef,
     DeleteDictionaryRequestTypeDef,
     DeleteDictionaryResponseTypeDef,
     DeleteFeedPolicyRequestTypeDef,
     DeleteFeedRequestTypeDef,
     DeleteFeedResponseTypeDef,
+    DeleteScheduleActionRequestTypeDef,
+    DeleteScheduleActionResponseTypeDef,
     DisassociateFeedRequestTypeDef,
     DisassociateFeedResponseTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -56,6 +65,8 @@ from .type_defs import (
     ListDictionariesResponseTypeDef,
     ListFeedsRequestTypeDef,
     ListFeedsResponseTypeDef,
+    ListScheduleActionsRequestTypeDef,
+    ListScheduleActionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutFeedPolicyRequestTypeDef,
@@ -155,6 +166,16 @@ class ElementalInferenceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#create_feed)
         """
 
+    def create_schedule_action(
+        self, **kwargs: Unpack[CreateScheduleActionRequestTypeDef]
+    ) -> CreateScheduleActionResponseTypeDef:
+        """
+        Creates a schedule action on a feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/create_schedule_action.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#create_schedule_action)
+        """
+
     def delete_dictionary(
         self, **kwargs: Unpack[DeleteDictionaryRequestTypeDef]
     ) -> DeleteDictionaryResponseTypeDef:
@@ -181,6 +202,16 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_feed_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#delete_feed_policy)
+        """
+
+    def delete_schedule_action(
+        self, **kwargs: Unpack[DeleteScheduleActionRequestTypeDef]
+    ) -> DeleteScheduleActionResponseTypeDef:
+        """
+        Deletes a schedule action from a feed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_schedule_action.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#delete_schedule_action)
         """
 
     def disassociate_feed(
@@ -256,6 +287,17 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_feeds.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#list_feeds)
+        """
+
+    def list_schedule_actions(
+        self, **kwargs: Unpack[ListScheduleActionsRequestTypeDef]
+    ) -> ListScheduleActionsResponseTypeDef:
+        """
+        Displays a list of the schedule actions on a feed, including the status of each
+        action and, for a failed action, information about why it failed.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_schedule_actions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#list_schedule_actions)
         """
 
     def list_tags_for_resource(
@@ -341,6 +383,17 @@ class ElementalInferenceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_feeds"]
     ) -> ListFeedsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_schedule_actions"]
+    ) -> ListScheduleActionsPaginator:
         """
         Create a paginator for an operation.
 

@@ -120,7 +120,6 @@ def test_deprecated_click_exports_are_forwarded(name):
         assert getattr(click_extra, name) is getattr(click, name)
 
 
-@pytest.mark.once
 @pytest.mark.parametrize(
     "statement", ["import click_extra", "from click_extra import *"]
 )
@@ -131,6 +130,11 @@ def test_import_raises_no_deprecation_warning(statement):
     import of cloup fetches each of them, and Click warns once per name. A star
     import of click-extra would do the same for any such name its own
     ``__all__`` declared.
+
+    Runs on every cell of the matrix, not as a ``once`` test: a deprecation
+    shows first on the cells tracking the development branches of Click and
+    Cloup, like the warning Click raises when a class is created with an
+    override of a member it retired.
     """
     process = run(
         (sys.executable, "-W", "error::DeprecationWarning", "-c", statement),
@@ -204,6 +208,93 @@ def test_no_debugger_ballast_on_import():
         (sys.executable, "-c", probe), capture_output=True, text=True, check=False
     )
     assert process.returncode == 0, process.stderr
+
+
+CLOUP_METADATA_PROBE_VERSION = (4, 0, 0)
+"""Last cloup release importing `importlib.metadata` at module scope.
+
+Up to this release, cloup reads Click's version at import time, which loads
+`importlib.metadata` and the `email` tree behind it.
+[janluke/cloup#242](https://github.com/janluke/cloup/pull/242) removes that
+probe, so any later cloup keeps both off the startup path.
+"""
+
+
+@pytest.mark.once
+def test_no_heavy_dependency_ballast_on_startup():
+    """Importing the package and rendering a ``--help`` must not load the
+    dependencies the package defers.
+
+    Each module below is imported where it is used rather than at module scope,
+    so that a CLI pays for it only on the code path that needs it: see the
+    deferred-imports house rule in ``CLAUDE.md``. The probe runs a hello-world
+    through decoration and ``--help`` in a pristine interpreter, since pytest
+    itself has most of these loaded already.
+
+    ``importlib.metadata`` and the ``email`` tree it drags in join the list
+    above ``CLOUP_METADATA_PROBE_VERSION`` only: up to that release, cloup
+    imports them at module scope itself.
+    """
+    ballast: tuple[str, ...] = (
+        "boltons.formatutils",
+        "boltons.strutils",
+        "boltons.urlutils",
+        "concurrent.futures",
+        "configparser",
+        "deepmerge",
+        "difflib",
+        "extra_platforms",
+        "plistlib",
+        "requests",
+        "sqlite3",
+        "sysconfig",
+        "tabulate",
+        "wcmatch",
+        "wcwidth",
+        "xml",
+        "xmltodict",
+        "yaml",
+    )
+    if (
+        tuple(int(p) for p in importlib.metadata.version("cloup").split(".")[:3])
+        > CLOUP_METADATA_PROBE_VERSION
+    ):
+        ballast += ("email", "importlib.metadata")
+    probe = (
+        "import sys\n"
+        "from click_extra import command\n"
+        "@command\n"
+        "def hello():\n"
+        "    pass\n"
+        "hello.main(['--help'], prog_name='hello', standalone_mode=False)\n"
+        "loaded = set(sys.modules)\n"
+        f"leaked = [m for m in {ballast!r} "
+        "if m in loaded or any(n.startswith(m + '.') for n in loaded)]\n"
+        "assert not leaked, f'loaded at startup: {leaked}'\n"
+    )
+    process = run(
+        (sys.executable, "-c", probe), capture_output=True, text=True, check=False
+    )
+    assert process.returncode == 0, process.stderr
+
+
+@pytest.mark.once
+def test_import_module_budget():
+    """``import click_extra`` stays within a module-count budget.
+
+    A coarse net under the denylist above: a new eager import of a dependency
+    with a deep tree shows up here as a jump of tens of modules, whichever
+    package it comes from. Measured at 264 modules on Python 3.14 and cloup
+    4.0.0; the budget leaves room for the platform and version differences of
+    the stdlib.
+    """
+    probe = "import sys; import click_extra; print(len(sys.modules))"
+    process = run(
+        (sys.executable, "-c", probe), capture_output=True, text=True, check=False
+    )
+    assert process.returncode == 0, process.stderr
+    loaded = int(process.stdout)
+    assert loaded <= 300, f"import click_extra loaded {loaded} modules"
 
 
 @pytest.mark.once

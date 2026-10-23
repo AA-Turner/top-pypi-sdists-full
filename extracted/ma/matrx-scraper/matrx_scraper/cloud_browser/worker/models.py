@@ -457,6 +457,20 @@ class HeartbeatRequest(WorkerCallEnvelope):
     # any controller state, without enabling human input or pausing the agent.
     # Omitted (None) for an older worker whose strict schema predates it.
     stream_view_seconds: int | None = Field(default=None, ge=1, le=600)
+    # LIVENESS TRUTH (2026-10-22 zombie browser): when present, the worker
+    # proves its Chromium really answers within this many milliseconds before
+    # it acknowledges the lease; a dead one is relaunched once on the same
+    # profile, and a failed relaunch is reported as ``browser_state="down"``.
+    # Knob ``cloud_browser.worker_liveness.probe_timeout_ms``. Omitted for an
+    # older worker (its strict schema predates it; /health ``browser_liveness``).
+    liveness_probe_timeout_ms: int | None = Field(default=None, ge=100, le=60000)
+
+
+#: What a heartbeat found the browser doing. ``running``: it answered.
+#: ``relaunched``: it was dead and is running again on the same profile.
+#: ``closed``: a person closed it on a Cloud Computer desktop (reopens on the
+#: next command). ``down``: dead and the one relaunch failed — the run is over.
+BrowserState = Literal["running", "relaunched", "closed", "down"]
 
 
 class HeartbeatResponse(WorkerReplyEnvelope):
@@ -467,6 +481,14 @@ class HeartbeatResponse(WorkerReplyEnvelope):
     page_count: int = 0
     pending_events: int = 0
     checkpoint_recommended: bool = False
+    #: Set only when the request asked for a liveness probe.
+    browser_state: BrowserState | None = None
+    #: Why the browser is down (``browser_state="down"``); safe to show a person.
+    browser_down_reason: str | None = Field(default=None, max_length=500)
+    #: Bytes Chrome sent + received through ``LaunchPolicy.proxy`` since the
+    #: worker started (cumulative). The control plane meters the delta to points
+    #: when the run is on the paid proxy. None = no proxy on this worker.
+    proxy_bytes: int | None = Field(default=None, ge=0)
 
 
 # ── command (S2 §5.3) ──
@@ -478,6 +500,16 @@ class CommandRequest(WorkerCallEnvelope):
     tool_call_ref: str | None = None
     page_id: str | None = None
     command: BrowserCommand
+    # TAB PER AGENT (2026-10-22): which agent sent this command (the control
+    # plane passes the agent's conversation). Each agent gets its own tab in
+    # the person's one Chrome, and commands of different agents run side by
+    # side. None = the whole-run behavior (one active page). Sent only to a
+    # worker whose /health says ``tab_per_agent`` (older strict schemas refuse it).
+    agent_ref: str | None = Field(default=None, min_length=1, max_length=200)
+    # How many agent tabs this machine keeps at most (knob
+    # ``cloud_computer.browser_tabs.max_agent_tabs``); past it the agent idle
+    # longest gives up its tab. None = the worker's floor of no limit.
+    agent_tab_limit: int | None = Field(default=None, ge=1, le=100)
 
 
 class CommandEgress(BaseModel):
@@ -493,7 +525,9 @@ class CommandEgress(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["residential"] = "residential"
+    #: ``residential`` = the person's own computer; ``paid_proxy`` = the paid
+    #: second exit (DataImpulse) when no computer of theirs could carry it.
+    kind: Literal["residential", "paid_proxy"] = "residential"
     device_name: str
     device_id: str | None = None
     #: The plain sentence the agent repeats to the person.
@@ -572,6 +606,8 @@ class CaptureRequest(WorkerCallEnvelope):
     kind: Literal["screenshot", "trace_start", "trace_stop", "video_start", "video_stop"]
     reason: CaptureReason
     page_id: str | None = None
+    # TAB PER AGENT: picture THIS agent's tab (see ``CommandRequest.agent_ref``).
+    agent_ref: str | None = Field(default=None, min_length=1, max_length=200)
     full_page: bool = False
     selector: str | None = None
     mask_selectors: list[str] = Field(default_factory=list)

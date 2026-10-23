@@ -2262,6 +2262,7 @@ so use {Fore.orange_red_1}ls-lq/ls Shelf {Fore.light_yellow}from {Fore.light_mag
 {Fore.light_red}'set tax decimal,std'{expo_color}change tax value using tax rate without changing price or crv{Style.reset}
 {Fore.light_red}'set tax crv,stc'{expo_color}change tax and crv values using tax rate without changing price{Style.reset}
 {Fore.light_red}{'print long,plng,showe,show entry,se'.split(",")}{expo_color} print long entry text to troubleshoot issues if any{Style.reset}
+{Fore.light_red}{'scannable,scnbl,barcode,qrcode'.split(",")}{expo_color} generate barcode for field{Style.reset}
 {helpMsg2}{Style.reset}'''
         while True:
             try:
@@ -2296,6 +2297,8 @@ so use {Fore.orange_red_1}ls-lq/ls Shelf {Fore.light_yellow}from {Fore.light_mag
                     self.update_ShelfCount_CaseCount()
                 elif doWhat.lower() in 'find_dupes|fd|clean_dups'.split('|'):
                     self.findDupes()
+                elif doWhat.lower() in 'scannable,scnbl,barcode,qrcode'.split(','):
+                    NEUSetter(code=code).scannable()
                 elif doWhat.lower() in 'en|edit note|edit_note'.split("|"):
                     self.editNotes()
                 elif doWhat.lower() in "'set field','sf','set'".replace("'","").split(","):  #scan barcode,select item,display fields with index,select index,get data,commit
@@ -7177,7 +7180,7 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
                 else:
                     print(f"{Fore.light_steel_blue}Qty was still {Fore.orange_red_1}{Qty}{Style.reset}")
 
-    def bcd_img(self,cp2=None):
+    def bcd_img(self,cp2=None,data=None):
         SUPPORTEDOUT=barcode.PROVIDED_BARCODES
         final_out=detectGetOrSet("IMG_GEN_OUT","GENERATED_BCD",literal=True)
         ct=len(SUPPORTEDOUT)
@@ -7189,7 +7192,8 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
             if which in [None,'d']:
                 which=SUPPORTEDOUT.index("code128")
         try:
-            data=Prompt.__init2__(None,func=FormBuilderMkText,ptext="What data do you wish to encode?",helpText="its just text.",data="string")
+            if data in [None,]:
+                data=Prompt.__init2__(None,func=FormBuilderMkText,ptext="What data do you wish to encode?",helpText="its just text.",data="string")
             options={}
             options['writer']=barcode.writer.ImageWriter()
             if data in ['d',None]:
@@ -7289,16 +7293,19 @@ Do What? [rms,rma,edit/e,<ENTER>/next,prev]"""
                 print(e)
 
 
-    def qr_img(self):
+    def qr_img(self,data=None):
         SUPPORTEDOUT=barcode.PROVIDED_BARCODES
         final_out=detectGetOrSet("IMG_GEN_OUT_QR","GENERATED_QR.png",literal=True)
         
         try:
-            data=Prompt.__init2__(None,func=FormBuilderMkText,ptext="What data do you wish to encode?",helpText="its just text.",data="string")
+            if data in [None,]:
+                data=Prompt.__init2__(None,func=FormBuilderMkText,ptext="What data do you wish to encode?",helpText="its just text.",data="string")
+                if data in [None,]:
+                    return
             qr=qrcode.make(data)
 
             qr2= qrcode.QRCode()
-            qr2.add_data("Some text")
+            qr2.add_data(data)
             
             f = io.StringIO()
             

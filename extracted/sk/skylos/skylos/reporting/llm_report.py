@@ -1,14 +1,22 @@
 import logging
 import pathlib
 import json
+from copy import deepcopy
 
 from skylos.audit.redaction import SECRET_KEYWORDS, sanitize_for_audit
+from skylos.reporting.advice_display import (
+    ADVICE_PRIORITY_NOTE,
+    advice_display_counts,
+    advice_priority,
+    combine_complexity_advice,
+    complexity_display,
+    group_advice_for_display,
+)
+from skylos.reporting.advice_policy import prepare_advice_view
 from skylos.reporting.finding_types import (
     annotate_finding_types,
     get_finding_type,
-    group_advice,
     iter_result_findings,
-    summarize_finding_types,
 )
 
 
@@ -145,38 +153,62 @@ def _llm_report_secret_block(finding: dict) -> str:
 def _format_llm_report_section(finding_num, finding, label, code_block):
     if label == "Secrets":
         finding = _redacted_secret_record(finding)
-    rule_id = finding.get("rule_id", "")
-    severity = finding.get("severity", "INFO")
+    complexity = complexity_display(finding)
+    rule_id = complexity.rule_label if complexity else finding.get("rule_id", "")
+    severity = (
+        advice_priority(finding, "quality" if label == "Quality" else label.lower())
+        if _llm_finding_type(finding, label) == "advice"
+        else finding.get("severity", "INFO")
+    )
     name = finding.get("name") or finding.get("simple_name", "")
     file_path = finding.get("file", "")
     line = finding.get("line", 0)
-    message = finding.get("message", "")
+    message = complexity.message if complexity else finding.get("message", "")
     finding_type = (
         "Analysis incomplete"
         if label == "Analysis Incomplete"
         else _llm_finding_type(finding, label).title()
     )
-    record = json.dumps(finding, ensure_ascii=False, indent=2, default=str)
+    original_findings = complexity.findings if complexity else (finding,)
+    check = f"Check: {complexity.name}\n" if complexity else ""
+    records = "\n".join(
+        "Record:\n```json\n"
+        + json.dumps(original, ensure_ascii=False, indent=2, default=str)
+        + "\n```\n"
+        for original in original_findings
+    )
 
     return (
         f"\n## {finding_num}. {rule_id} | {severity} | {label}\n"
         f"Type: {finding_type}\n"
         f"File: {file_path}:{line}\n"
         f"Name: {name}\n"
+        f"{check}"
         f"{code_block}\n"
         f"Problem: {message}\n"
-        f"Record:\n```json\n{record}\n```\n"
+        f"{records}"
         f"\n---\n"
     )
 
 
 def _generate_llm_report(
-    result: dict, project_root: pathlib.Path, *, expand_advice: bool = False
+    result: dict,
+    project_root: pathlib.Path,
+    *,
+    expand_advice: bool = False,
+    all_advice: bool = False,
 ) -> str:
+    result, visibility = prepare_advice_view(
+        result, project_root=project_root, all_advice=all_advice
+    )
+    # The collector supplies display defaults in place; keep those off raw data.
+    result = deepcopy(result)
     all_findings = _collect_llm_report_findings(result)
     from skylos.reporting.assessment_display import dependency_coverage_lines
 
-    dependency_text = "\n".join(dependency_coverage_lines(result.get("analysis_summary")))
+    dependency_text = "\n".join(
+        dependency_coverage_lines(result.get("analysis_summary"))
+    )
     if dependency_text:
         dependency_text += "\n\n"
     assessment_text = ""
@@ -195,24 +227,54 @@ def _generate_llm_report(
         assessment_text += (
             "\n\n" + assessment_coverage_text(result["assessment"]) + "\n\n"
         )
+    summary = result.get("analysis_summary") or {}
+    if summary.get("assessment_includes_filtered_findings") or summary.get(
+        "grade_includes_filtered_findings"
+    ):
+        label = "Assessment" if result.get("assessment") else "Grade"
+        assessment_text += f"{label} includes all analyzed findings, including those outside this display.\n\n"
+    visibility_text = visibility.message + "\n\n" if visibility.message else ""
     if not all_findings:
-        return "# Skylos Report\n\n" + assessment_text + dependency_text + "No findings.\n"
+        empty_text = (
+            "No findings to display.\n" if visibility.message else "No findings.\n"
+        )
+        return (
+            "# Skylos Report\n\n"
+            + assessment_text
+            + dependency_text
+            + visibility_text
+            + empty_text
+        )
 
-    counts = summarize_finding_types(result)
-    displayed = [
-        (finding, label)
+    counts = advice_display_counts(result)
+    category_for_label = {
+        label: category for category, label in _LLM_REPORT_CATEGORIES.items()
+    }
+    display_findings = combine_complexity_advice(
+        (category_for_label.get(label, label), finding)
         for finding, label in all_findings
+    )
+    displayed = [
+        (finding, _LLM_REPORT_CATEGORIES.get(category, category))
+        for category, finding in display_findings
         if expand_advice
-        or label == "Analysis Incomplete"
-        or _llm_finding_type(finding, label) != "advice"
+        or category == "Analysis Incomplete"
+        or get_finding_type(finding, category) != "advice"
     ]
     displayed.sort(key=_llm_report_sort_key)
 
     groups = counts["advice_groups"]
+    entry_label = "entry" if counts["advice"] == 1 else "entries"
+    advice_count = (
+        f"{counts['advice']} advice {entry_label} ({counts['raw_advice']} findings)"
+        if counts["raw_advice"] != counts["advice"]
+        else f"{counts['advice']} advice"
+    )
+    defect_label = "defect" if counts["defect"] == 1 else "defects"
     sections = [
         "# Skylos Report\n\n"
-        f"{counts['defect']} defects · {counts['review']} review · "
-        f"{counts['advice']} advice in {groups} {'group' if groups == 1 else 'groups'}.\n\n"
+        f"{counts['defect']} {defect_label} · {counts['review']} review · "
+        f"{advice_count} in {groups} {'group' if groups == 1 else 'groups'}.\n\n"
         "Severity is separate from finding type.\n"
         "Review the evidence before changing code.\n\n---\n"
     ]
@@ -220,6 +282,10 @@ def _generate_llm_report(
         sections.insert(1, assessment_text)
     if dependency_text:
         sections.insert(1, dependency_text)
+    if visibility_text:
+        sections.insert(1, visibility_text)
+    if counts["advice"]:
+        sections.insert(1, f"\n{ADVICE_PRIORITY_NOTE}\n")
     incomplete = sum(label == "Analysis Incomplete" for _finding, label in all_findings)
     if incomplete:
         sections.insert(
@@ -249,15 +315,25 @@ def _format_advice_groups(result: dict) -> str:
     lines = [
         "\n## Advice groups\n\n",
         "Advice is grouped below. All Defect and Review records are included. "
-        "Add --expand-advice to show every Advice record; JSON output retains "
-        "the complete findings.\n\n",
+        "Add --expand-advice to show every visible Advice entry, including each original "
+        "record for grouped metric checks; JSON output holds the same findings "
+        "with their full records.\n\n",
     ]
-    for group in group_advice(result):
+    for group in group_advice_for_display(result):
         count = group["count"]
         files = len(group["files"])
+        priority = ", ".join(
+            sorted(
+                {
+                    advice_priority(finding, "quality")
+                    for finding in group["findings"]
+                }
+            )
+        )
         lines.append(
-            f"- {group['rule_id']}: {count} {'finding' if count == 1 else 'findings'} "
-            f"in {files} {'file' if files == 1 else 'files'} — {group['name']}\n"
+            f"- {group['rule_id']}: {count} advice {'entry' if count == 1 else 'entries'} "
+            f"in {files} {'file' if files == 1 else 'files'} — {group['name']}; "
+            f"Advice priority: {priority}\n"
         )
     return "".join(lines)
 

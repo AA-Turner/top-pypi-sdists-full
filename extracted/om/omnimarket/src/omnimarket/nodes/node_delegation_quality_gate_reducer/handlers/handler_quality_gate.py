@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import itertools
 import json
 import re
 import tokenize
@@ -75,9 +76,12 @@ import yaml
 
 from omnimarket.delegation.content_grounding import (
     evaluate_claim_grounding,
+    evaluate_criteria_covered,
+    evaluate_entry_cites_evidence,
     evaluate_name_resolution,
     evaluate_numeric_grounding,
     resolve_claim_grounding_policy,
+    resolve_evidence_comment_policy,
     resolve_name_resolution_policy,
     resolve_numeric_grounding_policy,
 )
@@ -506,6 +510,14 @@ _HEURISTIC_CONTAINS_ANY_CHECKS: dict[str, tuple[str, tuple[str, ...]]] = {
     # test_step_by_step_causal_fixture_omn17427.py). Those markers start with a
     # space, so they match only at a word start: "enthusiasm" does not carry
     # "thus" and ", sometimes" does not carry ", so ".
+    # OMN-19401: replaying 57 lab reasoning answers of Qwen3.8-27B (2026-10-20)
+    # refused three correct short answers; two of them walked through with a
+    # causative verb ("makes", "cause") or a result clause after a comma
+    # (", helping"), which the markers above did not carry. " caus" matches
+    # cause, causes, caused and causing but never "because". The comma-led
+    # participles match only after a comma, so "decision making" still fails
+    # (fixture: tests/unit/delegation/
+    # test_step_by_step_causal_lab_answers_omn19401.py).
     "step_by_step_explanation": (
         "TASK_MISMATCH",
         (
@@ -528,15 +540,26 @@ _HEURISTIC_CONTAINS_ANY_CHECKS: dict[str, tuple[str, tuple[str, ...]]] = {
             " that means",
             " leads to",
             " led to",
+            " lead to",
+            " leading to",
             " due to",
             " results in",
             " resulted in",
+            " result in",
+            " resulting in",
             " in turn",
             " which is why",
             " that is why",
+            " this is why",
+            " that's why",
             " as a consequence",
-            " causes",
-            " caused",
+            " caus",
+            " thereby",
+            " makes ",
+            ", making ",
+            ", allowing ",
+            ", forcing ",
+            ", helping ",
         ),
     ),
     "methodical_analysis": (
@@ -1279,9 +1302,38 @@ def _check_pytest_tests_present(content: str) -> str | None:
     return "TASK_MISMATCH: no collectable pytest tests; fails pytest_tests_present"
 
 
+#: OMN-21258: a caption between two code blocks, such as ``**Usage:**`` or
+#: ``### Example usage:``: one line of a few words ending in a colon, with any
+#: markdown heading marks and emphasis ignored.
+_CAPTION_MARKUP_RE = re.compile(r"^#{1,6}[ \t]+|[*_`]")
+_CAPTION_MAX_WORDS = 4
+
+
+def _is_caption(text: str) -> bool:
+    """Whether the text between two code blocks is one short label line."""
+    line = _CAPTION_MARKUP_RE.sub("", text.strip()).strip()
+    if not line.endswith(":") or "\n" in line:
+        return False
+    return 0 < len(line[:-1].split()) <= _CAPTION_MAX_WORDS
+
+
 def _check_final_artifact_only(content: str) -> str | None:
-    """Deterministic: code/test tasks must return the artifact, not deliberation."""
-    if _extract_fenced_code_blocks(content) and _remove_fenced_code_blocks(content):
+    """Deterministic: code/test tasks must return the artifact, not deliberation.
+
+    Text before the first code block or after the last one is prose. Between
+    two blocks, one short label line (OMN-21258: ``**Usage:**`` above a usage
+    example) is a caption and is allowed; anything longer is prose.
+    """
+    fences = list(_MARKDOWN_FENCE_RE.finditer(content))
+    if not fences:
+        return None
+    outside = [content[: fences[0].start()], content[fences[-1].end() :]]
+    gaps = [
+        content[before.end() : after.start()]
+        for before, after in itertools.pairwise(fences)
+    ]
+    outside.extend(gap for gap in gaps if not _is_caption(gap))
+    if any(text.strip() for text in outside):
         return "TASK_MISMATCH: response includes non-artifact prose outside code block"
     return None
 
@@ -2547,6 +2599,11 @@ def _evaluate_heuristic_checks(
     grounding_check = _identifier_grounding_check_name()
     numbers_check = _numeric_grounding_check_name()
     claims_check = _claim_grounding_check_name()
+    evidence_policy = resolve_evidence_comment_policy()
+    evidence_checks = {
+        evidence_policy.criteria_check_name: evaluate_criteria_covered,
+        evidence_policy.evidence_check_name: evaluate_entry_cites_evidence,
+    }
 
     for check in dod_heuristic:
         if (
@@ -2569,6 +2626,24 @@ def _evaluate_heuristic_checks(
                     blocking_failures.append(reason)
                 else:
                     scored_failures.append(reason)
+            continue
+        if check in evidence_checks:
+            # OMN-17427: both read the criteria and lane report the draft was
+            # built from; with no such input they are recorded SKIPPED.
+            reason, evaluated = evidence_checks[check](
+                content=content,
+                grounding_source=grounding_source,
+                policy=evidence_policy,
+            )
+            if not evaluated:
+                skipped_heuristic.append(check)
+                continue
+            if reason is not None:
+                if _is_blocking_rule(check):
+                    blocking_failures.append(reason)
+                else:
+                    scored_failures.append(reason)
+            evaluations.append(_rule_evaluation(check, reason))
             continue
         if check == claims_check:
             reason, evaluated, claim_rows = _check_claims_grounded(

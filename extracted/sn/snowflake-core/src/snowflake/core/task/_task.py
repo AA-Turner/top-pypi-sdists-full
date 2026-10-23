@@ -5,6 +5,7 @@ import typing
 from collections.abc import Iterable, Iterator
 from concurrent.futures import Future
 from datetime import datetime, timedelta
+from enum import StrEnum
 from logging import getLogger
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Optional, Union, overload
@@ -17,7 +18,7 @@ from snowflake.core import PollingOperation
 from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
-from snowflake.core._internal.utils import StrEnum, deprecated
+from snowflake.core._internal.utils import deprecated
 from snowflake.core._operation import PollingOperations
 from snowflake.core._options import require_snowpark
 from snowflake.core.task._generated import (

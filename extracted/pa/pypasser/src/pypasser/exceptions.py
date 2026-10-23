@@ -6,7 +6,7 @@ class PyPasserError(Exception):
 
 
 class RequestFailed(PyPasserError):
-    """Raised when the network request to Google fails."""
+    """Raised when a solver's network request fails."""
 
 
 class InvalidAnchorURL(PyPasserError):
@@ -19,6 +19,10 @@ class RecaptchaTokenNotFound(PyPasserError):
 
 class RecaptchaResponseNotFound(PyPasserError):
     """Raised when the recaptcha response cannot be found (wrong URL or no reCaptcha on target)."""
+
+
+class AudioDecodeError(PyPasserError):
+    """Raised when a downloaded challenge clip cannot be decoded to PCM."""
 
 
 class InvalidProxyURL(PyPasserError):
@@ -75,3 +79,23 @@ class ARCaptchaBlocked(ARCaptchaError):
 
 class ARCaptchaSolveFailed(ARCaptchaError):
     """The challenge could not be solved within the attempt budget."""
+
+
+class LeminError(PyPasserError):
+    """Base class for Lemin solving errors."""
+
+
+class LeminSolveFailed(LeminError):
+    """The cropped challenge could not be solved within the attempt budget."""
+
+
+class GeeTestError(PyPasserError):
+    """Base class for GeeTest solving errors."""
+
+
+class GeeTestSolveFailed(GeeTestError):
+    """The GeeTest challenge could not be solved within the attempt budget."""
+
+
+class RequestRateLimited(RequestFailed):
+    """Every GeeTest mirror answered 429 or 5xx instead of serving the request."""

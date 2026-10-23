@@ -1,8 +1,13 @@
-#ifndef MGRS_H
-  #define MGRS_H
+#ifndef LIBMGRS_C_API_H
+  #define LIBMGRS_C_API_H
+
+/* Compatibility API implemented by mgrs.cpp using NGA GEOTRANS 3.10.
+ * Inverse coordinates identify the grid-cell center. Callers must serialize
+ * access to conversion functions and the shared ellipsoid parameters.
+ */
 
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MGRS_STATIC)
 #   define USE_DLL   __declspec(dllexport)
 #else
 #   define USE_DLL
@@ -259,4 +264,4 @@ extern "C" {
 }
   #endif
 
-#endif /* MGRS_H */
+#endif /* LIBMGRS_C_API_H */

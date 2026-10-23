@@ -19,6 +19,14 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -34,6 +42,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .flow_related import RelatedFlowControlOperation
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -43,14 +52,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .flow_related import RelatedFlowControlOperation
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -314,6 +315,82 @@ class FlowControlOperation(Asset):
         if self.guid is not UNSET:
             return RelatedFlowControlOperation(guid=self.guid)
         return RelatedFlowControlOperation(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        source_id: str,
+        scope: str | None = None,
+        parent_qualified_name: str | None = None,
+        flow_id: str | None = None,
+    ) -> "FlowControlOperation":
+        """
+        Create a new FlowControlOperation asset.
+
+        Exactly one of ``scope`` or ``parent_qualified_name`` must be given:
+
+        - top-level operation: ``{connection_qualified_name}/{scope}/{source_id}``
+          (e.g. scope = Fabric workspace ID, or SageMaker region)
+        - child operation: ``{parent_qualified_name}/jobs/{source_id}``, linked to
+          its parent through ``flow_controlled_by``
+
+        Args:
+            name: Name of the operation
+            connection_qualified_name: Unique name of the connection
+            source_id: Identifier of the operation in the source system; the last
+                segment of the qualified name
+            scope: Source-system container of a top-level operation
+            parent_qualified_name: Unique name of the controlling operation
+            flow_id: Value for ``flow_id`` (e.g. an ARN); not part of the
+                qualified name
+
+        Returns:
+            FlowControlOperation instance ready to be created
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        validate_required_fields(
+            ["name", "connection_qualified_name", "source_id"],
+            [name, connection_qualified_name, source_id],
+        )
+        fields = connection_qualified_name.split("/")
+        if len(fields) != 3:
+            raise ValueError("Invalid connection_qualified_name")
+        if fields[0].replace(" ", "") == "" or fields[2].replace(" ", "") == "":
+            raise ValueError("Invalid connection_qualified_name")
+        if (scope is None) == (parent_qualified_name is None):
+            raise ValueError(
+                "Exactly one of scope or parent_qualified_name must be provided"
+            )
+
+        flow_controlled_by: RelatedFlowControlOperation | UnsetType = UNSET
+        if parent_qualified_name is not None:
+            validate_required_fields(["parent_qualified_name"], [parent_qualified_name])
+            if not parent_qualified_name.startswith(f"{connection_qualified_name}/"):
+                raise ValueError(
+                    "parent_qualified_name must belong to connection_qualified_name"
+                )
+            qualified_name = f"{parent_qualified_name}/jobs/{source_id}"
+            flow_controlled_by = RelatedFlowControlOperation(
+                qualified_name=parent_qualified_name
+            )
+        else:
+            validate_required_fields(["scope"], [scope])
+            qualified_name = f"{connection_qualified_name}/{scope}/{source_id}"
+
+        return cls(
+            name=name,
+            qualified_name=qualified_name,
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            flow_id=flow_id if flow_id is not None else UNSET,
+            flow_controlled_by=flow_controlled_by,
+        )
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -647,6 +724,7 @@ def _flow_control_operation_to_nested(
         is_incomplete=flow_control_operation.is_incomplete,
         provenance_type=flow_control_operation.provenance_type,
         home_id=flow_control_operation.home_id,
+        delete_handler=flow_control_operation.delete_handler,
         depth=flow_control_operation.depth,
         immediate_upstream=flow_control_operation.immediate_upstream,
         immediate_downstream=flow_control_operation.immediate_downstream,
@@ -697,6 +775,7 @@ def _flow_control_operation_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

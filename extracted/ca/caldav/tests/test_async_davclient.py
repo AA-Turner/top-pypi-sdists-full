@@ -144,7 +144,7 @@ class TestAsyncDAVClient:
         client = AsyncDAVClient(url="https://caldav.example.com/dav/")
 
         assert client.url.scheme == "https"
-        assert "caldav.example.com" in str(client.url)
+        assert client.url.hostname == "caldav.example.com"
         assert "User-Agent" in client.headers
         assert "caldav-async" in client.headers["User-Agent"]
 
@@ -635,6 +635,30 @@ class TestGetDAVClient:
         assert isinstance(client, AsyncDAVClient)
 
     @pytest.mark.asyncio
+    async def test_get_davclient_discovers_off_the_event_loop(self) -> None:
+        """RFC 6764 discovery does blocking DNS and HTTP, so it must not run
+        on the event loop's thread, ref
+        https://github.com/python-caldav/caldav/issues/794"""
+        import threading
+
+        from caldav.discovery import DiscoveryError
+
+        threads = []
+
+        def fake_discover(**kwargs):
+            threads.append(threading.current_thread())
+            raise DiscoveryError("no discovery in unit tests")
+
+        with patch("caldav.discovery.discover_caldav", fake_discover):
+            client = await get_davclient(
+                url="caldav.example.com", username="user", password="pass", probe=False
+            )
+
+        assert threads and threads[0] is not threading.current_thread()
+        assert client.url.hostname == "caldav.example.com"
+        await client.close()
+
+    @pytest.mark.asyncio
     async def test_get_davclient_env_vars(self) -> None:
         """Test get_davclient with environment variables."""
         with patch.dict(
@@ -647,7 +671,7 @@ class TestGetDAVClient:
         ):
             client = await get_davclient(probe=False)
 
-            assert "env.example.com" in str(client.url)
+            assert client.url.hostname == "env.example.com"
             assert client.username == "envuser"
             assert client.password == "envpass"
 
@@ -669,17 +693,16 @@ class TestGetDAVClient:
                 probe=False,
             )
 
-            assert "param.example.com" in str(client.url)
+            assert client.url.hostname == "param.example.com"
             assert client.username == "paramuser"
             assert client.password == "parampass"
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("no_config_files")
     async def test_get_davclient_missing_url(self) -> None:
         """Test that get_davclient raises error without URL."""
-        # Clear any env vars that might be set
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="No configuration found"):
-                await get_davclient(username="user", password="pass", probe=False)
+        with pytest.raises(ValueError, match="No configuration found"):
+            await get_davclient(username="user", password="pass", probe=False)
 
     @pytest.mark.asyncio
     async def test_get_davclient_probe_failure(self) -> None:

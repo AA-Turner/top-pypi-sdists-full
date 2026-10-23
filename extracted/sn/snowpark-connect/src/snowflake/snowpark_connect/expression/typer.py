@@ -12,6 +12,7 @@ from snowflake.snowpark._internal.analyzer.expression import (
     UnresolvedAttribute,
 )
 from snowflake.snowpark.exceptions import SnowparkClientException
+from snowflake.snowpark.functions import col
 from snowflake.snowpark.types import LongType, StructField, StructType
 from snowflake.snowpark_connect.config import global_config
 from snowflake.snowpark_connect.typed_column import FieldType
@@ -23,8 +24,43 @@ from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_sess
 
 
 class ExpressionTyper:
-    def __init__(self, df: DataFrame) -> None:
+    # Window inputs computed in a select under the projection, or None when the
+    # caller does not add that select.
+    _window_inputs: list[Column] | None = None
+
+    def __init__(self, df: DataFrame, *, lift_window_inputs: bool = False) -> None:
         self.df = df
+        if lift_window_inputs:
+            self._window_inputs = []
+
+    @property
+    def lifts_window_inputs(self) -> bool:
+        """True when this typer's caller adds the select for lifted inputs."""
+        return self._window_inputs is not None
+
+    def lift_window_input(self, column: Column) -> Column | None:
+        """Compute ``column`` in a select under the projection; return a reference.
+
+        Snowflake does not nest window functions, so a window over another
+        window's result reads it from that select. Returns None when this
+        typer's caller does not add the select.
+        """
+        if self._window_inputs is None:
+            return None
+        # Unique within one projection, which selects only its own outputs. A
+        # fixed name keeps the SQL text stable for the describe and result caches.
+        name = f'"__SAS_WINDOW_INPUT_{len(self._window_inputs)}"'
+        self._window_inputs.append(column.alias(name))
+        return col(name)
+
+    def with_window_inputs(self, df: DataFrame) -> DataFrame:
+        """``df`` with the lifted window inputs added in a select of their own."""
+        if not self._window_inputs:
+            return df
+        lifted = df.select("*", *self._window_inputs)
+        if getattr(lifted, "_select_statement", None) is not None:
+            lifted._select_statement.flatten_disabled = True
+        return lifted
 
     def type(self, column: Column) -> list[FieldType]:
         types = self._try_to_type_attribute_or_literal(self.df, column)
@@ -34,8 +70,18 @@ class ExpressionTyper:
             )
         if not types:
             # df.select().schema results in DESCRIBE call to Snowflake, so avoid it if possible
-            types = self._type_using_select(self.df, column)
+            types = self._type_using_select(self._df_for(column), column)
         return types
+
+    def _df_for(self, column: Column) -> DataFrame:
+        """The input, with the lifted window inputs only if ``column`` reads one."""
+        if not self._window_inputs:
+            return self.df
+        names = column._expression.dependent_column_names()
+        lifted = {lifted._expression.name for lifted in self._window_inputs}
+        if names is not None and not names & lifted:
+            return self.df
+        return self.with_window_inputs(self.df)
 
     def _type_using_select(self, df: DataFrame, column: Column) -> list[FieldType]:
         df = self._join_df_with_outer_dataframes(df)

@@ -91,9 +91,17 @@ def correct_kind_value(value: Any) -> tuple[Any, list[str]]:
     return corrected, list(notes)
 
 
-# A JSON object the answer TEXT carries: a fenced ```json block, the body of an
+# A JSON object the answer TEXT carries: a fenced ```json block or a bare ``` block
+# (whose content must still parse as a registered kind's JSON), the body of an
 # ``<artifact …>`` tag, or the whole text (structured-output mode answers bare JSON).
-_FENCED = re.compile(r"(```json[^\n]*\n)(.*?)(\n?```)", re.DOTALL | re.IGNORECASE)
+# Every fence is matched, so fences pair up left to right; only a json-labelled or
+# unlabelled one is read — ```python and friends are left as written.
+_FENCED = re.compile(r"(```([^\n`]*)\n)(.*?)(\n?```)", re.DOTALL)
+
+
+def _fence_reads_as_json(label: str) -> bool:
+    words = label.strip().lower().split()
+    return not words or words[0] == "json"
 _ARTIFACT = re.compile(r"(<artifact\b[^>]*>)(.*?)(</artifact>)", re.DOTALL | re.IGNORECASE)
 
 
@@ -138,7 +146,12 @@ def correct_kind_regions_in_text(text: str) -> tuple[str, list[str]]:
     notes: list[str] = []
     seen: list[dict[str, Any]] = []
     try:
-        out = _FENCED.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes, seen) + m.group(3), text)
+        out = _FENCED.sub(
+            lambda m: m.group(1) + _correct_json_region(m.group(3), notes, seen) + m.group(4)
+            if _fence_reads_as_json(m.group(2))
+            else m.group(0),
+            text,
+        )
         out = _ARTIFACT.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes, seen) + m.group(3), out)
         if out.strip().startswith("{"):
             out = _correct_json_region(out, notes, seen)

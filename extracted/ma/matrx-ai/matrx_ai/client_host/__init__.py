@@ -19,7 +19,9 @@ client-host need as an individually-optional ``configure()`` seam on the
   a desktop install. With ``server_url`` + ``source_app`` set and no
   explicit ``tool_source``, the registry derives a ``ServerToolSource``
   that fetches ``{server_url}/ai-tools/app/{source_app}/all`` with the
-  current JWT.
+  current JWT. With ``server_url`` + ``get_jwt`` set, ``configure()`` also installs the HTTP mandate
+  resolver (``client_host.mandate_source.ServerMandateSource``) and the client mandate runner
+  (``client_host.mandate_runner.ServerMandateRunner``) unless the host installed its own.
 
 ``validate_client_host_config()`` (called from ``configure()``) checks the
 combination all-errors-at-once — the 0.1.26 ``ClientModeConfigError`` UX.

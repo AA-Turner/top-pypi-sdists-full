@@ -1553,11 +1553,13 @@ class Calendar(DAVObject):
                 data=data,
                 parent=self,
                 props=dict(tags) or None,
-            )
+            )._keep_raw_data(data)
             for url, data, tags in results
         ]
 
-    def multiget(self, event_urls: Iterable[URL], raise_notfound: bool = False) -> Iterable[_CC]:
+    def multiget(
+        self, event_urls: Iterable[URL], raise_notfound: bool = False
+    ) -> "list[_CC] | Coroutine[Any, Any, list[_CC]]":
         """
         get multiple events' data
         TODO: Does it overlap the _request_report_build_resultlist method?
@@ -1604,7 +1606,9 @@ class Calendar(DAVObject):
         for obj in unloaded:
             key = unquote(str(obj.url))
             if key in url_to_data:
-                obj.data, tags = url_to_data[key]
+                data, tags = url_to_data[key]
+                obj.data = data
+                obj._keep_raw_data(data)
                 obj.props.update(tags)
 
     def _batch_load_objects(self, objects: list) -> None:
@@ -1779,7 +1783,7 @@ class Calendar(DAVObject):
                     data=cdata,
                     parent=self,
                     props=pdata,
-                )
+                )._keep_raw_data(cdata)
             )
         return (response, matches)
 

@@ -658,6 +658,9 @@ __all__ = (
     "TrafficTypeType",
     "TransferTypeType",
     "TransitGatewayAssociationStateType",
+    "TransitGatewayAttachmentNatGatewaySupportStateType",
+    "TransitGatewayAttachmentNatGatewaySupportValueType",
+    "TransitGatewayAttachmentNatSystemRouteSupportValueType",
     "TransitGatewayAttachmentResourceTypeType",
     "TransitGatewayAttachmentStateType",
     "TransitGatewayAttachmentStatusTypeType",
@@ -667,6 +670,7 @@ __all__ = (
     "TransitGatewayMeteringPolicyStateType",
     "TransitGatewayMulitcastDomainAssociationStateType",
     "TransitGatewayMulticastDomainStateType",
+    "TransitGatewayNatRuleStateType",
     "TransitGatewayPolicyTableEntryStateType",
     "TransitGatewayPolicyTableStateType",
     "TransitGatewayPrefixListReferenceStateType",
@@ -3685,6 +3689,11 @@ TransferTypeType = Literal["standard", "time-based"]
 TransitGatewayAssociationStateType = Literal[
     "associated", "associating", "disassociated", "disassociating"
 ]
+TransitGatewayAttachmentNatGatewaySupportStateType = Literal[
+    "disabled", "disabling", "enabled", "enabling"
+]
+TransitGatewayAttachmentNatGatewaySupportValueType = Literal["disable", "enable"]
+TransitGatewayAttachmentNatSystemRouteSupportValueType = Literal["disable", "enable"]
 TransitGatewayAttachmentResourceTypeType = Literal[
     "client-vpn",
     "connect",
@@ -3732,6 +3741,7 @@ TransitGatewayMulitcastDomainAssociationStateType = Literal[
     "rejected",
 ]
 TransitGatewayMulticastDomainStateType = Literal["available", "deleted", "deleting", "pending"]
+TransitGatewayNatRuleStateType = Literal["activated", "deactivated", "deleting", "pending"]
 TransitGatewayPolicyTableEntryStateType = Literal["active", "deleted"]
 TransitGatewayPolicyTableStateType = Literal["available", "deleted", "deleting", "pending"]
 TransitGatewayPrefixListReferenceStateType = Literal[
@@ -3744,7 +3754,7 @@ TransitGatewayRouteTableAnnouncementStateType = Literal[
     "available", "deleted", "deleting", "failed", "failing", "pending"
 ]
 TransitGatewayRouteTableStateType = Literal["available", "deleted", "deleting", "pending"]
-TransitGatewayRouteTypeType = Literal["propagated", "static"]
+TransitGatewayRouteTypeType = Literal["propagated", "static", "system"]
 TransitGatewayStateType = Literal["available", "deleted", "deleting", "modifying", "pending"]
 TransportProtocolType = Literal["tcp", "udp"]
 TrustProviderTypeType = Literal["device", "user"]
@@ -3951,6 +3961,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",

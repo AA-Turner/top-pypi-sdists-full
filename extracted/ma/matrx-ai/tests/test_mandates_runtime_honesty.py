@@ -20,14 +20,12 @@ Breaks these tests name:
 from __future__ import annotations
 
 from typing import ClassVar
-from unittest.mock import AsyncMock
 
 import pytest
 from pydantic import BaseModel
 
-from matrx_ai import _ext, mandates
+from matrx_ai import mandates
 from matrx_ai.agents.executor import AgentRunResult
-from matrx_ai.agents.named import AgentRecordSource
 
 
 class _Inputs(BaseModel):
@@ -54,141 +52,6 @@ class _PackageAgent:
 @pytest.fixture(autouse=True)
 def _reset_seen() -> None:
     _PackageAgent.seen_kwargs = {}
-
-
-@pytest.mark.asyncio
-async def test_package_seam_invokes_host_completion_for_exact_resolution(monkeypatch) -> None:
-    completion = AsyncMock()
-
-    async def resolver(mandate_key: str) -> mandates.MandateResolution:
-        assert mandate_key == "package.writer"
-        return mandates.MandateResolution(
-            source=AgentRecordSource(agent_id="resolved-version", is_version=True),
-            config_overrides={"temperature": 0.2, "max_output_tokens": 900},
-            complete=completion,
-        )
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
-
-    result = await mandates.run_mandated(
-        _PackageAgent,
-        inputs={"topic": "runtime honesty"},
-        user_input={"brief": "keep it short"},
-        config_overrides={"temperature": 0.5},
-    )
-
-    assert result.success is True
-    assert _PackageAgent.seen_kwargs["source_override"] == AgentRecordSource(
-        agent_id="resolved-version",
-        is_version=True,
-    )
-    # Mandate overrides sit UNDER call-site overrides: the call's temperature wins,
-    # the mandate's untouched key survives.
-    assert _PackageAgent.seen_kwargs["config_overrides"] == {
-        "temperature": 0.5,
-        "max_output_tokens": 900,
-    }
-    completion.assert_awaited_once_with(
-        result,
-        {"article_subject": "runtime honesty"},
-        '{"brief": "keep it short"}',
-    )
-
-
-@pytest.mark.asyncio
-async def test_resolved_variable_mapping_and_spill_reach_the_run(monkeypatch) -> None:
-    async def resolver(mandate_key: str) -> mandates.MandateResolution:
-        return mandates.MandateResolution(
-            source=AgentRecordSource(agent_id="bound-agent", is_version=False),
-            variable_mapping={"article_subject": "subject_line"},
-            spill_variables=frozenset({"notes"}),
-        )
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
-
-    await mandates.run_mandated(_PackageAgent, inputs={"topic": "mapping"})
-
-    assert _PackageAgent.seen_kwargs["variable_mapping"] == {"article_subject": "subject_line"}
-    assert _PackageAgent.seen_kwargs["spill_variables"] == {"notes"}
-    assert "config_overrides" not in _PackageAgent.seen_kwargs
-
-
-@pytest.mark.asyncio
-async def test_a_workflow_held_mandate_refuses_to_run_an_agent_record(monkeypatch) -> None:
-    async def resolver(mandate_key: str) -> mandates.MandateResolution:
-        return mandates.MandateResolution(
-            holder_type="workflow",
-            workflow_id="6c1f7a1e-2d7b-4b6a-9d7e-1f3c5a9b8e21",
-        )
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
-
-    with pytest.raises(
-        mandates.MandateResolutionUnavailable,
-        match="resolved to a 'workflow' Holder — this funnel can only run an agent record",
-    ):
-        await mandates.run_mandated(_PackageAgent, inputs={"topic": "workflow holder"})
-
-    assert _PackageAgent.seen_kwargs == {}
-
-
-@pytest.mark.asyncio
-async def test_a_failed_resolver_refuses_the_run_and_records_it(monkeypatch) -> None:
-    """🚨 NO SEED FALLBACK. A resolver failure must never let the agent id
-    frozen in the class body run — that is a paid call against an agent nobody
-    chose, invisible to the console and immune to every org/user binding. The
-    failure is recorded, then the run refuses."""
-    captured: list[dict[str, object]] = []
-
-    async def record_error(exc: BaseException, **kwargs) -> None:
-        captured.append({"exc": exc, **kwargs})
-
-    async def broken_resolver(mandate_key: str):
-        raise RuntimeError(f"cannot resolve {mandate_key}")
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", broken_resolver)
-    monkeypatch.setattr(
-        _ext,
-        "get_ext",
-        lambda name: record_error if name == "record_error" else None,
-    )
-
-    with pytest.raises(mandates.MandateResolutionUnavailable) as excinfo:
-        await mandates.run_mandated(_PackageAgent, inputs={"topic": "fallback"})
-
-    # The agent never ran at all — not on a seed, not on anything.
-    assert _PackageAgent.seen_kwargs == {}
-    assert excinfo.value.mandate_key == "package.writer"
-    assert len(captured) == 1
-    assert captured[0]["kind"] == "mandate_resolution_failed"
-    assert captured[0]["error_type"] == "mandate_resolution_failed"
-    assert captured[0]["payload"] == {
-        "mandate_key": "package.writer",
-        "consumer": "_PackageAgent",
-        "effect": "run REFUSED; no agent ran and nothing was charged",
-    }
-
-
-@pytest.mark.asyncio
-async def test_no_installed_resolver_refuses_instead_of_running_the_code_seed(
-    monkeypatch,
-) -> None:
-    """The silent half of the same defect: with no resolver installed, this
-    used to run the class's hardcoded id with NO alarm at all — so a host that
-    never wired mandate resolution ran frozen agents forever and nothing said so."""
-
-    class _SeededMandatedAgent(_PackageAgent):
-        # A stale id left in a class body must never be what runs.
-        source = AgentRecordSource(agent_id="stale-seed-id", is_version=False)
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", None)
-
-    with pytest.raises(
-        mandates.MandateResolutionUnavailable, match="no mandate resolver is installed"
-    ):
-        await mandates.run_mandated(_SeededMandatedAgent, inputs={"topic": "no resolver"})
-
-    assert _SeededMandatedAgent.seen_kwargs == {}
 
 
 @pytest.mark.asyncio
@@ -223,34 +86,3 @@ class _RunStopper(RuntimeError):
     fails_the_run = True
 
 
-@pytest.mark.asyncio
-async def test_a_completion_that_fails_the_run_stops_the_job(monkeypatch) -> None:
-    """RED before 2026-09-27: every completion failure was swallowed, so a warned
-    Holder's hollow answer reached the call site to be saved."""
-
-    async def resolver(mandate_key: str) -> mandates.MandateResolution:
-        return mandates.MandateResolution(
-            source=AgentRecordSource(agent_id="warned-agent", is_version=False),
-            complete=AsyncMock(side_effect=_RunStopper("missing slides")),
-        )
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
-
-    with pytest.raises(_RunStopper):
-        await mandates.run_mandated(_PackageAgent, inputs={"topic": "x"})
-
-
-@pytest.mark.asyncio
-async def test_any_other_completion_failure_still_never_invalidates_the_answer(
-    monkeypatch,
-) -> None:
-    async def resolver(mandate_key: str) -> mandates.MandateResolution:
-        return mandates.MandateResolution(
-            source=AgentRecordSource(agent_id="agent", is_version=False),
-            complete=AsyncMock(side_effect=RuntimeError("exemplar store down")),
-        )
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
-
-    result = await mandates.run_mandated(_PackageAgent, inputs={"topic": "x"})
-    assert result.success is True

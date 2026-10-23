@@ -38,14 +38,15 @@ from schemathesis.transport.prepare import (
     prepare_cookies,
     prepare_headers,
     prepare_url,
+    replaces_body,
     serialize_cookies,
 )
 from schemathesis.transport.serialization import (
     Binary,
-    _serialize_xml,
     serialize_binary,
     serialize_json,
     serialize_xml,
+    serialize_xml_with_schema,
     serialize_yaml,
 )
 
@@ -79,7 +80,7 @@ def _normalize_query_component(params: Any) -> str:
         return params.lstrip("?")
     if isinstance(params, Mapping):
         return urlencode(params, doseq=True)
-    if isinstance(params, tuple | list):
+    if isinstance(params, (tuple, list)):
         return urlencode(params, doseq=True)
     return str(params)
 
@@ -152,8 +153,9 @@ class RequestsTransport(BaseTransport["requests.Session"]):
 
         url = prepare_url(case, base_url)
 
-        # Handle serialization
-        if serializer is not None:
+        # Handle serialization. A body the caller passes replaces the generated one, so that one is not serialized:
+        # transports pick one of `data` and `json` when given both, which can drop the caller's body.
+        if serializer is not None and not replaces_body(kwargs):
             context = SerializationContext(case=case)
             extra = serializer(context, prepare_body(case))
         else:
@@ -271,13 +273,7 @@ class RequestsTransport(BaseTransport["requests.Session"]):
             return Response.from_requests(
                 response,
                 verify=verify,
-                _override=Override(
-                    query=kwargs.get("params") or {},
-                    headers=kwargs.get("headers") or {},
-                    cookies=kwargs.get("cookies") or {},
-                    path_parameters={},
-                    body={},
-                ),
+                _override=Override.from_send_kwargs(kwargs),
             )
         finally:
             session.headers = current_session_headers
@@ -382,7 +378,7 @@ def _is_dropped_before_response(exc: requests.exceptions.ConnectionError) -> boo
     )
 
 
-def validate_vanilla_requests_kwargs(data: dict[str, Any], declared_base_url: str | None = None) -> None:
+def validate_vanilla_requests_kwargs(data: dict[str, Any], declared_base_url: str | None) -> None:
     """Check arguments for `requests.Session.request`.
 
     Some arguments can be valid for cases like ASGI integration, but at the same time they won't work for the regular
@@ -429,7 +425,7 @@ def yaml_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
 def _should_coerce_to_bytes(item: object) -> bool:
     """Whether the item should be converted to bytes."""
     # These types are OK in forms, others should be coerced to bytes
-    return isinstance(item, Binary) or not isinstance(item, (bytes | str | int))
+    return isinstance(item, Binary) or not isinstance(item, ((bytes, str, int)))
 
 
 def _prepare_form_data(data: dict[str, Any]) -> dict[str, Any]:
@@ -474,6 +470,12 @@ def _encode_multipart(value: Any, boundary: str) -> bytes:
     body.write(str(value).encode())
     body.write(f"--{boundary}--\r\n".encode("latin-1"))
     return body.getvalue()
+
+
+def encode_non_object_multipart(value: Any) -> tuple[bytes, str]:
+    """Encode a body from an uncommon schema, e.g. `{"type": "string"}`, and return it with its Content-Type."""
+    boundary = choose_boundary()
+    return _encode_multipart(value, boundary), f"multipart/form-data; boundary={boundary}"
 
 
 def _is_structured_schema(schema: dict[str, Any], root_schema: dict[str, Any]) -> bool:
@@ -533,7 +535,8 @@ def _is_already_serialized(value: object) -> bool:
 
 def _property_schema(ctx: SerializationContext, name: str) -> dict[str, Any]:
     """Return the schema of a multipart property, with `$ref` resolved."""
-    body = next(iter(ctx.case.operation.get_bodies_for_media_type(ctx.case.media_type or "multipart/form-data")))
+    body = ctx.case.operation.get_body_for_media_type(ctx.case.media_type or "multipart/form-data")
+    assert body is not None
     schema_node = body.definition.get("schema")
     properties = schema_node.get("properties", {}) if isinstance(schema_node, dict) else {}
     if isinstance(properties.get(name), dict):
@@ -563,7 +566,7 @@ def _serialize_part_value(ctx: SerializationContext, value: Any, name: str, cont
     _, serializer = pair
     if serializer is xml_serializer:
         # The part is its own XML document, so its root comes from the part schema.
-        result = _serialize_xml(value, _property_schema(ctx, name), resource_name=name)
+        result = serialize_xml_with_schema(value, _property_schema(ctx, name), resource_name=name)
     else:
         result = serializer(ctx, value)
     if "json" in result:
@@ -614,10 +617,7 @@ def multipart_serializer(ctx: SerializationContext, value: Body) -> dict[str, An
             content_type = prepared.headers["Content-Type"].replace("multipart/form-data", "multipart/mixed", 1)
             return {"data": prepared.body, "headers": {"Content-Type": content_type}}
         return {"files": files, "data": data}
-    # Uncommon schema. For example - `{"type": "string"}`
-    boundary = choose_boundary()
-    raw_data = _encode_multipart(value, boundary)
-    content_type = f"multipart/form-data; boundary={boundary}"
+    raw_data, content_type = encode_non_object_multipart(value)
     return {"data": raw_data, "headers": {"Content-Type": content_type}}
 
 

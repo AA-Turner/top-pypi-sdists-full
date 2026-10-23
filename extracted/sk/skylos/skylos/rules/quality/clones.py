@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import io
 import tokenize
@@ -15,6 +16,15 @@ except ImportError:
     _fast_similarity = None
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+
+from skylos.rules.quality._test_code import (
+    is_python_golden_fixture,
+    is_python_test_file,
+    is_test_package_name,
+    python_test_directory,
+)
+from skylos.rules.quality._code_lines import code_lines, count_statements
+from skylos.rules.quality._scope import is_sample_or_build_python
 
 
 class CloneType(str, Enum):
@@ -31,8 +41,11 @@ class GroupingMode(str, Enum):
 
 @dataclass(frozen=True)
 class CloneConfig:
+    # Code lines of the fragment: blank, comment and docstring lines excluded.
     min_lines: int = 8
     min_nodes: int = 10
+    # Statements in the compared body (docstrings excluded, nested counted).
+    min_statements: int = 4
     type1_threshold: float = 0.98
     type2_threshold: float = 0.95
     type3_threshold: float = 0.88
@@ -97,6 +110,57 @@ def _strip_docstring(body: List[ast.stmt]) -> List[ast.stmt]:
     return body
 
 
+def _copy_syntax(tree: ast.AST) -> ast.AST:
+    """Copy syntax without following metadata on shared parser nodes.
+
+    Contexts and operators are singleton objects in parsed ASTs. Another
+    analyzer can annotate one with a parent in an unrelated source tree;
+    deepcopy would traverse that graph rather than just this fragment.
+    """
+    copies = {}
+    for original in ast.walk(tree):
+        if original in copies:
+            continue
+        duplicate = copy.copy(original)
+        duplicate.__dict__.clear()
+        for attribute in original._attributes:
+            if hasattr(original, attribute):
+                setattr(duplicate, attribute, getattr(original, attribute))
+        copies[original] = duplicate
+    for original, duplicate in copies.items():
+        for field, value in ast.iter_fields(original):
+            if isinstance(value, ast.AST):
+                value = copies[value]
+            elif isinstance(value, list):
+                value = [
+                    copies[item] if isinstance(item, ast.AST) else item
+                    for item in value
+                ]
+            setattr(duplicate, field, value)
+    return copies[tree]
+
+
+def clone_member_label(
+    fragment: "Fragment", project_root: str | Path | None = None
+) -> str:
+    """``path:start-end (kind name)`` with the path relative to the project.
+
+    Copies in ``a/x.py`` and ``b/x.py`` share a basename; the relative path
+    keeps them apart.
+    """
+    path = Path(fragment.file_path)
+    shown = str(path)
+    if project_root is not None:
+        try:
+            shown = path.resolve().relative_to(Path(project_root).resolve()).as_posix()
+        except (OSError, ValueError):
+            shown = str(path)
+    return (
+        f"{shown}:{fragment.start_line}-{fragment.end_line} "
+        f"({fragment.kind} {fragment.name})"
+    )
+
+
 def _normalize_text(source: str) -> str:
     out = []
     try:
@@ -110,43 +174,379 @@ def _normalize_text(source: str) -> str:
                 tokenize.DEDENT,
             ):
                 continue
-            if tok_type == tokenize.STRING:
-                out.append('"STR"')
-            elif tok_type == tokenize.NUMBER:
-                out.append("0")
-            else:
-                out.append(tok_str)
+            # Type 1 ignores layout/comments, not literal values. Replacing
+            # every string and number here bypassed ignore_literals=False and
+            # made distinct declaration/data tables look like exact clones.
+            out.append(tok_str)
     except tokenize.TokenError:
         return " ".join(source.split())
     return " ".join(out)
 
 
+def _local_clone_bindings(body, parameters=()):
+    """Lexical bindings, excluding independent nested bodies and imports."""
+    names = set(parameters)
+    external = set()
+    pending = list(body)
+    while pending:
+        current = pending.pop()
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(current.name)
+            pending.extend(current.decorator_list)
+            if isinstance(current, ast.ClassDef):
+                pending.extend(current.bases)
+                pending.extend(keyword.value for keyword in current.keywords)
+            else:
+                pending.extend(current.args.defaults)
+                pending.extend(
+                    item for item in current.args.kw_defaults if item is not None
+                )
+            continue
+        if isinstance(current, (ast.Global, ast.Nonlocal)):
+            external.update(current.names)
+            continue
+        if isinstance(current, ast.ExceptHandler) and current.name:
+            names.add(current.name)
+        if isinstance(current, (ast.MatchAs, ast.MatchStar)) and current.name:
+            names.add(current.name)
+        if isinstance(current, ast.MatchMapping) and current.rest:
+            names.add(current.rest)
+        if isinstance(
+            current,
+            (ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp),
+        ):
+            # A comprehension's iteration variables are local to it, but a
+            # walrus expression binds the enclosing function's namespace.
+            if isinstance(current, ast.Lambda):
+                pending.extend(current.args.defaults)
+                pending.extend(
+                    item for item in current.args.kw_defaults if item is not None
+                )
+            else:
+                expressions = list(ast.iter_child_nodes(current))
+                while expressions:
+                    expression = expressions.pop()
+                    if isinstance(expression, ast.Lambda):
+                        expressions.extend(expression.args.defaults)
+                        expressions.extend(
+                            item
+                            for item in expression.args.kw_defaults
+                            if item is not None
+                        )
+                        continue
+                    if isinstance(
+                        expression,
+                        (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+                    ):
+                        continue
+                    if isinstance(expression, ast.NamedExpr) and isinstance(
+                        expression.target, ast.Name
+                    ):
+                        names.add(expression.target.id)
+                    expressions.extend(ast.iter_child_nodes(expression))
+            continue
+        if isinstance(current, (ast.Import, ast.ImportFrom)):
+            external.update(
+                alias.asname or alias.name.split(".", 1)[0] for alias in current.names
+            )
+            continue
+        if isinstance(current, ast.Name) and isinstance(
+            current.ctx, (ast.Store, ast.Del)
+        ):
+            names.add(current.id)
+        pending.extend(ast.iter_child_nodes(current))
+    return names - external
+
+
+def _clone_binding_declarations(body):
+    global_names, nonlocal_names = set(), set()
+    pending = list(body)
+    while pending:
+        current = pending.pop()
+        if isinstance(
+            current, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+        ):
+            continue
+        if isinstance(current, ast.Global):
+            global_names.update(current.names)
+        elif isinstance(current, ast.Nonlocal):
+            nonlocal_names.update(current.names)
+        pending.extend(ast.iter_child_nodes(current))
+    return global_names, nonlocal_names
+
+
+def _clone_parameters(arguments):
+    return [
+        argument.arg
+        for argument in (
+            *arguments.posonlyargs,
+            *arguments.args,
+            *arguments.kwonlyargs,
+            arguments.vararg,
+            arguments.kwarg,
+        )
+        if argument is not None
+    ]
+
+
 class _Type2Normalizer(ast.NodeTransformer):
-    def __init__(self, ignore_identifiers: bool, ignore_literals: bool):
+    def __init__(
+        self,
+        ignore_identifiers: bool,
+        ignore_literals: bool,
+        *,
+        local_names=(),
+        parameters=(),
+        global_names=(),
+        nonlocal_names=(),
+    ):
         self.ignore_identifiers = ignore_identifiers
         self.ignore_literals = ignore_literals
+        self._scope_number = 0
+        self._scopes = []
+        self._push_scope(
+            set(local_names),
+            parameters,
+            global_names=global_names,
+            nonlocal_names=nonlocal_names,
+        )
+
+    def _push_scope(
+        self,
+        names,
+        parameters=(),
+        *,
+        namespace=False,
+        global_names=(),
+        nonlocal_names=(),
+    ):
+        scope = [
+            self._scope_number,
+            set(names),
+            {},
+            namespace,
+            set(global_names),
+            set(nonlocal_names),
+        ]
+        self._scope_number += 1
+        self._scopes.append(scope)
+        for parameter in parameters:
+            self._identifier(parameter)
+
+    def _identifier(self, name, *, store=False):
+        if not self.ignore_identifiers:
+            return name
+        for (
+            number,
+            names,
+            replacements,
+            namespace,
+            global_names,
+            nonlocal_names,
+        ) in reversed(self._scopes):
+            if namespace and number != self._scopes[-1][0] and not store:
+                # Neither bindings nor directives from an outer class enter
+                # a nested method/class/comprehension's lexical environment.
+                continue
+            if name in global_names:
+                return name
+            if name in nonlocal_names:
+                store = False
+                continue
+            if name in names:
+                if namespace:
+                    return name
+                if name not in replacements:
+                    # This cannot collide with a parsed Python identifier.
+                    replacements[name] = f"<local:{number}:{len(replacements)}>"
+                return replacements[name]
+            if store:
+                break
+        return name
 
     def visit_Name(self, node: ast.Name):
         if self.ignore_identifiers:
-            return ast.copy_location(ast.Name(id="_ID", ctx=node.ctx), node)
+            return ast.copy_location(
+                ast.Name(
+                    id=self._identifier(
+                        node.id, store=isinstance(node.ctx, (ast.Store, ast.Del))
+                    ),
+                    ctx=node.ctx,
+                ),
+                node,
+            )
         return node
 
     def visit_arg(self, node: ast.arg):
         if self.ignore_identifiers:
-            node.arg = "_ARG"
+            node.arg = self._identifier(node.arg)
         return node
 
     def visit_Attribute(self, node: ast.Attribute):
-        node = self.generic_visit(node)
-        if self.ignore_identifiers:
-            node.attr = "_ATTR"
+        # Member/API selectors are operations, not alpha-renamable variables.
+        return self.generic_visit(node)
+
+    def visit_NamedExpr(self, node):
+        if isinstance(node.target, ast.Name):
+            node.target.id = self._identifier(node.target.id)
+        else:
+            node.target = self.visit(node.target)
+        node.value = self.visit(node.value)
         return node
+
+    def visit_Nonlocal(self, node):
+        node.names = [self._identifier(name) for name in node.names]
+        return node
+
+    def visit_ExceptHandler(self, node):
+        if node.type is not None:
+            node.type = self.visit(node.type)
+        if node.name:
+            node.name = self._identifier(node.name, store=True)
+        node.body = [self.visit(item) for item in node.body]
+        return node
+
+    def visit_MatchAs(self, node):
+        if node.pattern is not None:
+            node.pattern = self.visit(node.pattern)
+        if node.name:
+            node.name = self._identifier(node.name, store=True)
+        return node
+
+    def visit_MatchStar(self, node):
+        if node.name:
+            node.name = self._identifier(node.name, store=True)
+        return node
+
+    def visit_MatchMapping(self, node):
+        node.keys = [self.visit(item) for item in node.keys]
+        node.patterns = [self.visit(item) for item in node.patterns]
+        if node.rest:
+            node.rest = self._identifier(node.rest, store=True)
+        return node
+
+    def _function(self, node):
+        original_name = node.name
+        node.name = self._identifier(original_name, store=True)
+        node.decorator_list = [self.visit(item) for item in node.decorator_list]
+        node.args.defaults = [self.visit(item) for item in node.args.defaults]
+        node.args.kw_defaults = [
+            self.visit(item) if item is not None else None
+            for item in node.args.kw_defaults
+        ]
+        parameters = _clone_parameters(node.args)
+        for argument in (
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+            node.args.vararg,
+            node.args.kwarg,
+        ):
+            if argument is not None and argument.annotation is not None:
+                argument.annotation = self.visit(argument.annotation)
+        if node.returns is not None:
+            node.returns = self.visit(node.returns)
+        global_names, nonlocal_names = _clone_binding_declarations(node.body)
+        self._push_scope(
+            _local_clone_bindings(node.body, parameters),
+            parameters,
+            global_names=global_names,
+            nonlocal_names=nonlocal_names,
+        )
+        for argument in (
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+            node.args.vararg,
+            node.args.kwarg,
+        ):
+            if argument is not None:
+                argument.arg = self._identifier(argument.arg)
+        node.body = [self.visit(item) for item in node.body]
+        self._scopes.pop()
+        return node
+
+    visit_FunctionDef = _function
+    visit_AsyncFunctionDef = _function
+
+    def visit_ClassDef(self, node):
+        node.name = self._identifier(node.name, store=True)
+        node.bases = [self.visit(item) for item in node.bases]
+        node.keywords = [self.visit(item) for item in node.keywords]
+        node.decorator_list = [self.visit(item) for item in node.decorator_list]
+        names = _local_clone_bindings(node.body)
+        global_names, nonlocal_names = _clone_binding_declarations(node.body)
+        self._push_scope(
+            names,
+            namespace=True,
+            global_names=global_names,
+            nonlocal_names=nonlocal_names,
+        )
+        node.body = [self.visit(item) for item in node.body]
+        self._scopes.pop()
+        return node
+
+    def visit_Lambda(self, node):
+        node.args.defaults = [self.visit(item) for item in node.args.defaults]
+        node.args.kw_defaults = [
+            self.visit(item) if item is not None else None
+            for item in node.args.kw_defaults
+        ]
+        parameters = _clone_parameters(node.args)
+        self._push_scope(_local_clone_bindings([node.body], parameters), parameters)
+        for argument in (
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+            node.args.vararg,
+            node.args.kwarg,
+        ):
+            if argument is not None:
+                argument.arg = self._identifier(argument.arg)
+        node.body = self.visit(node.body)
+        self._scopes.pop()
+        return node
+
+    def _comprehension(self, node):
+        # The first iterable runs in the enclosing scope.
+        first = node.generators[0]
+        first.iter = self.visit(first.iter)
+        names = {
+            child.id
+            for generator in node.generators
+            for child in ast.walk(generator.target)
+            if isinstance(child, ast.Name)
+        }
+        self._push_scope(names)
+        for index, generator in enumerate(node.generators):
+            generator.target = self.visit(generator.target)
+            if index:
+                generator.iter = self.visit(generator.iter)
+            generator.ifs = [self.visit(item) for item in generator.ifs]
+        if isinstance(node, ast.DictComp):
+            node.key, node.value = self.visit(node.key), self.visit(node.value)
+        else:
+            node.elt = self.visit(node.elt)
+        self._scopes.pop()
+        return node
+
+    visit_ListComp = _comprehension
+    visit_SetComp = _comprehension
+    visit_DictComp = _comprehension
+    visit_GeneratorExp = _comprehension
 
     def visit_Constant(self, node: ast.Constant):
         if self.ignore_literals:
-            if node.value in (None, True, False):
+            if node.value is None or isinstance(node.value, bool):
                 return node
-            return ast.copy_location(ast.Constant(value="_LIT"), node)
+            replacement = {
+                str: "<string>",
+                bytes: b"<bytes>",
+                int: 0,
+                float: 0.0,
+                complex: 0j,
+            }.get(type(node.value), node.value)
+            return ast.copy_location(ast.Constant(value=replacement), node)
         return node
 
 
@@ -178,7 +578,6 @@ def _similarity(a: str, b: str, threshold: float | None = None) -> float:
     return matcher.ratio()
 
 
-_SKIP_PREFIXES = ("test_", "conftest")
 _BOILERPLATE_METHODS = {
     "__init__",
     "__repr__",
@@ -205,17 +604,24 @@ _BOILERPLATE_METHODS = {
 
 
 def extract_fragments(
-    py_path: Path, source: str, cfg: CloneConfig, *, tree: ast.AST | None = None
+    py_path: Path,
+    source: str,
+    cfg: CloneConfig,
+    *,
+    project_root: str | Path | None = None,
 ) -> List[Fragment]:
-    basename = py_path.name
-    if any(basename.startswith(p) for p in _SKIP_PREFIXES):
+    # Keep test fragments until group analysis can retain shared production
+    # implementations. Sample and build code has no such metric contract.
+    if is_sample_or_build_python(py_path, project_root):
         return []
 
-    if tree is None:
-        try:
-            tree = ast.parse(source)
-        except SyntaxError:
-            return []
+    # Always a private tree: _Type2Normalizer rewrites identifiers in place,
+    # and a tree shared with the analyzer keeps nodes later passes read (the
+    # class bases behind framework-override evidence).
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
 
     fragments: List[Fragment] = []
     class_stack: List[str] = []
@@ -227,6 +633,13 @@ def extract_fragments(
         if start is None or end is None:
             return
         if (end - start + 1) < cfg.min_lines:
+            return
+        # Size is measured in code: docstring, comment and blank lines do not
+        # count, and a long signature over a one- or two-statement body is
+        # not duplicated logic.
+        if len(code_lines(n, source, start=start, end=end)) < cfg.min_lines:
+            return
+        if body is not None and count_statements(body) < cfg.min_statements:
             return
 
         if body is not None:
@@ -242,12 +655,41 @@ def extract_fragments(
         frag_src = "\n".join(src_lines[start - 1 : end])
         text_norm = _normalize_text(frag_src)
 
-        t2 = _Type2Normalizer(cfg.ignore_identifiers, cfg.ignore_literals).visit(
-            ast.fix_missing_locations(node_for_dump)
-        )
-        ast_norm_type2 = _dump_ast(t2)
-
         ast_norm_type3 = _dump_ast(node_for_dump)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # An identical body can bind its names to different positional
+            # inputs. Keep the original signature in the unnormalized
+            # candidate identity; otherwise that bucket bypasses the scoped
+            # type-2 binding comparison (e.g. f(left, right) versus
+            # f(right, left), both returning left - right).
+            ast_norm_type3 = _dump_ast(n.args) + ":" + ast_norm_type3
+        if cfg.ignore_identifiers or cfg.ignore_literals:
+            # Normalizing a class must not rewrite the original AST of the
+            # methods which are extracted as independent fragments afterward.
+            parameters = (
+                _clone_parameters(n.args)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                else []
+            )
+            local_names = (
+                _local_clone_bindings(node_for_dump.body, parameters)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                else set()
+            )
+            global_names, nonlocal_names = _clone_binding_declarations(
+                node_for_dump.body
+            )
+            t2 = _Type2Normalizer(
+                cfg.ignore_identifiers,
+                cfg.ignore_literals,
+                local_names=local_names,
+                parameters=parameters,
+                global_names=global_names,
+                nonlocal_names=nonlocal_names,
+            ).visit(_copy_syntax(node_for_dump))
+            ast_norm_type2 = _dump_ast(t2)
+        else:
+            ast_norm_type2 = ast_norm_type3
 
         fragments.append(
             Fragment(
@@ -304,9 +746,10 @@ def classify_clone(
     enabled = set(cfg.enabled_clone_types)
 
     if CloneType.TYPE1 in enabled:
-        sim1 = _similarity(f1.text_norm, f2.text_norm, cfg.type1_threshold)
-        if sim1 >= cfg.type1_threshold:
-            return (CloneType.TYPE1, sim1)
+        # Type 1 permits layout/comments only. A high similarity score cannot
+        # establish that literal, annotation or operator differences are absent.
+        if f1.text_norm == f2.text_norm and cfg.type1_threshold <= 1.0:
+            return (CloneType.TYPE1, 1.0)
 
     if CloneType.TYPE2 in enabled:
         sim2 = _similarity(f1.ast_norm_type2, f2.ast_norm_type2, cfg.type2_threshold)
@@ -317,6 +760,12 @@ def classify_clone(
         sim3 = _similarity(f1.ast_norm_type3, f2.ast_norm_type3, cfg.type3_threshold)
         if sim3 >= cfg.type3_threshold:
             return (CloneType.TYPE3, sim3)
+        if CloneType.TYPE1 in enabled:
+            # Preserve already accepted near-copies if text similarity is
+            # stronger than AST similarity, but label their edits honestly.
+            sim1 = _similarity(f1.text_norm, f2.text_norm, cfg.type1_threshold)
+            if sim1 >= cfg.type1_threshold:
+                return (CloneType.TYPE3, sim1)
 
     if CloneType.TYPE4 in enabled:
         pass
@@ -549,3 +998,143 @@ def _group_kcore(frag_list, adj, cfg: CloneConfig, k: int):
                 sub_adj.setdefault(i, {})[j] = p
 
     return _group_connected(frag_list, sub_adj, cfg)
+
+
+def without_test_only_groups(
+    groups: List[CloneGroup],
+    project_root: Path | str | None = None,
+    *,
+    imported_modules: Set[str] = frozenset(),
+    module_names: Optional[Dict[str, str]] = None,
+) -> List[CloneGroup]:
+    """Drop clone groups whose members are all test code.
+
+    Near-identical test bodies are normal (one case per input), so such a
+    group is not a duplication defect. A group that reaches production code
+    is kept, and so is one whose test module non-test code imports
+    (``imported_modules``, with ``module_names`` mapping files to modules):
+    production then depends on the duplicated code. Golden source/output
+    fixture pairs also count when a matching text reader proves the fixture
+    protocol. Path names alone do not establish either exemption.
+    """
+    module_names = module_names or {}
+    test_context = {}
+
+    def test_only(fragment) -> bool:
+        filename = fragment.file_path
+        if filename not in test_context:
+            test_context[filename] = is_python_test_file(
+                filename, project_root
+            ) or is_python_golden_fixture(filename, project_root)
+        return test_context[filename]
+
+    def imported(fragment) -> bool:
+        # The module itself, or a test package above it (its ``__init__`` can
+        # re-export it); importing ``pkg`` does not reach ``pkg.tests.x``.
+        module = module_names.get(_resolved(fragment.file_path))
+        return bool(module) and any(
+            module == name
+            or (module.startswith(name + ".") and is_test_package_name(name))
+            for name in imported_modules
+        )
+
+    return [
+        group
+        for group in groups
+        if not all(
+            test_only(fragment) and not imported(fragment)
+            for fragment in group.fragments
+        )
+    ]
+
+
+def python_imports_outside_tests(
+    raw_imports: Dict[Path, list], project_root: Path | str | None = None
+) -> Set[str]:
+    """Modules that non-test files import, as dotted names (``module`` and
+    ``module.name`` for ``from`` imports).
+
+    ``raw_imports`` maps a file to its module-level imports as
+    ``(module, line, kind, names)``. Helpers in a directory containing actual
+    tests do not count as outside importers unless production reaches them.
+    """
+    test_files = {
+        file for file in raw_imports if is_python_test_file(file, project_root)
+    }
+    # An uncollected support module in a proven test suite is not itself a
+    # production importer. Otherwise ``tests/mockserver.py: from tests ...``
+    # keeps every clone under tests/, even when no shipped code uses it.
+    # Do retain support modules reached by production imports, transitively.
+    suite_directories = {
+        directory
+        for file in test_files
+        if (directory := python_test_directory(file, project_root)) is not None
+    }
+    test_context_files = test_files | {
+        file
+        for file in raw_imports
+        if python_test_directory(file, project_root) in suite_directories
+    }
+
+    def import_names(imports):
+        names = set()
+        for module, _line, kind, imported_names in imports:
+            if not module:
+                continue
+            names.add(module)
+            if kind == "from_import":
+                names.update(f"{module}.{name}" for name in imported_names)
+        return names
+
+    candidate_modules = {}
+    if project_root is not None:
+        root = Path(project_root).resolve()
+        for file in test_context_files:
+            try:
+                path = Path(file)
+                if not path.is_absolute():
+                    path = root / path
+                parts = list(path.resolve().relative_to(root).with_suffix("").parts)
+                if parts[-1] == "__init__":
+                    parts.pop()
+                modules = {".".join(parts)}
+                if parts and parts[0] == "src":
+                    modules.add(".".join(parts[1:]))
+                candidate_modules[file] = modules - {""}
+            except (OSError, RuntimeError, ValueError):
+                continue
+
+    names: Set[str] = set()
+    for file, imports in raw_imports.items():
+        if file in test_context_files:
+            continue
+        names.update(import_names(imports))
+    pending = set(candidate_modules)
+    package_initializers = {
+        file for file in candidate_modules if Path(file).name == "__init__.py"
+    }
+    while pending:
+        reached = {
+            file
+            for file in pending
+            if any(
+                module == name
+                or module.startswith(name + ".")
+                or (file in package_initializers and name.startswith(module + "."))
+                for module in candidate_modules[file]
+                for name in names
+            )
+        }
+        if not reached:
+            break
+        for file in reached:
+            names.update(import_names(raw_imports[file]))
+        pending.difference_update(reached)
+    return names
+
+
+def _resolved(path) -> str:
+    try:
+        return str(Path(path).resolve())
+    except (OSError, RuntimeError):
+        return str(path)

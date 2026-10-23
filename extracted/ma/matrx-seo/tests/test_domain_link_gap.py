@@ -307,7 +307,9 @@ async def test_gap_run_measures_own_authority_for_unenriched_domains(monkeypatch
     assert row.written["referring_domains"] == 4200
     assert "total_backlinks" not in row.written
     assert row.written["priority_score"] is not None
-    assert row.written["metadata"]["matrx_authority"]["confidence"] == "measured"
+    merge = row.written["metadata"]  # a JsonbMerge of the one key enrichment owns
+    assert merge.args[0] == "metadata" and set(merge.value) == {"matrx_authority"}
+    assert merge.value["matrx_authority"]["confidence"] == "measured"
 
 
 @pytest.mark.asyncio

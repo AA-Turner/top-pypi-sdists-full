@@ -104,6 +104,8 @@ pub(crate) struct WriterState {
     pub(crate) degraded: Option<String>,
     /// Store notices the user should see, such as a corrupt store moved aside.
     pub(crate) notices: Vec<String>,
+    /// Informational store notices that report no problem, such as a database Recall created.
+    pub(crate) information: Vec<String>,
     /// The context row's content while its replacement-filter flag is still unknown.
     pub(crate) held_context: Option<InvocationContext>,
     capacity: (usize, usize),
@@ -151,6 +153,7 @@ impl WriterState {
             rejecting: false,
             degraded: None,
             notices: Vec::new(),
+            information: Vec::new(),
             held_context: None,
             capacity,
         }
@@ -271,6 +274,19 @@ impl WriterState {
             self.records - self.buckets[Priority::Output as usize].len()
         } else {
             self.records
+        }
+    }
+
+    /// Bytes a batch may take now: held output stays queued.
+    pub(crate) fn ready_bytes(&self) -> usize {
+        if self.holding_output() {
+            let held: usize = self.buckets[Priority::Output as usize]
+                .iter()
+                .map(|record| record.bytes)
+                .sum();
+            self.bytes - held
+        } else {
+            self.bytes
         }
     }
 

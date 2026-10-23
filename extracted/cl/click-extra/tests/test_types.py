@@ -439,8 +439,12 @@ def test_enum_choice_show_aliases(
         return
 
     # Augment the Enum with both key/name and value aliases.
-    next(iter(enum_definition))._add_alias_("aliased_pending")  # type: ignore[attr-defined]
-    list(enum_definition)[1]._add_value_alias_("aliased_approved")  # type: ignore[attr-defined]
+    # The two methods are the public API of Enum for aliases, dunder-looking or not.
+    first, second = list(enum_definition)[:2]
+    first._add_alias_("aliased_pending")  # type: ignore[attr-defined]  # noqa: PLC2801
+    second._add_value_alias_(  # type: ignore[attr-defined]  # noqa: PLC2801
+        "aliased_approved"
+    )
 
     enum_choice = EnumChoice(
         enum_definition, choice_source=choice_source, show_aliases=show_aliases

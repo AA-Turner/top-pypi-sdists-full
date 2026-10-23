@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -46,6 +54,7 @@ from .dbt_related import (
 )
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
+from .iceberg_related import RelatedIcebergCatalog, RelatedIcebergNamespace
 from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
@@ -53,7 +62,10 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
-from .sap_related import RelatedSapDatasphereReplicationFlow
+from .sap_related import (
+    RelatedSapDatasphereDataProduct,
+    RelatedSapDatasphereReplicationFlow,
+)
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .snowflake_related import (
     RelatedSnowflakeAIModelContext,
@@ -80,14 +92,6 @@ from .sql_related import (
     RelatedTable,
     RelatedView,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .iceberg_related import RelatedIcebergNamespace
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -181,6 +185,7 @@ class IcebergNamespace(Asset):
     LINKS: ClassVar[Any] = None
     README: ClassVar[Any] = None
     SAP_DATASPHERE_REPLICATION_FLOWS: ClassVar[Any] = None
+    SAP_DATASPHERE_DATA_PRODUCTS: ClassVar[Any] = None
     CALCULATION_VIEWS: ClassVar[Any] = None
     FUNCTIONS: ClassVar[Any] = None
     MATERIALISED_VIEWS: ClassVar[Any] = None
@@ -466,6 +471,11 @@ class IcebergNamespace(Asset):
     ] = UNSET
     """SAP Datasphere replication flows that create tables within this schema (Datasphere space)."""
 
+    sap_datasphere_data_products: Union[
+        List[RelatedSapDatasphereDataProduct], None, UnsetType
+    ] = UNSET
+    """SAP Datasphere data products that expose objects from this schema (Datasphere space)."""
+
     calculation_views: Union[List[RelatedCalculationView], None, UnsetType] = UNSET
     """Calculation views that exist within this schema."""
 
@@ -623,6 +633,88 @@ class IcebergNamespace(Asset):
         if self.guid is not UNSET:
             return RelatedIcebergNamespace(guid=self.guid)
         return RelatedIcebergNamespace(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        parent_qualified_name: str,
+    ) -> "IcebergNamespace":
+        """
+        Create a new IcebergNamespace asset.
+
+        Namespaces nest to any depth, so the namespace is named by its parent:
+        the catalog for a top-level namespace, or the enclosing namespace for a
+        nested one. Namespace ``a.b`` in catalog ``cat`` has qualifiedName
+        ``{connection}/cat/a/b``.
+
+        Args:
+            name: Name of this namespace level (the last segment, e.g. ``b`` for ``a.b``)
+            parent_qualified_name: Unique name of the parent catalog or namespace
+
+        Returns:
+            IcebergNamespace instance ready to be created
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        validate_required_fields(
+            ["name", "parent_qualified_name"], [name, parent_qualified_name]
+        )
+        fields = parent_qualified_name.split("/")
+        if len(fields) < 4:
+            raise ValueError(
+                f"Invalid parent_qualified_name: {parent_qualified_name}. "
+                "Expected format: default/connector/connection_id/catalog[/namespace...]"
+            )
+        connection_qualified_name = "/".join(fields[:3])
+        catalog_name = fields[3]
+        catalog_qualified_name = f"{connection_qualified_name}/{catalog_name}"
+        qualified_name = f"{parent_qualified_name}/{name}"
+        path = fields[4:] + [name]
+        return cls(
+            name=name,
+            qualified_name=qualified_name,
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            database_name=catalog_name,
+            database_qualified_name=catalog_qualified_name,
+            database=RelatedIcebergCatalog(
+                unique_attributes={"qualifiedName": catalog_qualified_name}
+            ),
+            # Matches atlan-iceberg-app: the first namespace segment, not the
+            # immediate parent, for any nested namespace.
+            iceberg_parent_namespace_qualified_name=(
+                f"{catalog_qualified_name}/{path[0]}" if len(path) > 1 else None
+            ),
+            iceberg_namespace_hierarchy=[
+                {
+                    "qualifiedName": "/".join([catalog_qualified_name, *path[:i]]),
+                    "name": path[i - 1],
+                }
+                for i in range(1, len(path) + 1)
+            ],
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "IcebergNamespace":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "IcebergNamespace":
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "IcebergNamespace":
+        return cls.updater(**kwargs)
+
+    def trim_to_required(self) -> "IcebergNamespace":
+        return IcebergNamespace.updater(
+            qualified_name=self.qualified_name, name=self.name
+        )
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -946,6 +1038,11 @@ class IcebergNamespaceRelationshipAttributes(AssetRelationshipAttributes):
     ] = UNSET
     """SAP Datasphere replication flows that create tables within this schema (Datasphere space)."""
 
+    sap_datasphere_data_products: Union[
+        List[RelatedSapDatasphereDataProduct], None, UnsetType
+    ] = UNSET
+    """SAP Datasphere data products that expose objects from this schema (Datasphere space)."""
+
     calculation_views: Union[List[RelatedCalculationView], None, UnsetType] = UNSET
     """Calculation views that exist within this schema."""
 
@@ -1094,6 +1191,7 @@ _ICEBERG_NAMESPACE_REL_FIELDS: List[str] = [
     "links",
     "readme",
     "sap_datasphere_replication_flows",
+    "sap_datasphere_data_products",
     "calculation_views",
     "functions",
     "materialised_views",
@@ -1268,6 +1366,7 @@ def _iceberg_namespace_to_nested(
         is_incomplete=iceberg_namespace.is_incomplete,
         provenance_type=iceberg_namespace.provenance_type,
         home_id=iceberg_namespace.home_id,
+        delete_handler=iceberg_namespace.delete_handler,
         depth=iceberg_namespace.depth,
         immediate_upstream=iceberg_namespace.immediate_upstream,
         immediate_downstream=iceberg_namespace.immediate_downstream,
@@ -1316,6 +1415,7 @@ def _iceberg_namespace_from_nested(nested: IcebergNamespaceNested) -> IcebergNam
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -1498,6 +1598,9 @@ IcebergNamespace.LINKS = RelationField("links")
 IcebergNamespace.README = RelationField("readme")
 IcebergNamespace.SAP_DATASPHERE_REPLICATION_FLOWS = RelationField(
     "sapDatasphereReplicationFlows"
+)
+IcebergNamespace.SAP_DATASPHERE_DATA_PRODUCTS = RelationField(
+    "sapDatasphereDataProducts"
 )
 IcebergNamespace.CALCULATION_VIEWS = RelationField("calculationViews")
 IcebergNamespace.FUNCTIONS = RelationField("functions")

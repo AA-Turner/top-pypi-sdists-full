@@ -2,6 +2,8 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import re
+
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 from pyspark.errors.exceptions.base import AnalysisException
 
@@ -12,14 +14,191 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
 from snowflake.snowpark.types import StringType, StructField, StructType, VariantType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
+from snowflake.snowpark_connect.config import scope_star_to_source_dataframe
+from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.expression.map_unresolved_attribute import (
+    _try_resolve_column_in_scopes,
+)
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
-from snowflake.snowpark_connect.utils.context import get_outer_dataframes
+from snowflake.snowpark_connect.utils.cache import analyze_memo_get
+from snowflake.snowpark_connect.utils.context import (
+    get_outer_dataframes,
+    get_plan_id_map,
+    get_spark_session_id,
+    set_plan_id_map,
+)
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+
+# pyspark 3.5.3 UnresolvedStar has no plan_id field. df["*"] is encoded with
+# this target so the server can expand that dataframe only. Spark
+# Dataset.col("*") is ResolvedStar of that dataset's analyzed output.
+_DF_STAR_TARGET = re.compile(r"^__snowpark_connect_df_star_(\d+)__\.\*$")
+
+
+def dataframe_star_target(plan_id: int) -> str:
+    return f"__snowpark_connect_df_star_{int(plan_id)}__.*"
+
+
+def dataframe_star_plan_id(exp: expressions_proto.Expression) -> int | None:
+    """Plan id encoded on ``df["*"]``, or None for ``*`` and ``qualifier.*``."""
+    if exp.WhichOneof("expr_type") != "unresolved_star":
+        return None
+    if not exp.unresolved_star.HasField("unparsed_target"):
+        return None
+    match = _DF_STAR_TARGET.match(exp.unresolved_star.unparsed_target)
+    if match is None:
+        return None
+    return int(match.group(1))
+
+
+def _lookup_plan_container(plan_id: int) -> DataFrameContainer | None:
+    target = get_plan_id_map(plan_id)
+    if target is not None:
+        return target
+    target = analyze_memo_get((get_spark_session_id(), plan_id))
+    if target is not None:
+        set_plan_id_map(plan_id, target)
+    return target
+
+
+def _columns_for_source_plan(
+    plan_id: int,
+    column_mapping: ColumnNameMap,
+) -> tuple[
+    list[str], list[str], list[set[ColumnQualifier]], list[ExpressionTyper | None]
+]:
+    """Visible columns of ``plan_id``, as they appear in ``column_mapping``.
+
+    The last list holds, per column, the typer of the outer scope that resolved
+    it, or None when the current scope did.
+    """
+    target = _lookup_plan_container(plan_id)
+    if target is None:
+        exception = AnalysisException(
+            f"[UNRESOLVED_STAR] Cannot expand columns from dataframe plan {plan_id}."
+        )
+        attach_custom_error_code(exception, ErrorCodes.COLUMN_NOT_FOUND)
+        raise exception
+
+    spark_names: list[str] = []
+    snowpark_names: list[str] = []
+    qualifiers: list[set[ColumnQualifier]] = []
+    column_typers: list[ExpressionTyper | None] = []
+    for column in target.column_map.columns:
+        if not column.is_visible:
+            continue
+        snowpark_name, found_map, found_typer = _try_resolve_column_in_scopes(
+            column.spark_name,
+            column_mapping,
+            original_snowpark_name=column.snowpark_name,
+        )
+        if snowpark_name is None or found_map is None:
+            exception = AnalysisException(
+                f"[UNRESOLVED_COLUMN.WITH_SUGGESTION] A column or function "
+                f"parameter with name `{column.spark_name}` cannot be resolved."
+            )
+            attach_custom_error_code(exception, ErrorCodes.COLUMN_NOT_FOUND)
+            raise exception
+        spark_names.append(column.spark_name)
+        snowpark_names.append(snowpark_name)
+        qualifiers.append(found_map.get_qualifiers_for_snowpark_column(snowpark_name))
+        column_typers.append(found_typer)
+    return spark_names, snowpark_names, qualifiers, column_typers
+
+
+def _field_types_for_projected_columns(
+    typer: ExpressionTyper,
+    snowpark_columns: tuple[str, ...],
+    column_typers: tuple[ExpressionTyper | None, ...],
+) -> list[FieldType]:
+    """One field type per projected column, in projected-column order.
+
+    The SQL and the spark names follow the source plan. Scanning the current
+    relation schema and keeping matching names follows that relation's order
+    instead, so a reorder assigns those types to the wrong columns.
+
+    A column resolved in an outer scope is typed against that scope's
+    dataframe, as map_unresolved_attribute does. A name missing from the
+    schema is typed through its typer rather than skipped: skipping would
+    shift every later type onto the wrong column.
+    """
+    remaining: dict[int, list] = {}
+    field_types: list[FieldType] = []
+    for name, column_typer in zip(snowpark_columns, column_typers, strict=True):
+        source = column_typer if column_typer is not None else typer
+        fields = remaining.get(id(source.df))
+        if fields is None:
+            fields = remaining[id(source.df)] = list(source.df.schema)
+        match_at = next(
+            (index for index, field in enumerate(fields) if field.name == name),
+            None,
+        )
+        if match_at is not None:
+            field = fields.pop(match_at)
+            field_types.append(FieldType(field.datatype, field.nullable))
+            continue
+        typed = source.type(snowpark_fn.col(name))
+        if len(typed) != 1:
+            exception = AssertionError(
+                f"Expected one type for star column {name}, got {len(typed)}."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+            raise exception
+        field_types.append(typed[0])
+    return field_types
+
+
+def _typed_star(
+    spark_names: list[str],
+    snowpark_columns: list[str],
+    qualifiers: list[set[ColumnQualifier]],
+    typer: ExpressionTyper,
+    column_typers: list[ExpressionTyper | None] | None = None,
+) -> tuple[list[str], TypedColumn]:
+    result_exp = snowpark_fn.sql_expr(", ".join(snowpark_columns))
+    names = tuple(snowpark_columns)
+    sources = (
+        tuple(column_typers) if column_typers is not None else (None,) * len(names)
+    )
+    typed_column = TypedColumn(
+        result_exp,
+        lambda: _field_types_for_projected_columns(typer, names, sources),
+    )
+    typed_column.set_multi_col_qualifiers(qualifiers)
+    return spark_names, typed_column
+
+
+def _unscoped_star(
+    column_mapping: ColumnNameMap,
+    typer: ExpressionTyper,
+) -> tuple[list[str], TypedColumn]:
+    snowpark_columns = column_mapping.get_snowpark_columns()
+    spark_names = column_mapping.get_spark_columns()
+    if not scope_star_to_source_dataframe():
+        # Flag off keeps the previous typing: relation schema order, names
+        # missing from the schema skipped.
+        result_exp = snowpark_fn.sql_expr(", ".join(snowpark_columns))
+        typed_column = TypedColumn(
+            result_exp,
+            lambda: [
+                FieldType(f.datatype, f.nullable)
+                for f in typer.df.schema
+                if f.name in snowpark_columns
+            ],
+        )
+        typed_column.set_multi_col_qualifiers(column_mapping.get_qualifiers())
+        return spark_names, typed_column
+    return _typed_star(
+        spark_names,
+        snowpark_columns,
+        column_mapping.get_qualifiers(),
+        typer,
+    )
 
 
 def _struct_field_path(column: str, field_names: list[str]) -> str:
@@ -49,6 +228,21 @@ def map_unresolved_star(
     column_mapping: ColumnNameMap,
     typer: ExpressionTyper,
 ) -> tuple[list[str], TypedColumn]:
+    plan_id = dataframe_star_plan_id(exp)
+    if plan_id is not None:
+        # Flag off keeps the previous result: the star expands the whole input.
+        if scope_star_to_source_dataframe():
+            (
+                spark_names,
+                snowpark_names,
+                qualifiers,
+                column_typers,
+            ) = _columns_for_source_plan(plan_id, column_mapping)
+            return _typed_star(
+                spark_names, snowpark_names, qualifiers, typer, column_typers
+            )
+        return _unscoped_star(column_mapping, typer)
+
     if exp.unresolved_star.HasField("unparsed_target"):
         unparsed_target = exp.unresolved_star.unparsed_target
         name_parts = split_fully_qualified_spark_name(unparsed_target)
@@ -160,19 +354,7 @@ def map_unresolved_star(
                 typed_column.set_multi_col_qualifiers([set() for _ in spark_names])
                 return spark_names, typed_column
     else:
-        snowpark_columns = column_mapping.get_snowpark_columns()
-        result_exp = snowpark_fn.sql_expr(", ".join(snowpark_columns))
-        spark_names = column_mapping.get_spark_columns()
-        typed_column = TypedColumn(
-            result_exp,
-            lambda: [
-                FieldType(f.datatype, f.nullable)
-                for f in typer.df.schema
-                if f.name in snowpark_columns
-            ],
-        )
-        typed_column.set_multi_col_qualifiers(column_mapping.get_qualifiers())
-        return spark_names, typed_column
+        return _unscoped_star(column_mapping, typer)
 
     exception = AnalysisException(
         f"[UNRESOLVED_STAR] The unresolved star expression {exp} is not supported."
@@ -191,13 +373,22 @@ def map_unresolved_star_as_single_column(
     a combined spark column name and a TypedColumn representing a struct instead of many columns. .
     If star resolves to single column, it works the same.
     """
-    if exp.unresolved_star.HasField("unparsed_target"):
+    plan_id = dataframe_star_plan_id(exp)
+    if exp.unresolved_star.HasField("unparsed_target") and plan_id is None:
         names, tc = map_unresolved_star(exp, column_mapping, typer)
         assert len(names) == 1, "Expected single column"
         return names[0], tc
     else:
-        snowpark_columns = column_mapping.get_snowpark_columns()
-        spark_names = column_mapping.get_spark_columns()
+        if plan_id is not None and scope_star_to_source_dataframe():
+            (
+                spark_names,
+                snowpark_columns,
+                _qualifiers,
+                _column_typers,
+            ) = _columns_for_source_plan(plan_id, column_mapping)
+        else:
+            snowpark_columns = column_mapping.get_snowpark_columns()
+            spark_names = column_mapping.get_spark_columns()
 
         if len(spark_names) == 1:
             names, tc = map_unresolved_star(exp, column_mapping, typer)

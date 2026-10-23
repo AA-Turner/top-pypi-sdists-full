@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-core
-Version: 1.6.13
+Version: 1.7.0
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain_core/
@@ -26,7 +26,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: httpx<1.0.0,>=0.23.0
 Requires-Dist: jsonpatch<2.0.0,>=1.33.0
-Requires-Dist: langchain-protocol>=0.0.17
+Requires-Dist: langchain-protocol>=0.0.20
 Requires-Dist: langsmith<1.0.0,>=0.14.9
 Requires-Dist: packaging>=23.2.0
 Requires-Dist: pydantic<3.0.0,>=2.7.4

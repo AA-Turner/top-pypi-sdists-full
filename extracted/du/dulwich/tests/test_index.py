@@ -46,6 +46,8 @@ from dulwich.diff_tree import (
 )
 from dulwich.index import (
     EXTENDED_FLAG_SKIP_WORKTREE,
+    FLAG_EXTENDED,
+    FLAG_VALID,
     SDIR_EXTENSION,
     ConflictedIndexEntry,
     Index,
@@ -93,7 +95,7 @@ from dulwich.index import (
 )
 from dulwich.line_ending import BlobNormalizer
 from dulwich.object_store import MemoryObjectStore
-from dulwich.objects import S_IFGITLINK, ZERO_SHA, Blob, Tree, TreeEntry
+from dulwich.objects import S_IFGITLINK, ZERO_SHA, Blob, ObjectID, Tree, TreeEntry
 from dulwich.repo import Repo
 from dulwich.tests.utils import make_commit
 
@@ -226,7 +228,7 @@ class IndexPathNormalizerTestCase(TestCase):
         self.tempdir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tempdir)
 
-    def _entry(self) -> IndexEntry:
+    def _entry(self, sha: ObjectID = b"0" * 40) -> IndexEntry:
         return IndexEntry(
             ctime=(0, 0),
             mtime=(0, 0),
@@ -236,7 +238,7 @@ class IndexPathNormalizerTestCase(TestCase):
             uid=0,
             gid=0,
             size=0,
-            sha=b"0" * 40,
+            sha=sha,
         )
 
     def test_no_normalizer_is_case_sensitive(self) -> None:
@@ -324,6 +326,27 @@ class IndexPathNormalizerTestCase(TestCase):
         index = Index(os.path.join(self.tempdir, "idx"), read=False)
         index[b"foo.txt"] = self._entry()
         self.assertEqual(b"Foo.txt", index.canonical_path(b"Foo.txt"))
+
+    def test_changes_from_tree_case_only_rename(self) -> None:
+        store = MemoryObjectStore()
+        blob = Blob.from_string(b"x\n")
+        store.add_object(blob)
+        tree = Tree()
+        tree.add(b"Foo.txt", 0o100644, blob.id)
+        store.add_object(tree)
+        index = Index(
+            os.path.join(self.tempdir, "idx"),
+            read=False,
+            path_normalizer=lambda p: p.lower(),
+        )
+        index[b"foo.txt"] = self._entry(blob.id)
+        self.assertEqual(
+            [
+                ((b"Foo.txt", None), (0o100644, None), (blob.id, None)),
+                ((None, b"foo.txt"), (None, 0o100644), (None, blob.id)),
+            ],
+            list(index.changes_from_tree(store, tree.id)),
+        )
 
     def test_normalized_cache_rebuilds_after_read(self) -> None:
         path = os.path.join(self.tempdir, "idx")
@@ -624,6 +647,30 @@ class IndexEntryFromStatTests(TestCase):
                 0,
             ),
         )
+
+    def test_flags(self) -> None:
+        st = os.stat_result(
+            (
+                stat.S_IFREG + 0o644,
+                131078,
+                64769,
+                154,
+                1000,
+                1000,
+                12288,
+                1323629595,
+                1324180496,
+                1324180496,
+            )
+        )
+        entry = index_entry_from_stat(
+            st,
+            b"22" * 20,
+            flags=FLAG_VALID | FLAG_EXTENDED,
+            extended_flags=EXTENDED_FLAG_SKIP_WORKTREE,
+        )
+        self.assertEqual(FLAG_VALID | FLAG_EXTENDED, entry.flags)
+        self.assertEqual(EXTENDED_FLAG_SKIP_WORKTREE, entry.extended_flags)
 
 
 @skipIf(sys.platform == "win32", "Requires POSIX file modes")
@@ -1802,6 +1849,21 @@ class StatRefreshTests(TestCase):
         list(get_unstaged_changes(index, repo.path, refresh_stat=refresh))
         self.assertTrue(apply_stat_refresh(index, refresh))
         self.assertNotEqual(index[b"foo"].mtime, stale_mtime)
+
+    def test_apply_stat_refresh_preserves_flags(self) -> None:
+        repo, fullpath = self._make_repo_with_file()
+        index = repo.open_index()
+        entry = index[b"foo"]
+        assert isinstance(entry, IndexEntry)
+        entry.flags |= FLAG_VALID
+        entry.set_skip_worktree(True)
+        os.utime(fullpath, (0, 0))
+        self.assertTrue(apply_stat_refresh(index, [(b"foo", os.lstat(fullpath))]))
+        refreshed = index[b"foo"]
+        assert isinstance(refreshed, IndexEntry)
+        self.assertEqual((0, 0), refreshed.mtime)
+        self.assertEqual(FLAG_VALID | FLAG_EXTENDED, refreshed.flags)
+        self.assertEqual(EXTENDED_FLAG_SKIP_WORKTREE, refreshed.extended_flags)
 
     def test_apply_stat_refresh_empty(self) -> None:
         repo, _ = self._make_repo_with_file()
@@ -3394,6 +3456,70 @@ class TestUpdateWorkingTree(TestCase):
         index = self.repo.open_index()
         self.assertEqual(blob.id, index[b"test.txt"].sha)
 
+    def test_update_working_tree_delete_file_missing_from_disk(self):
+        # https://github.com/jelmer/dulwich/issues/2485
+        blob = Blob.from_string(b"x\n")
+        self.repo.object_store.add_object(blob)
+        old_tree = Tree()
+        old_tree[b"x.txt"] = (0o100644, blob.id)
+        self.repo.object_store.add_object(old_tree)
+        new_tree = Tree()
+        self.repo.object_store.add_object(new_tree)
+
+        update_working_tree(
+            self.repo,
+            None,
+            old_tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, old_tree.id),
+        )
+        os.unlink(os.path.join(self.tempdir, "x.txt"))
+
+        update_working_tree(
+            self.repo,
+            old_tree.id,
+            new_tree.id,
+            change_iterator=tree_changes(
+                self.repo.object_store, old_tree.id, new_tree.id
+            ),
+        )
+
+        self.assertEqual([], list(self.repo.open_index()))
+
+    def test_update_working_tree_without_honor_filemode_new_file(self):
+        blob = Blob.from_string(b"echo hi\n")
+        self.repo.object_store.add_object(blob)
+        tree = Tree()
+        tree[b"run.sh"] = (0o100755, blob.id)
+        self.repo.object_store.add_object(tree)
+
+        changes = tree_changes(self.repo.object_store, None, tree.id)
+        update_working_tree(
+            self.repo, None, tree.id, change_iterator=changes, honor_filemode=False
+        )
+
+        index = self.repo.open_index()
+        self.assertEqual(0o100755, index[b"run.sh"].mode)
+
+    def test_update_working_tree_without_honor_filemode_unchanged_file(self):
+        blob = Blob.from_string(b"echo hi\n")
+        self.repo.object_store.add_object(blob)
+        tree = Tree()
+        tree[b"run.sh"] = (0o100755, blob.id)
+        self.repo.object_store.add_object(tree)
+
+        path = os.path.join(self.tempdir, "run.sh")
+        with open(path, "wb") as f:
+            f.write(blob.data)
+        os.chmod(path, 0o644)
+
+        changes = tree_changes(self.repo.object_store, None, tree.id)
+        update_working_tree(
+            self.repo, None, tree.id, change_iterator=changes, honor_filemode=False
+        )
+
+        index = self.repo.open_index()
+        self.assertEqual(0o100755, index[b"run.sh"].mode)
+
     def test_update_working_tree_remove_directory(self):
         """Test that update_working_tree properly removes directories."""
         # Create initial tree with a directory containing files
@@ -3571,6 +3697,46 @@ class TestUpdateWorkingTree(TestCase):
         # Directory should be gone
         self.assertFalse(os.path.exists(file_path))
 
+    def test_update_working_tree_directory_becomes_file(self):
+        """Test switching to a tree where a directory is replaced by a file."""
+        blob_inner = Blob()
+        blob_inner.data = b"inner\n"
+        self.repo.object_store.add_object(blob_inner)
+
+        tree_with_dir = Tree()
+        tree_with_dir[b"plain/inner"] = (0o100644, blob_inner.id)
+        self.repo.object_store.add_object(tree_with_dir)
+
+        changes = tree_changes(self.repo.object_store, None, tree_with_dir.id)
+        update_working_tree(self.repo, None, tree_with_dir.id, change_iterator=changes)
+
+        plain_path = os.path.join(self.tempdir, "plain")
+        inner_path = os.path.join(plain_path, "inner")
+        self.assertTrue(os.path.isdir(plain_path))
+        self.assertTrue(os.path.isfile(inner_path))
+
+        blob_plain = Blob()
+        blob_plain.data = b"plain\n"
+        self.repo.object_store.add_object(blob_plain)
+
+        tree_with_file = Tree()
+        tree_with_file[b"plain"] = (0o100644, blob_plain.id)
+        self.repo.object_store.add_object(tree_with_file)
+
+        changes = tree_changes(
+            self.repo.object_store, tree_with_dir.id, tree_with_file.id
+        )
+        update_working_tree(
+            self.repo,
+            tree_with_dir.id,
+            tree_with_file.id,
+            change_iterator=changes,
+        )
+
+        self.assertTrue(os.path.isfile(plain_path))
+        with open(plain_path, "rb") as f:
+            self.assertEqual(b"plain\n", f.read())
+
     def test_update_working_tree_symlink_transitions(self):
         """Test transitions involving symlinks."""
         # Skip on Windows where symlinks might not be supported
@@ -3669,6 +3835,49 @@ class TestUpdateWorkingTree(TestCase):
             change_iterator=changes,
         )
         self.assertFalse(os.path.exists(outside_file))
+
+    def test_update_working_tree_leading_symlink_not_followed_on_delete(self):
+        """An entry below an on-disk symlink must not be removed through it."""
+        if sys.platform == "win32":
+            self.skipTest("Symlinks not fully supported on Windows")
+
+        outside_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, outside_dir)
+        outside_file = os.path.join(outside_dir, "payload")
+        with open(outside_file, "wb") as f:
+            f.write(b"precious")
+
+        tracked = Blob.from_string(b"tracked")
+        self.repo.object_store.add_object(tracked)
+        tree1 = Tree()
+        tree1[b"d/payload"] = (0o100644, tracked.id)
+        self.repo.object_store.add_object(tree1)
+
+        changes = tree_changes(self.repo.object_store, None, tree1.id)
+        update_working_tree(self.repo, None, tree1.id, change_iterator=changes)
+
+        # The tracked directory is replaced by a symlink pointing outside.
+        shutil.rmtree(os.path.join(self.tempdir, "d"))
+        os.symlink(outside_dir, os.path.join(self.tempdir, "d"))
+
+        keep = Blob.from_string(b"keep")
+        self.repo.object_store.add_object(keep)
+        tree2 = Tree()
+        tree2[b"keep"] = (0o100644, keep.id)
+        self.repo.object_store.add_object(tree2)
+
+        changes = tree_changes(self.repo.object_store, tree1.id, tree2.id)
+        update_working_tree(
+            self.repo,
+            tree1.id,
+            tree2.id,
+            change_iterator=changes,
+            allow_overwrite_modified=True,
+        )
+
+        self.assertTrue(os.path.exists(outside_file))
+        self.assertTrue(os.path.islink(os.path.join(self.tempdir, "d")))
+        self.assertEqual([b"keep"], sorted(self.repo.open_index().paths()))
 
     def test_update_working_tree_modified_file_to_dir_transition(self):
         """Test that modified files are not removed when they should be directories."""
@@ -4292,6 +4501,219 @@ class TestUpdateWorkingTree(TestCase):
                     parent = os.path.dirname(path)
                     # We're not creating these directories, just testing the logic doesn't fail
                     self.assertIsInstance(parent, bytes)
+
+    def _enable_sparse_checkout(self, patterns):
+        self.repo.get_worktree().set_sparse_checkout_patterns(patterns)
+        config = self.repo.get_config()
+        config.set((b"core",), b"sparseCheckout", True)
+        config.write_to_path()
+
+    def _list_worktree(self):
+        return sorted(name for name in os.listdir(self.tempdir) if name != ".git")
+
+    def _make_tree(self, files):
+        tree = Tree()
+        for path, data in files.items():
+            blob = Blob.from_string(data)
+            self.repo.object_store.add_object(blob)
+            tree[path] = (0o100644, blob.id)
+        self.repo.object_store.add_object(tree)
+        return tree
+
+    def _set_index_flags(self, path, flags, extended_flags=0):
+        index = self.repo.open_index()
+        entry = index[path]
+        entry.flags |= flags
+        entry.extended_flags |= extended_flags
+        index.write()
+
+    def test_update_working_tree_keeps_flags_of_unchanged_entry(self):
+        tree = self._make_tree({b"same": b"a\n", b"changed": b"b\n"})
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+        self._set_index_flags(b"same", FLAG_VALID)
+        self._set_index_flags(b"changed", FLAG_VALID)
+
+        new_tree = self._make_tree({b"same": b"a\n", b"changed": b"b2\n"})
+        update_working_tree(
+            self.repo,
+            tree.id,
+            new_tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, new_tree.id),
+        )
+
+        index = self.repo.open_index()
+        self.assertEqual(FLAG_VALID, index[b"same"].flags)
+        self.assertEqual(0, index[b"changed"].flags)
+
+    def test_sparse_checkout_clears_skip_worktree_of_included_path(self):
+        self._enable_sparse_checkout(["/inc"])
+        tree = self._make_tree({b"inc": b"a\n", b"exc": b"b\n"})
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+        self.assertTrue(self.repo.open_index()[b"exc"].skip_worktree)
+
+        self._enable_sparse_checkout(["/inc", "/exc"])
+        update_working_tree(
+            self.repo,
+            tree.id,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+
+        self.assertEqual(["exc", "inc"], self._list_worktree())
+        entry = self.repo.open_index()[b"exc"]
+        self.assertFalse(entry.skip_worktree)
+        self.assertEqual(0, entry.flags & FLAG_EXTENDED)
+
+    def test_sparse_checkout_excluded_paths(self):
+        self._enable_sparse_checkout(["/inc"])
+        old_tree = self._make_tree({b"inc": b"a\n", b"exc": b"b\n"})
+        new_tree = self._make_tree(
+            {b"inc": b"a2\n", b"exc": b"b2\n", b"exc_new": b"c\n"}
+        )
+
+        update_working_tree(
+            self.repo,
+            None,
+            old_tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, old_tree.id),
+        )
+        self.assertEqual(["inc"], self._list_worktree())
+
+        update_working_tree(
+            self.repo,
+            old_tree.id,
+            new_tree.id,
+            change_iterator=tree_changes(
+                self.repo.object_store, old_tree.id, new_tree.id
+            ),
+        )
+
+        self.assertEqual(["inc"], self._list_worktree())
+        with open(os.path.join(self.tempdir, "inc"), "rb") as f:
+            self.assertEqual(b"a2\n", f.read())
+        index = self.repo.open_index()
+        self.assertEqual(
+            {
+                b"exc": (new_tree[b"exc"][1], True),
+                b"exc_new": (new_tree[b"exc_new"][1], True),
+                b"inc": (new_tree[b"inc"][1], False),
+            },
+            {path: (entry.sha, entry.skip_worktree) for path, entry in index.items()},
+        )
+
+    def test_sparse_checkout_removes_newly_excluded_file(self):
+        old_tree = self._make_tree({b"inc": b"a\n", b"exc": b"b\n"})
+        new_tree = self._make_tree({b"inc": b"a\n", b"exc": b"b2\n"})
+        update_working_tree(
+            self.repo,
+            None,
+            old_tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, old_tree.id),
+        )
+        self._enable_sparse_checkout(["/inc"])
+
+        update_working_tree(
+            self.repo,
+            old_tree.id,
+            new_tree.id,
+            change_iterator=tree_changes(
+                self.repo.object_store, old_tree.id, new_tree.id
+            ),
+        )
+
+        self.assertEqual(["inc"], self._list_worktree())
+        self.assertTrue(self.repo.open_index()[b"exc"].skip_worktree)
+
+    def test_sparse_checkout_keeps_untracked_file_at_excluded_path(self):
+        self._enable_sparse_checkout(["/inc"])
+        with open(os.path.join(self.tempdir, "exc"), "wb") as f:
+            f.write(b"untracked\n")
+        tree = self._make_tree({b"inc": b"a\n", b"exc": b"b\n"})
+
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+
+        with open(os.path.join(self.tempdir, "exc"), "rb") as f:
+            self.assertEqual(b"untracked\n", f.read())
+        self.assertTrue(self.repo.open_index()[b"exc"].skip_worktree)
+
+    def test_sparse_checkout_empty_patterns_exclude_everything(self):
+        self._enable_sparse_checkout(["# only a comment"])
+        tree = self._make_tree({b"a": b"a\n", b"b": b"b\n"})
+
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+
+        self.assertEqual([], self._list_worktree())
+        index = self.repo.open_index()
+        self.assertEqual(
+            {b"a": True, b"b": True},
+            {path: entry.skip_worktree for path, entry in index.items()},
+        )
+
+    def test_sparse_checkout_missing_patterns_file_ignored(self):
+        config = self.repo.get_config()
+        config.set((b"core",), b"sparseCheckout", True)
+        config.write_to_path()
+        tree = self._make_tree({b"a": b"a\n"})
+
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+
+        self.assertEqual(["a"], self._list_worktree())
+        self.assertFalse(self.repo.open_index()[b"a"].skip_worktree)
+
+    def test_sparse_checkout_honours_core_ignorecase(self):
+        self._enable_sparse_checkout(["/INC"])
+        config = self.repo.get_config()
+        config.set((b"core",), b"ignorecase", True)
+        config.write_to_path()
+        tree = self._make_tree({b"inc": b"a\n", b"exc": b"b\n"})
+
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+
+        self.assertEqual(["inc"], self._list_worktree())
+
+    def test_sparse_checkout_disabled_ignores_patterns(self):
+        self.repo.get_worktree().set_sparse_checkout_patterns(["/inc"])
+        tree = self._make_tree({b"inc": b"a\n", b"exc": b"b\n"})
+
+        update_working_tree(
+            self.repo,
+            None,
+            tree.id,
+            change_iterator=tree_changes(self.repo.object_store, None, tree.id),
+        )
+
+        self.assertEqual(["exc", "inc"], self._list_worktree())
+        self.assertFalse(self.repo.open_index()[b"exc"].skip_worktree)
 
 
 class TestSparseIndex(TestCase):

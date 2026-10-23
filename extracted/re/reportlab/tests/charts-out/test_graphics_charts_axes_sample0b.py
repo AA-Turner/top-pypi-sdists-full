@@ -11,7 +11,7 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		self.add(Line(375,75,375,70,strokeColor=Color(0,0,0,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=10,strokeDashArray=None,strokeOpacity=None))
 		v0=self._nn(Group())
 		v0.transform = (1,0,0,1,225,70)
-		v0.add(String(-10,-10,'Ying',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		v0.add(String(-10.005,-10,'Ying',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS

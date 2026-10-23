@@ -39,4 +39,4 @@ def map_sample_by(
         table_name=input_container.table_name,
         alias=input_container.alias,
         cached_schema_getter=lambda: input_df.schema,
-    )
+    ).with_known_schema(input_container.known_schema())

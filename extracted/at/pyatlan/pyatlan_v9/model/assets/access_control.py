@@ -18,6 +18,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
+from .access_control_related import RelatedAccessControl, RelatedAuthPolicy
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -41,14 +49,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .access_control_related import RelatedAccessControl, RelatedAuthPolicy
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -562,6 +562,7 @@ def _access_control_to_nested(access_control: AccessControl) -> AccessControlNes
         is_incomplete=access_control.is_incomplete,
         provenance_type=access_control.provenance_type,
         home_id=access_control.home_id,
+        delete_handler=access_control.delete_handler,
         depth=access_control.depth,
         immediate_upstream=access_control.immediate_upstream,
         immediate_downstream=access_control.immediate_downstream,
@@ -610,6 +611,7 @@ def _access_control_from_nested(nested: AccessControlNested) -> AccessControl:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

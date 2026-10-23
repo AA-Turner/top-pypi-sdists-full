@@ -3,6 +3,17 @@ from rich.markup import escape
 
 COMMANDS = [
     {
+        "name": "skylos explain REPORT.json [--rule RULE] [--interactive]",
+        "desc": "Follow recorded static security evidence across source locations",
+        "details": [
+            "Reads a saved JSON report; never executes or rescans target code",
+            "Use --file, --line and --finding to select a finding",
+            "Interactive commands: next, back, step N, callers, source, quit",
+            "Source viewing requires --root and matching source hashes",
+        ],
+        "group": "Core Analysis",
+    },
+    {
         "name": "skylos suite [directory]",
         "desc": "Build one static, debt, defense, and provenance report",
         "details": [
@@ -211,6 +222,15 @@ COMMANDS = [
             "Fails open on internal errors but says the action was not checked; "
             "stop reports unchecked actions. Logs to .skylos/hook.log",
             "Disable one hook with SKYLOS_HOOKS_DISABLE=pre-read (comma list or 'all')",
+        ],
+        "group": "AI Agent",
+    },
+    {
+        "name": "skylos agent recap [PATH] [--days N]",
+        "desc": "Show what the agent hooks blocked here: installs, secret reads, unsafe edits, early \"done\"",
+        "details": [
+            "Reads only the local .skylos/hook.log; nothing is uploaded",
+            "--days 0 counts everything in the log; --format json for scripts",
         ],
         "group": "AI Agent",
     },

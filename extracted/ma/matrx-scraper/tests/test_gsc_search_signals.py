@@ -417,3 +417,84 @@ def test_both_checks_are_registered_as_cross_page():
     """
     assert CROSS_PAGE_CHECKS["gsc_ctr_opportunity"] is _check_gsc_ctr_opportunity
     assert CROSS_PAGE_CHECKS["gsc_performance_decay"] is _check_gsc_performance_decay
+
+
+# ── one organization's click curve (seo.click_curve via the host resolver) ──
+
+
+def test_the_ctr_check_scores_against_the_organizations_curve() -> None:
+    from matrx_scraper.web_crawl.analysis import GscPeriod as _P
+
+    period = _P(clicks=100, impressions=2_000, position=1.0)  # 5% CTR at position 1
+    default = _check_gsc_ctr_opportunity(facts(), site(current=period))
+    assert default.evidence["expected_ctr"] == 0.28
+    own = site(current=period)
+    own.gsc.ctr_curve = (0.05, 0.03, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01)  # 5% is par at 1
+    scored = _check_gsc_ctr_opportunity(facts(), own)
+    assert scored.evidence["expected_ctr"] == 0.05
+    assert scored.status == "pass" and default.status != "pass"
+
+
+@pytest.mark.asyncio
+async def test_the_host_resolver_is_the_curve_and_standalone_is_the_default() -> None:
+    from matrx_scraper import click_curve as cc
+
+    assert (await cc.resolve_click_curve("org-1", "site-1")).curve == cc.GSC_EXPECTED_CTR_CURVE
+    seen: list[tuple] = []
+    own = [0.5, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    stored: list = [own]
+
+    async def host(org, site_id):
+        seen.append((org, site_id))
+        return stored[0]
+
+    cc.set_click_curve_resolver(host)
+    try:
+        resolved = await cc.resolve_click_curve("org-1", "site-1")
+        assert resolved.curve == tuple(own) and resolved.notice is None
+        assert seen == [("org-1", "site-1")]
+        stored[0] = own[:-1] + [0]  # a zero: the platform curve answers, saying why
+        resolved = await cc.resolve_click_curve("org-1", "site-1")
+        assert resolved.curve == cc.GSC_EXPECTED_CTR_CURVE and "value 10 is 0" in resolved.notice
+    finally:
+        cc.set_click_curve_resolver(None)
+
+
+def test_an_unreadable_curve_is_reported_as_itself_on_the_ctr_check_only() -> None:
+    from matrx_scraper.web_crawl.analysis import GscPeriod as _P
+
+    broken = site(current=_P(clicks=100, impressions=2_000, position=1.0))
+    broken.gsc.ctr_curve_error = "the organization's click curve (seo.click_curve) could not be read (RuntimeError)"
+    outcome = _check_gsc_ctr_opportunity(facts(), broken)
+    assert outcome.status == "n_a" and "click curve" in outcome.reasoning
+    assert "no data" not in outcome.reasoning.lower()
+
+
+@pytest.mark.asyncio
+async def test_load_gsc_stats_resolves_the_curve_before_it_claims_a_connection(monkeypatch) -> None:
+    """A resolver that cannot read leaves the site bound, with the curve error named —
+    never the "connected but no data pulled yet" a half-built evidence object reads as."""
+    from types import SimpleNamespace
+
+    from matrx_scraper.web_crawl import analysis as A
+    from matrx_scraper.web_crawl import gsc_sync
+
+    monkeypatch.setattr(gsc_sync, "parse_gsc_binding", lambda integrations: object())
+
+    async def boom(org, site_id=None):
+        raise RuntimeError("knob store down")
+
+    monkeypatch.setattr(A, "resolve_click_curve", boom)
+
+    class _Stop(Exception):
+        pass
+
+    def stop(**kwargs):
+        raise _Stop
+
+    monkeypatch.setattr(A.WebGscPageStat, "filter", stop)
+    aggregates = A.SiteAggregates()
+    with pytest.raises(_Stop):
+        await A._load_gsc_stats(SimpleNamespace(id="s1", organization_id="o1", integrations={}), aggregates)
+    assert aggregates.gsc.bound is True
+    assert aggregates.gsc.ctr_curve_error and "could not be read" in aggregates.gsc.ctr_curve_error

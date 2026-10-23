@@ -17,7 +17,8 @@ use crate::writer::models::{
     DeliveryStream, DeliverySummary, Priority, SessionConfig, SessionStore, SetupOutcome,
 };
 use crate::writer::tests::test_types::{
-    CopyingReplacement, PartialStore, PrefixReplacement, RecordedSession, RecordingReplacement,
+    CopyingReplacement, CreatingStore, OutputBytesStore, PartialStore, PrefixReplacement,
+    RecordedSession, RecordingReplacement,
 };
 
 /// The envelope of invocation `invocation_id`.
@@ -378,6 +379,29 @@ pub(crate) fn replaced_session(
     (transcript.data, facts.rows)
 }
 
+/// Output bytes a store with a ten-minute batch window received `wait` after `written_bytes` were printed, and the output records dropped by close.
+pub(crate) fn sent_before_the_window(written_bytes: usize, wait: Duration) -> (usize, u64) {
+    let store = OutputBytesStore::default();
+    let session = start_recall_session(SessionConfig {
+        store: SessionStore::Hosted(Arc::new(store.clone())),
+        ..config(PathBuf::from("unused"), "burst")
+    });
+    let line: Vec<u8> = vec![b'x'; 4096];
+    for _ in 0..written_bytes / line.len() {
+        session.append_output(OutputStream::Stdout, &line);
+    }
+    std::thread::sleep(wait);
+    let sent: usize = *store
+        .received
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let summary = session.close();
+    (
+        sent,
+        stream_counts(&summary, DeliveryStream::Output).dropped,
+    )
+}
+
 /// `(accepted, delivered, failed)` of events and output after one batch whose insert into `failing` fails.
 pub(crate) fn partially_inserted(failing: Table) -> [(u64, u64, u64); 2] {
     let session = start_recall_session(SessionConfig {
@@ -561,4 +585,23 @@ pub(crate) fn replacement_order(priorities: &[Priority]) -> Vec<usize> {
     let batch = state.take_batch(usize::MAX);
     drop(Materializer::new(envelope("ordered")).build(batch, None));
     std::mem::take(&mut *seen.lock().expect("the record is not poisoned"))
+}
+
+/// The informational notices of a session whose store opens as `failures` say after creating its database, and whether setup was refused for permission.
+pub(crate) fn creation_notices(
+    failures: Vec<Option<crate::store::errors::StoreErrorKind>>,
+) -> (Vec<String>, bool) {
+    let session = start_recall_session(SessionConfig {
+        store: SessionStore::Hosted(Arc::new(CreatingStore {
+            failures,
+            ..CreatingStore::default()
+        })),
+        ..config(PathBuf::from("unused"), "creating")
+    });
+    let setup = session.wait_for_setup(Duration::from_secs(10));
+    drop(session.close());
+    (
+        session.information(),
+        matches!(setup, Some(SetupOutcome::PermissionDenied { .. })),
+    )
 }

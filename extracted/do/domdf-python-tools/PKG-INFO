@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
-Name: domdf_python_tools
-Version: 3.10.0
+Name: domdf-python-tools
+Version: 3.11.0
 Summary: Helpful functions for Python 🐍 🛠️
 Project-URL: Homepage, https://github.com/domdfcoding/domdf_python_tools
 Project-URL: Issue Tracker, https://github.com/domdfcoding/domdf_python_tools/issues
@@ -34,18 +34,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Requires-Dist: importlib-metadata>=3.6.0; python_version < '3.9'
 Requires-Dist: importlib-resources>=3.0.0; python_version < '3.9'
 Requires-Dist: natsort>=7.0.1
@@ -54,7 +55,6 @@ Provides-Extra: all
 Requires-Dist: pytz>=2019.1; extra == 'all'
 Provides-Extra: dates
 Requires-Dist: pytz>=2019.1; extra == 'dates'
-Provides-Extra: testing
 Description-Content-Type: text/x-rst
 
 =====================
@@ -128,28 +128,28 @@ domdf_python_tools
 	:target: https://www.codefactor.io/repository/github/domdfcoding/domdf_python_tools
 	:alt: CodeFactor Grade
 
-.. |pypi-version| image:: https://img.shields.io/pypi/v/domdf_python_tools
-	:target: https://pypi.org/project/domdf_python_tools/
+.. |pypi-version| image:: https://img.shields.io/pypi/v/domdf-python-tools
+	:target: https://pypi.org/project/domdf-python-tools/
 	:alt: PyPI - Package Version
 
-.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/domdf_python_tools?logo=python&logoColor=white
-	:target: https://pypi.org/project/domdf_python_tools/
+.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/domdf-python-tools?logo=python&logoColor=white
+	:target: https://pypi.org/project/domdf-python-tools/
 	:alt: PyPI - Supported Python Versions
 
-.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/domdf_python_tools
-	:target: https://pypi.org/project/domdf_python_tools/
+.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/domdf-python-tools
+	:target: https://pypi.org/project/domdf-python-tools/
 	:alt: PyPI - Supported Implementations
 
-.. |wheel| image:: https://img.shields.io/pypi/wheel/domdf_python_tools
-	:target: https://pypi.org/project/domdf_python_tools/
+.. |wheel| image:: https://img.shields.io/pypi/wheel/domdf-python-tools
+	:target: https://pypi.org/project/domdf-python-tools/
 	:alt: PyPI - Wheel
 
-.. |conda-version| image:: https://img.shields.io/conda/v/domdfcoding/domdf_python_tools?logo=anaconda
-	:target: https://anaconda.org/domdfcoding/domdf_python_tools
+.. |conda-version| image:: https://img.shields.io/conda/v/conda-forge/domdf-python-tools?logo=anaconda
+	:target: https://anaconda.org/conda-forge/domdf-python-tools
 	:alt: Conda - Package Version
 
-.. |conda-platform| image:: https://img.shields.io/conda/pn/domdfcoding/domdf_python_tools?label=conda%7Cplatform
-	:target: https://anaconda.org/domdfcoding/domdf_python_tools
+.. |conda-platform| image:: https://img.shields.io/conda/pn/conda-forge/domdf-python-tools?label=conda%7Cplatform
+	:target: https://anaconda.org/conda-forge/domdf-python-tools
 	:alt: Conda - Platform
 
 .. |license| image:: https://img.shields.io/github/license/domdfcoding/domdf_python_tools
@@ -159,7 +159,7 @@ domdf_python_tools
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/domdf_python_tools
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/domdf_python_tools/v3.10.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/domdf_python_tools/v3.11.0
 	:target: https://github.com/domdfcoding/domdf_python_tools/pulse
 	:alt: GitHub commits since tagged version
 
@@ -167,11 +167,11 @@ domdf_python_tools
 	:target: https://github.com/domdfcoding/domdf_python_tools/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2025
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
-.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/domdf_python_tools
-	:target: https://pypi.org/project/domdf_python_tools/
+.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/domdf-python-tools
+	:target: https://pypistats.org/packages/domdf-python-tools
 	:alt: PyPI - Downloads
 
 .. end shields
@@ -189,21 +189,12 @@ To install with ``pip``:
 
 .. code-block:: bash
 
-	$ python -m pip install domdf_python_tools
+	$ python -m pip install domdf-python-tools
 
 To install with ``conda``:
 
-	* First add the required channels
+.. code-block:: bash
 
-	.. code-block:: bash
-
-		$ conda config --add channels https://conda.anaconda.org/conda-forge
-		$ conda config --add channels https://conda.anaconda.org/domdfcoding
-
-	* Then install
-
-	.. code-block:: bash
-
-		$ conda install domdf_python_tools
+	$ conda install -c conda-forge domdf-python-tools
 
 .. end installation

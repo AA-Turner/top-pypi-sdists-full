@@ -59,6 +59,26 @@ class UploadFile:
       content_type=content_type or cls._guess_content_type(source_path),
     )
 
+  @classmethod
+  def _from_checked_source(
+    cls,
+    source: Path,
+    *,
+    path: str,
+    size_bytes: int,
+    content_type: str | None = None,
+    expected_md5: str | None = None,
+  ) -> UploadFile:
+    """A regular file the caller has already found and sized, so it is not resolved again."""
+    cls._validate_path(path)
+    file = object.__new__(cls)
+    object.__setattr__(file, "path", path)
+    object.__setattr__(file, "content", source)
+    object.__setattr__(file, "content_type", content_type or cls._guess_content_type(source))
+    object.__setattr__(file, "size_bytes", size_bytes)
+    object.__setattr__(file, "expected_md5", expected_md5)
+    return file
+
   def declaration(self) -> BenchmarkUploadFileParam:
     return {
       "path": self.path,

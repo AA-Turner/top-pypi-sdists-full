@@ -25,6 +25,7 @@ from schemathesis.core.error_feedback.store import (
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, ContentTypeServerError, FailureGroup
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
+from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, REQUEST_SHAPE_PROBES, CoverageScenario, TestPhase
 from schemathesis.specs.openapi.checks import negative_data_rejection
 from schemathesis.specs.openapi.coverage._wire import quote_path_parameter
@@ -57,7 +58,7 @@ from test.utils import assert_requests_call, check_context
 
 class AnyNumber:
     def __eq__(self, value: object, /) -> bool:
-        return not isinstance(value, bool) and isinstance(value, (int | float))
+        return not isinstance(value, bool) and isinstance(value, ((int, float)))
 
 
 @dataclass
@@ -2817,6 +2818,53 @@ def failed(ctx, response, case):
         )
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_unspecified_http_methods_stay_negative_with_form_body(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/x-www-form-urlencoded": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"name": {"type": "string"}},
+                                    "required": ["name"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def items():
+        return jsonify({})
+
+    with ctx.check(
+        """
+import schemathesis
+from schemathesis.generation.meta import CoverageScenario
+
+@schemathesis.check
+def probe_mode(ctx, response, case):
+    if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD and case.meta.generation.mode.is_positive:
+        raise AssertionError(f"Positive mode: {case.meta.phase.data.description}")
+"""
+    ) as module:
+        assert (
+            cli.run_openapi_app(
+                app, "--phases=coverage", "--mode=negative", "--max-examples=1", "-c", "probe_mode", hooks=module
+            )
+            == snapshot_cli
+        )
+
+
 def test_content_type_probes(ctx):
     bodyless_operation = load_schema(ctx, path="/bodyless", method="get")["/bodyless"]["get"]
     assert [
@@ -3233,6 +3281,51 @@ def test_missing_authorization(ctx, cli, snapshot_cli):
         )
         == snapshot_cli
     )
+
+
+@pytest.mark.parametrize("filter_reads_meta", [False, True], ids=["no-hook", "filter-reads-meta"])
+@pytest.mark.parametrize("unique_inputs", [False, True], ids=["default", "unique-inputs"])
+def test_missing_authorization_is_sent_without_the_configured_credentials(ctx, cli, unique_inputs, filter_reads_meta):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "security": [{"bearer": []}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        },
+        components={"securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}}},
+    )
+
+    @app.route("/items")
+    def items():
+        if request.headers.get("Authorization") != "Bearer secret":
+            return jsonify({"error": "unauthorized"}), 401
+        return jsonify([]), 200
+
+    hooks = {}
+    if filter_reads_meta:
+        hooks["hooks"] = ctx.write_pymodule(
+            """
+@schemathesis.hook
+def filter_case(ctx, case):
+    case.meta
+    return True
+"""
+        )
+    result = cli.run_openapi_app(
+        app,
+        "--header=Authorization: Bearer secret",
+        "--phases=coverage",
+        "--checks=missing_required_header",
+        *(["--generation-unique-inputs"] if unique_inputs else []),
+        **hooks,
+    )
+    # Any `meta` read after the driver applied the configured credentials (hashing for
+    # `--generation-unique-inputs`, or a hook) used to take them for an edit and relabel the
+    # "Missing `Authorization`" case as positive, so it went out with the header and failed ST203.
+    assert result.exit_code == 0, result.output
 
 
 def test_unnecessary_auth_warning(ctx, cli, snapshot_cli):
@@ -7139,13 +7232,13 @@ def test_undeclared_method_probes_dedup_across_operations(ctx):
     schema.config.phases.coverage.unexpected_methods = unexpected_methods
 
     seen: list[tuple[str, str]] = []
-    seen_dedup: set[tuple[str, str]] = set()
+    session = GenerationSession()
     for declared in ("GET", "POST", "PUT", "DELETE"):
         for case in schema.iter_coverage_cases(
             schema["/items"][declared],
             generation_modes=[GenerationMode.NEGATIVE],
             generation_config=schema.config.generation,
-            unexpected_methods_seen=seen_dedup,
+            session=session,
         ):
             if case.meta.phase.data.scenario == CoverageScenario.UNSPECIFIED_HTTP_METHOD:
                 seen.append((case.operation.path, case.method))

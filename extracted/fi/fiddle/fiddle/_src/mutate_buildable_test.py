@@ -122,7 +122,6 @@ class AssignTest(absltest.TestCase):
     with self.assertRaisesRegex(AttributeError, 'not_there'):
       mutate_buildable.assign(cfg, arg1=1, not_there=2)
 
-  @absltest.skip('Enable this after dropping pyhon 3.7 support')
   def test_config_for_fn_with_special_arg_names(self):
     # The reason that these tests pass is that we use positional-only
     # parameters for self, etc. in functions such as Config.__build__.
@@ -137,10 +136,10 @@ class AssignTest(absltest.TestCase):
     cfg.fn_or_cls = 200
     self.assertEqual(building.build(cfg), 300)
 
-    mutate_buildable.assign(cfg, buildable=10)  # pytype: disable=duplicate-keyword-argument
+    mutate_buildable.assign(cfg, buildable=10)
     self.assertEqual(building.build(cfg), 310)
 
-    cfg2 = config_lib.Config(f, self=5, fn_or_cls=1)  # pytype: disable=duplicate-keyword-argument
+    cfg2 = config_lib.Config(f, self=5, fn_or_cls=1)
     self.assertEqual(building.build(cfg2), 6)
 
 

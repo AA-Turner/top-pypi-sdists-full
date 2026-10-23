@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import uuid
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Any
 
@@ -54,13 +53,10 @@ class ElevenLabsChat:
 
     @staticmethod
     def _tts_stream_id() -> str:
-        from matrx_ai.context.app_context import get_app_context
+        """The live stream id for this render, with a new take opened (``audio_stream``)."""
+        from matrx_ai.providers.audio_stream import open_audio_stream
 
-        try:
-            request_id = getattr(get_app_context(), "request_id", None)
-        except Exception:
-            request_id = None
-        return str(request_id) if request_id else uuid.uuid4().hex
+        return open_audio_stream()
 
     @staticmethod
     async def _emit_audio_stream_chunk(
@@ -73,12 +69,14 @@ class ElevenLabsChat:
         """Forward MP3 bytes in journal-sized frames; return the next seq."""
         from matrx_connect.context.data_types import AudioStreamChunkData
 
-        from matrx_ai.providers.audio_stream import split_audio_frames
+        from matrx_ai.providers.audio_stream import current_audio_take, split_audio_frames
 
+        take = current_audio_take(stream_id)
         for piece in split_audio_frames(data):
             await emitter.send_data(
                 AudioStreamChunkData(
                     stream_id=stream_id,
+                    take=take,
                     seq=seq,
                     audio_base64=base64.b64encode(piece).decode("ascii"),
                     mime_type="audio/mpeg",
@@ -836,9 +834,12 @@ class ElevenLabsChat:
         )
         from matrx_connect.context.data_types import AudioStreamEndData
 
+        from matrx_ai.providers.audio_stream import current_audio_take
+
         await emitter.send_data(
             AudioStreamEndData(
                 stream_id=stream_id,
+                take=current_audio_take(stream_id),
                 total_chunks=seq,
                 url=envelope.url,
                 mime_type=mime_type,

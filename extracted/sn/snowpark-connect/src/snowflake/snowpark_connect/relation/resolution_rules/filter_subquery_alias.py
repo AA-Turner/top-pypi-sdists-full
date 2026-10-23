@@ -47,7 +47,7 @@ class _FilterOverSubqueryAlias:
             input_container.table_name,
             input_container.alias,
             cached_schema_getter=lambda: input_df.schema,
-        )
+        ).with_known_schema(input_container.known_schema())
 
 
 filter_over_subquery_alias = _FilterOverSubqueryAlias()

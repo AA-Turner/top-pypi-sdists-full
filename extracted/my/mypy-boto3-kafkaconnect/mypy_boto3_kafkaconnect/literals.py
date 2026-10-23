@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_kafkaconnect.literals import ConnectorOperationStateType
 
-    data: ConnectorOperationStateType = "PENDING"
+    data: ConnectorOperationStateType = "PAUSE_COMPLETE"
     ```
 """
 
@@ -47,10 +47,16 @@ __all__ = (
 
 
 ConnectorOperationStateType = Literal[
+    "PAUSE_COMPLETE",
+    "PAUSE_FAILED",
+    "PAUSE_IN_PROGRESS",
     "PENDING",
     "RESTART_COMPLETE",
     "RESTART_FAILED",
     "RESTART_IN_PROGRESS",
+    "RESUME_COMPLETE",
+    "RESUME_FAILED",
+    "RESUME_IN_PROGRESS",
     "ROLLBACK_COMPLETE",
     "ROLLBACK_FAILED",
     "ROLLBACK_IN_PROGRESS",
@@ -70,12 +76,24 @@ ConnectorOperationStepTypeType = Literal[
 ]
 ConnectorOperationTypeType = Literal[
     "ISOLATE_CONNECTOR",
+    "PAUSE_CONNECTOR",
     "RESTART_CONNECTOR",
     "RESTORE_CONNECTOR",
+    "RESUME_CONNECTOR",
     "UPDATE_CONNECTOR_CONFIGURATION",
     "UPDATE_WORKER_SETTING",
 ]
-ConnectorStateType = Literal["CREATING", "DELETING", "FAILED", "RESTARTING", "RUNNING", "UPDATING"]
+ConnectorStateType = Literal[
+    "CREATING",
+    "DELETING",
+    "FAILED",
+    "PAUSED",
+    "PAUSING",
+    "RESTARTING",
+    "RESUMING",
+    "RUNNING",
+    "UPDATING",
+]
 CustomPluginContentTypeType = Literal["JAR", "ZIP"]
 CustomPluginStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -169,6 +187,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -196,6 +215,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -241,12 +261,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -314,6 +334,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -366,6 +387,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -447,6 +469,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -497,7 +520,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

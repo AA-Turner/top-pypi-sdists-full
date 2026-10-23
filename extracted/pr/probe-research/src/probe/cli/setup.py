@@ -35,6 +35,7 @@ so no automation can re-enable a refusal behind someone's back.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sys
@@ -1941,6 +1942,11 @@ def install_plugin(name: str, *, source: str | None = None, on_retry=None) -> cl
     not repaired by trying the identical write again), so `on_retry` is
     never consulted on that branch.
     """
+    # Installing Probe again after an Uninstall: the OS keeper may come back (D35).
+    with contextlib.suppress(Exception):
+        from probe.service import keeper
+
+        keeper.allow()
     selected = source or agent_source()
     if selected not in INSTALLABLE_AGENT_SOURCES:
         return claude_cli.Result(
@@ -2721,7 +2727,7 @@ def _apply_root_skills(source: str, plugin: str) -> list[str]:
     the researcher does not have to start a second session to get their skills.
     """
     try:
-        return root_skills.apply(source, root_skills.installed_plugin_root(plugin))
+        return root_skills.apply(source, root_skills.installed_plugin_root(plugin), prefer=plugin)
     except OSError as exc:
         # Fail-open, the contract every other step in this wizard follows and
         # the one the hook already had: an unwritable skills folder reported a
@@ -6072,6 +6078,11 @@ def finish_removal() -> list[str]:
     registration into a 401 and leaves the dashboard showing a device that is
     gone.
     """
+    # The OS keeper (D35) would start the Probe service again: the system stops running it.
+    with contextlib.suppress(Exception):
+        from probe.service import keeper
+
+        keeper.remove()
     return [
         *release_credentials(),
         "Setting Probe up again will ask you to sign in.",

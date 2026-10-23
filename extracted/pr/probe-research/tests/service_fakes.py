@@ -31,6 +31,7 @@ import json, os, signal, sys, time
 
 REAL = {real!r}
 SCRIPT = {script!r}
+BARRIER = {barrier!r}
 
 args = sys.argv[1:]
 flags = []
@@ -46,15 +47,24 @@ except (OSError, ValueError):
     plan = {{}}
 stdin = sys.stdin.read()
 WATCH = ("PROBE_CONFIG_PATH", "PROBE_BASE_URL", "PROBE_TOKEN", "PROBE_AUTOUPDATE_TRIGGER",
-         "PROBE_DESKTOP_HUMAN", "PROBE_TELEMETRY",
-         "PROBE_UPDATE_BARRIER_TOKEN", "CLAUDE_CONFIG_DIR", "XDG_CONFIG_HOME", "PYTHONPATH")
+         "PROBE_DESKTOP_HUMAN", "PROBE_TELEMETRY", "PROBE_UPDATE_FORCED", "PROBE_UPDATE_SKIP_CLI",
+         "PROBE_UPDATE_BARRIER_TOKEN", "CLAUDE_CONFIG_DIR", "XDG_CONFIG_HOME", "PYTHONPATH",
+         "CLAUDE_CODE_SESSION_ID", "PATH", "HTTPS_PROXY", "UV_INDEX_URL")
 record = {{"action": action, "flags": flags, "stdin": stdin, "pid": os.getpid(), "cwd": os.getcwd(),
           "at": time.time(), "env": {{k: os.environ.get(k) for k in WATCH}},
-          "barrier": os.path.exists(os.path.expanduser("~/.local/state/probe/service/update.barrier"))}}
+          "barrier": os.path.exists(BARRIER)}}
 with open(plan.get("log") or os.path.expanduser("~/fake-core.log"), "a") as handle:
     handle.write(json.dumps(record) + "\n")
 
-if "stdout" in plan:  # a read: one JSON value
+if "stdout" in plan:  # a read: one JSON value, after its `before` steps
+    for step in plan.get("before", []):
+        if "sleep" in step:
+            time.sleep(step["sleep"])
+        elif "wait" in step:
+            while not os.path.exists(step["wait"]):
+                if not os.path.isdir(os.path.expanduser("~")):
+                    sys.exit(1)  # the test and its HOME are gone: never wait forever
+                time.sleep(0.02)
     sys.stdout.write(json.dumps(plan["stdout"]) + "\n")
     sys.exit(plan.get("exit", 0))
 
@@ -124,7 +134,8 @@ class FakeCore:
         self.script = home / "fake-core.json"
         self.log = home / "fake-core.log"
         self.python = _executable(
-            home / "fake-python", _FAKE_PYTHON.format(real=sys.executable, script=str(self.script))
+            home / "fake-python",
+            _FAKE_PYTHON.format(real=sys.executable, script=str(self.script), barrier=str(paths.barrier_path())),
         )
         self.plans: dict = {}
         self.write()

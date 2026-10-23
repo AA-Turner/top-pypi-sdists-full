@@ -40,14 +40,16 @@ import fnmatch
 import logging
 import os
 import stat
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
 from dulwich.index import (
     ConflictedIndexEntry,
     index_entry_from_stat,
 )
-from dulwich.objects import Blob, Commit, Tree
+from dulwich.object_store import peel_sha
+from dulwich.objects import S_ISGITLINK, Blob, Commit, ObjectID, ShaFile, Tree
+from dulwich.objectspec import parse_commit, parse_object
 from dulwich.refs import HEADREF, Ref
 from dulwich.repo import Repo
 
@@ -216,32 +218,55 @@ def lfs_clean(
         return filter_driver.clean(content)
 
 
+def _skip_smudge_from_env(env: Mapping[str, str] | None = None) -> bool:
+    """Check whether ``GIT_LFS_SKIP_SMUDGE`` asks for pointers to be left alone.
+
+    This uses the values git-lfs accepts, which differ from git's own
+    boolean environment variables.
+    """
+    if env is None:
+        env = os.environ
+    value = env.get("GIT_LFS_SKIP_SMUDGE", "")
+    return value.lower() in ("true", "1", "on", "yes", "t")
+
+
 def lfs_smudge(
     repo: str | os.PathLike[str] | Repo | None = None,
     pointer_content: bytes | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> bytes:
     """Smudge an LFS pointer by retrieving the actual content.
 
     Args:
       repo: Path to repository
       pointer_content: LFS pointer content as bytes
+      env: Environment to read variables from (defaults to os.environ)
 
     Returns:
-      Actual file content as bytes
+      Actual file content as bytes, or ``pointer_content`` if it is not an
+      LFS pointer or ``GIT_LFS_SKIP_SMUDGE`` is set
+
+    Raises:
+      LFSError: If the object is not in the LFS store and can not be
+        downloaded
     """
-    from ..lfs import LFSFilterDriver, LFSStore
+    from ..lfs import LFSFilterDriver, LFSPointer, LFSStore
     from . import open_repo_closing
 
     with open_repo_closing(repo) as r:
         if pointer_content is None:
             raise ValueError("Pointer content must be specified")
 
+        pointer = LFSPointer.from_bytes(pointer_content)
+        if pointer is None or not pointer.is_valid_oid() or _skip_smudge_from_env(env):
+            return pointer_content
+
         # Get LFS store
         lfs_store = LFSStore.from_repo(r)
-        filter_driver = LFSFilterDriver(lfs_store, config=r.get_config())
+        filter_driver = LFSFilterDriver(lfs_store, config=r.get_config_stack())
 
         # Smudge the pointer (retrieve actual content)
-        return filter_driver.smudge(pointer_content)
+        return filter_driver.get_content(pointer)
 
 
 def lfs_ls_files(
@@ -443,91 +468,135 @@ def lfs_pointer_check(
         return results
 
 
+def _iter_unseen_blobs(
+    r: Repo, tree_id: ObjectID, seen: set[ObjectID]
+) -> Iterator[ObjectID]:
+    """Iterate over the blobs in a tree that have not been seen before.
+
+    Args:
+      r: Repository
+      tree_id: Id of the tree to walk
+      seen: Ids of trees and blobs to skip; updated with everything visited
+    """
+    todo = [tree_id]
+    while todo:
+        tree_id = todo.pop()
+        if tree_id in seen:
+            continue
+        seen.add(tree_id)
+        tree = r.object_store[tree_id]
+        assert isinstance(tree, Tree)
+        for entry in tree.iteritems():
+            if S_ISGITLINK(entry.mode):
+                continue
+            if stat.S_ISDIR(entry.mode):
+                todo.append(entry.sha)
+            elif entry.sha not in seen:
+                seen.add(entry.sha)
+                yield entry.sha
+
+
+def _lfs_pointers(
+    r: Repo,
+    refs: Sequence[str | bytes] | None,
+    history: bool,
+    exclude: Sequence[ObjectID] = (),
+) -> set[tuple[str, int]]:
+    """Find the LFS pointers reachable from a set of refs.
+
+    Args:
+      r: Repository
+      refs: Refs to scan, or None for all refs
+      history: Whether to scan the ancestors of commits as well, like
+        ``git rev-list --objects``, rather than just the tree of each ref
+      exclude: Commits that do not need scanning, along with their ancestors
+
+    Returns:
+      Set of (oid, size) tuples
+    """
+    from ..lfs import LFSPointer
+
+    objects: list[ShaFile] = []
+    if refs is None:
+        for sha in set(r.refs.as_dict().values()):
+            objects.append(peel_sha(r.object_store, sha)[1])
+    else:
+        for ref in refs:
+            obj = peel_sha(r.object_store, parse_object(r, ref).id)[1]
+            if isinstance(obj, Blob) and not history:
+                raise ValueError(f"{ref!r} does not refer to a commit or tree")
+            objects.append(obj)
+
+    seen: set[ObjectID] = set()
+    for commit_id in exclude:
+        for _ in _iter_unseen_blobs(r, parse_commit(r, commit_id).tree, seen):
+            pass
+
+    blob_ids: list[ObjectID] = []
+    commits: list[Commit] = []
+    for obj in objects:
+        if isinstance(obj, Commit):
+            commits.append(obj)
+        elif isinstance(obj, Tree):
+            blob_ids.extend(_iter_unseen_blobs(r, obj.id, seen))
+        elif obj.id not in seen:
+            seen.add(obj.id)
+            blob_ids.append(obj.id)
+    if history and commits:
+        walker = r.get_walker(include=[c.id for c in commits], exclude=exclude)
+        commits = [entry.commit for entry in walker]
+    for commit in commits:
+        blob_ids.extend(_iter_unseen_blobs(r, commit.tree, seen))
+
+    pointers = set()
+    for blob_id in blob_ids:
+        blob = r.object_store[blob_id]
+        assert isinstance(blob, Blob)
+        pointer = LFSPointer.from_bytes(blob.data)
+        if pointer and pointer.is_valid_oid():
+            pointers.add((pointer.oid, pointer.size))
+    return pointers
+
+
 def lfs_fetch(
     repo: str | os.PathLike[str] | Repo | None = None,
     remote: str = "origin",
     refs: list[str | bytes] | None = None,
+    all: bool = False,
 ) -> int:
     """Fetch LFS objects from remote.
 
     Args:
       repo: Path to repository
       remote: Remote name (default: origin)
-      refs: Specific refs to fetch LFS objects for (default: all refs)
+      refs: Specific refs to fetch LFS objects for (default: HEAD)
+      all: Fetch the objects for the whole history of the refs, or of all
+        refs if none are given, rather than just for the tree of each ref
 
     Returns:
       Number of objects fetched
     """
-    from ..lfs import LFSClient, LFSPointer, LFSStore
+    from ..lfs import LFSClient, LFSStore
     from . import open_repo_closing
 
     with open_repo_closing(repo) as r:
-        # Get LFS server URL from config
-        config = r.get_config()
-        lfs_url_bytes = config.get((b"lfs",), b"url")
-        if not lfs_url_bytes:
-            # Try remote URL
-            remote_url = config.get((b"remote", remote.encode()), b"url")
-            if remote_url:
-                # Append /info/lfs to remote URL
-                remote_url_str = remote_url.decode()
-                if remote_url_str.endswith(".git"):
-                    remote_url_str = remote_url_str[:-4]
-                lfs_url = f"{remote_url_str}/info/lfs"
-            else:
-                raise ValueError(f"No LFS URL configured for remote {remote}")
-        else:
-            lfs_url = lfs_url_bytes.decode()
-
-        # Get authentication
-        auth = None
         # TODO: Support credential helpers and other auth methods
-
-        # Create LFS client and store
-        client = LFSClient(lfs_url, auth)
+        client = LFSClient.from_config(r.get_config_stack(), remote)
+        if client is None:
+            raise ValueError(f"No LFS URL configured for remote {remote}")
         store = LFSStore.from_repo(r)
 
-        # Find all LFS pointers in the refs
-        pointers_to_fetch = []
+        if refs is None and not all:
+            refs = [HEADREF]
 
-        if refs is None:
-            # Get all refs
-            refs = list(r.refs.keys())
-
-        for ref in refs:
-            if isinstance(ref, str):
-                ref_key = Ref(ref.encode())
-            elif isinstance(ref, bytes):
-                ref_key = Ref(ref)
-            else:
-                ref_key = ref
-            try:
-                commit = r[r.refs[ref_key]]
-            except KeyError:
-                continue
-
-            # Walk the commit tree
-            assert isinstance(commit, Commit)
-            for path, mode, sha in r.object_store.iter_tree_contents(commit.tree):
-                assert sha is not None
-                try:
-                    obj = r.object_store[sha]
-                except KeyError:
-                    pass
-                else:
-                    if isinstance(obj, Blob):
-                        pointer = LFSPointer.from_bytes(obj.data)
-                        if pointer and pointer.is_valid_oid():
-                            # Check if we already have it
-                            try:
-                                with store.open_object(pointer.oid):
-                                    pass  # Object exists, no need to fetch
-                            except KeyError:
-                                pointers_to_fetch.append((pointer.oid, pointer.size))
-
-        # Fetch missing objects
         fetched = 0
-        for oid, size in pointers_to_fetch:
+        for oid, size in _lfs_pointers(r, refs, history=all):
+            try:
+                with store.open_object(oid):
+                    # Object exists, no need to fetch
+                    continue
+            except KeyError:
+                pass
             content = client.download(oid, size)
             store.write_object([content])
             fetched += 1
@@ -540,6 +609,11 @@ def lfs_pull(
 ) -> int:
     """Pull LFS objects for current checkout.
 
+    Like ``git lfs pull``, this downloads the objects for the files in the
+    index that are tracked by LFS, and replaces their pointers in the working
+    tree with the actual content. Files with local modifications are left
+    alone.
+
     Args:
       repo: Path to repository
       remote: Remote name (default: origin)
@@ -547,36 +621,74 @@ def lfs_pull(
     Returns:
       Number of objects fetched
     """
-    from ..lfs import LFSPointer, LFSStore
+    from ..lfs import LFSClient, LFSPointer, LFSStore
     from . import _checked_worktree_path, open_repo_closing
 
     with open_repo_closing(repo) as r:
-        # First do a fetch for HEAD
-        fetched = lfs_fetch(repo, remote, [b"HEAD"])
+        # Like git-lfs, refuse to pull without a current commit
+        r.head()
 
-        # Then checkout LFS files in working directory
-        store = LFSStore.from_repo(r)
         config = r.get_config_stack()
+        # TODO: Support credential helpers and other auth methods
+        client = LFSClient.from_config(config, remote)
+        if client is None:
+            raise ValueError(f"No LFS URL configured for remote {remote}")
+        store = LFSStore.from_repo(r)
+        gitattributes = r.get_gitattributes()
+
         index = r.open_index(config=config)
+        fetched = 0
+        index_changed = False
+        for path, entry in list(index.items()):
+            if isinstance(entry, ConflictedIndexEntry):
+                continue
+            if gitattributes.match_path(path).get(b"filter") != b"lfs":
+                continue
+            blob = r.object_store[entry.sha]
+            assert isinstance(blob, Blob)
+            pointer = LFSPointer.from_bytes(blob.data)
+            if pointer is None or not pointer.is_valid_oid():
+                continue
 
-        for path, entry in index.items():
+            try:
+                with store.open_object(pointer.oid) as lfs_file:
+                    content = lfs_file.read()
+            except KeyError:
+                content = client.download(pointer.oid, pointer.size)
+                store.write_object([content])
+                fetched += 1
+
             full_path = _checked_worktree_path(r, path)
-            # Never rewrite a file through a symlink.
-            if os.path.exists(full_path) and not os.path.islink(full_path):
+            try:
+                st = os.lstat(full_path)
+            except FileNotFoundError:
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            else:
+                # Never rewrite a file through a symlink.
+                if not stat.S_ISREG(st.st_mode):
+                    continue
+                # Only replace the pointer, not local modifications
+                if st.st_size != len(blob.data):
+                    continue
                 with open(full_path, "rb") as f:
-                    content = f.read()
+                    if f.read() != blob.data:
+                        continue
+            with open(full_path, "wb") as f:
+                f.write(content)
 
-                pointer = LFSPointer.from_bytes(content)
-                if pointer and pointer.is_valid_oid():
-                    try:
-                        # Replace pointer with actual content
-                        with store.open_object(pointer.oid) as lfs_file:
-                            lfs_content = lfs_file.read()
-                        with open(full_path, "wb") as f:
-                            f.write(lfs_content)
-                    except KeyError:
-                        # Object not available
-                        pass
+            # Like git-lfs, refresh the stat information so the file does not
+            # show up as modified
+            index[path] = index_entry_from_stat(
+                os.lstat(full_path),
+                entry.sha,
+                entry.mode,
+                flags=entry.flags,
+                extended_flags=entry.extended_flags,
+            )
+            index_changed = True
+
+        if index_changed:
+            index.write()
 
         return fetched
 
@@ -585,95 +697,75 @@ def lfs_push(
     repo: str | os.PathLike[str] | Repo | None = None,
     remote: str = "origin",
     refs: list[str | bytes] | None = None,
+    all: bool = False,
 ) -> int:
     """Push LFS objects to remote.
 
     Args:
       repo: Path to repository
       remote: Remote name (default: origin)
-      refs: Specific refs to push LFS objects for (default: current branch)
+      refs: Refs to push LFS objects for; required unless ``all`` is set
+      all: Push the objects for the whole history of the refs, or of all
+        local branches and tags if none are given, rather than skipping
+        those reachable from the remote-tracking branches of the remote
 
     Returns:
       Number of objects pushed
     """
-    from ..lfs import LFSClient, LFSPointer, LFSStore
+    from ..lfs import LFSClient, LFSError, LFSStore
     from . import open_repo_closing
 
+    if refs is None and not all:
+        raise ValueError("At least one ref must be supplied without all")
+
     with open_repo_closing(repo) as r:
-        # Get LFS server URL from config
-        config = r.get_config()
-        lfs_url_bytes = config.get((b"lfs",), b"url")
-        if not lfs_url_bytes:
-            # Try remote URL
-            remote_url = config.get((b"remote", remote.encode()), b"url")
-            if remote_url:
-                # Append /info/lfs to remote URL
-                remote_url_str = remote_url.decode()
-                if remote_url_str.endswith(".git"):
-                    remote_url_str = remote_url_str[:-4]
-                lfs_url = f"{remote_url_str}/info/lfs"
-            else:
-                raise ValueError(f"No LFS URL configured for remote {remote}")
-        else:
-            lfs_url = lfs_url_bytes.decode()
-
-        # Get authentication
-        auth = None
+        config = r.get_config_stack()
         # TODO: Support credential helpers and other auth methods
-
-        # Create LFS client and store
-        client = LFSClient(lfs_url, auth)
+        client = LFSClient.from_config(config, remote)
+        if client is None:
+            raise ValueError(f"No LFS URL configured for remote {remote}")
         store = LFSStore.from_repo(r)
 
-        # Find all LFS objects to push
         if refs is None:
-            # Push current branch
-            head_ref = r.refs.read_ref(HEADREF)
-            refs = [head_ref] if head_ref else []
+            refs = [
+                ref
+                for ref in r.refs.keys()
+                if ref.startswith((b"refs/heads/", b"refs/tags/"))
+            ]
+        exclude: list[ObjectID] = []
+        if not all:
+            remote_refs = r.refs.as_dict(Ref(b"refs/remotes/" + remote.encode()))
+            exclude = list(set(remote_refs.values()))
 
-        objects_to_push = set()
+        objects_to_push = _lfs_pointers(r, refs, history=True, exclude=exclude)
 
-        for ref in refs:
-            if isinstance(ref, str):
-                ref_bytes = ref.encode()
-            else:
-                ref_bytes = ref
-            try:
-                if ref_bytes.startswith(b"refs/"):
-                    commit = r[r.refs[Ref(ref_bytes)]]
-                else:
-                    commit = r[ref_bytes]
-            except KeyError:
-                continue
-
-            # Walk the commit tree
-            assert isinstance(commit, Commit)
-            for path, mode, sha in r.object_store.iter_tree_contents(commit.tree):
-                assert sha is not None
-                try:
-                    obj = r.object_store[sha]
-                except KeyError:
-                    pass
-                else:
-                    if isinstance(obj, Blob):
-                        pointer = LFSPointer.from_bytes(obj.data)
-                        if pointer and pointer.is_valid_oid():
-                            objects_to_push.add((pointer.oid, pointer.size))
-
-        # Push objects
-        pushed = 0
+        # Objects that are missing locally are only a problem if the remote
+        # does not have them either
+        available = []
+        missing = []
         for oid, size in objects_to_push:
             try:
-                with store.open_object(oid) as f:
-                    content = f.read()
+                with store.open_object(oid):
+                    available.append((oid, size))
             except KeyError:
-                # Object not in local store
+                if not client.has_object(oid, size):
+                    missing.append(oid)
+        if missing:
+            if not config.get_boolean((b"lfs",), b"allowincompletepush", False):
+                raise LFSError(
+                    "LFS objects are missing locally and on the remote: "
+                    + ", ".join(sorted(missing))
+                )
+            for oid in missing:
                 logger.warning("LFS object %s not found locally", oid)
-            else:
-                client.upload(oid, size, content)
-                pushed += 1
 
-        return pushed
+        # Push objects
+        for oid, size in available:
+            with store.open_object(oid) as f:
+                content = f.read()
+            client.upload(oid, size, content)
+
+        return len(available)
 
 
 def lfs_status(

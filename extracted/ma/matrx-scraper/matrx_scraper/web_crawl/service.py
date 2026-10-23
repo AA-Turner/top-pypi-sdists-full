@@ -36,6 +36,7 @@ from matrx_scraper.queue_backend import InMemoryQueueBackend
 from matrx_scraper.web_crawl.broker import (
     CrawlBrokerRegistry,
     CrawlEventBroker,
+    CrawlRunLive,
 )
 from matrx_scraper.web_crawl.candidates import (
     DiscoveredCandidate,
@@ -244,10 +245,11 @@ def _assert_session_resumable(session: object, *, check_attempts: bool = True) -
     # and the loser's error path failed the winner's session.
     if run_lease_is_live(session):
         lease = read_run_lease(session)
-        raise RuntimeError(
+        raise CrawlRunLive(
             f"crawl session is already active elsewhere (lease owner "
             f"{lease.get('owner') or 'unknown'} on host {lease.get('host') or 'unknown'}) — "
-            "cancel it or wait for it to finish or crash before resuming"
+            "cancel it or wait for it to finish or crash before resuming",
+            session_id=str(getattr(session, "id", "") or ""),
         )
     metadata = dict(getattr(session, "metadata", None) or {})
     if (metadata.get("cancel_request") or {}).get("requested"):
@@ -779,6 +781,7 @@ class WebCrawlService:
         # — a compare-and-swap on the session row that exactly one claimant can
         # win. Both raise RuntimeError("already active…") → 409.
         broker = await self.brokers.create(session_id)
+        lease_token: str | None = None
         try:
             lease_token, attempt = await repository.claim_run_lease(
                 session_id, is_resume=True, pages_done=pages_done
@@ -800,9 +803,15 @@ class WebCrawlService:
             # run's first event violated crawl_event_session_sequence_unique
             # and the "recovery" itself failed the session.
             state.event_sequence = await repository.max_event_sequence(session_id)
-        except Exception:
+        except BaseException as exc:
             await broker.close()
             await self.brokers.remove(session_id, broker)
+            # A failure AFTER the claim won the lease hands the run back: the
+            # session was flipped to `running` under our token, so leaving it
+            # would block every retry for a full lease TTL behind a run that
+            # never started. (A lost claim holds no token — nothing to release.)
+            if lease_token and not isinstance(exc, CrawlRunLive):
+                await repository.fail_session(session_id, WORKER_STOPPED_ERROR, lease_token=lease_token)
             raise
         logger.warning(
             "resuming crawl session %s (attempt %s/%s, remaining max_pages=%s, "

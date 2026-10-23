@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: coverage
-Version: 7.16.2
+Version: 7.17.0
 Summary: Code coverage measurement for Python
 Home-page: https://github.com/coveragepy/coveragepy
-Author: Ned Batchelder and 263 others
+Author: Ned Batchelder and many others
 Author-email: ned@nedbatchelder.com
 License: Apache-2.0
-Project-URL: Documentation, https://coverage.readthedocs.io/en/7.16.2
+Project-URL: Documentation, https://coverage.readthedocs.io/en/7.17.0
 Project-URL: Funding, https://tidelift.com/subscription/pkg/pypi-coverage?utm_source=pypi-coverage&utm_medium=referral&utm_campaign=pypi
 Project-URL: Issues, https://github.com/coveragepy/coveragepy/issues
 Project-URL: Mastodon, https://hachyderm.io/@coveragepy
@@ -18,7 +18,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -30,12 +29,11 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 Provides-Extra: toml
-Requires-Dist: tomli; python_full_version <= "3.11.0a6" and extra == "toml"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -77,13 +75,13 @@ Coverage.py runs on these versions of Python:
 
 .. PYVERSIONS
 
-* Python 3.10 through 3.15 rc2, including free-threading.
-* PyPy3 versions 3.10 and 3.11.
+* Python 3.11 through 3.16.0a1, including free-threading.
+* PyPy3 version 3.11.
 
 Documentation is on `Read the Docs`_.  Code repository and issue tracker are on
 `GitHub`_.
 
-.. _Read the Docs: https://coverage.readthedocs.io/en/7.16.2/
+.. _Read the Docs: https://coverage.readthedocs.io/en/7.17.0/
 .. _GitHub: https://github.com/coveragepy/coveragepy
 
 
@@ -112,7 +110,7 @@ Getting Started
 Looking to run ``coverage`` on your test suite? See the `Quick Start section`_
 of the docs.
 
-.. _Quick Start section: https://coverage.readthedocs.io/en/7.16.2/#quick-start
+.. _Quick Start section: https://coverage.readthedocs.io/en/7.17.0/#quick-start
 
 
 Change history
@@ -120,7 +118,7 @@ Change history
 
 The complete history of changes is on the `change history page`_.
 
-.. _change history page: https://coverage.readthedocs.io/en/7.16.2/changes.html
+.. _change history page: https://coverage.readthedocs.io/en/7.17.0/changes.html
 
 
 Code of Conduct
@@ -139,7 +137,7 @@ Contributing
 Found a bug? Want to help improve the code or documentation? See the
 `Contributing section`_ of the docs.
 
-.. _Contributing section: https://coverage.readthedocs.io/en/7.16.2/contributing.html
+.. _Contributing section: https://coverage.readthedocs.io/en/7.17.0/contributing.html
 
 
 Security
@@ -167,7 +165,7 @@ Licensed under the `Apache 2.0 License`_.  For details, see `NOTICE.txt`_.
     :target: https://github.com/coveragepy/coveragepy/actions/workflows/quality.yml
     :alt: Quality check status
 .. |docs| image:: https://readthedocs.org/projects/coverage/badge/?version=latest&style=flat
-    :target: https://coverage.readthedocs.io/en/7.16.2/
+    :target: https://coverage.readthedocs.io/en/7.17.0/
     :alt: Documentation
 .. |kit| image:: https://img.shields.io/pypi/v/coverage
     :target: https://pypi.org/project/coverage/

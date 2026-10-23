@@ -41,3 +41,10 @@ async def create_realtime_client_secret(
             },
             headers={"Authorization": f"Bearer {api_key}"},
         )
+
+
+def client_connect_url() -> str:
+    """The endpoint the BROKERED CLIENT opens with a minted credential (handed out with the credential).
+
+    The platform sends nothing there itself; the provider layer still owns the address."""
+    return REALTIME_CALLS_URL

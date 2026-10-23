@@ -76,7 +76,7 @@ from schemathesis.core.jsonschema.patterns import (
 )
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, get_type, to_json_type_name
-from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
 from schemathesis.core.transforms import deepclone, jsonify_python_specific_types
 from schemathesis.core.validation import contains_unicode_surrogate_pair, has_invalid_characters, is_latin_1_encodable
 from schemathesis.generation import GenerationMode
@@ -293,7 +293,7 @@ STRATEGIES_FOR_TYPE = {
 def get_strategy_for_type(ty: str | list[str]) -> st.SearchStrategy:
     if isinstance(ty, str):
         return STRATEGIES_FOR_TYPE[ty]
-    return st.one_of(STRATEGIES_FOR_TYPE[t] for t in ty if t in STRATEGIES_FOR_TYPE)
+    return st.one_of([STRATEGIES_FOR_TYPE[t] for t in ty if t in STRATEGIES_FOR_TYPE])
 
 
 UNKNOWN_PROPERTY_KEY = "x-schemathesis-unknown-property"
@@ -1351,6 +1351,7 @@ def _to_hashable_key(value: T, _encode: Callable = _encode) -> tuple[type, str |
         # an intermediate Python-side deep-copy. Bytes inside the value reject the
         # native call; fall back to the bytes-aware path.
         try:
+            # `type(...) is` checks do not narrow a TypeVar.
             return type(value), _digest(jsonschema_rs.canonical.json.to_string(value))
         except (TypeError, ValueError):
             pass
@@ -1791,9 +1792,10 @@ def _honors_contains(schema: JsonSchemaObject) -> bool:
     """Whether `contains` and its bounds are well-formed; Draft 4 never checks them and ignores them, as fuzzing does."""
     if "contains" not in schema:
         return False
-    return jsonschema_rs.meta.is_valid(
-        {key: schema[key] for key in ("contains", "minContains", "maxContains") if key in schema}
-    )
+    contains: JsonSchemaObject = {
+        key: schema[key] for key in ("contains", "minContains", "maxContains") if key in schema
+    }
+    return jsonschema_rs.meta.is_valid(contains)
 
 
 def _ensure_contains_bounds(ctx: CoverageContext, value: list, schema: JsonSchemaObject) -> list:
@@ -2022,7 +2024,7 @@ def _cover_positive_for_type(
             yield PositiveValue(const, scenario=CoverageScenario.CONST_VALUE, description="Const value")
     elif ty is not None or _implies_object_type(schema) or _implies_array_type(schema):
         yield from _positive_for_describing_keywords(ctx, schema, ty, template)
-    if "not" in schema and isinstance(schema["not"], dict | bool):
+    if "not" in schema and isinstance(schema["not"], (dict, bool)):
         # For 'not' schemas: generate negative cases of inner schema (violations)
         # These violations are positive for the outer schema, so flip the mode.
         # The inner-violation alone doesn't guarantee the value satisfies the outer's
@@ -2523,7 +2525,7 @@ def _negative_one_of(
 def _negative_not(
     ctx: CoverageContext, schema: dict, value: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
-    if not isinstance(value, dict | bool):
+    if not isinstance(value, (dict, bool)):
         return
     # For 'not' schemas: generate positive cases of inner schema (valid values)
     # These valid values are negative for the outer schema, so flip the mode
@@ -2572,7 +2574,9 @@ def cover_schema_iter(
                     check_schema = schema if bundle is None else {**schema, BUNDLE_STORAGE_KEY: bundle}
                     try:
                         unmerged_validator = ctx.validator_cls(
-                            check_schema, validate_formats=True, pattern_options=FANCY_REGEX_OPTIONS
+                            check_schema,
+                            validate_formats=True,
+                            pattern_options=FANCY_REGEX_OPTIONS,
                         )
                     except Exception:
                         pass
@@ -2742,8 +2746,8 @@ def is_valid_for_others(
     value: Any,
     idx: int,
     validators: list[jsonschema_rs.Validator],
-    schemas: list[dict | bool] | None = None,
-    will_be_serialized_to_string: bool = False,
+    schemas: list[dict | bool] | None,
+    will_be_serialized_to_string: bool,
 ) -> bool:
     for vidx, validator in enumerate(validators):
         if idx == vidx:
@@ -3159,7 +3163,7 @@ def _positive_string(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
     if ctx.location == "path" and not ("format" in schema and schema["format"] in ctx.custom_formats):
         schema = ensure_valid_path_parameter_schema(schema)
         declared = schema
-    elif ctx.location in ("header", "cookie") and not ("format" in schema and schema["format"] in ctx.custom_formats):
+    elif ctx.location in HEADER_LOCATIONS and not ("format" in schema and schema["format"] in ctx.custom_formats):
         pattern = schema.get("pattern")
         if isinstance(pattern, str) and pattern_requires_char_outside(pattern, HEADER_ALLOWED_CHARS):
             return
@@ -4052,7 +4056,8 @@ def _negative_pattern(
     if value is MISSING:
         try:
             validator: jsonschema_rs.Validator | None = ctx.validator_cls(
-                {"type": "string", "pattern": pattern}, pattern_options=FANCY_REGEX_OPTIONS
+                {"type": "string", "pattern": pattern},
+                pattern_options=FANCY_REGEX_OPTIONS,
             )
         except Exception:
             validator = None
@@ -4062,7 +4067,8 @@ def _negative_pattern(
             .filter(ctx.wire.representable)
         )
         if validator is not None:
-            strategy = strategy.filter(lambda v, _v=validator: not _v.is_valid(v))
+            is_valid = validator.is_valid
+            strategy = strategy.filter(lambda v: not is_valid(v))
         try:
             value = ctx.generate_from(strategy)
         except Unsatisfiable:

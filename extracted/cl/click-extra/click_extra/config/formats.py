@@ -36,7 +36,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import logging
-import plistlib
 import sys
 from enum import Enum
 from fnmatch import fnmatch
@@ -45,7 +44,6 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib  # type: ignore[import-not-found]
-
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -258,6 +256,9 @@ def parse_content(fmt: ConfigFormat, content: str) -> Any:
             return xmltodict.parse(content)
 
         case ConfigFormat.PLIST:
+            # Deferred import: keeps plistlib off the startup path of every CLI.
+            import plistlib
+
             return plistlib.loads(content.encode("utf-8"))
 
         case ConfigFormat.PYPROJECT_TOML:
@@ -354,6 +355,9 @@ def serialize_content(fmt: ConfigFormat, data: Any, **kwargs: Any) -> str:
             )
             return result + "\n"
         case ConfigFormat.PLIST:
+            # Deferred import: keeps plistlib off the startup path of every CLI.
+            import plistlib
+
             return plistlib.dumps(data, **kwargs).decode("utf-8") + "\n"
     raise ValueError(f"{fmt!r} is not handled by serialize_content().")
 

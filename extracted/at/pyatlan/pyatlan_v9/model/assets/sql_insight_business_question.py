@@ -20,6 +20,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -48,15 +55,8 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from .sql_related import RelatedSQL
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sql_insight_related import RelatedSqlInsightBusinessQuestion
+from .sql_related import RelatedSQL
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -685,6 +685,7 @@ def _sql_insight_business_question_to_nested(
         is_incomplete=sql_insight_business_question.is_incomplete,
         provenance_type=sql_insight_business_question.provenance_type,
         home_id=sql_insight_business_question.home_id,
+        delete_handler=sql_insight_business_question.delete_handler,
         depth=sql_insight_business_question.depth,
         immediate_upstream=sql_insight_business_question.immediate_upstream,
         immediate_downstream=sql_insight_business_question.immediate_downstream,
@@ -735,6 +736,7 @@ def _sql_insight_business_question_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

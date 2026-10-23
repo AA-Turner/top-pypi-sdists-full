@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework-devui
-Version: 1.0.0b261015
+Version: 1.0.0b261022
 Summary: Debug UI for Microsoft Agent Framework with OpenAI-compatible API server.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.22.0,<2
+Requires-Dist: agent-framework-core>=1.23.0,<2
 Requires-Dist: openai>=2.45.0,<4
 Requires-Dist: opentelemetry-sdk>=1.39.0,<2
 Requires-Dist: fastapi>=0.115.0,<0.142.0
@@ -397,6 +397,8 @@ devui ./agents --mode user --host 0.0.0.0 --auth-token "<secure-dev-token>"
 ```
 
 Do not use `--no-auth` with `0.0.0.0`, LAN IPs, or hostnames. That configuration fails closed before startup.
+Even on loopback, `--no-auth` removes protection against HTTP requests sent by hostile websites to local DevUI.
+Use it only in an isolated loopback development environment.
 
 **Security features:**
 

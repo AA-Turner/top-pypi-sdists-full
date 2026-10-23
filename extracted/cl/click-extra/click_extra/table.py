@@ -29,9 +29,7 @@ from io import StringIO
 from types import SimpleNamespace
 
 import click
-from boltons.strutils import strip_ansi
 from click import echo
-from wcwidth import wcswidth, wcwidth as char_width
 
 from . import context
 from ._deprecated import resolve_deprecated, warn_deprecated_usage
@@ -51,6 +49,7 @@ from .types import EnumChoice, MultiChoice
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from types import ModuleType
     from typing import Any, Final, TypeAlias
 
     from .columns import ColumnWidth
@@ -74,8 +73,9 @@ if TYPE_CHECKING:
 
 
 @cache
-def _setup_tabulate() -> None:
-    """Import `tabulate`, apply Click Extra's patches, and register its formats.
+def _setup_tabulate() -> ModuleType:
+    """Import `tabulate`, apply Click Extra's patches, register its formats, and
+    return the module.
 
     `tabulate` is a comparatively heavy dependency, only needed when a table
     is actually rendered through it (the CSV, structured and serialization
@@ -91,6 +91,7 @@ def _setup_tabulate() -> None:
     """
     import tabulate
     from tabulate import DataRow, TableFormat as TabulateTableFormat
+    from wcwidth import wcwidth as char_width
 
     # Neutralize spurious double-spacing in table rendering.
     tabulate.MIN_PADDING = 0
@@ -134,6 +135,8 @@ def _setup_tabulate() -> None:
     # globally.
     if "colon_grid" not in fmts:
         fmts["colon_grid"] = fmts["grid"]
+
+    return tabulate
 
 
 class TableFormat(Enum):
@@ -487,6 +490,26 @@ def _render_records(
     return serialize_content(fmt, _rows_as_dicts(table_data, headers), **kwargs)
 
 
+def _records_without_none(
+    table_data: Sequence[Sequence[str | None]],
+    headers: Sequence[str | None] | None,
+    key: Callable[[str], str] = lambda name: name,
+) -> list[dict[str, str]]:
+    """One mapping per row, keyed by header or by position, `None` cells left out.
+
+    The shape of the formats with no null type, TOML and XML. `key` reshapes a
+    header into the name the format accepts.
+    """
+    records: list[dict[str, str]] = []
+    for row in table_data:
+        if headers:
+            pairs = ((key(k), v) for k, v in zip(headers, row) if k is not None)
+        else:
+            pairs = ((str(i), v) for i, v in enumerate(row))
+        records.append({k: v for k, v in pairs if v is not None})
+    return records
+
+
 def _render_toml(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
@@ -500,19 +523,19 @@ def _render_toml(
     import tomlkit
 
     aot = tomlkit.aot()
-    for row in table_data:
+    for record in _records_without_none(table_data, headers):
         t = tomlkit.table()
-        if headers:
-            for key, value in zip(headers, row):
-                if value is not None and key is not None:
-                    t.add(key, value)
-        else:
-            for i, value in enumerate(row):
-                if value is not None:
-                    t.add(str(i), value)
+        for key, value in record.items():
+            t.add(key, value)
         aot.append(t)
 
     return serialize_content(ConfigFormat.TOML, {RECORD_KEY: aot}, **kwargs)
+
+
+def _xml_safe_name(name: str) -> str:
+    """Replace characters invalid in XML element names."""
+    safe = "".join(c if c.isalnum() or c in "_.-" else "_" for c in name)
+    return safe.lstrip("0123456789.-") or "_"
 
 
 def _render_xml(
@@ -525,27 +548,7 @@ def _render_xml(
     `None` values are omitted. Requires the `xmltodict` package (installable
     via the `[xml]` extra).
     """
-
-    def _xml_safe_name(name: str) -> str:
-        """Replace characters invalid in XML element names."""
-        safe = "".join(c if c.isalnum() or c in "_.-" else "_" for c in name)
-        return safe.lstrip("0123456789.-") or "_"
-
-    if headers:
-        records = [
-            {
-                _xml_safe_name(k): v
-                for k, v in zip(headers, row)
-                if v is not None and k is not None
-            }
-            for row in table_data
-        ]
-    else:
-        records = [
-            {str(i): v for i, v in enumerate(row) if v is not None}
-            for row in table_data
-        ]
-
+    records = _records_without_none(table_data, headers, key=_xml_safe_name)
     return serialize_content(
         ConfigFormat.XML, {XML_ROOT_KEY: {RECORD_KEY: records}}, **kwargs
     )
@@ -612,6 +615,9 @@ def _paints_wider_than_it_advances(text: str) -> bool:
     sequence as much as by terminal: a character wide in its own right (`✅`,
     U+2705) is advanced two columns everywhere.
     """
+    # Deferred import: keeps wcwidth off the startup path of every CLI.
+    from wcwidth import wcswidth
+
     return cell_width(text, term_program=_term_program()) < wcswidth(text)
 
 
@@ -626,6 +632,9 @@ def _terminal_wcswidth(text: str) -> int:
     non-printable character, since `tabulate` measures with this too and reads
     that value.
     """
+    # Deferred import: keeps wcwidth off the startup path of every CLI.
+    from wcwidth import wcswidth
+
     width = wcswidth(text)
     if width < 0 or not _LAID_OUT_FOR_TERMINAL.get():
         return width
@@ -670,6 +679,9 @@ def _visible_width(cell: object) -> int:
     """
     if cell is None:
         return 0
+    # Deferred import: keeps boltons.strutils off the startup path of every CLI.
+    from boltons.strutils import strip_ansi
+
     return max(_terminal_wcswidth(strip_ansi(str(cell))), 0)
 
 
@@ -837,10 +849,8 @@ def _render_tabulate(
             [_pad_emoji_presentation(cell) for cell in row] for row in table_data
         ]
         headers = [_pad_emoji_presentation(header) for header in headers]
-    _setup_tabulate()
-    import tabulate
-
-    result = tabulate.tabulate(table_data, headers, **defaults)  # type: ignore[arg-type]
+    tabulate = _setup_tabulate()
+    result: str = tabulate.tabulate(table_data, headers, **defaults)
     # Normalize separator rows for GFM-compatible formats so that mdformat
     # treats the output as already canonical and does not re-pad it.
     if table_format in (TableFormat.GITHUB, TableFormat.PIPE):
@@ -1186,6 +1196,9 @@ def _strip_ansi_cells(
     headers: Sequence[str | None] | None = None,
 ) -> tuple[list[list[str | None]], Sequence[str | None] | None]:
     """Strip ANSI escape codes from all string cells and headers."""
+    # Deferred import: keeps boltons.strutils off the startup path of every CLI.
+    from boltons.strutils import strip_ansi
+
     cleaned_data: list[list[str | None]] = [
         [strip_ansi(v) if isinstance(v, str) else v for v in row] for row in table_data
     ]
@@ -1536,6 +1549,8 @@ def _row_sort_key(
     cells collating as the empty string.
     """
     if cell_key is None:
+        # Deferred import: keeps boltons.strutils off the startup path of every CLI.
+        from boltons.strutils import strip_ansi
 
         def cell_key(v):
             return strip_ansi(v).casefold() if v else ""

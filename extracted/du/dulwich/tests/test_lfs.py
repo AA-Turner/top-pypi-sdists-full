@@ -29,11 +29,15 @@ import shutil
 import tempfile
 import threading
 from pathlib import Path
+from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+import urllib3
+
 from dulwich.client import LocalGitClient
 from dulwich.config import ConfigFile
+from dulwich.filters import FilterError
 from dulwich.lfs import (
     FileLFSClient,
     HTTPLFSClient,
@@ -113,6 +117,13 @@ class LFSTests(TestCase):
         self.assertTrue(os.path.isdir(lfs_dir))
         self.assertTrue(os.path.isdir(os.path.join(lfs_dir, "tmp")))
         self.assertTrue(os.path.isdir(os.path.join(lfs_dir, "objects")))
+
+    def test_write_object_creates_store(self) -> None:
+        """Test writing to a store whose directory does not exist yet."""
+        store = LFSStore(os.path.join(self.test_dir, "new-store"))
+        sha = store.write_object([b"a test object"])
+        with store.open_object(sha) as f:
+            self.assertEqual(b"a test object", f.read())
 
 
 class LFSPointerTests(TestCase):
@@ -558,6 +569,16 @@ class LFSFilterDriverTests(TestCase):
         result = self.filter_driver.smudge(pointer_data)
         self.assertEqual(result, pointer_data)
 
+    def test_smudge_skip(self) -> None:
+        """Test that pointers are left alone when smudging is skipped."""
+        content = b"This is the actual file content"
+        sha = self.lfs_store.write_object([content])
+        pointer_data = LFSPointer(sha, len(content)).to_bytes()
+
+        # Even objects that are in the local store are not smudged
+        filter_driver = LFSFilterDriver(self.lfs_store, skip_smudge=True)
+        self.assertEqual(pointer_data, filter_driver.smudge(pointer_data))
+
     def test_smudge_non_pointer(self) -> None:
         """Test smudge filter on non-pointer content."""
         content = b"This is not an LFS pointer"
@@ -636,6 +657,86 @@ class LFSFilterDriverTests(TestCase):
         # Content should be preserved exactly
         with self.lfs_store.open_object(pointer.oid) as f:
             self.assertEqual(f.read(), content)
+
+
+class LFSFilterDriverDownloadTests(TestCase):
+    """Tests for the LFS filter driver fetching objects from a server."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.test_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.test_dir)
+        self.lfs_store = LFSStore.create(self.test_dir)
+
+        self.server_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.server_dir)
+        self.server, self.server_url = run_lfs_server(port=0, lfs_dir=self.server_dir)
+        self.server_thread = threading.Thread(target=self.server.serve_forever)
+        self.server_thread.daemon = True
+        self.server_thread.start()
+
+        def cleanup_server() -> None:
+            self.server.shutdown()
+            self.server.server_close()
+            self.server_thread.join(timeout=1.0)
+
+        self.addCleanup(cleanup_server)
+
+        self.config = ConfigFile()
+        self.config.set((b"lfs",), b"url", self.server_url.encode())
+        self.filter_driver = LFSFilterDriver(self.lfs_store, config=self.config)
+        self.pointer = LFSPointer("0" * 64, 5)
+
+    def test_smudge_downloads_object(self) -> None:
+        content = b"content on the server"
+        oid = self.server.lfs_store.write_object([content])
+
+        result = self.filter_driver.smudge(LFSPointer(oid, len(content)).to_bytes())
+        self.assertEqual(content, result)
+        with self.lfs_store.open_object(oid) as f:
+            self.assertEqual(content, f.read())
+
+    def test_smudge_missing_object(self) -> None:
+        # The pointer is passed through, as the filter is not required
+        with self.assertLogs("dulwich.lfs", level="WARNING"):
+            result = self.filter_driver.smudge(self.pointer.to_bytes())
+        self.assertEqual(self.pointer.to_bytes(), result)
+
+    def test_smudge_batch_error(self) -> None:
+        self.config.set((b"lfs",), b"url", f"{self.server_url}/nonexistent".encode())
+        with self.assertLogs("dulwich.lfs", level="WARNING"):
+            result = self.filter_driver.smudge(self.pointer.to_bytes())
+        self.assertEqual(self.pointer.to_bytes(), result)
+
+    def test_smudge_skip(self) -> None:
+        content = b"content on the server"
+        oid = self.server.lfs_store.write_object([content])
+        pointer_data = LFSPointer(oid, len(content)).to_bytes()
+        filter_driver = LFSFilterDriver(
+            self.lfs_store, config=self.config, skip_smudge=True
+        )
+
+        self.assertEqual(pointer_data, filter_driver.smudge(pointer_data))
+        # Nothing is downloaded
+        with self.assertRaises(KeyError):
+            self.lfs_store.open_object(oid)
+
+    def test_smudge_missing_object_required(self) -> None:
+        self.config.set((b"filter", b"lfs"), b"required", b"true")
+        with self.assertRaises(FilterError) as cm:
+            self.filter_driver.smudge(self.pointer.to_bytes())
+        self.assertEqual(
+            f"Required LFS smudge filter failed: Server error for {'0' * 64}: "
+            "Object not found",
+            str(cm.exception),
+        )
+
+    def test_get_content_missing_object(self) -> None:
+        with self.assertRaises(LFSError) as cm:
+            self.filter_driver.get_content(self.pointer)
+        self.assertEqual(
+            f"Server error for {'0' * 64}: Object not found", str(cm.exception)
+        )
 
 
 class LFSStoreEdgeCaseTests(TestCase):
@@ -1068,6 +1169,23 @@ class LFSClientTests(TestCase):
         self.assertIsNotNone(result.objects[0].actions)
         self.assertIn("download", result.objects[0].actions)
 
+    def test_batch_upload_existing_object(self) -> None:
+        """Test that no upload is requested for an object the server has."""
+        content = b"existing content"
+        oid = self.server.lfs_store.write_object([content])
+
+        result = self.client.batch("upload", [{"oid": oid, "size": len(content)}])
+        self.assertEqual([oid], [obj.oid for obj in result.objects])
+        self.assertIsNone(result.objects[0].actions)
+
+    def test_has_object(self) -> None:
+        """Test checking whether the server has an object."""
+        content = b"existing content"
+        oid = self.server.lfs_store.write_object([content])
+
+        self.assertTrue(self.client.has_object(oid, len(content)))
+        self.assertFalse(self.client.has_object("0" * 64, 5))
+
     def test_download_with_verification(self) -> None:
         """Test download with size and hash verification."""
         test_content = b"test content for download"
@@ -1125,10 +1243,193 @@ class LFSClientTests(TestCase):
         self.assertIn("Object not found", str(cm.exception))
 
         # Test uploading with a well-formed OID that does not match the content
-        with self.assertRaises(HTTPError) as cm:
+        with self.assertRaises(LFSError) as cm:
             self.client.upload("0" * 64, 5, b"hello")
         # Server should reject due to OID mismatch
-        self.assertIn("OID mismatch", str(cm.exception))
+        self.assertEqual(
+            "Upload failed with status 400: OID mismatch: "
+            f"expected {'0' * 64}, got {hashlib.sha256(b'hello').hexdigest()}",
+            str(cm.exception),
+        )
+
+    def test_batch_http_error(self) -> None:
+        """Test that a HTTP error from the batch endpoint raises LFSError."""
+        pool_manager = self.client._get_pool_manager()
+        response = mock.Mock(status=500, data=b"boom")
+        with mock.patch.object(pool_manager, "request", return_value=response):
+            with self.assertRaises(LFSError) as cm:
+                self.client.batch("download", [{"oid": "0" * 64, "size": 5}])
+        self.assertEqual("HTTP 500: boom", str(cm.exception))
+
+    def test_batch_invalid_response(self) -> None:
+        """Test that a batch response that is not JSON raises LFSError."""
+        pool_manager = self.client._get_pool_manager()
+        response = mock.Mock(status=200, data=b"not json")
+        with mock.patch.object(pool_manager, "request", return_value=response):
+            with self.assertRaises(LFSError) as cm:
+                self.client.batch("download", [{"oid": "0" * 64, "size": 5}])
+        self.assertEqual(
+            "Invalid response from LFS server: "
+            "Expecting value: line 1 column 1 (char 0)",
+            str(cm.exception),
+        )
+
+    def test_batch_malformed_response(self) -> None:
+        """Test that a batch response with the wrong structure raises LFSError."""
+        pool_manager = self.client._get_pool_manager()
+        for data, error in (
+            (b'{"objects": [{"size": 5}]}', "KeyError('oid')"),
+            (
+                b'{"objects": [{"oid": "abc", "size": 5, "actions": {"download": {}}}]}',
+                "KeyError('href')",
+            ),
+            (b'{"objects": 5}', "TypeError(\"'int' object is not iterable\")"),
+            (b"[]", "AttributeError(\"'list' object has no attribute 'get'\")"),
+        ):
+            response = mock.Mock(status=200, data=data)
+            with mock.patch.object(pool_manager, "request", return_value=response):
+                with self.assertRaises(LFSError) as cm:
+                    self.client.batch("download", [{"oid": "0" * 64, "size": 5}])
+            self.assertEqual(
+                f"Malformed batch response from LFS server: {error}",
+                str(cm.exception),
+            )
+
+    def test_batch_connection_error(self) -> None:
+        """Test that a failure to reach the batch endpoint raises LFSError."""
+        pool_manager = self.client._get_pool_manager()
+        error = urllib3.exceptions.ProtocolError("connection lost")
+        with mock.patch.object(pool_manager, "request", side_effect=error):
+            with self.assertRaises(LFSError) as cm:
+                self.client.batch("download", [{"oid": "0" * 64, "size": 5}])
+        self.assertEqual(
+            f"Request to {self.server_url}/objects/batch failed: connection lost",
+            str(cm.exception),
+        )
+
+    def test_download_connection_error(self) -> None:
+        """Test that a failure to reach the transfer URL raises LFSError."""
+        oid = "0" * 64
+        href = f"{self.server_url}/objects/{oid}"
+        response = self._batch_response(oid, 5, {"download": {"href": href}})
+        pool_manager = self.client._get_pool_manager()
+        error = urllib3.exceptions.ProtocolError("connection lost")
+        with (
+            mock.patch.object(self.client, "_make_request", return_value=response),
+            mock.patch.object(pool_manager, "request", side_effect=error),
+        ):
+            with self.assertRaises(LFSError) as cm:
+                self.client.download(oid, 5)
+        self.assertEqual(
+            f"Request to {href} failed: connection lost", str(cm.exception)
+        )
+
+    def test_download_failure(self) -> None:
+        """Test that a failing download action is reported."""
+        oid = "0" * 64
+        response = self._batch_response(
+            oid, 5, {"download": {"href": f"{self.server_url}/objects/{oid}"}}
+        )
+        with mock.patch.object(self.client, "_make_request", return_value=response):
+            with self.assertRaises(LFSError) as cm:
+                self.client.download(oid, 5)
+        self.assertEqual(
+            "Download failed with status 404: Object not found", str(cm.exception)
+        )
+
+    def test_upload_verify_failure(self) -> None:
+        """Test that a failing verify action is reported."""
+        content = b"hello"
+        oid = hashlib.sha256(content).hexdigest()
+        response = self._batch_response(
+            oid,
+            len(content),
+            {
+                "upload": {"href": f"{self.server_url}/objects/{oid}"},
+                "verify": {"href": f"{self.server_url}/objects/{'0' * 64}/verify"},
+            },
+        )
+        with mock.patch.object(self.client, "_make_request", return_value=response):
+            with self.assertRaises(LFSError) as cm:
+                self.client.upload(oid, len(content), content)
+        self.assertEqual(
+            "Verification failed with status 404: Object not found", str(cm.exception)
+        )
+
+    def test_upload_uses_pool_manager(self) -> None:
+        """Test that upload and verify go through the urllib3 pool manager."""
+        content = b"hello"
+        oid = hashlib.sha256(content).hexdigest()
+        pool_manager = self.client._get_pool_manager()
+        with mock.patch.object(
+            pool_manager, "request", wraps=pool_manager.request
+        ) as request:
+            self.client.upload(oid, len(content), content)
+        self.assertEqual(
+            [
+                ("POST", f"{self.server_url}/objects/batch"),
+                ("PUT", f"{self.server_url}/objects/{oid}"),
+                ("POST", f"{self.server_url}/objects/{oid}/verify"),
+            ],
+            [call.args for call in request.call_args_list],
+        )
+
+    def _batch_response(
+        self, oid: str, size: int, actions: dict[str, dict[str, str]]
+    ) -> bytes:
+        return json.dumps(
+            {"objects": [{"oid": oid, "size": size, "actions": actions}]}
+        ).encode()
+
+    def test_batch_rejects_non_http_href(self) -> None:
+        """Test that transfer URLs with a non-HTTP scheme are rejected."""
+        oid = "0" * 64
+        for href in (
+            "file:///etc/passwd",
+            "ftp://example.com/object",
+            "data:text/plain,hello",
+            "/objects/relative",
+            "http:///no-host",
+        ):
+            response = self._batch_response(oid, 5, {"download": {"href": href}})
+            with mock.patch.object(self.client, "_make_request", return_value=response):
+                with self.assertRaises(LFSError) as cm:
+                    self.client.batch("download", [{"oid": oid, "size": 5}])
+            self.assertEqual(
+                f"Invalid href in LFS batch response: {href!r}", str(cm.exception)
+            )
+
+    def test_download_rejects_file_href(self) -> None:
+        """Test that download does not follow a file:// transfer URL."""
+        oid = "0" * 64
+        href = "file:///etc/passwd"
+        response = self._batch_response(oid, 5, {"download": {"href": href}})
+        with mock.patch.object(self.client, "_make_request", return_value=response):
+            with self.assertRaises(LFSError) as cm:
+                self.client.download(oid, 5)
+        self.assertEqual(
+            f"Invalid href in LFS batch response: {href!r}", str(cm.exception)
+        )
+
+    def test_upload_rejects_file_href(self) -> None:
+        """Test that upload does not follow a file:// transfer URL."""
+        content = b"hello"
+        oid = hashlib.sha256(content).hexdigest()
+        href = "file:///etc/passwd"
+        for actions in (
+            {"upload": {"href": href}},
+            {
+                "upload": {"href": f"{self.server_url}/objects/{oid}"},
+                "verify": {"href": href},
+            },
+        ):
+            response = self._batch_response(oid, len(content), actions)
+            with mock.patch.object(self.client, "_make_request", return_value=response):
+                with self.assertRaises(LFSError) as cm:
+                    self.client.upload(oid, len(content), content)
+            self.assertEqual(
+                f"Invalid href in LFS batch response: {href!r}", str(cm.exception)
+            )
 
     def test_from_config_validates_lfs_url(self) -> None:
         """Test that from_config validates lfs.url and raises error for invalid URLs."""
@@ -1244,6 +1545,11 @@ class FileLFSClientTests(TestCase):
         with self.assertRaises(LFSError) as cm:
             self.client.download(self.test_oid, 999)  # Wrong size
         self.assertIn("Size mismatch", str(cm.exception))
+
+    def test_has_object(self) -> None:
+        """Test checking whether the store has an object."""
+        self.assertTrue(self.client.has_object(self.test_oid, len(self.test_content)))
+        self.assertFalse(self.client.has_object("0" * 64, 5))
 
     def test_upload_new_object(self) -> None:
         """Test uploading a new object to file:// URL."""

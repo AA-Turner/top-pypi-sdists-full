@@ -406,6 +406,9 @@ from .literals import (
     TrafficTypeType,
     TransferTypeType,
     TransitGatewayAssociationStateType,
+    TransitGatewayAttachmentNatGatewaySupportStateType,
+    TransitGatewayAttachmentNatGatewaySupportValueType,
+    TransitGatewayAttachmentNatSystemRouteSupportValueType,
     TransitGatewayAttachmentResourceTypeType,
     TransitGatewayAttachmentStateType,
     TransitGatewayAttachmentStatusTypeType,
@@ -415,6 +418,7 @@ from .literals import (
     TransitGatewayMeteringPolicyStateType,
     TransitGatewayMulitcastDomainAssociationStateType,
     TransitGatewayMulticastDomainStateType,
+    TransitGatewayNatRuleStateType,
     TransitGatewayPolicyTableEntryStateType,
     TransitGatewayPolicyTableStateType,
     TransitGatewayPrefixListReferenceStateType,
@@ -2244,6 +2248,8 @@ __all__ = (
     "GetSpotPlacementScoresResultTypeDef",
     "GetSubnetCidrReservationsRequestTypeDef",
     "GetSubnetCidrReservationsResultTypeDef",
+    "GetTransitGatewayAttachmentNatConfigurationRequestTypeDef",
+    "GetTransitGatewayAttachmentNatConfigurationResultTypeDef",
     "GetTransitGatewayAttachmentPropagationsRequestPaginateTypeDef",
     "GetTransitGatewayAttachmentPropagationsRequestTypeDef",
     "GetTransitGatewayAttachmentPropagationsResultTypeDef",
@@ -2705,6 +2711,8 @@ __all__ = (
     "ModifyTrafficMirrorFilterRuleResultTypeDef",
     "ModifyTrafficMirrorSessionRequestTypeDef",
     "ModifyTrafficMirrorSessionResultTypeDef",
+    "ModifyTransitGatewayAttachmentNatConfigurationRequestTypeDef",
+    "ModifyTransitGatewayAttachmentNatConfigurationResultTypeDef",
     "ModifyTransitGatewayMeteringPolicyRequestTypeDef",
     "ModifyTransitGatewayMeteringPolicyResultTypeDef",
     "ModifyTransitGatewayOptionsTypeDef",
@@ -3241,6 +3249,8 @@ __all__ = (
     "TransitGatewayMulticastGroupTypeDef",
     "TransitGatewayMulticastRegisteredGroupMembersTypeDef",
     "TransitGatewayMulticastRegisteredGroupSourcesTypeDef",
+    "TransitGatewayNatRuleRequestTypeDef",
+    "TransitGatewayNatRuleTypeDef",
     "TransitGatewayOptionsTypeDef",
     "TransitGatewayPeeringAttachmentOptionsTypeDef",
     "TransitGatewayPeeringAttachmentTypeDef",
@@ -6790,6 +6800,16 @@ class SpotPlacementScoreTypeDef(TypedDict):
     AvailabilityZoneId: NotRequired[str]
     Score: NotRequired[int]
 
+class GetTransitGatewayAttachmentNatConfigurationRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    DryRun: NotRequired[bool]
+
+class TransitGatewayNatRuleTypeDef(TypedDict):
+    RuleNumber: NotRequired[int]
+    MatchSourceCidr: NotRequired[str]
+    NatCidr: NotRequired[str]
+    State: NotRequired[TransitGatewayNatRuleStateType]
+
 class TransitGatewayAttachmentPropagationTypeDef(TypedDict):
     TransitGatewayRouteTableId: NotRequired[str]
     State: NotRequired[TransitGatewayPropagationStateType]
@@ -7746,6 +7766,11 @@ class ModifyTrafficMirrorSessionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     RemoveFields: NotRequired[Sequence[TrafficMirrorSessionFieldType]]
     DryRun: NotRequired[bool]
+
+class TransitGatewayNatRuleRequestTypeDef(TypedDict):
+    RuleNumber: NotRequired[int]
+    MatchSourceCidr: NotRequired[str]
+    NatCidr: NotRequired[str]
 
 class ModifyTransitGatewayMeteringPolicyRequestTypeDef(TypedDict):
     TransitGatewayMeteringPolicyId: str
@@ -15001,6 +15026,20 @@ class GetSpotPlacementScoresResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class GetTransitGatewayAttachmentNatConfigurationResultTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    NatGatewaySupport: TransitGatewayAttachmentNatGatewaySupportStateType
+    NatSystemRouteSupport: TransitGatewayAttachmentNatSystemRouteSupportValueType
+    NatGatewayRules: list[TransitGatewayNatRuleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyTransitGatewayAttachmentNatConfigurationResultTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    NatGatewaySupport: TransitGatewayAttachmentNatGatewaySupportStateType
+    NatSystemRouteSupport: TransitGatewayAttachmentNatSystemRouteSupportValueType
+    NatGatewayRules: list[TransitGatewayNatRuleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetTransitGatewayAttachmentPropagationsResultTypeDef(TypedDict):
     TransitGatewayAttachmentPropagations: list[TransitGatewayAttachmentPropagationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -15541,6 +15580,14 @@ class ModifyReservedInstancesRequestTypeDef(TypedDict):
 class ReservedInstancesModificationResultTypeDef(TypedDict):
     ReservedInstancesId: NotRequired[str]
     TargetConfiguration: NotRequired[ReservedInstancesConfigurationTypeDef]
+
+class ModifyTransitGatewayAttachmentNatConfigurationRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    NatGatewaySupport: NotRequired[TransitGatewayAttachmentNatGatewaySupportValueType]
+    NatSystemRouteSupport: NotRequired[TransitGatewayAttachmentNatSystemRouteSupportValueType]
+    NatGatewayRules: NotRequired[Sequence[TransitGatewayNatRuleRequestTypeDef]]
+    ResetNatGatewayRules: NotRequired[bool]
+    DryRun: NotRequired[bool]
 
 class ModifyTransitGatewayRequestTypeDef(TypedDict):
     TransitGatewayId: str
@@ -16178,6 +16225,7 @@ class TransitGatewayAttachmentTypeDef(TypedDict):
     Association: NotRequired[TransitGatewayAttachmentAssociationTypeDef]
     CreationTime: NotRequired[datetime]
     Tags: NotRequired[list[TagTypeDef]]
+    NatGatewaySupport: NotRequired[TransitGatewayAttachmentNatGatewaySupportStateType]
 
 TransitGatewayConnectPeerConfigurationTypeDef = TypedDict(
     "TransitGatewayConnectPeerConfigurationTypeDef",

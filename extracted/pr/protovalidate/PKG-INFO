@@ -1,19 +1,19 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 2.0.0
+Version: 2.1.0
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Dist: protobuf-py>=0.2.0
+Requires-Dist: protobuf-py>=0.6.0
 License-File: LICENSE
 Summary: Protocol Buffer Validation for Python
 Keywords: protobuf,protocol buffer,validate
 License-Expression: Apache-2.0
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://protovalidate.com
 Project-URL: Homepage, https://github.com/bufbuild/protovalidate-py

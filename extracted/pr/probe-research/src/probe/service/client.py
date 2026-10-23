@@ -4,10 +4,16 @@
                 python `-m probe.service` detached. Never waits for readiness
                 unless asked: a hook's budget is a connect() and a fork.
     register()  session.register over one short connection (hello first).
+    queue_hook() hooks.queue: a hook event's record-keeping routes, run once (D36).
     end()       session.end, likewise.
     check_now() ensure the service (waiting for it), then update.check_now:
                 what the CLI and the plugin hook do instead of spawning an
                 updater of their own while the switch is on (plan Q4)
+    finish_recorders()  recorders.finish: `probe capture off` for one agent
+    hold_run() / release_run()  run.hold / run.release: a `probe exec`'s run
+    refresh_manifest()  manifest.refresh: a stale release-manifest cache
+                Never start the service: each is for a service that already
+                runs (OSError when none answers), and the caller falls back.
     call()      any method, for the CLI and tests.
     Connection  a kept connection: the tap's registration thread holds one, so
                 a restarted service is noticed (EOF) and re-told at once.
@@ -19,12 +25,8 @@ the system python). `make sync-service-client` copies it with `paths.py`,
 `procid.py` and `protocol.py`; `tests/test_service_client_sync.py` fails on
 drift. Stdlib only, imports between the four relative.
 
-The switch: `PROBE_SERVICE=on|off` in the environment, else `"service": "on"`
-at the top of the probe CLI's config.json (`PROBE_CONFIG_PATH`, else
-`$XDG_CONFIG_HOME/probe/config.json`, else `~/.config/probe/config.json`).
-Off by default in the first release. `ensure` itself does not read it: the
-callers that start the service on their own (a tap, pi) ask `enabled()`
-first; `probe service start` starts it whatever the switch says.
+There is no switch: the service runs on every POSIX machine with a new
+enough CLI. A session whose Probe mode is `off` never starts or holds it.
 """
 
 from __future__ import annotations
@@ -37,15 +39,10 @@ import socket
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 from . import paths, procid
 from .protocol import API_VERSION, JSONRPC, MAX_LINE_BYTES, Client, Method, Mode, encode, request
 
-ENV_FLAG = "PROBE_SERVICE"
-CONFIG_KEY = "service"
-_ON = frozenset({"on", "1", "true", "yes"})
-_OFF = frozenset({"off", "0", "false", "no"})
 
 #: Every socket operation's deadline (plan X6: the registrant's own 2 s).
 TIMEOUT_S = 2.0
@@ -66,8 +63,8 @@ WAIT_FOR_PID_S = 1800.0
 
 #: The only variables the service starts with (plan X2): never an agent's
 #: PROBE_TOKEN, endpoint or PYTHONPATH, which would leak the first launcher's
-#: context into every later client's requests. The three PROBE_SERVICE_* are
-#: test-only overrides of the lifecycle timers.
+#: context into every later client's requests. The PROBE_SERVICE_* are
+#: test-only overrides of the lifecycle and updater timers.
 ENV_ALLOWLIST = (
     "HOME",
     "PATH",
@@ -82,6 +79,11 @@ ENV_ALLOWLIST = (
     "PROBE_SERVICE_GRACE_S",
     "PROBE_SERVICE_DISCOVERY_S",
     "PROBE_SERVICE_TTL_S",
+    "PROBE_SERVICE_WORKER_STOP_S",
+    "PROBE_SERVICE_DEFER_LIMIT_S",
+    "PROBE_SERVICE_LEGACY_RETRY_S",
+    "PROBE_SERVICE_RECORDER_RETRY_S",
+    "PROBE_SERVICE_KEEPER",
 )
 
 
@@ -105,34 +107,6 @@ class ServiceError(Exception):
         self.data = data
 
 
-# -- the switch ---------------------------------------------------------------
-
-
-def _config_path(env: dict) -> Path:
-    override = env.get("PROBE_CONFIG_PATH")
-    if override:
-        return Path(override)
-    base = env.get("XDG_CONFIG_HOME")
-    root = Path(base) if base else paths.home() / ".config"
-    return root / "probe" / "config.json"
-
-
-def enabled(env: dict | None = None) -> bool:
-    """Is the service on for this machine (`PROBE_SERVICE`, else config `service`)?"""
-    env = os.environ if env is None else env
-    raw = (env.get(ENV_FLAG) or "").strip().lower()
-    if raw in _ON:
-        return True
-    if raw in _OFF:
-        return False
-    try:
-        data = json.loads(_config_path(env).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    value = data.get(CONFIG_KEY) if isinstance(data, dict) else None
-    return value is True or (isinstance(value, str) and value.strip().lower() in _ON)
-
-
 # -- connections --------------------------------------------------------------
 
 
@@ -150,8 +124,24 @@ class Connection:
     def open(cls, timeout: float = TIMEOUT_S) -> Connection:
         """Connect, or raise OSError (FileNotFoundError / ConnectionRefusedError
         when no service runs; PermissionError when the socket's folder is not
-        this user's alone, so what answers there could be anyone's)."""
-        path = paths.socket_path()
+        this user's alone, so what answers there could be anyone's).
+
+        This machine's socket first, then the one a service from before the
+        machine key listens on (plan D8): a CLI that is not updated yet starts
+        that older service, and this client must still find it. "None runs"
+        (the first error) only when that one is absent or unlistened too; its
+        own timeout or foreign folder is raised as itself, never read as no
+        service."""
+        try:
+            return cls._at(paths.socket_path(), timeout)
+        except (FileNotFoundError, ConnectionRefusedError) as first:
+            try:
+                return cls._at(paths.legacy_socket_path(), timeout)
+            except (FileNotFoundError, ConnectionRefusedError):
+                raise first from None
+
+    @classmethod
+    def _at(cls, path, timeout: float) -> Connection:
         paths.require_private(path.parent)
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(timeout)
@@ -287,6 +277,87 @@ def end(
     return answer if isinstance(answer, dict) else {}
 
 
+def _dict(answer: object) -> dict:
+    return answer if isinstance(answer, dict) else {}
+
+
+def finish_recorders(
+    harness: str,
+    *,
+    wait: float = 0.0,
+    client: str = Client.CLI,
+    client_version: str = "unknown",
+    timeout: float = TIMEOUT_S,
+) -> dict:
+    """`recorders.finish`: `{finished: [sid], unfinished: [sid]}`. The socket
+    waits `wait` longer than `timeout`, the service's own wait."""
+    params = {"harness": harness, "wait": wait}
+    return _dict(call(Method.RECORDERS_FINISH, params, client=client, client_version=client_version,
+                      timeout=timeout + wait))
+
+
+def hold_run(
+    run: str,
+    owner: dict,
+    *,
+    client: str = Client.CLI,
+    client_version: str = "unknown",
+    timeout: float = TIMEOUT_S,
+) -> dict:
+    """`run.hold`: `{held: true}` or `{held: false, reason}`."""
+    params = {"run": run, "owner": owner}
+    return _dict(call(Method.RUN_HOLD, params, client=client, client_version=client_version, timeout=timeout))
+
+
+def release_run(
+    run: str,
+    owner: dict | None = None,
+    *,
+    client: str = Client.CLI,
+    client_version: str = "unknown",
+    timeout: float = TIMEOUT_S,
+) -> dict:
+    """`run.release`: `{released: n}`."""
+    params: dict = {"run": run}
+    if owner is not None:
+        params["owner"] = owner
+    return _dict(call(Method.RUN_RELEASE, params, client=client, client_version=client_version, timeout=timeout))
+
+
+def refresh_manifest(
+    context: dict | None = None,
+    *,
+    wait: float = 0.0,
+    client: str = Client.CLI,
+    client_version: str = "unknown",
+    timeout: float = TIMEOUT_S,
+) -> dict:
+    """`manifest.refresh`: `{outcome, done, result}`. `context`: the caller's
+    environment, by `protocol.CONTEXT_ENV` name."""
+    params: dict = {"wait": wait}
+    if context:
+        params["context"] = context
+    return _dict(call(Method.MANIFEST_REFRESH, params, client=client, client_version=client_version,
+                      timeout=timeout + wait))
+
+
+def queue_hook(
+    event: dict,
+    *,
+    client: str = Client.CLI,
+    client_version: str = "unknown",
+    timeout: float = TIMEOUT_S,
+) -> dict:
+    """`hooks.queue` (plan D36): hand the service one hook event's
+    record-keeping routes, to run once by `event["id"]` (`{id, plugin_root,
+    lane, payload, env, cwd, at}`, `protocol.need_hook_queue`). The answer:
+    `{"queued": true, "duplicate": bool}`, or `{"refused": why}` (then run them
+    yourself). OSError when no service runs. The plugin's dispatcher speaks it
+    on its own socket (`hooks/dispatch.py` `Miss`): it cannot import this."""
+    answer = call(Method.HOOKS_QUEUE, event, client=client, client_version=client_version, timeout=timeout)
+    return answer if isinstance(answer, dict) else {}
+
+
 def wait_for_exit(pid: int, *, timeout: float = WAIT_FOR_PID_S, poll: float = 0.25) -> bool:
     """Until `pid` is gone (True), or `timeout` passed (False).
 
@@ -415,6 +486,28 @@ def _write_starts(starts: list) -> None:
             os.unlink(tmp)
 
 
+def forget_start(*pids: int) -> None:
+    """A service restarting on purpose (an update, a newer tap) takes its own
+    start out of the count: only a service that dies backs `ensure` off
+    (MAX_STARTS). Without it an update's restart and the tap restart right
+    after it left the next start refused for most of a minute, and every hook
+    meanwhile found no service. Never raises."""
+    try:
+        paths.ensure_dirs()
+        fd = os.open(paths.start_lock_path(), os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    except OSError:
+        return
+    try:
+        if not _lock(fd, time.monotonic() + START_LOCK_WAIT_S):
+            return
+        starts = _read_starts(time.time())
+        kept = [entry for entry in starts if entry.get("pid") not in pids]
+        if len(kept) != len(starts):
+            _write_starts(kept)
+    finally:
+        os.close(fd)  # releases start.lock
+
+
 def _pid_runs(pid: object) -> bool:
     if not isinstance(pid, int) or pid <= 1:
         return False
@@ -527,7 +620,6 @@ def main(argv: list[str] | None = None, *, client: str = Client.CLI, client_vers
     sub = parser.add_subparsers(dest="cmd", required=True)
     p_ensure = sub.add_parser("ensure", help="start the service when none runs")
     p_ensure.add_argument("--wait", type=float, default=0.0)
-    p_ensure.add_argument("--if-enabled", action="store_true", help="do nothing unless PROBE_SERVICE is on")
     p_reg = sub.add_parser("register", help="session.register")
     p_reg.add_argument("--session-id", required=True)
     p_reg.add_argument("--harness", required=True)
@@ -539,9 +631,12 @@ def main(argv: list[str] | None = None, *, client: str = Client.CLI, client_vers
     p_end.add_argument("--session-id", required=True)
     p_end.add_argument("--generation", type=int, required=True)
     sub.add_parser("status", help="service.status")
+    # Where this machine's service listens, for a client that speaks API v1
+    # itself (pi's tool guard, `hooks.run`): the machine key needs the OS's
+    # machine id, which pi would otherwise have to work out again.
+    sub.add_parser("socket", help="print this machine's service socket path")
     p_check = sub.add_parser("check-now", help="update.check_now, starting the service when none runs")
     p_check.add_argument("--trigger", default="cli", choices=("app", "cli", "session", "schedule"))
-    p_check.add_argument("--if-enabled", action="store_true", help="do nothing unless PROBE_SERVICE is on")
     p_check.add_argument(
         "--wait-for-pid", type=int, default=None, help="first wait for this process (the asking command) to exit"
     )
@@ -551,10 +646,10 @@ def main(argv: list[str] | None = None, *, client: str = Client.CLI, client_vers
     args = parser.parse_args(argv)
 
     if args.cmd == "ensure":
-        if args.if_enabled and not enabled():
-            print(json.dumps({"ensured": None, "enabled": False}))
-            return 0
         print(json.dumps({"ensured": ensure(wait=args.wait)}))
+        return 0
+    if args.cmd == "socket":
+        print(json.dumps({"socket": str(paths.socket_path())}))
         return 0
     try:
         if args.cmd == "register":
@@ -570,9 +665,6 @@ def main(argv: list[str] | None = None, *, client: str = Client.CLI, client_vers
         elif args.cmd == "status":
             answer = call(Method.STATUS, client=client, client_version=client_version)
         elif args.cmd == "check-now":
-            if args.if_enabled and not enabled():
-                print(json.dumps({"outcome": None, "enabled": False}))
-                return 0
             if args.wait_for_pid:
                 wait_for_exit(args.wait_for_pid)
             answer = check_now(args.trigger, client=client, client_version=client_version)

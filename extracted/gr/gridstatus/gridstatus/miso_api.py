@@ -1,8 +1,9 @@
 import datetime
 import os
 import time
+from collections.abc import Callable
 from itertools import chain
-from typing import Any, Callable, Dict, List, Literal
+from typing import Any, Literal
 
 import pandas as pd
 import requests
@@ -213,7 +214,7 @@ class MISOAPI:
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None,
-        retrieval_func: Callable[..., List[Dict[str, Any]]],
+        retrieval_func: Callable[..., list[dict[str, Any]]],
         market: Markets,
         verbose: bool = False,
         **kwargs: Any,
@@ -231,7 +232,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         version: str = EX_POST,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         interval = str(date.hour + 1)
         date_str = date.strftime("%Y-%m-%d")
 
@@ -250,13 +251,13 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         prelim_or_final: str = PRELIMINARY_STRING,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         interval = str(date.hour + 1)
         date_str = date.strftime("%Y-%m-%d")
         version = EX_POST
         resolution = HOURLY_RESOLUTION
 
-        url = f"{BASE_PRICING_URL}/real-time/{date_str}/lmp-{version}?interval={interval}&preliminaryFinal={prelim_or_final}&timeResolution={resolution}"  # noqa
+        url = f"{BASE_PRICING_URL}/real-time/{date_str}/lmp-{version}?interval={interval}&preliminaryFinal={prelim_or_final}&timeResolution={resolution}"
 
         data_list = self._get_url(url, product=PRICING_PRODUCT, verbose=verbose)
 
@@ -268,7 +269,7 @@ class MISOAPI:
         date: datetime.datetime,
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         # Interval format is hh:mm at the start of the interval
         interval = date.floor("5min").strftime("%H:%M")  # type: ignore[attr-defined]
         date_str = date.strftime("%Y-%m-%d")
@@ -289,14 +290,14 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         prelim_or_final: str = PRELIMINARY_STRING,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         # Interval format is hh:mm at the start of the interval
         interval = date.floor("5min").strftime("%H:%M")  # type: ignore[attr-defined]
         date_str = date.strftime("%Y-%m-%d")
         version = EX_POST
         resolution = FIVE_MINUTE_RESOLUTION
 
-        url = f"{BASE_PRICING_URL}/real-time/{date_str}/lmp-{version}?interval={interval}&preliminaryFinal={prelim_or_final}&timeResolution={resolution}"  # noqa
+        url = f"{BASE_PRICING_URL}/real-time/{date_str}/lmp-{version}?interval={interval}&preliminaryFinal={prelim_or_final}&timeResolution={resolution}"
 
         data_list = self._get_url(url, product=PRICING_PRODUCT, verbose=verbose)
 
@@ -314,7 +315,7 @@ class MISOAPI:
 
     def _process_pricing_data(
         self,
-        data_list: List[Dict[str, Any]],
+        data_list: list[dict[str, Any]],
         market: Markets,
     ) -> pd.DataFrame:
         df = self._data_list_to_df(data_list)
@@ -378,7 +379,7 @@ class MISOAPI:
 
         date_str = date.strftime("%Y-%m-%d")
 
-        historical_scheduled_url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/historical/{date_str}/interchange/net-scheduled"  # noqa
+        historical_scheduled_url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/historical/{date_str}/interchange/net-scheduled"
 
         historical_scheduled_data_list = self._get_url(
             historical_scheduled_url,
@@ -398,7 +399,7 @@ class MISOAPI:
 
         historical_scheduled_df = historical_scheduled_df.reset_index()
 
-        real_time_actual_url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/real-time/{date_str}/interchange/net-actual"  # noqa
+        real_time_actual_url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/real-time/{date_str}/interchange/net-actual"
 
         real_time_actual_data_list = self._get_url(
             real_time_actual_url,
@@ -422,7 +423,7 @@ class MISOAPI:
         real_time_actual_df.columns = real_time_actual_df.columns + " Actual"
         real_time_actual_df = real_time_actual_df.reset_index()
 
-        real_time_scheduled_url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/real-time/{date_str}/interchange/net-scheduled"  # noqa
+        real_time_scheduled_url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/real-time/{date_str}/interchange/net-scheduled"
 
         real_time_scheduled_data_list = self._get_url(
             real_time_scheduled_url,
@@ -799,15 +800,12 @@ class MISOAPI:
         )
 
     @support_date_range(frequency="DAY_START")
-    def get_day_ahead_generation_fuel_type_hourly(
+    def get_generation_fuel_mix_by_region_day_ahead(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
-        if date == "latest":
-            date = pd.Timestamp.now(tz=self.default_timezone).floor("d")
-
         date_str = date.strftime("%Y-%m-%d")
 
         url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/day-ahead/{date_str}/generation/fuel-type"
@@ -855,22 +853,100 @@ class MISOAPI:
             if col not in ["Interval Start", "Interval End", "Region"]:
                 data[col] = data[col].astype(float)
 
-        return data[
-            [
-                "Interval Start",
-                "Interval End",
-                "Region",
-                "Total",
-                "Coal",
-                "Gas",
-                "Nuclear",
-                "Water",
-                "Wind",
-                "Solar",
-                "Other",
-                "Storage",
-            ]
-        ].reset_index(drop=True)
+        data = self._append_miso_generation_fuel_type_aggregate(
+            data[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Region",
+                    "Total",
+                    "Coal",
+                    "Gas",
+                    "Nuclear",
+                    "Water",
+                    "Wind",
+                    "Solar",
+                    "Other",
+                    "Storage",
+                ]
+            ],
+        )
+
+        return data
+
+    @support_date_range(frequency="DAY_START")
+    def get_generation_fuel_mix_by_region_real_time(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        date_str = date.strftime("%Y-%m-%d")
+
+        url = f"{BASE_LOAD_GENERATION_AND_INTERCHANGE_URL}/real-time/{date_str}/generation/fuel-type"
+
+        data_list = self._get_url(
+            url,
+            product=LOAD_GENERATION_AND_INTERCHANGE_PRODUCT,
+            verbose=verbose,
+        )
+
+        df = self._data_list_to_df(
+            data_list,
+        )
+
+        if "interval" in df.columns:
+            df = df.drop(columns=["interval"])
+
+        fuel_types_df = df["fuelTypes"].apply(pd.Series)
+        df = pd.concat([df.drop(columns=["fuelTypes"]), fuel_types_df], axis=1)
+
+        df = df.rename(
+            columns={
+                "region": "Region",
+                "totalMw": "Total",
+                "coal": "Coal",
+                "gas": "Gas",
+                "nuclear": "Nuclear",
+                "water": "Water",
+                "wind": "Wind",
+                "solar": "Solar",
+                "other": "Other",
+                "storage": "Storage",
+            },
+        )
+
+        data = df.reset_index()
+
+        data = data[data["Interval Start"] >= date]
+
+        if end is not None:
+            data = data[data["Interval End"] <= end]
+
+        for col in data.columns:
+            if col not in ["Interval Start", "Interval End", "Region"]:
+                data[col] = data[col].astype(float)
+
+        data = self._append_miso_generation_fuel_type_aggregate(
+            data[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Region",
+                    "Total",
+                    "Coal",
+                    "Gas",
+                    "Nuclear",
+                    "Water",
+                    "Wind",
+                    "Solar",
+                    "Other",
+                    "Storage",
+                ]
+            ],
+        )
+
+        return data
 
     def _get_real_time_cleared_demand(
         self,
@@ -1186,22 +1262,57 @@ class MISOAPI:
             if col not in ["Interval Start", "Interval End", "Region"]:
                 data[col] = data[col].astype(float)
 
-        return data[
-            [
-                "Interval Start",
-                "Interval End",
-                "Region",
-                "Total",
-                "Coal",
-                "Gas",
-                "Nuclear",
-                "Water",
-                "Wind",
-                "Solar",
-                "Other",
-                "Storage",
-            ]
-        ].reset_index(drop=True)
+        data = self._append_miso_generation_fuel_type_aggregate(
+            data[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Region",
+                    "Total",
+                    "Coal",
+                    "Gas",
+                    "Nuclear",
+                    "Water",
+                    "Wind",
+                    "Solar",
+                    "Other",
+                    "Storage",
+                ]
+            ],
+        )
+
+        return data
+
+    def _append_miso_generation_fuel_type_aggregate(
+        self,
+        data: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Append a MISO system total region by summing the CENTRAL, NORTH, and SOUTH
+        regions for each interval. The API only returns the three sub-regions, so the
+        system-wide total is derived to match the retired Market Reports Generation
+        Fuel Mix dataset."""
+        value_columns = [
+            "Total",
+            "Coal",
+            "Gas",
+            "Nuclear",
+            "Water",
+            "Wind",
+            "Solar",
+            "Other",
+            "Storage",
+        ]
+
+        miso = data.groupby(["Interval Start", "Interval End"], as_index=False)[
+            value_columns
+        ].sum()
+        miso["Region"] = "MISO"
+
+        combined = pd.concat([data, miso], ignore_index=True)
+
+        return combined.sort_values(["Interval Start", "Region"]).reset_index(
+            drop=True,
+        )
 
     def _get_actual_load(
         self,
@@ -1412,8 +1523,11 @@ class MISOAPI:
                 "Publish Time",
                 "Region",
                 "Local Resource Zone",
+                "init",
             ]:
-                data[col] = data[col].astype(float)
+                data[col] = (
+                    pd.to_numeric(data[col], errors="coerce").round().astype("Int64")
+                )
 
         data = data.sort_values(
             ["Interval Start", "Publish Time", "Region", "Local Resource Zone"],
@@ -1430,20 +1544,63 @@ class MISOAPI:
         ].reset_index(drop=True)
 
     @support_date_range(frequency="DAY_START")
-    def get_medium_term_load_forecast_hourly(
+    def get_load_forecast_mid_term_by_region(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         verbose: bool = False,
-        publish_time: str | pd.Timestamp | None = None,
+        max_offset: int = 7,
     ) -> pd.DataFrame:
-        return self._get_medium_term_load_forecast(
-            date,
-            end=end,
-            verbose=verbose,
-            publish_time=publish_time,
-            time_resolution=HOURLY_RESOLUTION,
-        )
+        """Get hourly mid-term load forecast by region and LRZ for a publish date.
+
+        The ``date`` parameter is the forecast run publish date (``init`` date), not
+        the forecast interval date. Each publish date is queried across the available
+        forecast horizon.
+
+        Args:
+            max_offset: Number of forecast days after the publish date to include.
+                Defaults to 7 (the full mid-term horizon). Use 1 to fetch only the
+                first forecast day.
+        """
+        publish_time = utils._handle_date(date, self.default_timezone).normalize()
+        all_dfs: list[pd.DataFrame] = []
+
+        for offset in range(1, max_offset + 1):
+            forecast_date = publish_time + pd.DateOffset(days=offset)
+            df = self._get_medium_term_load_forecast(
+                date=forecast_date,
+                verbose=verbose,
+                publish_time=publish_time,
+                time_resolution=HOURLY_RESOLUTION,
+            )
+            if not df.empty:
+                all_dfs.append(df)
+
+        if not all_dfs:
+            return pd.DataFrame(
+                columns=[
+                    "Interval Start",
+                    "Interval End",
+                    "Publish Time",
+                    "Region",
+                    "LRZ",
+                    "Load Forecast",
+                ],
+            )
+
+        data = pd.concat(all_dfs, ignore_index=True)
+        data = data.rename(columns={"Local Resource Zone": "LRZ"})
+
+        return data[
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Region",
+                "LRZ",
+                "Load Forecast",
+            ]
+        ].reset_index(drop=True)
 
     @support_date_range(frequency="DAY_START")
     def get_medium_term_load_forecast_hourly_aggregated(
@@ -1461,11 +1618,12 @@ class MISOAPI:
         LRZ1 MTLF, LRZ2_7 MTLF, LRZ3_5 MTLF, LRZ4 MTLF, LRZ6 MTLF,
         LRZ8_9_10 MTLF, MISO MTLF
         """
-        df = self.get_medium_term_load_forecast_hourly(
+        df = self._get_medium_term_load_forecast(
             date=date,
             end=end,
             verbose=verbose,
             publish_time=publish_time,
+            time_resolution=HOURLY_RESOLUTION,
         )
 
         # Map individual zones to aggregated LRZ format
@@ -1508,6 +1666,18 @@ class MISOAPI:
                 "LRZ8_9_10 MTLF",
             ]
         ].sum(axis=1)
+
+        mtlf_cols = [
+            "LRZ1 MTLF",
+            "LRZ2_7 MTLF",
+            "LRZ3_5 MTLF",
+            "LRZ4 MTLF",
+            "LRZ6 MTLF",
+            "LRZ8_9_10 MTLF",
+            "MISO MTLF",
+        ]
+        for col in mtlf_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce").round().astype("Int64")
 
         return df
 
@@ -1621,11 +1791,12 @@ class MISOAPI:
             )
 
         # Get medium-term load forecast
-        load_forecast = self.get_medium_term_load_forecast_hourly(
+        load_forecast = self._get_medium_term_load_forecast(
             date,
             end=end,
             verbose=verbose,
             publish_time=publish_time,
+            time_resolution=HOURLY_RESOLUTION,
         )
 
         # Get outage forecast
@@ -1681,7 +1852,7 @@ class MISOAPI:
         url: str,
         product: str,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         headers = self._headers(product=product)
         data_list = []
 
@@ -1732,8 +1903,8 @@ class MISOAPI:
     def _make_request_with_retry(
         self,
         url: str,
-        headers: Dict[str, str],
-        params: Dict[str, Any] | None = None,
+        headers: dict[str, str],
+        params: dict[str, Any] | None = None,
         verbose: bool = False,
     ) -> requests.Response:
         """Make a request with exponential backoff retry logic.
@@ -1791,7 +1962,7 @@ class MISOAPI:
         # If we've exhausted all retries, raise the last exception
         raise last_exception  # type: ignore[misc]
 
-    def _data_list_to_df(self, data_list: List[Dict[str, Any]]) -> pd.DataFrame:
+    def _data_list_to_df(self, data_list: list[dict[str, Any]]) -> pd.DataFrame:
         df = pd.DataFrame(data_list)
 
         if "timeInterval" not in df.columns and "interval" in df.columns:
@@ -1833,7 +2004,7 @@ class MISOAPI:
         else:
             raise ValueError(f"Unknown product: {product}")
 
-    def _headers(self, product: str) -> Dict[str, str]:
+    def _headers(self, product: str) -> dict[str, str]:
         return {
             "Ocp-Apim-Subscription-Key": (self._get_next_key(product)),
             "Cache-Control": "no-cache",
@@ -1841,8 +2012,8 @@ class MISOAPI:
 
     def _flatten(
         self,
-        list_of_lists: List[List[Dict[str, Any]]],
-    ) -> List[Dict[str, Any]]:
+        list_of_lists: list[list[dict[str, Any]]],
+    ) -> list[dict[str, Any]]:
         if len(list_of_lists) == 0:
             raise NoDataFoundException()
 
@@ -1974,8 +2145,8 @@ class MISOAPI:
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None,
-        retrieval_func: Callable[..., List[List[Dict[str, Any]]]],
-        daily_retrieval_func: Callable[..., List[List[Dict[str, Any]]]] | None = None,
+        retrieval_func: Callable[..., list[list[dict[str, Any]]]],
+        daily_retrieval_func: Callable[..., list[list[dict[str, Any]]]] | None = None,
         use_daily_requests: bool = False,
         verbose: bool = False,
         **kwargs: Any,
@@ -2000,7 +2171,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         version: str = EX_POST,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         interval = str(date.hour + 1)
         date_str = date.strftime("%Y-%m-%d")
 
@@ -2018,7 +2189,7 @@ class MISOAPI:
         date: datetime.datetime,
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         interval = date.floor("5min").strftime("%H:%M")  # type: ignore[attr-defined]
         date_str = date.strftime("%Y-%m-%d")
         version = EX_ANTE
@@ -2038,7 +2209,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         prelim_or_final: str = PRELIMINARY_STRING,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         interval = date.floor("5min").strftime("%H:%M")  # type: ignore[attr-defined]
         date_str = date.strftime("%Y-%m-%d")
         version = EX_POST
@@ -2057,7 +2228,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         prelim_or_final: str = PRELIMINARY_STRING,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         interval = str(date.hour + 1)
         date_str = date.strftime("%Y-%m-%d")
         version = EX_POST
@@ -2076,7 +2247,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         version: str = EX_POST,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         date_str = date.strftime("%Y-%m-%d")
 
         url = f"{BASE_PRICING_URL}/day-ahead/{date_str}/asm-{version}"
@@ -2091,7 +2262,7 @@ class MISOAPI:
         date: datetime.datetime,
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         date_str = date.strftime("%Y-%m-%d")
         version = EX_ANTE
 
@@ -2108,7 +2279,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         prelim_or_final: str = PRELIMINARY_STRING,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         date_str = date.strftime("%Y-%m-%d")
         version = EX_POST
         time_resolution = FIVE_MINUTE_RESOLUTION
@@ -2126,7 +2297,7 @@ class MISOAPI:
         end: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp] | None = None,
         prelim_or_final: str = PRELIMINARY_STRING,
         verbose: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         date_str = date.strftime("%Y-%m-%d")
         version = EX_POST
         time_resolution = HOURLY_RESOLUTION
@@ -2139,7 +2310,7 @@ class MISOAPI:
 
     def _process_as_mcp_data(
         self,
-        data_list: List[Dict[str, Any]],
+        data_list: list[dict[str, Any]],
     ) -> pd.DataFrame:
         df = self._data_list_to_df(data_list)
 
@@ -2169,7 +2340,7 @@ class MISOAPI:
         self,
         start: pd.Timestamp,
         end: pd.Timestamp,
-    ) -> List[pd.Timestamp]:
+    ) -> list[pd.Timestamp]:
         """
         MISO pricing nodes are updated quarterly on March 1st, June 1st, September 1st, and December 1st.
         This function generates a list of these dates within the specified start and end range.

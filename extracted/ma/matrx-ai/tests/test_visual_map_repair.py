@@ -362,3 +362,41 @@ def test_measured_defects_on_a_clean_spec_are_repaired_not_shipped():
     assert calls and calls[0]["diagnostics"][0]["code"] == "render/clipped"
     assert d.persisted == []  # a delivered round is its own ledger row; no second diagnostics-only row
     assert len(d.delivered) == 2  # each distinct spec rendered once, the final one reused
+
+
+def test_the_repair_child_gets_a_new_config_and_the_run_keeps_its_own(monkeypatch):
+    """The child call is built as a NEW config (three messages, no tools); the parent run's config and
+    message list are never rewritten (the send-boundary guard keeps that seam closed)."""
+    import contextvars
+    from types import SimpleNamespace
+
+    from matrx_connect.context.app_context import AppContext, set_app_context
+    from matrx_connect.emitters import SilentEmitter
+
+    from matrx_ai.config.message_config import MessageList, UnifiedMessage
+    from matrx_ai.config.unified_config import UnifiedConfig
+    from matrx_ai.config.unified_content import TextContent
+    from matrx_ai.orchestrator import executor
+
+    parent_messages = MessageList([UnifiedMessage(role="user", content=[TextContent(text="draw it")])])
+    parent = UnifiedConfig(model="m", messages=parent_messages, tools=["web_search"], tool_choice="auto")
+    seen: dict[str, Any] = {}
+
+    async def fake_execute(config, **_kw):
+        seen["config"] = config
+        return SimpleNamespace(final_response=None)
+
+    monkeypatch.setattr(executor, "execute_ai_request", fake_execute)
+    monkeypatch.setattr(executor, "_assistant_text_from_response", lambda _r: "")
+
+    def _in_ctx():
+        set_app_context(AppContext(emitter=SilentEmitter(), user_id="u"))
+        repair = vmr.authoring_model_repairer(SimpleNamespace(config=parent))
+        return asyncio.run(repair({"user_request": "draw it", "round": 1}))
+
+    contextvars.copy_context().run(_in_ctx)
+    child = seen["config"]
+    assert child is not parent and child.messages is not parent_messages
+    assert len(child.messages) == 3 and child.tools == [] and child.tool_choice is None
+    assert parent.messages is parent_messages and len(parent_messages) == 1
+    assert parent.tools == ["web_search"] and parent.tool_choice == "auto"

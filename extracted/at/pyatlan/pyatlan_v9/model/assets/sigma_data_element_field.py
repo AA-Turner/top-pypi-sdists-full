@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -45,16 +53,9 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
+from .sigma_related import RelatedSigmaDataElement, RelatedSigmaDataElementField
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .sigma_related import RelatedSigmaDataElement, RelatedSigmaDataElementField
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -340,6 +341,77 @@ class SigmaDataElementField(Asset):
         if self.guid is not UNSET:
             return RelatedSigmaDataElementField(guid=self.guid)
         return RelatedSigmaDataElementField(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        data_element_qualified_name: str,
+        data_element_name: str,
+        page_name: str,
+        workbook_name: str,
+        field_id: str,
+    ) -> "SigmaDataElementField":
+        validate_required_fields(
+            [
+                "name",
+                "data_element_qualified_name",
+                "data_element_name",
+                "page_name",
+                "workbook_name",
+                "field_id",
+            ],
+            [
+                name,
+                data_element_qualified_name,
+                data_element_name,
+                page_name,
+                workbook_name,
+                field_id,
+            ],
+        )
+        fields = data_element_qualified_name.split("/")
+        if len(fields) != 6:
+            raise ValueError(
+                f"Invalid data_element_qualified_name: {data_element_qualified_name}. "
+                "Expected format: "
+                "default/sigma/<epoch>/<workbook_id>/<page_id>/<data_element_id>"
+            )
+        return cls(
+            name=name,
+            qualified_name=f"{data_element_qualified_name}/{field_id}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            sigma_workbook_qualified_name="/".join(fields[:4]),
+            sigma_workbook_name=workbook_name,
+            sigma_page_qualified_name="/".join(fields[:5]),
+            sigma_page_name=page_name,
+            sigma_data_element_qualified_name=data_element_qualified_name,
+            sigma_data_element_name=data_element_name,
+            sigma_data_element=RelatedSigmaDataElement(
+                unique_attributes={"qualifiedName": data_element_qualified_name}
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "SigmaDataElementField":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "SigmaDataElementField":
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "SigmaDataElementField":
+        return cls.updater(**kwargs)
+
+    def trim_to_required(self) -> "SigmaDataElementField":
+        return SigmaDataElementField.updater(
+            qualified_name=self.qualified_name, name=self.name
+        )
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -674,6 +746,7 @@ def _sigma_data_element_field_to_nested(
         is_incomplete=sigma_data_element_field.is_incomplete,
         provenance_type=sigma_data_element_field.provenance_type,
         home_id=sigma_data_element_field.home_id,
+        delete_handler=sigma_data_element_field.delete_handler,
         depth=sigma_data_element_field.depth,
         immediate_upstream=sigma_data_element_field.immediate_upstream,
         immediate_downstream=sigma_data_element_field.immediate_downstream,
@@ -724,6 +797,7 @@ def _sigma_data_element_field_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

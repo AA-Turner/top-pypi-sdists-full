@@ -1113,6 +1113,16 @@ def host_authored_user_turn(text: str, *, reason: str) -> "UnifiedMessage":
     )
 
 
+def person_authored_user_turn(text: str) -> "UnifiedMessage":
+    """A user-role turn carrying words the PERSON wrote, replayed by the host (for example a
+    child call's copy of her request). `user_content` records them as hers — never NULL."""
+    return UnifiedMessage(
+        role="user",
+        content=[TextContent(text=text)],
+        user_content=[TextContent(text=text)],
+    )
+
+
 def human_authored_text(role: Any, content: Any, user_content: Any) -> str:
     """THE ONE projection of "what the human actually said" on a stored message.
 

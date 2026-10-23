@@ -719,7 +719,21 @@ UpdateBehaviorType = Literal["LOG", "UPDATE_IN_DATABASE"]
 UpdateCatalogBehaviorType = Literal["LOG", "UPDATE_IN_DATABASE"]
 ViewDialectType = Literal["ATHENA", "REDSHIFT", "SPARK"]
 ViewUpdateActionType = Literal["ADD", "ADD_OR_REPLACE", "DROP", "REPLACE"]
-WorkerTypeType = Literal["G.025X", "G.1X", "G.2X", "G.4X", "G.8X", "Standard", "Z.2X"]
+WorkerTypeType = Literal[
+    "G.025X",
+    "G.12X",
+    "G.16X",
+    "G.1X",
+    "G.2X",
+    "G.4X",
+    "G.8X",
+    "R.1X",
+    "R.2X",
+    "R.4X",
+    "R.8X",
+    "Standard",
+    "Z.2X",
+]
 WorkflowRunStatusType = Literal["COMPLETED", "ERROR", "RUNNING", "STOPPED", "STOPPING"]
 GlueServiceName = Literal["glue"]
 ServiceName = Literal[
@@ -830,6 +844,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -881,8 +896,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -1136,7 +1149,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

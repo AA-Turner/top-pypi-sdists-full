@@ -41,6 +41,7 @@ class TerraformParser(object):
             '1.13.',
             '1.14.',
             '1.15.',
+            '1.16.',
         )
         self.supported_format_versions = [
             '0.1',
@@ -249,7 +250,10 @@ class TerraformParser(object):
         # Outputs
         self.configuration['outputs'] = {}
         for findings in seek_key_in_dict(self.raw.get('configuration', {}), 'outputs'):
-            for key, value in findings.get('outputs', {}).items():
+            outputs = findings.get('outputs', {})
+            if not isinstance(outputs, dict):
+                continue
+            for key, value in outputs.items():
                 tmp_output = dict(address=key, value={})
                 if 'expression' in value:
                     if 'references' in value['expression']:
@@ -390,6 +394,13 @@ class TerraformParser(object):
         resource_type, resource_id = resource_name.split('.')[0:2]
 
         if resource_type == 'module':
+            # A bare module reference (e.g. module.some_module) names no output,
+            # so there is nothing to resolve. _mount_references skips these as
+            # ambiguous too, but the ones arriving through an output's own
+            # reference list never reach that check.
+            if len(resource_name.split('.')) < 3:
+                return []
+
             module_name, output_id = resource_name.split('.')[1:3]
 
             # Walk the module_calls tree using module_address so output

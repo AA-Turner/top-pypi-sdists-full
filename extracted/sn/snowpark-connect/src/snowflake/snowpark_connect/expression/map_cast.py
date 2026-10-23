@@ -47,14 +47,30 @@ from snowflake.snowpark.types import (
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
     global_config,
+    is_array_cast_scalar_rules_enabled,
+    is_cast_spark_floating_to_string_enabled,
     is_cast_string_to_integral_high_precision_enabled,
+    is_floating_point_spark_rounding_enabled,
+    is_fractional_to_integral_spark_narrowing_enabled,
+    is_interval_to_integral_truncation_enabled,
+    is_timestamp_ntz_parse_ignore_offset_enabled,
+    is_timestamp_parse_iso_t_enabled,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.error_utils import raise_error_helper
+from snowflake.snowpark_connect.expression.floating_to_string import (
+    spark_floating_to_string,
+)
+from snowflake.snowpark_connect.expression.fractional_rounding import (
+    _spark_fractional_to_decimal_body,
+    call_cached_float_sql_udf,
+    sql_udf_body,
+)
 from snowflake.snowpark_connect.expression.integral_types_support import (
     apply_fractional_to_integral_cast,
     apply_fractional_to_integral_cast_with_ansi_check,
+    apply_integral_overflow,
     apply_integral_overflow_with_ansi_check,
     apply_interval_to_integral_overflow,
     get_integral_type_bounds,
@@ -69,6 +85,7 @@ from snowflake.snowpark_connect.typed_column import FieldType, TypedColumn
 from snowflake.snowpark_connect.utils.context import (
     get_is_evaluating_sql,
     is_function_argument_being_resolved,
+    is_lambda_being_resolved,
 )
 from snowflake.snowpark_connect.utils.udf_cache import cached_udf
 
@@ -178,6 +195,95 @@ def timestamp_to_spark_string(col: Column) -> Column:
     return snowpark_fn.rtrim(trimmed, snowpark_fn.lit("."))
 
 
+# SNOW-4222759: Snowflake AUTO rejects 'yyyy-M-dTH:m:s[.f]+HH[MM]' (a 'T' and an
+# offset without a colon) and accepts the same string with a space. Only that
+# shape is rewritten. The offset must be one java.time.ZoneOffset accepts
+# (+H, +HH, +HHMM, at most 18:00), since Spark returns NULL for anything else
+# and Snowflake would accept up to +24. Leading and trailing ASCII whitespace is
+# kept; Snowflake trims it for the space form, as Spark's trimAll does. Spark
+# also trims other control characters, which Snowflake rejects on every form.
+# The class is spelled out because Snowflake's \s does not match \v.
+_ISO_T_WS = r"[ \t\n\r\f\v]*"
+_ISO_T_OFFSET = r"[+-][0-9]|[+-](0[0-9]|1[0-7])([0-5][0-9])?|[+-]18(00)?"
+_ISO_T_SEPARATOR_PATTERN = (
+    rf"^({_ISO_T_WS}[0-9]{{4}}-[0-9]{{1,2}}-[0-9]{{1,2}})"
+    rf"T([0-9]{{1,2}}:[0-9]{{1,2}}:[0-9]{{1,2}}(\.[0-9]*)?({_ISO_T_OFFSET}){_ISO_T_WS})$"
+)
+
+# Spark's ZoneOffset stops at ±18:00. TRY_TO_TIMESTAMP_NTZ ignores the offset
+# and returns the wall clock, so '2024-01-01 10:00:00+19' becomes 10:00 where
+# Spark returns NULL. The offset has to follow a time, so a date like
+# '2024-01-19' is not treated as an offset. ±18:00 itself stays in range.
+_OFFSET_PAST_18_PATTERN = (
+    r".*[0-9]{1,2}:[0-9]{1,2}:[0-9]{1,2}(\.[0-9]+)?"
+    r"("
+    r"[+-](19|[2-9][0-9])(:[0-5][0-9]){0,2}"
+    r"|[+-](19|[2-9][0-9])([0-5][0-9]){1,2}"
+    r"|[+-]18:([0-5][1-9]|[1-5][0-9])(:[0-5][0-9])?"
+    r"|[+-]18:00:([0-5][1-9]|[1-5][0-9])"
+    r"|[+-]18([0-5][1-9]|[1-5][0-9])([0-5][0-9])?"
+    r"|[+-]1800([0-5][1-9]|[1-5][0-9])"
+    r")[[:space:]]*"
+)
+
+
+def normalize_iso_t_separator(col: Column) -> Column:
+    """Rewrite the 'T' of an ISO timestamp with a +HH / +HHMM offset to a space.
+
+    SNOW-4222759: ``TRY_TO_TIMESTAMP('2024-01-01T10:00:00+02')`` is NULL.
+    The same string with a space is 08:00 UTC, which is Spark's result.
+    Other strings are returned unchanged. Gated by
+    ``snowpark.connect.timestampParseIsoT`` (default false).
+    """
+    if not is_timestamp_parse_iso_t_enabled():
+        return col
+    return snowpark_fn.regexp_replace(col, _ISO_T_SEPARATOR_PATTERN, r"\1 \2")
+
+
+def _timestamp_ntz_rejecting_past_18(src: Column, ansi: bool) -> Column:
+    """Parse as TIMESTAMP_NTZ, returning NULL when the offset is past ±18:00."""
+    name = "to_timestamp_ntz" if ansi else "try_to_timestamp_ntz"
+    parsed = snowpark_fn.builtin(name)(src)
+    beyond = src.rlike(_OFFSET_PAST_18_PATTERN)
+    ntz_type = TimestampType(TimestampTimeZone.NTZ)
+    if ansi:
+        raise_fn = raise_error_helper(ntz_type, DateTimeException)
+        return snowpark_fn.when(
+            beyond,
+            raise_fn(
+                snowpark_fn.lit(
+                    "[CAST_INVALID_INPUT] offset is outside +-18:00 and cannot"
+                    ' be cast to "TIMESTAMP_NTZ".'
+                )
+            ),
+        ).otherwise(parsed)
+    return snowpark_fn.iff(beyond, snowpark_fn.lit(None).cast(ntz_type), parsed)
+
+
+def parse_timestamp_string(col: Column, ntz: bool, ansi: bool) -> tuple[Column, bool]:
+    """Format-less string to timestamp, as Spark's default string cast.
+
+    Returns the parsed column and whether it is already TIMESTAMP_NTZ. If not,
+    the caller converts the LTZ result to its target type as before.
+
+    SNOW-4222759: for a TIMESTAMP_NTZ target Spark keeps the wall clock and
+    ignores any offset in the string, which TRY_TO_TIMESTAMP_NTZ also does.
+    Parsing as LTZ and then converting to NTZ applies the offset instead. The
+    NTZ parse is gated by ``snowpark.connect.timestampNtzParseIgnoreOffset``
+    (default false); with it off, the old LTZ parse is kept.
+
+    Offsets outside ±18:00 are rejected before TRY_TO_TIMESTAMP_NTZ. Snowflake
+    would keep the wall clock ('2024-01-01 10:00:00+19' -> 10:00); Spark
+    returns NULL, or CAST_INVALID_INPUT when ANSI is on.
+    """
+    src = normalize_iso_t_separator(col)
+    if ntz and is_timestamp_ntz_parse_ignore_offset_enabled():
+        return _timestamp_ntz_rejecting_past_18(src, ansi), True
+    if ansi:
+        return snowpark_fn.to_timestamp(src), False
+    return snowpark_fn.function("try_to_timestamp")(src), False
+
+
 def _build_map_to_string_expr(map_col: Column, map_type: MapType) -> Column:
     """Format a map as Spark's {k1 -> v1, k2 -> v2} string using MAP_ENTRIES.
 
@@ -192,8 +298,8 @@ def _build_map_to_string_expr(map_col: Column, map_type: MapType) -> Column:
     key_col = placeholder["key"]
     value_col = placeholder["value"]
 
-    key_str = _field_to_string_expr(key_col, map_type.key_type)
-    value_str = _field_to_string_expr(value_col, map_type.value_type)
+    key_str = _field_to_string_expr(key_col, map_type.key_type, in_lambda=True)
+    value_str = _field_to_string_expr(value_col, map_type.value_type, in_lambda=True)
 
     entry_str = snowpark_fn.concat(key_str, snowpark_fn.lit(" -> "), value_str)
 
@@ -238,7 +344,9 @@ def _build_array_to_string_expr(
                 placeholder, element_type.element_type
             )
         else:
-            element_str = _field_to_string_expr(placeholder, element_type)
+            element_str = _field_to_string_expr(
+                placeholder, element_type, in_lambda=True
+            )
     else:
         # Unknown / untyped – best-effort cast
         element_str = snowpark_fn.when(
@@ -267,22 +375,153 @@ def _build_array_to_string_expr(
     ).otherwise(result)
 
 
-def _float_to_spark_string(col: Column) -> Column:
-    """Format a float/double value as Spark would: whole numbers get a trailing '.0'."""
+def _cast_float_to_string(col: Column) -> Column:
+    """Render a float/double the way Java's Double.toString does where Snowflake can.
+
+    Snowflake's TO_VARCHAR drops the decimal for whole numbers (980.0 -> "980"),
+    which breaks hashes of the string, and prints NaN/inf/-0 differently. Whole
+    numbers at or above 1e7 use Java's scientific form ("1.2345678E7").
+    Non-integral values keep TO_VARCHAR's ~10-12 significant digits; Snowflake
+    has no shortest round-trip format (SNOW-4193976). NULL stays NULL.
+    """
     str_val = col.cast(StringType())
-    return snowpark_fn.when(col.is_null(), snowpark_fn.lit("null")).otherwise(
-        snowpark_fn.iff(
-            (col == snowpark_fn.floor(col)),
+    scientific = snowpark_fn.to_char(col, "TME")
+    is_whole = col == snowpark_fn.floor(col)
+    return (
+        snowpark_fn.when(col == snowpark_fn.lit(float("nan")), snowpark_fn.lit("NaN"))
+        .when(col == snowpark_fn.lit(float("inf")), snowpark_fn.lit("Infinity"))
+        .when(col == snowpark_fn.lit(float("-inf")), snowpark_fn.lit("-Infinity"))
+        .when(str_val == snowpark_fn.lit("-0"), snowpark_fn.lit("-0.0"))
+        .when(
+            is_whole & (snowpark_fn.abs(col) < snowpark_fn.lit(1e7)),
             snowpark_fn.concat(snowpark_fn.floor(col), snowpark_fn.lit(".0")),
-            str_val,
         )
+        .when(
+            is_whole,
+            snowpark_fn.iff(
+                snowpark_fn.contains(scientific, snowpark_fn.lit(".")),
+                scientific,
+                snowpark_fn.replace(scientific, "E", ".0E"),
+            ),
+        )
+        .otherwise(str_val)
     )
 
 
-def _field_to_string_expr(field_val: Column, field_type: DataType) -> Column:
+def _legacy_whole_number_float_string(col: Column) -> Column:
+    """Pre-SNOW-4193976 float/double text: a trailing ``.0`` on whole numbers."""
+    str_val = col.cast(StringType())
+    return snowpark_fn.iff(
+        col == snowpark_fn.floor(col),
+        snowpark_fn.concat(snowpark_fn.floor(col), snowpark_fn.lit(".0")),
+        str_val,
+    )
+
+
+def _float_string_for_rounding_flag(col: Column) -> Column:
+    """Spark special-value text when the flag is on, else the trailing-.0 rule."""
+    if is_floating_point_spark_rounding_enabled():
+        return _cast_float_to_string(col)
+    return _legacy_whole_number_float_string(col)
+
+
+def _float_to_spark_string(
+    col: Column, datatype: DataType | None = None, *, in_lambda: bool = False
+) -> Column:
+    """Format a float/double inside a complex value.
+
+    SQL null becomes the text ``null``. ``snowpark.connect.cast.sparkFloatingToString``
+    uses a Java UDF, which Snowflake rejects inside ``TRANSFORM`` (error 001157),
+    so ``in_lambda`` stays on :func:`_float_string_for_rounding_flag`. That helper
+    is also the path when the Java flag is off, so the rounding flag's strings
+    stay intact.
+    """
+    if in_lambda or not is_cast_spark_floating_to_string_enabled():
+        rendered = _float_string_for_rounding_flag(col)
+    else:
+        rendered = spark_floating_to_string(col, datatype or DoubleType())
+    return snowpark_fn.when(col.is_null(), snowpark_fn.lit("null")).otherwise(rendered)
+
+
+def cast_fractional_to_decimal_udf_body(
+    to_type: DecimalType, spark_sql_ansi_enabled: bool
+) -> str:
+    """UDF body for one ``cast(double as decimal(p, s))`` and ANSI mode."""
+
+    def cast_bound_input(bound_input: Column) -> Column:
+        return _cast_fractional_to_decimal_body(
+            bound_input, to_type, spark_sql_ansi_enabled
+        )
+
+    return sql_udf_body(cast_bound_input)
+
+
+def _cast_fractional_to_decimal(
+    col: Column, to_type: DecimalType, spark_sql_ansi_enabled: bool
+) -> Column:
+    """Spark decimal cast as one SQL UDF call that names ``col`` once.
+
+    Nested ``cast(cast(x as decimal) as decimal)`` is ``udf(udf(x))``. The
+    rounding math stays in the function body, where ``arg0`` is a parameter
+    (SNOW-4193976).
+    """
+    return call_cached_float_sql_udf(
+        cast_fractional_to_decimal_udf_body(to_type, spark_sql_ansi_enabled),
+        f"NUMBER({to_type.precision}, {to_type.scale})",
+        col,
+    )
+
+
+def _cast_fractional_to_decimal_body(
+    col: Column, to_type: DecimalType, spark_sql_ansi_enabled: bool
+) -> Column:
+    """Cast a float/double to DECIMAL with Spark's BigDecimal(Double.toString) HALF_UP.
+
+    CAST(FLOAT AS NUMBER) rounds the exact binary value (1.005 -> 1.00, Spark
+    1.01). Non-ANSI Spark returns NULL for NaN, Infinity and overflow where
+    Snowflake raises 100046.
+    """
+    precision, scale = to_type.precision, to_type.scale
+    native = snowpark_fn.cast(col, to_type)
+    if spark_sql_ansi_enabled:
+        fallback = native
+    else:
+        fits = snowpark_fn.round(
+            snowpark_fn.abs(col), snowpark_fn.lit(scale)
+        ) < snowpark_fn.lit(float(10 ** (precision - scale)))
+        fallback = snowpark_fn.iff(fits, native, snowpark_fn.lit(None))
+
+    value, known = _spark_fractional_to_decimal_body(col, scale, precision)
+    exact = value.cast(to_type)
+    if precision == 38:
+        # spark_fractional_to_decimal only knows values below 10^(38 - scale),
+        # so the fit check below would be TRUE and name ``value`` a second time.
+        exact_fits = snowpark_fn.lit(True)
+    else:
+        # The known value has at most 16 significant digits, so it converts to a
+        # double below 10^(precision - scale) iff it fits.
+        exact_fits = snowpark_fn.abs(
+            snowpark_fn.cast(value, DoubleType())
+        ) < snowpark_fn.lit(float(10 ** (precision - scale)))
+    if spark_sql_ansi_enabled:
+        # Out-of-range values take the native cast, which raises like Spark.
+        # So do NaN and Infinity, where Spark returns NULL.
+        return snowpark_fn.iff(known & exact_fits, exact, fallback)
+    return snowpark_fn.iff(
+        known,
+        snowpark_fn.iff(exact_fits, exact, snowpark_fn.lit(None)),
+        fallback,
+    ).cast(to_type)
+
+
+def _field_to_string_expr(
+    field_val: Column, field_type: DataType, *, in_lambda: bool = False
+) -> Column:
     """Convert a single struct field value to its Spark string representation."""
     if isinstance(field_type, StructType) and field_type.structured:
-        inner_str = _build_struct_to_string_expr(field_val, field_type)
+        inner_str = _build_struct_to_string_expr(
+            field_val, field_type, in_lambda=in_lambda
+        )
         return snowpark_fn.when(field_val.is_null(), snowpark_fn.lit("null")).otherwise(
             inner_str
         )
@@ -297,7 +536,7 @@ def _field_to_string_expr(field_val: Column, field_type: DataType) -> Column:
             formatted
         )
     elif isinstance(field_type, (FloatType, DoubleType)):
-        return _float_to_spark_string(field_val)
+        return _float_to_spark_string(field_val, field_type, in_lambda=in_lambda)
     elif isinstance(field_type, TimestampType):
         return snowpark_fn.when(field_val.is_null(), snowpark_fn.lit("null")).otherwise(
             timestamp_to_spark_string(field_val)
@@ -308,14 +547,18 @@ def _field_to_string_expr(field_val: Column, field_type: DataType) -> Column:
         )
 
 
-def _build_struct_to_string_expr(struct_col: Column, struct_type: StructType) -> Column:
+def _build_struct_to_string_expr(
+    struct_col: Column, struct_type: StructType, *, in_lambda: bool = False
+) -> Column:
     """Build a SQL expression that formats a struct as Spark's {val1, val2, ...} string."""
     parts: list[Column] = []
     for i, field in enumerate(struct_type.fields):
         if i > 0:
             parts.append(snowpark_fn.lit(", "))
         field_val = struct_col[field.name]
-        field_str = _field_to_string_expr(field_val, field.datatype)
+        field_str = _field_to_string_expr(
+            field_val, field.datatype, in_lambda=in_lambda
+        )
         parts.append(field_str)
     struct_str = snowpark_fn.concat(
         snowpark_fn.lit("{"),
@@ -325,6 +568,155 @@ def _build_struct_to_string_expr(struct_col: Column, struct_type: StructType) ->
     return snowpark_fn.when(
         struct_col.is_null(), snowpark_fn.lit(None).cast(StringType())
     ).otherwise(struct_str)
+
+
+def _fractional_to_integral_non_ansi_pre_5777(col: Column, to_type: DataType) -> Column:
+    """The non-ANSI float/double -> integral cast as it was before #5777.
+
+    Kept verbatim for snowpark.connect.cast.fractionalToIntegralSparkNarrowing
+    off (default). It saturates every target at its own bounds, tinyint and
+    smallint included, and references `col` six times.
+    """
+    target_min, target_max = get_integral_type_bounds(to_type)
+    # col > target_max is equivalent to floor(col) > target_max: for col in
+    # (target_max, target_max+1), floor(col) == target_max so both paths
+    # produce target_max. Avoids referencing col twice via a shared intermediate.
+    return (
+        snowpark_fn.when(
+            col == snowpark_fn.lit(float("nan")),
+            snowpark_fn.lit(0).cast(to_type),
+        )
+        .when(
+            col < 0,
+            snowpark_fn.when(
+                snowpark_fn.ceil(col) < snowpark_fn.lit(target_min),
+                snowpark_fn.lit(target_min),
+            ).otherwise(snowpark_fn.ceil(col).cast(to_type)),
+        )
+        .when(
+            col > snowpark_fn.lit(target_max),
+            snowpark_fn.lit(target_max),
+        )
+        .otherwise(snowpark_fn.floor(col).cast(to_type))
+    )
+
+
+def fractional_to_integral_non_ansi(col: Column, to_type: DataType) -> Column:
+    """Spark's non-ANSI float/double -> integral cast.
+
+    BCR (#5777): only with snowpark.connect.cast.fractionalToIntegralSparkNarrowing
+    on. Off (default), this returns the pre-#5777 CASE, so tinyint/smallint
+    saturate (128.0 -> 127) and float(2^63) -> bigint takes the old guard.
+
+    Semantics to match: NaN -> 0, truncate toward zero, NULL -> NULL, and
+      - int / bigint: saturate at the target bounds (JVM d2i / d2l), so
+        +/-Infinity -> max/min.
+      - tinyint / smallint: saturate to *int* first, then WRAP to 8/16 bits. The
+        JVM has no d2b/d2s; `(byte) d` is `(byte) (int) d` (JLS 5.1.3), which is
+        what Spark's Cast emits. So 128.0 -> -128, -129.5 -> 127, +Infinity -> -1,
+        2^31 -> -1 as smallint. Saturating at the byte/short bounds is wrong.
+
+    Extracted from map_cast so the reference count can be unit-tested without a
+    Snowflake session -- see tests/unit_tests/test_cast_guard_reference_count.py.
+    That count is the whole point of this shape: every textual reference to `col`
+    is a multiplier on nested expressions, so the old six-reference CASE grew
+    generated SQL 6^depth (a depth-7 nest emitted 32 MB of SQL, which Snowflake
+    accepted and compiled for minutes).
+
+    NOTE: the ANSI path in map_cast is *worse* and is untouched by this -- its
+    `truncated` CASE references col 4x and apply_fractional_to_integral_cast_with_ansi_check
+    consumes that 3x more (overflow test, error message, result), i.e. 12^depth.
+    Workloads with spark.sql.ansi.enabled=true still blow up. Tracked separately;
+    do not assume the SQL-growth issue is closed for ANSI.
+    """
+    if not is_fractional_to_integral_spark_narrowing_enabled():
+        return _fractional_to_integral_non_ansi_pre_5777(col, to_type)
+
+    if isinstance(to_type, (ByteType, ShortType)):
+        # Narrowing, not clamping: int-saturate, then two's-complement wrap. The
+        # double-MOD wrap references its input once, so `col` still appears
+        # exactly twice (both inside the IntegerType arm) and nesting stays 2^depth.
+        return apply_integral_overflow(
+            fractional_to_integral_non_ansi(col, IntegerType()), to_type, force=True
+        )
+
+    target_min, target_max = get_integral_type_bounds(to_type)
+
+    if isinstance(to_type, LongType):
+        # LongType cannot use the LEAST/GREATEST clamp below: 2^63-1 is not
+        # exactly representable as a DOUBLE (it rounds up to 2^63), so clamping in
+        # the double domain and casting back wraps +Infinity to the *minimum*
+        # long -- a sign flip. Integer bounds are exactly representable (and
+        # well under 2^53), so Integer -- and Byte/Short, which go through
+        # Integer -- take the cheap path. A two-reference Long form is possible
+        # (pre-clamp in FLOAT, then clamp in NUMBER(38,0)) but is not done here.
+        #
+        # The upper guard is `>= target_max + 1`, not `> target_max`, for the same
+        # representability reason: lit(2^63-1) widens to 2^63 in the FLOAT domain,
+        # so `col > lit(target_max)` compares 2^63 > 2^63, is FALSE at
+        # col == 2^63, and falls through to CAST(2^63 AS BIGINT) -- one past
+        # BIGINT max, which wrapped to Long.MIN_VALUE. Spark's d2l saturates to
+        # Long.MAX_VALUE there. target_max + 1 == 2^63 IS exactly representable,
+        # so the guard fires. Reachable via any bigint round-tripped through a
+        # double (avg(), division, JSON ingest).
+        #
+        # The negative side needs no equivalent change: target_min is exactly
+        # -2^63, so ceil(col) < lit(target_min) behaves.
+        return (
+            snowpark_fn.when(
+                col == snowpark_fn.lit(float("nan")),
+                snowpark_fn.lit(0).cast(to_type),
+            )
+            .when(
+                col < 0,
+                snowpark_fn.when(
+                    snowpark_fn.ceil(col) < snowpark_fn.lit(target_min),
+                    snowpark_fn.lit(target_min),
+                ).otherwise(snowpark_fn.ceil(col).cast(to_type)),
+            )
+            .when(
+                col >= snowpark_fn.lit(float(target_max + 1)),
+                snowpark_fn.lit(target_max),
+            )
+            .otherwise(snowpark_fn.floor(col).cast(to_type))
+        )
+
+    # TRUNC(col, 0) truncates toward zero, which is what Spark's non-ANSI
+    # fractional->integral cast does: ceil for negatives, floor for positives.
+    # LEAST/GREATEST then saturate at the type bounds, matching d2i for
+    # out-of-range and +/-Infinity inputs. NaN is the one value the clamp gets
+    # wrong -- Snowflake orders NaN as the largest FLOAT value, so it would yield
+    # target_max where Spark yields 0 -- hence the explicit test.
+    #
+    # `col` appears exactly TWICE here, down from six times. That takes
+    # generated-SQL growth from 6^depth to 2^depth: measured 1.99x per nesting
+    # level instead of 6.00x, with depth 6 falling from 5,374,936 chars to 14,388
+    # (373x). Still geometric -- do not describe it as linear.
+    #
+    # (Those per-level ratios are asymptotic. Absolute statement sizes include a
+    # fixed ~300-char SELECT/FROM wrapper, so the depth-0 figure of 413 chars and
+    # the 6.00x ratio only reconcile once that constant is subtracted -- the fit is
+    # size(d) ~= 115.2 * 6^d + 298. Quoted side by side they look inconsistent.)
+    #
+    # Two traps, both measured, before anyone "simplifies" this:
+    #  - Dropping the NaN test to reach a single reference yields
+    #    NaN -> 2147483647 instead of 0.
+    #  - Fewer references is NOT automatically faster per row. SQL CASE
+    #    short-circuits, so a 1-reference LEAST/GREATEST/TRUNC form measured ~10%
+    #    SLOWER at 10M rows than the original 6-reference CASE. A 1.03x figure for
+    #    this 2-reference form was not reproduced: re-measurement used 3-row
+    #    inputs (<= 65 ms), too small to resolve it. Benchmark execution, not chars.
+    return snowpark_fn.iff(
+        col == snowpark_fn.lit(float("nan")),
+        snowpark_fn.lit(0).cast(to_type),
+        snowpark_fn.least(
+            snowpark_fn.greatest(
+                snowpark_fn.trunc(col, 0),
+                snowpark_fn.lit(target_min),
+            ),
+            snowpark_fn.lit(target_max),
+        ).cast(to_type),
+    )
 
 
 def map_cast(
@@ -435,6 +827,148 @@ def map_cast(
             col_name, from_type, to_type_str, column_mapping
         )
 
+    # A cast inside a user lambda (transform(a, x -> cast(x as string)),
+    # filter, aggregate, ...) is pasted into the higher-order function the
+    # same way as an array element cast, so it takes the same no-UDF path.
+    result_exp = _apply_cast(
+        col,
+        from_type,
+        to_type,
+        spark_sql_ansi_enabled,
+        col_name,
+        to_type_str,
+        column_mapping,
+        in_lambda=is_lambda_being_resolved(),
+    )
+
+    if alias_to_reapply is not None:
+        result_exp = result_exp.alias(alias_to_reapply)
+
+    nullable = cast_nullable(typed_column.nullable, from_type, to_type)
+    return [col_name], TypedColumn(result_exp, lambda: [FieldType(to_type, nullable)])
+
+
+def _array_cast_without_suggestion_error(
+    col_name: str, src: ArrayType, dst: ArrayType
+) -> AnalysisException:
+    """Spark's analysis error for an array cast, naming the outermost types."""
+    exception = AnalysisException(
+        f'[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION] Cannot resolve "{col_name}" '
+        f"due to data type mismatch: cannot cast "
+        f'"{src.simpleString().upper()}" to "{dst.simpleString().upper()}".;'
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_CAST)
+    return exception
+
+
+def _array_cast_is_rejected(
+    src: ArrayType, dst: ArrayType, spark_sql_ansi_enabled: bool
+) -> bool:
+    """Spark's analysis check for an array cast, through nested arrays.
+
+    Cast.canCast (Cast.scala:235-237): canCast(from, to) &&
+    resolvableNullability(fn || forceNullable(from, to), tn).
+    Cast.canAnsiCast (Cast.scala:129-130): canAnsiCast(from, to) &&
+    resolvableNullability(fn, tn). An ANSI element cast raises instead of
+    returning null, so forceNullable does not apply.
+
+    The source containsNull (fn) is left out. SCOS reports containsNull=true
+    where Spark proves false (F.array of literals, sequence, split), so
+    trusting it would reject casts Spark runs. A null that does reach a
+    non-null target element fails at run time, as it did before this check.
+    """
+    from_elem, to_elem = src.element_type, dst.element_type
+    if isinstance(from_elem, ArrayType) and isinstance(to_elem, ArrayType):
+        return _array_cast_is_rejected(from_elem, to_elem, spark_sql_ansi_enabled)
+    if isinstance(from_elem, ArrayType) or isinstance(to_elem, ArrayType):
+        # canCast and canAnsiCast pair an array only with an array, apart from
+        # (NullType, _) and (_, StringType).
+        return not isinstance(from_elem, NullType) and not isinstance(
+            to_elem, StringType
+        )
+    return (
+        not dst.contains_null
+        and not spark_sql_ansi_enabled
+        and cast_force_nullable(from_elem, to_elem)
+    )
+
+
+def _differs_only_in_array_nullability(src: DataType, dst: DataType) -> bool:
+    if isinstance(src, ArrayType) and isinstance(dst, ArrayType):
+        return src.structured == dst.structured and _differs_only_in_array_nullability(
+            src.element_type, dst.element_type
+        )
+    return src == dst
+
+
+def _cast_array_elements(
+    col: Column,
+    src: ArrayType,
+    dst: ArrayType,
+    spark_sql_ansi_enabled: bool,
+    col_name: str,
+    column_mapping: ColumnNameMap,
+    depth: int,
+) -> Column:
+    """Cast each element with the scalar cast, including nested arrays."""
+    from collections import defaultdict
+
+    from snowflake.snowpark import Session
+
+    var_name = f"e{depth}"
+    placeholder = snowpark_fn.sql_expr(var_name)
+    try:
+        element_expr = _apply_cast(
+            placeholder,
+            src.element_type,
+            dst.element_type,
+            spark_sql_ansi_enabled,
+            col_name,
+            dst.element_type.simpleString().upper(),
+            column_mapping,
+            depth + 1,
+            in_lambda=True,
+        )
+    except AnalysisException as exc:
+        # Spark names the array types, not the element types.
+        if "[DATATYPE_MISMATCH.CAST_WITHOUT_SUGGESTION]" not in str(exc):
+            raise
+        raise _array_cast_without_suggestion_error(col_name, src, dst) from exc
+    analyzer = Session.get_active_session()._analyzer
+    element_sql = analyzer.analyze(element_expr._expression, defaultdict())
+    transformed = snowpark_fn.call_function(
+        "transform",
+        col,
+        snowpark_fn.sql_expr(f"{var_name} -> ({element_sql})"),
+    )
+    if depth > 0:
+        return transformed
+    # TRANSFORM's element type is the one the lambda infers, not the declared
+    # one: numeric -> timestamp gives TIMESTAMP_NTZ(6), which the result reader
+    # cannot convert. The elements are already converted, so this CAST only
+    # fixes the physical type.
+    return snowpark_fn.cast(transformed, dst)
+
+
+def _apply_cast(
+    col: Column,
+    from_type: DataType,
+    to_type: DataType,
+    spark_sql_ansi_enabled: bool,
+    col_name: str,
+    to_type_str: str,
+    column_mapping: ColumnNameMap,
+    _depth: int = 0,
+    *,
+    in_lambda: bool = False,
+) -> Column:
+    """Apply the scalar cast match. Array targets recurse per element.
+
+    ``in_lambda`` is set when this cast is the body of TRANSFORM, either an
+    array element cast or a cast inside a user lambda. A Java float/double
+    UDF is illegal there (Snowflake 001157), so that path keeps the SQL floor
+    helper.
+    """
     match (from_type, to_type):
         # Integral Types may require casting even if they are already the same type
         # so that the generate SQL has explicit cast to NUMBER(p, 0) type to ensure proper emulation
@@ -456,7 +990,9 @@ def map_cast(
         case (NullType(), _):
             result_exp = col.cast(to_type)
         case (StructType(), StringType()) if from_type.structured:
-            result_exp = _build_struct_to_string_expr(col, from_type)
+            result_exp = _build_struct_to_string_expr(
+                col, from_type, in_lambda=in_lambda
+            )
         case (StructType(), _) if from_type.structured:
             result_exp = col.cast(to_type, rename_fields=True)
         case (ArrayType(), StringType()) if from_type.structured:
@@ -512,6 +1048,13 @@ def map_cast(
             )  # microseconds precision
             if to_type.tzinfo == TimestampTimeZone.NTZ:
                 result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
+        case (StringType(), TimestampType()):
+            ntz = to_type.tzinfo == TimestampTimeZone.NTZ
+            result_exp, parsed_as_ntz = parse_timestamp_string(
+                col, ntz=ntz, ansi=spark_sql_ansi_enabled
+            )
+            if ntz and not parsed_as_ntz:
+                result_exp = result_exp.cast(TimestampType(TimestampTimeZone.NTZ))
         case (_, TimestampType()):
             if spark_sql_ansi_enabled:
                 result_exp = snowpark_fn.to_timestamp(col)
@@ -522,10 +1065,15 @@ def map_cast(
         case (DateType(), _) if isinstance(to_type, (_NumericType, BooleanType)):
             result_exp = snowpark_fn.cast(snowpark_fn.lit(None), to_type)
         case (_, DateType()):
+            src = (
+                normalize_iso_t_separator(col)
+                if isinstance(from_type, StringType)
+                else col
+            )
             if spark_sql_ansi_enabled:
-                result_exp = snowpark_fn.to_date(col)
+                result_exp = snowpark_fn.to_date(src)
             else:
-                result_exp = snowpark_fn.function("try_to_date")(col)
+                result_exp = snowpark_fn.function("try_to_date")(src)
         # boolean
         case (BooleanType(), _) if isinstance(to_type, _NumericType):
             result_exp = col.cast(LongType()).cast(to_type)
@@ -591,28 +1139,7 @@ def map_cast(
                     truncated, to_type, True
                 )
             else:
-                target_min, target_max = get_integral_type_bounds(to_type)
-                # col > target_max is equivalent to floor(col) > target_max: for col in
-                # (target_max, target_max+1), floor(col) == target_max so both paths
-                # produce target_max. Avoids referencing col twice via a shared intermediate.
-                result_exp = (
-                    snowpark_fn.when(
-                        col == snowpark_fn.lit(float("nan")),
-                        snowpark_fn.lit(0).cast(to_type),
-                    )
-                    .when(
-                        col < 0,
-                        snowpark_fn.when(
-                            snowpark_fn.ceil(col) < snowpark_fn.lit(target_min),
-                            snowpark_fn.lit(target_min),
-                        ).otherwise(snowpark_fn.ceil(col).cast(to_type)),
-                    )
-                    .when(
-                        col > snowpark_fn.lit(target_max),
-                        snowpark_fn.lit(target_max),
-                    )
-                    .otherwise(snowpark_fn.floor(col).cast(to_type))
-                )
+                result_exp = fractional_to_integral_non_ansi(col, to_type)
         case (_, _) if isinstance(from_type, DecimalType) and isinstance(
             to_type, _IntegralType
         ):
@@ -642,10 +1169,12 @@ def map_cast(
             # integer digits, enough for the 19-digit Long range) while still
             # carrying a fractional part so floor/ceil truncate like Spark.
             # Smaller integral types fit comfortably in DOUBLE.
+            # Array elements (_depth > 0) always take the exact path: the
+            # whole-array CAST they replace was exact. SNOW-4222750.
             intermediate_type = (
                 DecimalType(38, 18)
                 if (
-                    is_cast_string_to_integral_high_precision_enabled()
+                    (is_cast_string_to_integral_high_precision_enabled() or _depth > 0)
                     and isinstance(to_type, LongType)
                 )
                 else DoubleType()
@@ -737,26 +1266,50 @@ def map_cast(
                 col_name, from_type, to_type_str, column_mapping
             )
         case (_, StringType()) if isinstance(from_type, (FloatType, DoubleType)):
-            # Spark renders whole-number floats/doubles with a trailing ".0"
-            # (e.g. 980.0 → "980.0", -250.0 → "-250.0"). Snowflake's default
-            # TO_VARCHAR drops the decimal for integral values (980.0 → "980"),
-            # which produces wrong MD5/hash values when the string is used as a
-            # hash input. IFF(null, ...) returns the else branch, so null is
-            # correctly forwarded as NULL (not the string "null").
-            str_val = col.cast(StringType())
-            result_exp = snowpark_fn.iff(
-                col == snowpark_fn.floor(col),
-                snowpark_fn.concat(snowpark_fn.floor(col), snowpark_fn.lit(".0")),
-                str_val,
+            # Java toString is opt-in. Off keeps the rounding flag's helper,
+            # which is the trailing-.0 rule unless sparkRounding is on.
+            # Inside TRANSFORM the Java UDF is rejected (001157), so the
+            # element cast stays on that helper even when the flag is on.
+            if in_lambda or not is_cast_spark_floating_to_string_enabled():
+                result_exp = _float_string_for_rounding_flag(col)
+            else:
+                result_exp = spark_floating_to_string(col, from_type)
+        case (FloatType() | DoubleType(), DecimalType()) if (
+            is_floating_point_spark_rounding_enabled()
+        ):
+            result_exp = _cast_fractional_to_decimal(
+                col, to_type, spark_sql_ansi_enabled
             )
+        case (ArrayType() as src, ArrayType() as dst) if (
+            is_array_cast_scalar_rules_enabled()
+            and src.element_type is not None
+            and dst.element_type is not None
+        ):
+            # The check walks nested arrays from the outermost one, so the error
+            # names the outermost types, as Spark's does. SNOW-4222750.
+            if _array_cast_is_rejected(src, dst, spark_sql_ansi_enabled):
+                raise _array_cast_without_suggestion_error(col_name, src, dst)
+            if _differs_only_in_array_nullability(src, dst):
+                # Each element casts to itself, so TRANSFORM(a, e -> e) would add
+                # nothing to the declared-type CAST.
+                result_exp = snowpark_fn.cast(col, dst)
+            else:
+                # TRANSFORM names the source array once. The scalar cast's
+                # repeated references bind the lambda parameter, so nested
+                # arrays do not multiply the source expression (SNOW-4222750;
+                # see #5777).
+                result_exp = _cast_array_elements(
+                    col,
+                    src,
+                    dst,
+                    spark_sql_ansi_enabled,
+                    col_name,
+                    column_mapping,
+                    _depth,
+                )
         case _:
             result_exp = snowpark_fn.cast(col, to_type)
-
-    if alias_to_reapply is not None:
-        result_exp = result_exp.alias(alias_to_reapply)
-
-    nullable = cast_nullable(typed_column.nullable, from_type, to_type)
-    return [col_name], TypedColumn(result_exp, lambda: [FieldType(to_type, nullable)])
+    return result_exp
 
 
 def sanity_check(
@@ -1201,6 +1754,47 @@ def integral_sql_type_name(typ: DataType) -> str:
     return _SPARK_NUMERIC_TYPE_NAMES.get(type(typ), typ.typeName().upper())
 
 
+def _truncated_day_time_interval_seconds(col: Column) -> Column:
+    """Whole seconds of a day-time interval, truncated toward zero, as Spark.
+
+    Spark's ``dayTimeIntervalToLong`` divides the microsecond count by
+    MICROS_PER_SECOND with Java's ``/``, so 1.5 s -> 1 and -1.5 s -> -1.
+    Snowflake's interval -> NUMBER(p, 0) cast rounds half away from zero
+    instead (1.5 s -> 2). Snowflake converts an interval to a number in the
+    unit of its end field, so an interval whose end field is SECOND (``INTERVAL
+    SECOND``, ``MINUTE/HOUR/DAY TO SECOND``) casts straight to a number of
+    seconds; ``TRUNC`` then drops the fraction. No intermediate ``CAST(x AS
+    INTERVAL DAY TO SECOND)``: it changes no value for those types, and on 10M
+    rows it was most of this form's cost (20 casts per row: 1413 ms for the
+    rounding cast, 1610 ms with it, 1454 ms without it).
+
+    A Spark interval is a whole number of microseconds. Spark rounds HALF_UP to
+    the microsecond wherever it builds one from a finer value (interval / n,
+    interval * decimal, decimal -> interval). A Snowflake interval can carry
+    nanoseconds, for example after ``interval / 3``, so the seconds are rounded
+    half away from zero to the microsecond before the TRUNC, as Spark would have
+    rounded them and as SCOS does when it renders or returns the interval:
+    2.999999 s / 3 is 1 s and casts to 1, not 0. ``NUMBER(38, 9)`` holds the
+    exact value; narrowing it to ``NUMBER(38, 6)`` does the rounding. That is the
+    same value as casting the interval straight to ``NUMBER(38, 6)``, and it ran
+    about 10% faster on 10M rows.
+
+    An untyped day-time literal is typed first; Snowflake rejects a cast of the
+    untyped form (001007). SNOW-3656742 made ``timestamp - timestamp`` such an
+    interval.
+    """
+    from snowflake.snowpark_connect.expression.map_unresolved_function import (
+        _comparable_day_time_operand,
+    )
+
+    seconds = (
+        _comparable_day_time_operand(col)
+        .cast(DecimalType(38, 9))
+        .cast(DecimalType(38, 6))
+    )
+    return snowpark_fn.trunc(seconds)
+
+
 def _cast_interval_to_integral(
     col: Column,
     from_type: DataType,
@@ -1208,9 +1802,14 @@ def _cast_interval_to_integral(
 ) -> Column:
     """Cast an ANSI interval to an integral type with Spark's overflow semantics.
 
-    Snowflake's native interval -> number cast already yields the value in the
-    unit of the interval's end field, truncated toward zero (e.g. HOUR TO SECOND
-    -> total seconds, YEAR -> years), matching Spark. We widen to BIGINT first --
+    Snowflake's native interval -> number cast yields the value in the unit of
+    the interval's end field (e.g. HOUR TO SECOND -> total seconds, YEAR ->
+    years). For DAY, HOUR, MINUTE, YEAR and MONTH end fields that is a whole
+    count, truncated toward zero as in Spark. For a SECOND end field Snowflake
+    rounds the fraction half away from zero (1.5 s -> 2) where Spark truncates
+    (1.5 s -> 1), so with ``snowpark.connect.cast.intervalToIntegralTruncates``
+    (default false) that case goes through ``_truncated_day_time_interval_seconds``.
+    We widen to a whole number first (BIGINT, or TRUNC's NUMBER(38, 0)) --
     a narrow target would either silently overflow into Snowflake's wider NUMBER
     or raise Snowflake's "interval out of representable range" error -- then defer
     to the interval overflow guard, which raises CAST_OVERFLOW on out-of-range
@@ -1224,8 +1823,16 @@ def _cast_interval_to_integral(
         if isinstance(from_type, YearMonthIntervalType)
         else _cast_day_time_interval_to_string(col, from_type)
     )
+    if (
+        isinstance(from_type, DayTimeIntervalType)
+        and from_type.end_field == DayTimeIntervalType.SECOND
+        and is_interval_to_integral_truncation_enabled()
+    ):
+        whole_units = _truncated_day_time_interval_seconds(col)
+    else:
+        whole_units = col.cast(LongType())
     return apply_interval_to_integral_overflow(
-        col.cast(LongType()),
+        whole_units,
         to_type,
         source_type_name=from_type.simpleString().upper(),
         target_type_name=integral_sql_type_name(to_type),

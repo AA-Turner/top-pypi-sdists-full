@@ -2092,11 +2092,15 @@ def scan_text(
     text_tokens = _tokens(text or "")
     hits: list[TermHit] = []
     common = _common_word_set(register)
-    for term_class, terms in _register_classes(register).items():
+    classes = _register_classes(register)
+    # The other names in the register (target and competitors): one of them in the same text is the
+    # second signal a verb-cued everyday-word name needs.
+    all_terms = [t for ts in classes.values() for t in ts]
+    for term_class, terms in classes.items():
         for term in terms:
             if term_class in COMMON_WORD_CLASSES and term.casefold() in common:
                 # An everyday word ("render", "workers") is the name only as a proper name.
-                proper = proper_name_match(term, text or "")
+                proper = proper_name_match(term, text or "", co_terms=all_terms)
                 if proper is not None:
                     hits.append(
                         TermHit(
@@ -3316,6 +3320,9 @@ class PanelMetrics(_Strict):
     #: All six metric definitions, always — so a metric with no estimate yet still shows its
     #: name and its "does not prove" line on screen (never a bare "not measured").
     definitions: list[MetricDefinition] = Field(default_factory=lambda: list(METRICS.values()))
+    #: Answers whose stored mention verdict disagreed with their own matched-term evidence when
+    #: re-checked through the shared name matcher (the evidence was used). Never silent.
+    mention_mismatches: int = 0
 
 
 class MetricObservation(_Strict):

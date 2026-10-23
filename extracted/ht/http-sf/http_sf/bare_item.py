@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Callable, Dict, Type
+from typing import Any, Callable, Dict, Tuple, Type
 
 from http_sf.boolean import parse_boolean, ser_boolean
 from http_sf.byteseq import BYTE_DELIMIT, parse_byteseq, ser_byteseq
@@ -12,7 +12,6 @@ from http_sf.string import DQUOTE, parse_string, ser_string
 from http_sf.token import TOKEN_START_CHARS, parse_token, ser_token
 from http_sf.types import BareItemType, DisplayString, Token
 
-from .errors import StructuredFieldError
 from .state import ParserState
 
 _parse_map: Dict[int, Callable[[ParserState], BareItemType]] = {
@@ -29,35 +28,19 @@ for c in NUMBER_START_CHARS:
 
 
 def parse_bare_item(state: ParserState) -> BareItemType:
-    if not state.has_data():
-        try:
-            char = state.data[state.cursor]
-        except IndexError:
-            char = None
-        raise StructuredFieldError(
-            "Empty item", position=state.cursor, offending_char=char
-        )
-    try:
-        next_char = state.data[state.cursor]
-        return _parse_map[next_char](state)
-    except KeyError as why:
+    if state.cursor >= len(state.data):
+        state.fail("Empty item")
+    next_char = state.data[state.cursor]
+    parser = _parse_map.get(next_char)
+    if parser is None:
         if next_char == ord(b"'"):
-            raise StructuredFieldError(
-                "Strings must be double-quoted",
-                position=state.cursor,
-                offending_char=next_char,
-            ) from why
+            state.fail("Strings must be double-quoted")
         if next_char == ord(b"("):
-            raise StructuredFieldError(
-                "Inner Lists are not valid here",
-                position=state.cursor,
-                offending_char=next_char,
-            ) from why
-        raise StructuredFieldError(
-            f"There is no Structured Field item starting with '{chr(next_char)}'",
-            position=state.cursor,
-            offending_char=next_char,
-        ) from why
+            state.fail("Inner Lists are not valid here")
+        state.fail(
+            f"There is no Structured Field item starting with {chr(next_char)!r}"
+        )
+    return parser(state)
 
 
 _ser_map: Dict[Type[Any], Callable[[Any], str]] = {
@@ -69,17 +52,33 @@ _ser_map: Dict[Type[Any], Callable[[Any], str]] = {
 }
 
 
+# Checked in order when the exact-type lookup misses. Token and DisplayString
+# (and the other types here) must stay ahead of the int, str, float and bytes
+# entries so that nothing is shadowed. bool can't be subclassed, so the exact
+# lookup has always handled it. Subclasses of int, str, float and bytes
+# (IntEnum, str Enums, numpy.float64, ...) are serialised from their underlying
+# value, ignoring any __int__, __str__, __float__ or __bytes__ override.
+_ser_fallbacks: Tuple[Tuple[type, Callable[[Any], str]], ...] = (
+    (Token, ser_token),
+    (Decimal, ser_decimal),
+    (datetime, ser_date),
+    (DisplayString, ser_display_string),
+    (int, lambda item: ser_integer(int.__int__(item))),
+    (str, lambda item: ser_string(str.__str__(item))),
+    (float, lambda item: ser_decimal(float.__float__(item))),
+    # A full slice via bytes.__getitem__ yields an exact bytes copy whatever
+    # the subclass overrides. This avoids bytes(), which honours __bytes__, and
+    # memoryview(), which honours __buffer__ (Python 3.12 and later only).
+    (bytes, lambda item: ser_byteseq(bytes.__getitem__(item, slice(None)))),
+)
+
+
 def ser_bare_item(item: BareItemType) -> str:
     try:
         return _ser_map[type(item)](item)
     except KeyError:
         pass
-    if isinstance(item, Token):
-        return ser_token(item)
-    if isinstance(item, Decimal):
-        return ser_decimal(item)
-    if isinstance(item, datetime):
-        return ser_date(item)
-    if isinstance(item, DisplayString):
-        return ser_display_string(item)
+    for item_type, serialiser in _ser_fallbacks:
+        if isinstance(item, item_type):
+            return serialiser(item)
     raise ValueError(f"Can't serialise; unrecognised item with type {type(item)}")

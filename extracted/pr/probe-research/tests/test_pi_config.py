@@ -10,6 +10,7 @@ non-list `packages` must leave the file byte-for-byte untouched, exactly like
 from __future__ import annotations
 
 import json
+import stat
 from pathlib import Path
 
 import pytest
@@ -281,6 +282,65 @@ def test_removal_refuses_malformed_json_and_leaves_it_untouched(tmp_path: Path) 
 
     assert not result.ok
     assert path.read_text(encoding="utf-8") == original
+
+
+def test_a_symlinked_settings_json_is_written_through(tmp_path: Path) -> None:
+    """A settings.json kept in a dotfiles repo stays a link through install
+    and removal: replacing the link would detach pi from the repo."""
+    env = _env(tmp_path)
+    root = _pkg_root(tmp_path)
+    real = tmp_path / "dotfiles" / "settings.json"
+    real.parent.mkdir()
+    real.write_text(json.dumps({"theme": "dark"}, indent=2) + "\n", encoding="utf-8")
+    path = _settings(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.symlink_to(real)
+
+    assert pi_config.install_package_entry(package_root=root, env=env).ok
+    assert path.is_symlink()
+    assert json.loads(real.read_text(encoding="utf-8")) == {"theme": "dark", "packages": [str(root)]}
+
+    assert pi_config.remove_package_entry(package_root=root, env=env).ok
+    assert path.is_symlink()
+    assert json.loads(real.read_text(encoding="utf-8")) == {"theme": "dark", "packages": []}
+
+
+def test_the_write_keeps_the_files_mode_through_a_link(tmp_path: Path) -> None:
+    """A private settings.json must not come back world-readable from the umask."""
+    env = _env(tmp_path)
+    root = _pkg_root(tmp_path)
+    real = tmp_path / "dotfiles" / "settings.json"
+    real.parent.mkdir()
+    real.write_text("{}\n", encoding="utf-8")
+    real.chmod(0o600)
+    path = _settings(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.symlink_to(real)
+
+    assert pi_config.install_package_entry(package_root=root, env=env).ok
+    assert stat.S_IMODE(real.stat().st_mode) == 0o600
+
+
+def test_a_file_already_at_the_old_temp_name_is_never_written(tmp_path: Path) -> None:
+    """Through a link the temp file lands in the user's dotfiles folder, which
+    Probe does not own. A fixed temp name there could already be a link to an
+    unrelated file, and writing it would truncate that file."""
+    env = _env(tmp_path)
+    root = _pkg_root(tmp_path)
+    real = tmp_path / "dotfiles" / "settings.json"
+    real.parent.mkdir()
+    real.write_text("{}\n", encoding="utf-8")
+    unrelated = tmp_path / "unrelated.txt"
+    unrelated.write_text("keep me", encoding="utf-8")
+    (real.parent / "settings.json.probe.tmp").symlink_to(unrelated)
+    path = _settings(tmp_path)
+    path.parent.mkdir(parents=True)
+    path.symlink_to(real)
+
+    assert pi_config.install_package_entry(package_root=root, env=env).ok
+    assert unrelated.read_text(encoding="utf-8") == "keep me"
+    assert path.is_symlink() and not real.is_symlink()
+    assert json.loads(real.read_text(encoding="utf-8")) == {"packages": [str(root)]}
 
 
 # --- package_entry_installed (D7 status read) ------------------------------

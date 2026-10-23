@@ -1,9 +1,12 @@
 import inspect
+from io import StringIO
 import operator
+import re
 
 import numpy as np
 import pytest
 
+from pandas._libs._ujson import ujson_dumps
 from pandas._typing import Dtype
 
 from pandas.core.dtypes.common import (
@@ -102,9 +105,56 @@ class BaseMethodsTests:
 
     @pytest.mark.parametrize("na_action", [None, "ignore"])
     def test_map(self, data_missing, na_action):
+        # GH#62164 - _cast_pointwise_result retains EA dtype
         result = data_missing.map(lambda x: x, na_action=na_action)
-        expected = data_missing.to_numpy()
-        tm.assert_numpy_array_equal(result, expected)
+        tm.assert_extension_array_equal(result, data_missing)
+
+    def test_is_monotonic_increasing(self, data_for_sorting):
+        # GH#56619
+        # data_for_sorting -> [B, C, A] with A < B < C
+        is_bool = data_for_sorting.dtype._is_boolean
+
+        # [A, B, C] -> monotonically increasing
+        sorted_data = data_for_sorting.take([2, 0, 1])
+        ser = pd.Series(sorted_data)
+        assert ser.is_monotonic_increasing is True
+
+        # [B, C, A] -> not monotonically increasing
+        ser = pd.Series(data_for_sorting)
+        if is_bool:
+            # [B, C, A] is [True, True, False] -> not increasing
+            assert ser.is_monotonic_increasing is False
+        else:
+            assert ser.is_monotonic_increasing is False
+
+        # [A, A, A] -> monotonically increasing (equal values)
+        repeated = data_for_sorting.take([2, 2, 2])
+        ser = pd.Series(repeated)
+        assert ser.is_monotonic_increasing is True
+
+    def test_is_monotonic_decreasing(self, data_for_sorting):
+        # GH#56619
+        is_bool = data_for_sorting.dtype._is_boolean
+
+        # [C, B, A] -> monotonically decreasing
+        rev_data = data_for_sorting.take([1, 0, 2])
+        ser = pd.Series(rev_data)
+        assert ser.is_monotonic_decreasing is True
+
+        # [B, C, A] -> not monotonically decreasing
+        ser = pd.Series(data_for_sorting)
+        if is_bool:
+            # [True, True, False] -> monotonically decreasing
+            assert ser.is_monotonic_decreasing is True
+        else:
+            assert ser.is_monotonic_decreasing is False
+
+    def test_is_monotonic_na(self, data_missing_for_sorting):
+        # GH#56619
+        # data_missing_for_sorting -> [B, NA, A]
+        ser = pd.Series(data_missing_for_sorting)
+        assert ser.is_monotonic_increasing is False
+        assert ser.is_monotonic_decreasing is False
 
     def test_argsort(self, data_for_sorting):
         result = pd.Series(data_for_sorting).argsort()
@@ -157,8 +207,9 @@ class BaseMethodsTests:
 
     @pytest.mark.parametrize("method", ["argmax", "argmin"])
     def test_argmin_argmax_all_na(self, method, data, na_value):
-        # all missing with skipna=True is the same as empty
-        err_msg = "attempt to get"
+        # GH#68467 all-NA is distinguished from empty, as it is for
+        #  the numpy-backed dtypes
+        err_msg = "Encountered all NA values"
         data_na = type(data)._from_sequence([na_value, na_value], dtype=data.dtype)
         with pytest.raises(ValueError, match=err_msg):
             getattr(data_na, method)()
@@ -211,6 +262,7 @@ class BaseMethodsTests:
         tm.assert_numpy_array_equal(result, expected)
 
     @pytest.mark.parametrize("ascending", [True, False])
+    @pytest.mark.parametrize("sort_by_key", [None, lambda x: x])
     def test_sort_values(self, data_for_sorting, ascending, sort_by_key):
         ser = pd.Series(data_for_sorting)
         result = ser.sort_values(ascending=ascending, key=sort_by_key)
@@ -225,6 +277,7 @@ class BaseMethodsTests:
         tm.assert_series_equal(result, expected)
 
     @pytest.mark.parametrize("ascending", [True, False])
+    @pytest.mark.parametrize("sort_by_key", [None, lambda x: x])
     def test_sort_values_missing(
         self, data_missing_for_sorting, ascending, sort_by_key
     ):
@@ -244,6 +297,35 @@ class BaseMethodsTests:
             {"A": [1, 1, 2], "B": data_for_sorting.take([2, 0, 1])}, index=[2, 0, 1]
         )
         tm.assert_frame_equal(result, expected)
+
+    def test_sort_inplace(self, data_for_sorting):
+        # https://github.com/pandas-dev/pandas/issues/64977
+        arr = data_for_sorting.copy()
+        result = arr.sort()
+        assert result is None
+        expected = data_for_sorting.take([2, 0, 1])
+        tm.assert_extension_array_equal(arr, expected)
+
+    def test_sort_inplace_descending(self, data_for_sorting):
+        # https://github.com/pandas-dev/pandas/issues/64977
+        arr = data_for_sorting.copy()
+        arr.sort(ascending=False)
+        if pd.Series(data_for_sorting).nunique() == 2:
+            expected = data_for_sorting.take([0, 1, 2])
+        else:
+            expected = data_for_sorting.take([1, 0, 2])
+        tm.assert_extension_array_equal(arr, expected)
+
+    @pytest.mark.parametrize("na_position", ["first", "last"])
+    def test_sort_inplace_na_position(self, data_missing_for_sorting, na_position):
+        # https://github.com/pandas-dev/pandas/issues/64977
+        arr = data_missing_for_sorting.copy()
+        arr.sort(na_position=na_position)
+        if na_position == "last":
+            expected = data_missing_for_sorting.take([2, 0, 1])
+        else:
+            expected = data_missing_for_sorting.take([1, 2, 0])
+        tm.assert_extension_array_equal(arr, expected)
 
     @pytest.mark.parametrize("ascending", [True, False])
     def test_rank(self, data_for_sorting, ascending):
@@ -669,6 +751,57 @@ class BaseMethodsTests:
         ser.mask(~cond, other, inplace=True)
         tm.assert_equal(ser, expected)
 
+    def test_where_series_listlike_other(self, data):
+        # GH#63842 a list 'other' is lined up against the mask without
+        #  casting to object
+        cls = type(data)
+        first, second = data[:2]
+        ser = pd.Series(
+            cls._from_sequence([first, first, second, second], dtype=data.dtype)
+        )
+        cond = np.array([True, False, True, False])
+
+        result = ser.where(cond, [second, second, first, first])
+        expected = pd.Series(
+            cls._from_sequence([first, second, second, first], dtype=data.dtype)
+        )
+        tm.assert_series_equal(result, expected)
+
+        # a length-1 'other' is broadcast, as it is for numpy dtypes
+        result = ser.where(cond, [first])
+        expected = pd.Series(
+            cls._from_sequence([first, first, second, first], dtype=data.dtype)
+        )
+        tm.assert_series_equal(result, expected)
+
+    def test_where_series_listlike_other_wrong_length(self, data):
+        # GH#63842 a length that is neither 1 nor len(self) cannot be lined up
+        cls = type(data)
+        first, second = data[:2]
+        ser = pd.Series(
+            cls._from_sequence([first, first, second, second], dtype=data.dtype)
+        )
+        cond = np.array([True, False, True, False])
+
+        msg = r"Length of values \(3\) does not match length of index \(4\)"
+        with pytest.raises(ValueError, match=msg):
+            ser.where(cond, [first, second, first])
+
+    def test_mask_listlike_other_inplace(self, data):
+        # GH#63842
+        cls = type(data)
+        first, second = data[:2]
+        ser = pd.Series(
+            cls._from_sequence([first, first, second, second], dtype=data.dtype)
+        )
+        cond = np.array([True, False, True, False])
+
+        ser.mask(~cond, [first], inplace=True)
+        expected = pd.Series(
+            cls._from_sequence([first, first, second, first], dtype=data.dtype)
+        )
+        tm.assert_series_equal(ser, expected)
+
     @pytest.mark.parametrize("repeats", [0, 1, 2, [1, 2, 3]])
     def test_repeat(self, data, repeats, as_series, use_numpy):
         arr = type(data)._from_sequence(data[:3], dtype=data.dtype)
@@ -784,3 +917,51 @@ class BaseMethodsTests:
     def test_equals_same_data_different_object(self, data):
         # https://github.com/pandas-dev/pandas/issues/34660
         assert pd.Series(data).equals(pd.Series(data))
+
+    def test_values_for_json(self, data):
+        # GH 65047
+        values: np.ndarray = data._values_for_json()
+
+        # Check that the result is a numpy array
+        assert isinstance(values, np.ndarray)
+
+        # Check that the result is JSON-serializable
+        assert isinstance(ujson_dumps(values), str)
+
+        # Check that Series.to_json uses _values_for_json
+        ser = pd.Series(data)
+        result: str = ser.to_json()
+        expected: str = pd.Series(values).to_json()
+        assert result == expected
+
+    def test_json_roundtrip(self, data):
+        # GH 65127
+        # Test roundtrip through JSON
+        ser = pd.Series(data)
+        result: str = ser.to_json()
+        ser_new = pd.read_json(StringIO(result), typ="series", dtype=data.dtype)
+        tm.assert_series_equal(ser_new, ser)
+
+    def test_round(self, data):
+        # GH#49387
+        if data.dtype._is_boolean:
+            result = data.round()
+            tm.assert_extension_array_equal(result, data)
+            return
+        if not data.dtype._is_numeric:
+            msg = re.escape(f"Cannot round dtype {data.dtype} as it is non-numeric")
+            with pytest.raises(TypeError, match=msg):
+                data.round()
+            return
+        result = pd.Series(data).round()
+        round_fn = np.round if data.dtype.kind == "c" else round
+        expected = pd.Series(
+            type(data)._from_sequence(
+                [
+                    round_fn(item) if not item_isna else item
+                    for item, item_isna in zip(data, data.isna(), strict=True)
+                ],
+                dtype=data.dtype,
+            )
+        )
+        tm.assert_series_equal(result, expected)

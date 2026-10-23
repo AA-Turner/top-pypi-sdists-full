@@ -161,7 +161,7 @@ def _collect_prop_elements(propstats: "list[_Element]") -> "dict[str, _Element]"
     parsers (via :func:`_extract_properties`) and the legacy
     :meth:`DAVResponse._find_objects_and_props` collect prop children, so both
     the validation and the quirk stop having to be maintained in two parallel
-    loops (code-review §5.7).
+    loops.
     """
     collected: dict[str, _Element] = {}
     for propstat in propstats:
@@ -182,11 +182,23 @@ def _extract_properties(propstats: "list[_Element]") -> "dict[str, Any]":
 
 
 def _element_to_value(elem: _Element) -> Any:
-    """Convert a complex XML element to a Python value."""
+    """Convert a complex XML element to a Python value.
+
+    A property this does not know, with structure it cannot flatten into
+    a string or a list of strings (e.g. DAV:acl), is returned as the lxml
+    element itself.
+    """
+    tag = elem.tag
+
+    if tag in (dav.SupportedReportSet.tag, dav.CurrentUserPrivilegeSet.tag):
+        ## RFC 3253 section 3.1.5: supported-report/report/<name>, and
+        ## RFC 3744 section 5.4: privilege/<name> - the names are wanted
+        return [
+            leaf.tag for leaf in elem.iter(etree.Element) if len(leaf) == 0 and leaf is not elem
+        ]
+
     if len(elem) == 0:
         return elem.text
-
-    tag = elem.tag
 
     if tag == cdav.SupportedCalendarComponentSet.tag:
         return [child.get("name") for child in elem if child.get("name")]
@@ -263,6 +275,11 @@ class DAVResponse:
     headers: Any = None
     status: int = 0
     _raw: Any = ""
+    ## A body that is not XML, as received (after any Content-Encoding is
+    ## undone), before the CRLF normalisation applied to ``_raw``.  load()
+    ## keeps it as CalendarObjectResource.raw_data.  Empty for XML, whose
+    ## calendar data is taken from the parsed tree.
+    _raw_body: bytes = b""
     huge_tree: bool = False
     reason: str = ""
     davclient: Any = None
@@ -331,6 +348,10 @@ class DAVResponse:
         log.debug("response status: " + str(self.status))
 
         self._raw = response.content
+        if isinstance(self._raw, bytes):
+            self._raw_body = bytes(self._raw)
+        elif isinstance(self._raw, str):
+            self._raw_body = self._raw.encode("utf-8")
         self.davclient = davclient
         if davclient:
             self.huge_tree = davclient.huge_tree
@@ -390,6 +411,8 @@ class DAVResponse:
                 if expect_xml:
                     raise
             else:
+                ## not needed for XML; no reason to hold the body twice
+                self._raw_body = b""
                 if log.level <= logging.DEBUG:
                     log.debug(etree.tostring(self.tree, pretty_print=True))
 
@@ -782,7 +805,7 @@ class DAVResponse:
             ## The properties may be delivered either in one propstat
             ## with multiple props or in multiple propstats; the 404-skip
             ## quirk is shared with the dataclass parsers via
-            ## _collect_prop_elements (code-review §5.7).
+            ## _collect_prop_elements.
             props = _collect_prop_elements(propstats)
 
             ## RFC 4918 section 14.24 forbids an href to appear twice, but

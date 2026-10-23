@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio-langgraph
-Version: 0.29.0
+Version: 0.30.0
 Summary: Use Composio to get array of tools with LangGraph Agent Workflows.
 Home-page: https://github.com/ComposioHQ/composio
 Author: composio
@@ -11,7 +11,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11,<3.16
 Description-Content-Type: text/markdown
-Requires-Dist: langgraph>=1.2.9
+Requires-Dist: langgraph<2,>=1.2.9
 Requires-Dist: composio
 Dynamic: author
 Dynamic: home-page

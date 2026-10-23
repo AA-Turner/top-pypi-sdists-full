@@ -153,6 +153,10 @@ class ToolStreamManager:
 
         if not lazy_tool_results_enabled():
             return None
+        # No persisted row (store=false, an ephemeral run): nothing to read by id
+        # later, so the full result must ride the stream or the client shows a blank.
+        if not self.row_id:
+            return None
         if is_pinned(self.tool_name, safe_result, has_surface_write=has_surface_write):
             return None
         try:

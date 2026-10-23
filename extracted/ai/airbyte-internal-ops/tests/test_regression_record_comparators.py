@@ -167,6 +167,432 @@ def test_pk_uniqueness_reports_duplicates_and_missing_together() -> None:
 
 
 # ---------------------------------------------------------------------------
+# duplicate PK classification: pre-existing / new / fixed
+# ---------------------------------------------------------------------------
+
+
+def _with_duplicates(
+    stream: str, duplicated: list[int], unique: list[int] = ()
+) -> dict[str, list[AirbyteMessage]]:
+    """Records where each `duplicated` id appears twice and each `unique` once."""
+    ids = [i for i in duplicated for _ in range(2)] + list(unique)
+    return _records(stream, *[{"id": i} for i in ids])
+
+
+def _split_of(summary: Any, check: str) -> tuple[int, int, int]:
+    result = getattr(summary, check).stream_results["users"]
+    return (
+        result.pre_existing_duplicate_pk_count,
+        result.new_duplicate_pk_count,
+        result.fixed_duplicate_pk_count,
+    )
+
+
+@pytest.mark.unit
+def test_duplicate_pks_are_classified_against_the_other_version() -> None:
+    control = _with_duplicates("users", [1, 2, 3], unique=[4, 5])
+    target = _with_duplicates("users", [2, 3, 4, 5], unique=[1])
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    # 2 and 3 are duplicated in both, 4 and 5 in the target only, 1 in the
+    # control only; both sides carry the same split.
+    assert _split_of(summary, "control_pk_uniqueness") == (2, 2, 1)
+    assert _split_of(summary, "target_pk_uniqueness") == (2, 2, 1)
+    control_users = summary.control_pk_uniqueness.stream_results["users"]
+    target_users = summary.target_pk_uniqueness.stream_results["users"]
+    assert control_users.duplicate_pk_count == 3
+    assert target_users.duplicate_pk_count == 4
+    # Only the target's new duplicates are errors; the rest are the
+    # control's warnings, and the target's message names the shared ones.
+    pre_existing = (
+        "Stream users has 2 pre-existing duplicate primary key value(s), "
+        "unchanged between control and target"
+    )
+    fixed = (
+        "Stream users has 1 duplicate primary key value(s) in control fixed in target"
+    )
+    new = (
+        "Stream users has 2 new duplicate primary key value(s) in target "
+        "(not duplicated in control)"
+    )
+    assert summary.errors == [new]
+    assert summary.warnings == [pre_existing, fixed]
+    assert control_users.message == f"{pre_existing}; {fixed}"
+    assert target_users.message == f"{new}; {pre_existing}"
+    assert not summary.passed
+    assert summary.control_pk_uniqueness.passed
+    assert not summary.target_pk_uniqueness.passed
+
+
+@pytest.mark.unit
+def test_identical_duplicates_on_both_sides_pass_with_a_warning() -> None:
+    control = _with_duplicates("users", [1, 2])
+    target = _with_duplicates("users", [1, 2])
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert _split_of(summary, "target_pk_uniqueness") == (2, 0, 0)
+    assert summary.passed
+    assert summary.control_pk_uniqueness.passed
+    assert summary.target_pk_uniqueness.passed
+    assert summary.errors == []
+    assert summary.warnings == [
+        "Stream users has 2 pre-existing duplicate primary key value(s), "
+        "unchanged between control and target"
+    ]
+    assert summary.control_pk_uniqueness.message == (
+        "Pre-existing duplicate primary keys in control (not a regression)"
+    )
+    assert summary.target_pk_uniqueness.message == (
+        "Pre-existing duplicate primary keys in target (not a regression)"
+    )
+
+
+@pytest.mark.unit
+def test_a_duplicate_the_target_adds_fails() -> None:
+    control = _with_duplicates("users", [1, 2], unique=[3])
+    target = _with_duplicates("users", [1, 2, 3])
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert _split_of(summary, "target_pk_uniqueness") == (2, 1, 0)
+    assert not summary.passed
+    assert summary.control_pk_uniqueness.passed
+    assert not summary.target_pk_uniqueness.passed
+    assert summary.errors == [
+        "Stream users has 1 new duplicate primary key value(s) in target "
+        "(not duplicated in control)"
+    ]
+    assert summary.target_pk_uniqueness.message == (
+        "Primary key integrity issues found in target"
+    )
+
+
+@pytest.mark.unit
+def test_duplicates_only_the_control_has_pass_as_fixed() -> None:
+    control = _with_duplicates("users", [1], unique=[2])
+    target = _with_duplicates("users", [], unique=[1, 2, 3])
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert _split_of(summary, "control_pk_uniqueness") == (0, 0, 1)
+    assert summary.passed
+    assert summary.errors == []
+    assert summary.warnings == [
+        "Stream users has 1 duplicate primary key value(s) in control fixed in target"
+    ]
+    assert summary.target_pk_uniqueness.message == (
+        "All primary keys unique and present in target"
+    )
+
+
+HOLD = {"id": 7, "event": "T1110"}
+RELEASE = {"id": 7, "event": "T1111"}
+
+
+@pytest.mark.unit
+def test_a_control_only_duplicate_with_a_lost_record_is_not_fixed(
+    tmp_path: Path,
+) -> None:
+    """Control `7: hold, release` + `1`, target `7: hold` + `1` + `2`. PK 7
+    is no longer duplicated, but the release row is gone: the control row
+    says so and points at the field values, which fail; it does not fail
+    a second time."""
+    control = _records("users", HOLD, RELEASE, {"id": 1})
+    target = _records("users", HOLD, {"id": 1}, {"id": 2})
+
+    in_memory = run_record_comparisons(control, target, USERS_PKS)
+    from_files = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        USERS_PKS,
+    )
+
+    assert from_files.to_dict() == in_memory.to_dict()
+    for summary in (in_memory, from_files):
+        assert not summary.passed
+        assert summary.errors == ["Stream users has record differences"]
+        assert summary.control_pk_uniqueness.passed
+        assert summary.target_pk_uniqueness.passed
+        for check in ("control_pk_uniqueness", "target_pk_uniqueness"):
+            users = getattr(summary, check).stream_results["users"]
+            assert _split_of(summary, check) == (0, 0, 0)
+            assert users.lost_duplicate_pk_count == 1
+            assert users.lost_duplicate_pks == [(7,)]
+        lost = (
+            "Stream users has 1 duplicate primary key value(s) in control not "
+            "duplicated in target, with records the target dropped or changed; "
+            "field values "
+            "or PK presence fail on them"
+        )
+        assert summary.control_pk_uniqueness.warnings == [lost]
+        assert "fixed in target" not in " ".join(summary.warnings)
+        assert summary.control_pk_uniqueness.message == (
+            "Duplicate primary keys in control with records the target dropped "
+            "or changed "
+            "(field values or PK presence fail on them)"
+        )
+        assert summary.target_pk_uniqueness.message == (
+            "All primary keys unique and present in target"
+        )
+        assert not summary.field_comparison.passed
+
+    payload = in_memory.to_dict()["checks"]
+    for check in ("pk_uniqueness_control", "pk_uniqueness_target"):
+        users = payload[check]["streams"]["users"]
+        assert users["fixed_duplicate_pk_count"] == 0
+        assert users["lost_duplicate_pk_count"] == 1
+
+
+@pytest.mark.unit
+def test_a_pure_collapse_stays_fixed_next_to_a_lost_one() -> None:
+    """PK 7 collapses two identical rows (fixed); PK 8 drops a distinct row
+    (lost). Each is counted on its own, exactly."""
+    control = _records(
+        "users", HOLD, HOLD, {"id": 8, "event": "a"}, {"id": 8, "event": "b"}
+    )
+    target = _records("users", HOLD, {"id": 8, "event": "a"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    users = summary.control_pk_uniqueness.stream_results["users"]
+    assert (users.fixed_duplicate_pk_count, users.lost_duplicate_pk_count) == (1, 1)
+    assert users.lost_duplicate_pks == [(8,)]
+    assert summary.control_pk_uniqueness.message == (
+        "Duplicate primary keys in control fixed in target (not a regression); "
+        "others with records the target dropped or changed (field values or PK "
+        "presence fail "
+        "on them)"
+    )
+    assert not summary.passed
+
+    # A collapse alone is still "fixed", and passes.
+    summary = run_record_comparisons(
+        _records("users", HOLD, HOLD), _records("users", HOLD), USERS_PKS
+    )
+    users = summary.control_pk_uniqueness.stream_results["users"]
+    assert (users.fixed_duplicate_pk_count, users.lost_duplicate_pk_count) == (1, 0)
+    assert summary.passed
+
+
+@pytest.mark.unit
+def test_a_duplicate_the_target_dropped_entirely_or_changed_has_lost_records() -> None:
+    # Dropped: PK presence fails on it.
+    summary = run_record_comparisons(
+        _records("users", HOLD, HOLD, {"id": 1}),
+        _records("users", {"id": 1}),
+        USERS_PKS,
+    )
+    users = summary.control_pk_uniqueness.stream_results["users"]
+    assert (users.fixed_duplicate_pk_count, users.lost_duplicate_pk_count) == (0, 1)
+    assert not summary.pk_presence.passed
+
+    # Changed: the one target record equals neither control row.
+    summary = run_record_comparisons(
+        _records("users", HOLD, HOLD), _records("users", RELEASE), USERS_PKS
+    )
+    users = summary.control_pk_uniqueness.stream_results["users"]
+    assert (users.fixed_duplicate_pk_count, users.lost_duplicate_pk_count) == (0, 1)
+    assert not summary.field_comparison.passed
+
+    # Pre-existing next to lost: both named on the control's message.
+    summary = run_record_comparisons(
+        _records("users", HOLD, RELEASE, {"id": 1}, {"id": 1}),
+        _records("users", HOLD, {"id": 1}, {"id": 1}),
+        USERS_PKS,
+    )
+    assert summary.control_pk_uniqueness.message == (
+        "Pre-existing duplicate primary keys in control (not a regression); "
+        "others with records the target dropped or changed (field values or PK "
+        "presence fail "
+        "on them)"
+    )
+
+
+@pytest.mark.unit
+def test_the_pk_integrity_message_names_what_the_control_duplicates_are(
+    tmp_path: Path,
+) -> None:
+    """Derived from the split: pre-existing only, fixed only, or both. The
+    target never emits the fixed ones, so its row does not mention them."""
+    cases = {
+        "pre_existing": (
+            _with_duplicates("users", [1]),
+            _with_duplicates("users", [1]),
+            "Pre-existing duplicate primary keys in control (not a regression)",
+            "Pre-existing duplicate primary keys in target (not a regression)",
+        ),
+        "fixed": (
+            _with_duplicates("users", [1], unique=[2]),
+            _with_duplicates("users", [], unique=[1, 2]),
+            "Duplicate primary keys in control fixed in target (not a regression)",
+            "All primary keys unique and present in target",
+        ),
+        "both": (
+            _with_duplicates("users", [1, 2]),
+            _with_duplicates("users", [1], unique=[2]),
+            "Pre-existing duplicate primary keys in control, and others fixed in "
+            "target (not a regression)",
+            "Pre-existing duplicate primary keys in target (not a regression)",
+        ),
+    }
+    for case, (control, target, control_message, target_message) in cases.items():
+        in_memory = run_record_comparisons(control, target, USERS_PKS)
+        from_files = run_record_comparisons_from_files(
+            _write_record_files(tmp_path / case / "control", control),
+            _write_record_files(tmp_path / case / "target", target),
+            USERS_PKS,
+        )
+        for summary in (in_memory, from_files):
+            assert summary.passed, case
+            assert summary.control_pk_uniqueness.message == control_message, case
+            assert summary.target_pk_uniqueness.message == target_message, case
+
+
+@pytest.mark.unit
+def test_a_version_checked_alone_fails_on_every_duplicate() -> None:
+    result = check_pk_uniqueness(_with_duplicates("users", [1, 2]), USERS_PKS)
+
+    assert not result.passed
+    assert result.errors == ["Stream users has 2 duplicate primary key value(s)"]
+    assert result.warnings == []
+
+
+@pytest.mark.unit
+def test_records_missing_pk_still_fail_next_to_pre_existing_duplicates() -> None:
+    control = _records("users", {"id": 1}, {"id": 1}, {"id": None})
+    target = _records("users", {"id": 1}, {"id": 1}, {"id": None})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    assert not summary.control_pk_uniqueness.passed
+    assert not summary.target_pk_uniqueness.passed
+    assert all("missing or null primary key" in error for error in summary.errors)
+    assert len(summary.errors) == 2
+
+
+@pytest.mark.unit
+def test_duplicate_pk_split_is_serialized_on_both_sides() -> None:
+    control = _with_duplicates("users", [1, 2, 3, 6])
+    target = _with_duplicates("users", [2, 3, 4, 5], unique=[1])
+
+    payload = run_record_comparisons(control, target, USERS_PKS).to_dict()
+
+    checks = payload["checks"]
+    for check in ("pk_uniqueness_control", "pk_uniqueness_target"):
+        users = checks[check]["streams"]["users"]
+        assert users["pre_existing_duplicate_pk_count"] == 2
+        assert users["new_duplicate_pk_count"] == 2
+        assert users["fixed_duplicate_pk_count"] == 1
+        # 6 is duplicated in the control and gone from the target: not fixed.
+        assert users["lost_duplicate_pk_count"] == 1
+        assert {
+            "passed",
+            "duplicate_pk_count",
+            "duplicate_pk_examples",
+            "records_missing_pk",
+        } <= set(users)
+    assert (
+        checks["pk_uniqueness_control"]["streams"]["users"]["duplicate_pk_count"] == 4
+    )
+    assert checks["pk_uniqueness_target"]["streams"]["users"]["duplicate_pk_count"] == 4
+
+
+@pytest.mark.unit
+def test_duplicate_pk_split_is_exact_past_the_example_cap(monkeypatch) -> None:
+    monkeypatch.setattr(comparators, "MAX_EXAMPLE_PKS", 3)
+    control = _with_duplicates("users", list(range(10)))
+    target = _with_duplicates("users", list(range(5, 15)), unique=list(range(5)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert _split_of(summary, "target_pk_uniqueness") == (5, 5, 5)
+    target_users = summary.target_pk_uniqueness.stream_results["users"]
+    assert target_users.duplicate_pk_count == 10
+    assert len(target_users.duplicate_pks) == 3
+
+
+@pytest.mark.unit
+def test_single_version_check_has_no_split() -> None:
+    result = check_pk_uniqueness(_with_duplicates("users", [1]), USERS_PKS)
+
+    assert not result.passed
+    users = result.stream_results["users"]
+    assert (
+        users.pre_existing_duplicate_pk_count,
+        users.new_duplicate_pk_count,
+        users.fixed_duplicate_pk_count,
+    ) == (0, 0, 0)
+    assert "duplicated in both versions" not in result.errors[0]
+
+
+@pytest.mark.unit
+def test_duplicate_pk_split_survives_summary_degradation() -> None:
+    control = _with_duplicates("users", list(range(DEGRADED_EXAMPLE_CAP + 10)))
+    target = _with_duplicates("users", list(range(DEGRADED_EXAMPLE_CAP + 20)))
+    payload = run_record_comparisons(control, target, USERS_PKS).to_dict()
+
+    assert comparators._degrade_example_lists(payload) is not None
+    users = payload["checks"]["pk_uniqueness_target"]["streams"]["users"]
+    assert len(users["duplicate_pk_examples"]) == DEGRADED_EXAMPLE_CAP
+    assert users["duplicate_pk_count"] == DEGRADED_EXAMPLE_CAP + 20
+    assert users["pre_existing_duplicate_pk_count"] == DEGRADED_EXAMPLE_CAP + 10
+    assert users["new_duplicate_pk_count"] == 10
+    assert users["fixed_duplicate_pk_count"] == 0
+
+    assert comparators._degrade_to_verdict_only(payload) is not None
+    assert payload["checks"]["pk_uniqueness_target"]["passed"] is False
+
+
+@pytest.mark.unit
+def test_run_record_comparisons_from_files_classifies_duplicates(
+    tmp_path: Path,
+) -> None:
+    control = _with_duplicates("users", [1, 2, 3], unique=[4])
+    target = _with_duplicates("users", [2, 3, 4], unique=[1])
+    control_files = _write_record_files(tmp_path / "control", control)
+    target_files = _write_record_files(tmp_path / "target", target)
+
+    from_files = run_record_comparisons_from_files(
+        control_files, target_files, USERS_PKS
+    )
+    in_memory = run_record_comparisons(control, target, USERS_PKS)
+
+    assert from_files.to_dict() == in_memory.to_dict()
+    assert _split_of(from_files, "control_pk_uniqueness") == (2, 1, 1)
+    assert _split_of(from_files, "target_pk_uniqueness") == (2, 1, 1)
+    assert from_files.control_pk_uniqueness.passed
+    assert from_files.control_pk_uniqueness.message == (
+        "Pre-existing duplicate primary keys in control, and others fixed in "
+        "target (not a regression)"
+    )
+    assert not from_files.target_pk_uniqueness.passed
+
+
+@pytest.mark.unit
+def test_run_record_comparisons_from_files_passes_on_shared_duplicates(
+    tmp_path: Path,
+) -> None:
+    control = _with_duplicates("users", [1, 2])
+    control_files = _write_record_files(tmp_path / "control", control)
+    target_files = _write_record_files(tmp_path / "target", control)
+
+    summary = run_record_comparisons_from_files(control_files, target_files, USERS_PKS)
+
+    assert summary.passed
+    assert summary.errors == []
+    assert summary.warnings == [
+        "Stream users has 2 pre-existing duplicate primary key value(s), "
+        "unchanged between control and target"
+    ]
+    assert summary.target_pk_uniqueness.message == (
+        "Pre-existing duplicate primary keys in target (not a regression)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # compare_all_records directional mode
 # ---------------------------------------------------------------------------
 
@@ -314,15 +740,176 @@ def test_duplicate_pk_examples_under_cap_are_listed_in_full() -> None:
 
 
 @pytest.mark.unit
-def test_duplicate_pk_in_control_fails() -> None:
+def test_duplicate_pk_in_control_warns_as_fixed() -> None:
     control = _records("users", {"id": 1, "name": "a"}, {"id": 1, "name": "a"})
     target = _records("users", {"id": 1, "name": "a"})
 
     summary = run_record_comparisons(control, target, USERS_PKS)
 
-    assert not summary.passed
+    # The control's duplicate is a warning the target fixed, and the record
+    # it no longer emits is within the duplicate rows the count allows for.
+    assert summary.passed
+    assert summary.errors == []
     assert summary.control_pk_uniqueness is not None
-    assert not summary.control_pk_uniqueness.passed
+    assert summary.control_pk_uniqueness.passed
+    assert summary.control_pk_uniqueness.warnings == [
+        "Stream users has 1 duplicate primary key value(s) in control fixed in target"
+    ]
+    assert summary.count_comparison.passed
+    assert summary.count_comparison.errors == []
+    assert summary.count_comparison.warnings == [
+        "Stream users has 1 fewer record in target, within the duplicate rows the "
+        "target dropped (1 in control, 0 in target); field values check that the "
+        "dropped rows were copies"
+    ]
+    assert summary.count_comparison.message == (
+        "Record counts match once duplicate rows are left out"
+    )
+
+
+# ---------------------------------------------------------------------------
+# record counts: a shortfall of duplicate rows the target dropped warns
+# ---------------------------------------------------------------------------
+
+
+def _ids(*counts: tuple[int, int]) -> list[dict[str, Any]]:
+    """`(id, n)` pairs as n identical records per id."""
+    return [{"id": pk, "n": "same"} for pk, n in counts for _ in range(n)]
+
+
+@pytest.mark.unit
+def test_a_shortfall_of_dropped_duplicate_rows_warns_on_record_counts() -> None:
+    # Control: id 1 x4 and id 2 x3 (5 duplicate rows). Target: x2 each
+    # (2 duplicate rows). 3 fewer records, within the 3 duplicate rows dropped.
+    control = _records("users", *_ids((1, 4), (2, 3), (3, 1)))
+    target = _records("users", *_ids((1, 2), (2, 2), (3, 1)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    users = summary.count_comparison.stream_results["users"]
+    assert users.passed
+    assert (users.control_count, users.target_count) == (8, 5)
+    message = (
+        "Stream users has 3 fewer records in target, within the duplicate rows "
+        "the target dropped (5 in control, 2 in target); field values check that "
+        "the dropped rows were copies"
+    )
+    assert users.message == message
+    assert message in summary.warnings
+    assert summary.errors == []
+    assert (
+        summary.control_pk_uniqueness.stream_results["users"].duplicate_row_count == 5
+    )
+    assert summary.target_pk_uniqueness.stream_results["users"].duplicate_row_count == 2
+
+    payload = summary.to_dict()["checks"]
+    assert payload["record_counts"]["passed"] is True
+    assert (
+        payload["pk_uniqueness_control"]["streams"]["users"]["duplicate_row_count"] == 5
+    )
+    assert (
+        payload["pk_uniqueness_target"]["streams"]["users"]["duplicate_row_count"] == 2
+    )
+
+
+@pytest.mark.unit
+def test_a_shortfall_beyond_the_dropped_duplicate_rows_still_fails() -> None:
+    control = _records("users", *_ids((1, 2), (2, 1)))
+    target = _records("users", *_ids((1, 1)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    assert not summary.count_comparison.passed
+    assert summary.count_comparison.message == "Record count mismatch"
+    assert summary.count_comparison.errors == [
+        "Stream users has 2 fewer records in target (1 vs 3)"
+    ]
+
+
+@pytest.mark.unit
+def test_new_duplicate_rows_in_the_target_count_against_the_allowance() -> None:
+    # The target collapses id 1 (-2 rows) but duplicates id 2 (+1 row):
+    # 1 duplicate row fewer net, against a shortfall of 1.
+    control = _records("users", *_ids((1, 3), (2, 1), (3, 1)))
+    target = _records("users", *_ids((1, 1), (2, 2), (3, 1)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.count_comparison.passed
+    assert summary.count_comparison.warnings == [
+        "Stream users has 1 fewer record in target, within the duplicate rows the "
+        "target dropped (2 in control, 1 in target); field values check that the "
+        "dropped rows were copies"
+    ]
+    # The new duplicate still fails on its own check.
+    assert not summary.target_pk_uniqueness.passed
+    assert not summary.passed
+
+
+@pytest.mark.unit
+def test_a_stream_without_pk_gets_no_duplicate_row_allowance() -> None:
+    control = _records("events", {"id": 1}, {"id": 1})
+    target = _records("events", {"id": 1})
+
+    summary = run_record_comparisons(control, target, {"events": None})
+
+    assert not summary.passed
+    assert not summary.count_comparison.passed
+
+
+@pytest.mark.unit
+def test_the_duplicate_row_allowance_is_the_same_from_files(tmp_path: Path) -> None:
+    control = {
+        **_records("users", *_ids((1, 4), (2, 3), (3, 1))),
+        **_records("orders", *[{"order_id": 1, "v": "a"}] * 2),
+        **_records("events", {"type": "x"}, {"type": "y"}),
+    }
+    target = {
+        **_records("users", *_ids((1, 2), (2, 2), (3, 1))),
+        **_records("orders", {"order_id": 1, "v": "a"}),
+        **_records("events", {"type": "x"}),
+    }
+    pks = {"users": [["id"]], "orders": [["order_id"]], "events": None}
+
+    in_memory = run_record_comparisons(control, target, pks)
+    from_files = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        pks,
+    )
+
+    in_memory_payload = in_memory.to_dict()
+    from_files_payload = from_files.to_dict()
+    assert from_files_payload["checks"] == in_memory_payload["checks"]
+    assert sorted(from_files_payload["errors"]) == sorted(in_memory_payload["errors"])
+    assert sorted(from_files_payload["warnings"]) == sorted(
+        in_memory_payload["warnings"]
+    )
+    # The no-PK stream still fails its count; the two PK streams warn.
+    assert from_files.passed is in_memory.passed is False
+    assert from_files.count_comparison.failed_streams == ["events"]
+    assert from_files.count_comparison.message == "Record count mismatch"
+    for summary in (in_memory, from_files):
+        counts = summary.count_comparison.stream_results
+        assert counts["users"].passed and counts["orders"].passed
+        assert any("(5 in control, 2 in target)" in w for w in summary.warnings)
+        assert any("(1 in control, 0 in target)" in w for w in summary.warnings)
+
+    # Without the failing no-PK stream, both paths pass with the same message.
+    del control["events"], target["events"]
+    in_memory = run_record_comparisons(control, target, pks)
+    from_files = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control2", control),
+        _write_record_files(tmp_path / "target2", target),
+        pks,
+    )
+    assert in_memory.passed and from_files.passed
+    assert in_memory.count_comparison.message == from_files.count_comparison.message
+    assert from_files.count_comparison.message == (
+        "Record counts match once duplicate rows are left out"
+    )
 
 
 @pytest.mark.unit
@@ -950,6 +1537,191 @@ def test_report_record_comparison_pass(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
+def test_report_marks_pre_existing_duplicates_as_a_warning(tmp_path: Path) -> None:
+    control = _with_duplicates("users", [1, 2], unique=[3])
+    summary = run_record_comparisons(control, control, USERS_PKS)
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    content = report_path.read_text()
+    assert "**Status:** ✅ PASSED" in content
+    assert "Both versions succeeded (no regression)" in content
+    assert (
+        "| users | 5 → 5 ✅ | 0 ✅ | 2 (pre-existing) ⚠️ | 2 (pre-existing) ⚠️ "
+        "| 0 ✅ | ⚠️ |"
+    ) in content
+    assert "#### Comparison Errors" not in content
+    assert (
+        "- ⚠️ Stream users has 2 pre-existing duplicate primary key value(s), "
+        "unchanged between control and target"
+    ) in content
+
+
+@pytest.mark.unit
+def test_report_marks_new_duplicates_as_a_failure(tmp_path: Path) -> None:
+    control = _with_duplicates("users", [1], unique=[2, 3])
+    target = _with_duplicates("users", [1, 2, 3])
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    content = report_path.read_text()
+    assert "**Status:** ❌ FAILED" in content
+    assert "REGRESSION DETECTED" in content
+    assert (
+        "| users | 4 → 6 ✅ | 0 ✅ | 1 (pre-existing) ⚠️ "
+        "| 3 (1 pre-existing, 2 new) ❌ | 0 ✅ | ❌ |"
+    ) in content
+    assert (
+        "- ❌ Stream users has 2 new duplicate primary key value(s) in target "
+        "(not duplicated in control)"
+    ) in content
+
+
+@pytest.mark.unit
+def test_report_cells_name_the_one_category_a_side_has(tmp_path: Path) -> None:
+    control = _with_duplicates("users", [1], unique=[2, 3])
+    target = _with_duplicates("users", [2, 3], unique=[1])
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    content = report_path.read_text()
+    assert "| 1 fixed in target ⚠️ | 2 new ❌ | 0 ✅ | ❌ |" in content
+
+
+@pytest.mark.unit
+def test_report_marks_dropped_duplicate_rows_as_a_count_warning(
+    tmp_path: Path,
+) -> None:
+    control = _with_duplicates("users", [1], unique=[2])
+    target = _with_duplicates("users", [], unique=[1, 2])
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    content = report_path.read_text()
+    assert "**Status:** ✅ PASSED" in content
+    assert "| users | 3 → 2 ⚠️ | 0 ✅ | 1 fixed in target ⚠️ | 0 ✅ | 0 ✅ | ⚠️ |" in (
+        content
+    )
+    assert (
+        "- ⚠️ Stream users has 1 fewer record in target, within the duplicate "
+        "rows the target dropped (1 in control, 0 in target); field values check "
+        "that the dropped rows were copies"
+    ) in content
+    assert "#### Comparison Errors" not in content
+
+
+@pytest.mark.unit
+def test_report_names_a_duplicate_with_lost_records_on_the_control_cell(
+    tmp_path: Path,
+) -> None:
+    control = _records("users", HOLD, RELEASE, {"id": 1})
+    target = _records("users", HOLD, {"id": 1}, {"id": 2})
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    content = report_path.read_text()
+    assert "**Status:** ❌ FAILED" in content
+    assert (
+        "| users | 3 → 3 ✅ | 0 ✅ | 1 with dropped or changed records ⚠️ | 0 ✅ "
+        "| 1 ❌ | ❌ |"
+    ) in content
+    assert "fixed in target" not in content
+
+
+@pytest.mark.unit
+def test_report_marks_added_copies_as_a_value_diff_warning(tmp_path: Path) -> None:
+    rows = [{"id": 7, "event": "A"}, {"id": 7, "event": "B"}]
+    summary = run_record_comparisons(
+        _records("users", *rows), _records("users", *(rows * 50)), USERS_PKS
+    )
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    content = report_path.read_text()
+    assert "**Status:** ✅ PASSED" in content
+    assert (
+        "| users | 2 → 100 ✅ | 0 ✅ | 1 (pre-existing) ⚠️ | 1 (pre-existing) ⚠️ "
+        "| 0, 98 added copies ⚠️ | ⚠️ |"
+    ) in content
+    assert (
+        "- ⚠️ Stream users: 1 duplicated PK value(s) emit 98 more identical copies "
+        "in target than in control"
+    ) in content
+
+
+@pytest.mark.unit
+def test_report_names_one_added_copy_in_the_singular(tmp_path: Path) -> None:
+    a, b = {"id": 7, "c": "A"}, {"id": 7, "c": "B"}
+    summary = run_record_comparisons(
+        _records("users", a, a, b), _records("users", a, b, b), USERS_PKS
+    )
+
+    report_path = generate_action_test_comparison_report(
+        target_image="airbyte/source-test:2.0.0",
+        control_image="airbyte/source-test:1.0.0",
+        command="read",
+        target_result={"success": True, "exit_code": 0},
+        control_result={"success": True, "exit_code": 0},
+        output_dir=tmp_path,
+        record_comparison=summary.to_dict(),
+    )
+
+    assert "| 0, 1 added copy ⚠️ | ⚠️ |" in report_path.read_text()
+
+
+@pytest.mark.unit
 def test_report_shows_records_missing_pk(tmp_path: Path) -> None:
     control = _records("users", {"id": 1, "name": "a"}, {"id": None, "name": "x"})
     target = _records("users", {"id": 1, "name": "a"}, {"id": None, "name": "x"})
@@ -967,7 +1739,8 @@ def test_report_shows_records_missing_pk(tmp_path: Path) -> None:
 
     content = report_path.read_text()
     assert "**Status:** ❌ FAILED" in content
-    assert "(1 missing PK)" in content
+    # The status closes the cell, after the missing-PK count it judges.
+    assert "| 0, 1 missing PK ❌ | 0, 1 missing PK ❌ |" in content
     assert "missing or null primary key" in content
 
 
@@ -1220,18 +1993,22 @@ def test_oversized_pk_components_are_bounded_but_stay_distinct() -> None:
 
 @pytest.mark.unit
 def test_duplicate_pk_field_diff_example_is_deterministic() -> None:
-    """A duplicated PK keeps its FIRST record in the by-PK lookup, so the
-    example shown does not depend on emission order (the run still fails
-    via the uniqueness check either way)."""
+    """A duplicated PK's records are matched as a multiset, so the example
+    names the record the target dropped, whatever the emission order."""
     control = _records("users", {"id": 1, "name": "first"}, {"id": 1, "name": "second"})
-    target = _records("users", {"id": 1, "name": "first"})
+    target = _records("users", {"id": 1, "name": "second"})
 
-    summary = run_record_comparisons(control, target, USERS_PKS)
+    for control_order in (control, {"users": control["users"][::-1]}):
+        summary = run_record_comparisons(control_order, target, USERS_PKS)
 
-    assert summary.field_comparison is not None
-    assert summary.field_comparison.passed
-    assert summary.control_pk_uniqueness is not None
-    assert not summary.control_pk_uniqueness.passed
+        assert summary.field_comparison is not None
+        assert not summary.field_comparison.passed
+        (example,) = _users_record_diff(summary).records_with_value_diff
+        assert [r["data"]["name"] for r in example["control"]] == ["first"]
+        assert example["target"] == []
+        assert summary.control_pk_uniqueness is not None
+        assert summary.control_pk_uniqueness.passed
+        assert not summary.passed
 
 
 @pytest.mark.unit
@@ -1319,6 +2096,824 @@ def test_value_diff_examples_are_selected_deterministically() -> None:
     kept = [example["pk"] for example in diff.records_with_value_diff]
     assert kept == sorted(kept, key=repr)
     assert diff.records_with_value_diff_count == 20
+
+
+# ---------------------------------------------------------------------------
+# duplicated PKs: the two versions' records for one PK are compared as
+# multisets, not first record against first record
+# ---------------------------------------------------------------------------
+
+
+def _users_record_diff(summary: Any) -> Any:
+    assert summary.field_comparison is not None
+    diff = summary.field_comparison.stream_results["users"].record_diff
+    assert diff is not None
+    return diff
+
+
+@pytest.mark.unit
+def test_duplicate_pk_rows_in_swapped_order_are_not_a_value_diff() -> None:
+    """The PayPal shape: a hold (T1110) and a release (T1111) row per
+    transaction id, emitted in the other order by the target."""
+    control = _records(
+        "users",
+        {"id": 1, "code": "T1111", "updated": "2026-10-02"},
+        {"id": 1, "code": "T1110", "updated": "2026-10-01"},
+        {"id": 2, "code": "T1111", "updated": "2026-10-04"},
+        {"id": 2, "code": "T1110", "updated": "2026-10-03"},
+    )
+    target = _records(
+        "users",
+        {"id": 1, "code": "T1110", "updated": "2026-10-01"},
+        {"id": 2, "code": "T1110", "updated": "2026-10-03"},
+        {"id": 1, "code": "T1111", "updated": "2026-10-02"},
+        {"id": 2, "code": "T1111", "updated": "2026-10-04"},
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert summary.errors == []
+    diff = _users_record_diff(summary)
+    assert not diff.has_diff
+    assert _split_of(summary, "target_pk_uniqueness") == (2, 0, 0)
+
+
+@pytest.mark.unit
+def test_duplicate_pk_rows_differing_only_in_emitted_at_match() -> None:
+    control = {
+        "users": [
+            AirbyteMessage(
+                type=AirbyteMessageType.RECORD,
+                record=AirbyteRecordMessage(
+                    stream="users", data={"id": 1, "code": code}, emitted_at=1
+                ),
+            )
+            for code in ("T1110", "T1111")
+        ]
+    }
+    target = {
+        "users": [
+            AirbyteMessage(
+                type=AirbyteMessageType.RECORD,
+                record=AirbyteRecordMessage(
+                    stream="users", data={"id": 1, "code": code}, emitted_at=99
+                ),
+            )
+            for code in ("T1111", "T1110")
+        ]
+    }
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert not _users_record_diff(summary).has_diff
+
+
+@pytest.mark.unit
+def test_a_duplicate_pk_group_whose_rows_differ_is_one_value_diff() -> None:
+    control = _records(
+        "users",
+        {"id": 1, "code": "T1110", "amount": 5},
+        {"id": 1, "code": "T1111", "amount": 5},
+        {"id": 2, "code": "T1110", "amount": 7},
+        {"id": 2, "code": "T1111", "amount": 7},
+    )
+    target = _records(
+        "users",
+        {"id": 1, "code": "T1111", "amount": 5},
+        {"id": 1, "code": "T1110", "amount": 500},
+        {"id": 2, "code": "T1110", "amount": 7},
+        {"id": 2, "code": "T1111", "amount": 7},
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    diff = _users_record_diff(summary)
+    # Counted per PK, as for single records: one PK differs, not two rows.
+    assert diff.records_with_value_diff_count == 1
+    (example,) = diff.records_with_value_diff
+    assert example["pk"] == (1,)
+    # The example shows each side's unmatched records; the matching T1111
+    # rows are not in it.
+    assert [r["data"] for r in example["control"]] == [
+        {"id": 1, "code": "T1110", "amount": 5}
+    ]
+    assert [r["data"] for r in example["target"]] == [
+        {"id": 1, "code": "T1110", "amount": 500}
+    ]
+    assert "values_changed" in example["diff"]
+    assert not summary.field_comparison.passed
+
+    payload = summary.to_dict()
+    users = payload["checks"]["field_values"]["streams"]["users"]
+    assert users["records_with_value_diff"] == 1
+    assert users["value_diff_examples"][0]["pk"] == [1]
+    assert users["value_diff_examples"][0]["diff"]
+    json.dumps(payload)
+
+
+@pytest.mark.unit
+def test_every_differing_duplicate_pk_group_counts_once() -> None:
+    control = _records(
+        "users", *({"id": i, "code": c, "v": "a"} for i in (1, 2) for c in ("x", "y"))
+    )
+    target = _records(
+        "users", *({"id": i, "code": c, "v": "b"} for i in (1, 2) for c in ("x", "y"))
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    diff = _users_record_diff(summary)
+    assert diff.records_with_value_diff_count == 2
+    assert [example["pk"] for example in diff.records_with_value_diff] == [(1,), (2,)]
+    assert all(len(example["control"]) == 2 for example in diff.records_with_value_diff)
+
+
+@pytest.mark.unit
+def test_a_record_lost_inside_a_duplicated_pk_fails_next_to_a_new_pk() -> None:
+    """The control emits PK 7 as a T1110 and a T1111 row; the target emits
+    PK 7 once and a new PK 8. Counts match and every control PK is present,
+    so only the group rule can catch the dropped T1111 row."""
+    control = _records("users", {"id": 7, "code": "T1110"}, {"id": 7, "code": "T1111"})
+    target = _records("users", {"id": 7, "code": "T1110"}, {"id": 8, "code": "T1110"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    assert summary.count_comparison.passed
+    assert summary.pk_presence is not None and summary.pk_presence.passed
+    assert summary.control_pk_uniqueness.passed
+    # Not "fixed": the target dropped a record of the duplicated PK.
+    assert _split_of(summary, "control_pk_uniqueness") == (0, 0, 0)
+    assert (
+        summary.control_pk_uniqueness.stream_results["users"].lost_duplicate_pk_count
+        == 1
+    )
+    assert not summary.field_comparison.passed
+    diff = _users_record_diff(summary)
+    assert diff.records_with_value_diff_count == 1
+    (example,) = diff.records_with_value_diff
+    assert example["pk"] == (7,)
+    assert [r["data"] for r in example["control"]] == [{"id": 7, "code": "T1111"}]
+    assert example["target"] == []
+    assert example["note"] == "the target no longer emits 1 record of this PK"
+    assert "iterable_item_removed" in example["diff"]
+
+    (json_example,) = summary.to_dict()["checks"]["field_values"]["streams"]["users"][
+        "value_diff_examples"
+    ]
+    assert json_example["note"] == "the target no longer emits 1 record of this PK"
+    assert list(json_example["diff"]["iterable_item_removed"]) == ["root[0]"]
+
+
+@pytest.mark.unit
+def test_a_distinct_record_lost_from_a_group_of_three_fails() -> None:
+    control = _records(
+        "users", {"id": 7, "c": "a"}, {"id": 7, "c": "b"}, {"id": 7, "c": "c"}
+    )
+    target = _records("users", {"id": 7, "c": "b"}, {"id": 7, "c": "a"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    # The shortfall is within the duplicate rows dropped (2 in control, 1 in
+    # target), so the count only warns, and says no more than that; the field
+    # values are what catch that the dropped row was not a copy.
+    assert summary.count_comparison.passed
+    assert summary.count_comparison.warnings == [
+        "Stream users has 1 fewer record in target, within the duplicate rows the "
+        "target dropped (2 in control, 1 in target); field values check that the "
+        "dropped rows were copies"
+    ]
+    assert not summary.field_comparison.passed
+    assert summary.errors == ["Stream users has record differences"]
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["c"] for r in example["control"]] == ["c"]
+    assert example["target"] == []
+    assert example["note"] == "the target no longer emits 1 record of this PK"
+
+
+@pytest.mark.unit
+def test_identical_copies_collapsed_by_the_target_pass_at_field_level() -> None:
+    control = _records("users", {"id": 7, "c": "a"}, {"id": 7, "c": "a"})
+    target = _records("users", {"id": 7, "c": "a"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.field_comparison.passed
+    assert not _users_record_diff(summary).has_diff
+    assert _split_of(summary, "control_pk_uniqueness") == (0, 0, 1)
+
+
+@pytest.mark.unit
+def test_a_lost_record_is_reported_next_to_collapsed_copies() -> None:
+    """Collapsed copies pass; a distinct record dropped with them does not,
+    and only the lost one is listed."""
+    control = _records(
+        "users",
+        {"id": 7, "c": "a"},
+        {"id": 7, "c": "a"},
+        {"id": 7, "c": "a"},
+        {"id": 7, "c": "b"},
+    )
+    target = _records("users", {"id": 7, "c": "a"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["c"] for r in example["control"]] == ["b"]
+    assert example["note"] == "the target no longer emits 1 record of this PK"
+
+
+ADDED_COPIES_WARNING = (
+    "Stream users: 1 duplicated PK value(s) emit {copies} more identical "
+    "{noun} in target than in control"
+)
+
+
+@pytest.mark.unit
+def test_identical_copies_added_under_a_duplicated_pk_warn(tmp_path: Path) -> None:
+    """Control `7: A, B`, target `(A, B) x 50`: offset pagination on a live
+    read can repeat rows, so 98 extra identical copies warn and pass."""
+    rows = [{"id": 7, "event": "A"}, {"id": 7, "event": "B"}]
+    control = _records("users", *rows)
+    target = _records("users", *(rows * 50))
+
+    in_memory = run_record_comparisons(control, target, USERS_PKS)
+    from_files = run_record_comparisons_from_files(
+        _write_record_files(tmp_path / "control", control),
+        _write_record_files(tmp_path / "target", target),
+        USERS_PKS,
+    )
+
+    assert from_files.to_dict() == in_memory.to_dict()
+    warning = ADDED_COPIES_WARNING.format(copies=98, noun="copies")
+    for summary in (in_memory, from_files):
+        assert summary.passed
+        assert summary.errors == []
+        assert summary.field_comparison.passed
+        assert summary.field_comparison.warnings == [warning]
+        assert summary.field_comparison.message == (
+            "All records match, apart from identical copies the target added"
+        )
+        diff = _users_record_diff(summary)
+        assert not diff.has_diff
+        assert (diff.added_copy_count, diff.added_copy_pk_count) == (98, 1)
+        assert diff.added_copy_pks == {(7,): 98}
+        assert summary.field_comparison.stream_results["users"].message == warning
+    users = in_memory.to_dict()["checks"]["field_values"]["streams"]["users"]
+    assert (users["added_copy_count"], users["added_copy_pk_count"]) == (98, 1)
+    assert users["records_with_value_diff"] == 0
+
+
+@pytest.mark.unit
+def test_more_exact_copies_in_the_target_warn_as_added_copies() -> None:
+    control = _records("users", *[{"id": 7, "c": "a"}] * 2)
+    target = _records("users", *[{"id": 7, "c": "a"}] * 4)
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert summary.count_comparison.passed
+    # Duplicated in both versions: PK integrity calls it pre-existing.
+    assert summary.target_pk_uniqueness.passed
+    assert _split_of(summary, "target_pk_uniqueness") == (1, 0, 0)
+    assert summary.field_comparison.passed
+    assert summary.field_comparison.warnings == [
+        ADDED_COPIES_WARNING.format(copies=2, noun="copies")
+    ]
+    assert _users_record_diff(summary).records_with_value_diff == []
+
+
+@pytest.mark.unit
+def test_a_new_record_emitted_twice_under_a_duplicated_pk_is_one_added_copy() -> None:
+    """The first of two new equal records is an added record; the second is
+    a copy of it, and warns."""
+    control = _records("users", {"id": 7, "c": "a"}, {"id": 7, "c": "b"})
+    target = _records(
+        "users",
+        {"id": 7, "c": "a"},
+        {"id": 7, "c": "b"},
+        {"id": 7, "c": "new"},
+        {"id": 7, "c": "new"},
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert _users_record_diff(summary).added_copy_count == 1
+    assert summary.field_comparison.warnings == [
+        ADDED_COPIES_WARNING.format(copies=1, noun="copy")
+    ]
+
+
+@pytest.mark.unit
+def test_a_whole_float_counts_as_a_copy_of_the_int_it_equals() -> None:
+    """`1` and `1.0` are one value in the matching key, as in the pairing."""
+    control = _records("users", *[{"id": 7, "v": 1.0}] * 2)
+    target = _records(
+        "users", {"id": 7, "v": 1.0}, {"id": 7, "v": 1.0}, {"id": 7, "v": 1}
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert _users_record_diff(summary).added_copy_count == 1
+
+
+@pytest.mark.unit
+def test_a_lost_record_next_to_added_copies_still_fails() -> None:
+    # Same PK: B is gone and A is repeated, so both sides have leftovers.
+    control = _records("users", {"id": 7, "c": "A"}, {"id": 7, "c": "B"})
+    target = _records("users", *[{"id": 7, "c": "A"}] * 3)
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["c"] for r in example["control"]] == ["B"]
+
+    # Other PKs of the stream: PK 7 only warns, PK 8's lost row fails it.
+    control = _records(
+        "users",
+        {"id": 7, "c": "A"},
+        {"id": 7, "c": "B"},
+        {"id": 8, "c": "x"},
+        {"id": 8, "c": "y"},
+    )
+    target = _records(
+        "users",
+        *([{"id": 7, "c": "A"}, {"id": 7, "c": "B"}] * 2),
+        {"id": 8, "c": "x"},
+        {"id": 8, "c": "x"},
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    assert not summary.field_comparison.passed
+    diff = _users_record_diff(summary)
+    assert [example["pk"] for example in diff.records_with_value_diff] == [(8,)]
+    assert diff.added_copy_pks == {(7,): 2}
+    assert summary.field_comparison.warnings == [
+        ADDED_COPIES_WARNING.format(copies=2, noun="copies")
+    ]
+    assert summary.field_comparison.stream_results["users"].message == (
+        "Stream users has record differences; "
+        + ADDED_COPIES_WARNING.format(copies=2, noun="copies")
+    )
+
+
+@pytest.mark.unit
+def test_the_canonical_form_agrees_with_the_single_pair_comparison() -> None:
+    """Whole floats and bools key as the ints they equal, and list order is
+    ignored, at any depth, as `==` and DeepDiff's `ignore_order` do; other
+    values keep their own key."""
+
+    def key(value: Any) -> str:
+        return comparators._canonical_record({"v": value}, ["emitted_at"])
+
+    assert key(1) == key(1.0) == key(True)
+    assert key(0) == key(0.0) == key(False) == key(-0.0)
+    assert key({"n": [1, {"m": True}]}) == key({"n": [{"m": 1}, 1.0]})
+    assert key([1, 2]) == key([2, 1])
+    assert key([[3, 1], {"a": [2, 1]}]) == key([{"a": [1, 2]}, [1, 3]])
+    assert key([1, "1", None, {"a": 1}]) == key([{"a": 1}, None, "1", 1])
+    assert key(1.5) != key(1)
+    assert key("1") != key(1)
+    assert key(None) != key(0)
+    # Repetition still counts; `_record_group_diff` judges such leftovers.
+    assert key([1, 1, 2]) != key([1, 2])
+
+
+def _tagged(seq: int, tags: list[int], **fields: Any) -> dict[str, Any]:
+    return {"id": 7, "seq": seq, "tags": tags, **fields}
+
+
+@pytest.mark.unit
+def test_a_change_past_the_example_cap_is_not_hidden_by_list_order() -> None:
+    """30 records a side under one PK; every target record reverses a nested
+    list, and record 9 also changes a value. List order is not a difference,
+    so only record 9 is left over, and it fails."""
+    control = _records(
+        "users", *(_tagged(i, [i, i + 1000], amount=1) for i in range(30))
+    )
+    target = _records(
+        "users",
+        *(_tagged(i, [i + 1000, i], amount=2 if i == 9 else 1) for i in range(30)),
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    assert not summary.field_comparison.passed
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["seq"] for r in example["control"]] == [9]
+    assert [r["data"]["seq"] for r in example["target"]] == [9]
+    assert "values_changed" in example["diff"]
+    assert "note" not in example
+
+
+@pytest.mark.unit
+def test_a_group_differing_only_in_list_order_passes() -> None:
+    control = _records("users", *(_tagged(i, [i, i + 1000]) for i in range(30)))
+    target = _records("users", *(_tagged(i, [i + 1000, i]) for i in range(30)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert not _users_record_diff(summary).has_diff
+
+
+@pytest.mark.unit
+def test_a_capped_group_fails_closed_when_the_shown_records_diff_empty() -> None:
+    """25 records a side differ only in a repeated list item, which DeepDiff
+    ignores: the keys say they do not match, and past the cap the empty diff
+    of the shown ones cannot clear the group."""
+    control = _records("users", *(_tagged(i, [1, 1]) for i in range(25)))
+    target = _records("users", *(_tagged(i, [1]) for i in range(25)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.field_comparison.passed
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert example["diff"] == {}
+    cap = comparators.MAX_GROUP_EXAMPLE_RECORDS
+    assert example["note"] == (
+        f"25 control and 25 target records of this PK do not match (first {cap} "
+        "of each shown); the shown ones differ only in repeated list items, "
+        "which the diff ignores, so the difference may be past them"
+    )
+
+    # Under the cap the diff covers every leftover, and repetition alone
+    # passes, as it does for a single pair.
+    control = _records("users", *(_tagged(i, [1, 1]) for i in range(3)))
+    target = _records("users", *(_tagged(i, [1]) for i in range(3)))
+    assert run_record_comparisons(control, target, USERS_PKS).field_comparison.passed
+    assert run_record_comparisons(
+        _records("users", _tagged(0, [1, 1])),
+        _records("users", _tagged(0, [1])),
+        USERS_PKS,
+    ).field_comparison.passed
+
+
+@pytest.mark.unit
+def test_a_collapse_with_a_reordered_nested_list_is_fixed() -> None:
+    """The control emits one record twice; the target emits it once with a
+    nested list in another order. That is a collapse: "fixed", and green."""
+    record = {"id": 7, "meta": {"tags": ["b", "a"], "n": [3, 1, 2]}}
+    reordered = {"id": 7, "meta": {"tags": ["a", "b"], "n": [1, 2, 3]}}
+
+    summary = run_record_comparisons(
+        _records("users", record, record), _records("users", reordered), USERS_PKS
+    )
+
+    assert summary.passed
+    users = summary.control_pk_uniqueness.stream_results["users"]
+    assert (users.fixed_duplicate_pk_count, users.lost_duplicate_pk_count) == (1, 0)
+    assert summary.control_pk_uniqueness.message == (
+        "Duplicate primary keys in control fixed in target (not a regression)"
+    )
+
+
+@pytest.mark.unit
+def test_whole_floats_and_bools_match_their_ints_inside_a_group() -> None:
+    """The group path matches what the single-pair path's `==` matches: `1`,
+    `1.0` and `True` are one value, nested too, whatever the emission order."""
+    control = _records(
+        "users",
+        {"id": 7, "v": 1, "flag": True, "meta": {"n": [1, 2]}},
+        {"id": 7, "v": 2, "flag": False, "meta": {"n": [3]}},
+    )
+    target = _records(
+        "users",
+        {"id": 7, "v": 2.0, "flag": 0, "meta": {"n": [3.0]}},
+        {"id": 7, "v": 1.0, "flag": 1, "meta": {"n": [1.0, 2]}},
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert not _users_record_diff(summary).has_diff
+
+    # And a real change next to them is still found.
+    target = _records(
+        "users",
+        {"id": 7, "v": 2.0, "flag": 0, "meta": {"n": [3.5]}},
+        {"id": 7, "v": 1.0, "flag": 1, "meta": {"n": [1.0, 2]}},
+    )
+    summary = run_record_comparisons(control, target, USERS_PKS)
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["meta"] for r in example["control"]] == [{"n": [3]}]
+    assert [r["data"]["meta"] for r in example["target"]] == [{"n": [3.5]}]
+
+
+@pytest.mark.unit
+def test_a_group_example_is_capped_and_its_note_keeps_the_full_counts() -> None:
+    cap = comparators.MAX_GROUP_EXAMPLE_RECORDS
+    control = _records("users", *({"id": 7, "seq": i} for i in range(1_235)))
+    target = _records("users", {"id": 7, "seq": 0})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert len(example["control"]) == cap
+    assert example["target"] == []
+    assert len(example["diff"]["iterable_item_removed"]) == cap
+    assert example["note"] == (
+        f"the target no longer emits 1,234 records of this PK (first {cap} shown)"
+    )
+    users = summary.to_dict()["checks"]["field_values"]["streams"]["users"]
+    assert users["value_diff_examples"][0]["note"] == example["note"]
+
+    # Both sides left over: each side is capped, and the note counts both.
+    control = _records("users", *({"id": 7, "seq": i} for i in range(30)))
+    target = _records("users", *({"id": 7, "seq": i, "new": 1} for i in range(25)))
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert (len(example["control"]), len(example["target"])) == (cap, cap)
+    assert example["note"] == (
+        "30 control and 25 target records of this PK do not match "
+        f"(first {cap} of each shown)"
+    )
+
+
+@pytest.mark.unit
+def test_a_distinct_record_added_to_a_pre_existing_duplicate_passes() -> None:
+    control = _records("users", {"id": 7, "c": "a"}, {"id": 7, "c": "b"})
+    target = _records(
+        "users", {"id": 7, "c": "b"}, {"id": 7, "c": "c"}, {"id": 7, "c": "a"}
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert summary.passed
+    assert summary.field_comparison.passed
+    assert not _users_record_diff(summary).has_diff
+    assert summary.errors == []
+
+
+@pytest.mark.unit
+def test_a_single_record_pk_the_target_duplicates_fails_only_on_pk_integrity() -> None:
+    control = _records("users", {"id": 7, "c": "a"})
+    target = _records("users", {"id": 7, "c": "a"}, {"id": 7, "c": "a"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.passed
+    assert summary.field_comparison.passed
+    assert not _users_record_diff(summary).has_diff
+    assert not summary.target_pk_uniqueness.passed
+    assert summary.errors == [
+        "Stream users has 1 new duplicate primary key value(s) in target "
+        "(not duplicated in control)"
+    ]
+
+
+@pytest.mark.unit
+def test_unmatched_records_on_both_sides_of_a_duplicated_pk_still_fail() -> None:
+    control = _records(
+        "users", {"id": 1, "c": "a"}, {"id": 1, "c": "b"}, {"id": 1, "c": "c"}
+    )
+    target = _records("users", {"id": 1, "c": "a"}, {"id": 1, "c": "CHANGED"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.field_comparison.passed
+    diff = _users_record_diff(summary)
+    assert diff.records_with_value_diff_count == 1
+    (example,) = diff.records_with_value_diff
+    assert sorted(r["data"]["c"] for r in example["control"]) == ["b", "c"]
+    assert [r["data"]["c"] for r in example["target"]] == ["CHANGED"]
+    # A changed record has both sides to show; no note is needed.
+    assert "note" not in example
+    users = summary.to_dict()["checks"]["field_values"]["streams"]["users"]
+    assert "note" not in users["value_diff_examples"][0]
+
+
+@pytest.mark.unit
+def test_a_both_sides_example_leaves_out_the_controls_collapsed_copies() -> None:
+    """Control {a, a, b} against target {a, b'}: the second `a` is a collapsed
+    copy, not part of the change, so only `b` is shown against `b'`."""
+    control = _records(
+        "users", {"id": 1, "c": "a"}, {"id": 1, "c": "a"}, {"id": 1, "c": "b"}
+    )
+    target = _records("users", {"id": 1, "c": "a"}, {"id": 1, "c": "b-CHANGED"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.field_comparison.passed
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["c"] for r in example["control"]] == ["b"]
+    assert [r["data"]["c"] for r in example["target"]] == ["b-CHANGED"]
+    assert list(example["diff"]) == ["values_changed"]
+    assert "note" not in example
+
+
+@pytest.mark.unit
+def test_a_collapsed_copy_next_to_an_added_copy_is_a_repeat_not_a_change() -> None:
+    """Control {A, A, B} against target {A, B, B}: one copy of A collapsed and
+    one copy of B added, as an offset-pagination repeat that moved to another
+    row. Nothing was lost or changed, so it passes and warns."""
+    a, b = {"id": 7, "c": "A"}, {"id": 7, "c": "B"}
+
+    summary = run_record_comparisons(
+        _records("users", a, a, b), _records("users", a, b, b), USERS_PKS
+    )
+
+    assert summary.passed
+    assert summary.field_comparison.passed
+    diff = _users_record_diff(summary)
+    assert not diff.has_diff
+    assert (diff.added_copy_count, diff.added_copy_pks) == (1, {(7,): 1})
+    assert summary.field_comparison.warnings == [
+        ADDED_COPIES_WARNING.format(copies=1, noun="copy")
+    ]
+
+
+@pytest.mark.unit
+def test_a_both_sides_example_keeps_the_control_leftovers_when_all_are_copies() -> None:
+    """Control {a, a} against target {a, x}: the leftover `a` is a copy, but
+    with nothing lost there is nothing else to show against `x`. Still a
+    difference, as before."""
+    control = _records("users", {"id": 1, "c": "a"}, {"id": 1, "c": "a"})
+    target = _records("users", {"id": 1, "c": "a"}, {"id": 1, "c": "x"})
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    assert not summary.field_comparison.passed
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["c"] for r in example["control"]] == ["a"]
+    assert [r["data"]["c"] for r in example["target"]] == ["x"]
+
+
+@pytest.mark.unit
+def test_duplicate_pk_group_example_is_deterministic() -> None:
+    """The unmatched records are listed in a sorted order, not emission order."""
+    control = _records(
+        "users", {"id": 1, "c": "z"}, {"id": 1, "c": "y"}, {"id": 1, "c": "x"}
+    )
+    target = _records(
+        "users", {"id": 1, "c": "q"}, {"id": 1, "c": "p"}, {"id": 1, "c": "r"}
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    (example,) = _users_record_diff(summary).records_with_value_diff
+    assert [r["data"]["c"] for r in example["control"]] == ["x", "y", "z"]
+    assert [r["data"]["c"] for r in example["target"]] == ["p", "q", "r"]
+
+
+@pytest.mark.unit
+def test_a_single_record_pk_next_to_a_duplicated_one_is_compared_as_before() -> None:
+    control = _records(
+        "users", {"id": 1, "c": "a"}, {"id": 1, "c": "b"}, {"id": 2, "c": "one"}
+    )
+    target = _records(
+        "users", {"id": 1, "c": "b"}, {"id": 1, "c": "a"}, {"id": 2, "c": "MUTATED"}
+    )
+
+    summary = run_record_comparisons(control, target, USERS_PKS)
+
+    diff = _users_record_diff(summary)
+    assert diff.records_with_value_diff_count == 1
+    (example,) = diff.records_with_value_diff
+    assert example["pk"] == (2,)
+    assert example["control"]["data"] == {"id": 2, "c": "one"}
+    assert example["target"]["data"] == {"id": 2, "c": "MUTATED"}
+
+
+# ---------------------------------------------------------------------------
+# composite and nested PKs: the duplicate split and the group matching key on
+# the whole PK tuple, whatever its shape
+# ---------------------------------------------------------------------------
+
+COMPOSITE_PKS = {"balances": [["account"], ["day"]]}
+NESTED_PKS = {"readings": [["location", "id"], ["day"]]}
+
+
+def _balance(account: str, day: str, **fields: Any) -> dict[str, Any]:
+    return {"account": account, "day": day, **fields}
+
+
+def _reading(location: str, day: str, **fields: Any) -> dict[str, Any]:
+    return {"location": {"id": location, "zone": "z1"}, "day": day, **fields}
+
+
+def _stream_split(summary: Any, check: str, stream: str) -> tuple[int, int, int]:
+    result = getattr(summary, check).stream_results[stream]
+    return (
+        result.pre_existing_duplicate_pk_count,
+        result.new_duplicate_pk_count,
+        result.fixed_duplicate_pk_count,
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "stream,pks,row",
+    [
+        pytest.param("balances", COMPOSITE_PKS, _balance, id="composite"),
+        pytest.param("readings", NESTED_PKS, _reading, id="nested"),
+    ],
+)
+def test_duplicate_split_keys_on_the_whole_pk(stream, pks, row) -> None:
+    # (a, d1) is duplicated in both versions, (a, d2) in the control only,
+    # (b, d1) in the target only. Sharing one component is not a duplicate.
+    control = _records(
+        stream,
+        *[row("a", "d1")] * 2,
+        *[row("a", "d2")] * 2,
+        row("b", "d1"),
+        row("b", "d2"),
+    )
+    target = _records(
+        stream,
+        *[row("a", "d1")] * 2,
+        row("a", "d2"),
+        *[row("b", "d1")] * 2,
+        row("b", "d2"),
+    )
+
+    summary = run_record_comparisons(control, target, pks)
+
+    for check in ("control_pk_uniqueness", "target_pk_uniqueness"):
+        assert _stream_split(summary, check, stream) == (1, 1, 1)
+    control_result = summary.control_pk_uniqueness.stream_results[stream]
+    target_result = summary.target_pk_uniqueness.stream_results[stream]
+    assert sorted(control_result.duplicate_pks) == [("a", "d1"), ("a", "d2")]
+    assert sorted(target_result.duplicate_pks) == [("a", "d1"), ("b", "d1")]
+    assert control_result.duplicate_row_count == 2
+    assert target_result.duplicate_row_count == 2
+    # Only the new (b, d1) fails; the collapsed (a, d2) copy is no diff.
+    assert summary.errors == [
+        f"Stream {stream} has 1 new duplicate primary key value(s) in target "
+        "(not duplicated in control)"
+    ]
+    assert summary.field_comparison.passed
+    examples = summary.to_dict()["checks"]["pk_uniqueness_target"]["streams"][stream][
+        "duplicate_pk_examples"
+    ]
+    assert {"pk": ["b", "d1"], "count": 2} in examples
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "stream,pks,row",
+    [
+        pytest.param("balances", COMPOSITE_PKS, _balance, id="composite"),
+        pytest.param("readings", NESTED_PKS, _reading, id="nested"),
+    ],
+)
+def test_duplicate_pk_groups_match_as_multisets_under_any_pk_shape(
+    stream, pks, row
+) -> None:
+    control = _records(
+        stream,
+        row("a", "d1", code="T1110"),
+        row("a", "d1", code="T1111"),
+        row("a", "d2", code="T1110"),
+        row("a", "d2", code="T1111"),
+    )
+    swapped = _records(
+        stream,
+        row("a", "d1", code="T1111"),
+        row("a", "d2", code="T1111"),
+        row("a", "d1", code="T1110"),
+        row("a", "d2", code="T1110"),
+    )
+
+    summary = run_record_comparisons(control, swapped, pks)
+
+    assert summary.passed
+    assert not summary.field_comparison.stream_results[stream].record_diff.has_diff
+
+    # The target drops (a, d2)'s T1111 row and emits a new (b, d1) instead:
+    # counts match, every control PK is present, and the lost row fails.
+    lossy = _records(
+        stream,
+        row("a", "d1", code="T1111"),
+        row("a", "d1", code="T1110"),
+        row("a", "d2", code="T1110"),
+        row("b", "d1", code="T1110"),
+    )
+
+    summary = run_record_comparisons(control, lossy, pks)
+
+    assert not summary.passed
+    assert summary.count_comparison.passed
+    assert summary.pk_presence.passed
+    record_diff = summary.field_comparison.stream_results[stream].record_diff
+    assert record_diff.records_with_value_diff_count == 1
+    (example,) = record_diff.records_with_value_diff
+    assert example["pk"] == ("a", "d2")
+    assert [r["data"] for r in example["control"]] == [row("a", "d2", code="T1111")]
+    assert example["target"] == []
+    assert example["note"] == "the target no longer emits 1 record of this PK"
 
 
 # ---------------------------------------------------------------------------

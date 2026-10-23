@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: griffe
-Version: 2.4.0
+Version: 2.4.1
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
 Project-URL: Homepage, https://mkdocstrings.github.io/griffe
 Project-URL: Documentation, https://mkdocstrings.github.io/griffe
@@ -30,12 +30,12 @@ Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
-Requires-Dist: griffecli==2.4.0
-Requires-Dist: griffelib==2.4.0
+Requires-Dist: griffecli==2.4.1
+Requires-Dist: griffelib==2.4.1
 Provides-Extra: faster
-Requires-Dist: griffelib[faster]==2.4.0; extra == 'faster'
+Requires-Dist: griffelib[faster]==2.4.1; extra == 'faster'
 Provides-Extra: pypi
-Requires-Dist: griffelib[pypi]==2.4.0; extra == 'pypi'
+Requires-Dist: griffelib[pypi]==2.4.1; extra == 'pypi'
 Description-Content-Type: text/markdown
 
 # Griffe

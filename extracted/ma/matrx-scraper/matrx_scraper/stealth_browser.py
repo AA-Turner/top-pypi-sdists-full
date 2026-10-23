@@ -201,6 +201,43 @@ def stealth_retry_min_seconds() -> float:
         return float(STEALTH_RETRY_MIN_SECONDS_DEFAULT)
 
 
+#: KNOB MIRROR: knowledge.scraper.stealth_max_concurrent = 1
+STEALTH_MAX_CONCURRENT_DEFAULT = 1
+
+
+def stealth_max_concurrent() -> int:
+    """``knowledge.scraper.stealth_max_concurrent``: how many stealth RETRIES may run at once (>= 1).
+    Each headful Chromium adds about 1.9 GB, so the host's memory sets this number."""
+    from matrx_scraper.parser.knobs import parser_knob
+
+    try:
+        return max(1, int(parser_knob("stealth_max_concurrent", STEALTH_MAX_CONCURRENT_DEFAULT)))
+    except (TypeError, ValueError):
+        return STEALTH_MAX_CONCURRENT_DEFAULT
+
+
+_stealth_slots_lock = threading.Lock()
+_stealth_slots_in_use = 0
+
+
+def try_acquire_stealth_slot() -> bool:
+    """Take a stealth slot WITHOUT waiting. False = every slot is busy: the caller skips the stealth step and
+    keeps its original answer (a retry never queues behind another stealth browser)."""
+    global _stealth_slots_in_use
+    limit = stealth_max_concurrent()
+    with _stealth_slots_lock:
+        if _stealth_slots_in_use >= limit:
+            return False
+        _stealth_slots_in_use += 1
+        return True
+
+
+def release_stealth_slot() -> None:
+    global _stealth_slots_in_use
+    with _stealth_slots_lock:
+        _stealth_slots_in_use = max(0, _stealth_slots_in_use - 1)
+
+
 #: KNOB MIRROR: knowledge.scraper.chat_read_budget_seconds = 15
 CHAT_READ_BUDGET_SECONDS_DEFAULT = 15
 

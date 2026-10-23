@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: descope
-Version: 2.16.0
+Version: 2.16.1
 Summary: Descope Python SDK
 Author: Descope
 Author-email: Descope <info@descope.com>
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: httpx>=0.28,<0.29
-Requires-Dist: certifi
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: pyjwt[crypto]>=2.4.0
 Requires-Dist: email-validator>=2,<3
 Requires-Dist: flask>=2 ; extra == 'flask'

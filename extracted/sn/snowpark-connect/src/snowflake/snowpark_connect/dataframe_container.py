@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
+from enum import Enum
 from typing import TYPE_CHECKING, Callable
 
 import pyarrow as pa
 
 from snowflake import snowpark
+from snowflake.snowpark._internal.utils import quote_name
 from snowflake.snowpark.types import (
     ArrayType,
     DataType,
@@ -44,6 +47,40 @@ if TYPE_CHECKING:
     from snowflake.snowpark_connect.typed_column import TypedColumn
 
 
+def _is_known_schema_tracked() -> bool:
+    """Whether ``known_schema`` is tracked: only in a request with NSS enabled.
+
+    SNOW-4298898: the NSS-gated sort check is its only user, so with NSS off
+    containers behave exactly as before.
+    """
+    # Imported here: config imports modules that import this one.
+    from snowflake.snowpark_connect.config import is_nss_enabled
+    from snowflake.snowpark_connect.utils.context import get_spark_session_id
+    from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+
+    if get_spark_session_id() is None:
+        return False
+    try:
+        return is_nss_enabled()
+    except Exception:
+        # Can't determine NSS status: treat schema as untracked, same as NSS-off.
+        logger.debug(
+            "is_nss_enabled() failed; treating known_schema as untracked",
+            exc_info=True,
+        )
+        return False
+
+
+def _log_quote_name_failure(context: str) -> None:
+    """Log a ``quote_name()`` failure whose fallback is to treat the schema as unknown."""
+    from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
+
+    logger.debug(
+        f"quote_name() failed in {context}; treating known_schema as unknown",
+        exc_info=True,
+    )
+
+
 @dataclass
 class AggregateMetadata:
     """
@@ -66,6 +103,38 @@ class AggregateMetadata:
     raw_aggregations: list[tuple[str, TypedColumn]]
 
 
+class MaterializationPolicy(Enum):
+    """Whether, and on whose authority, a container's data may be landed in a temp table.
+
+    One field rather than several booleans because the policy is a single question with
+    four answers, and encoding it as independent flags is what made the interactions
+    unreviewable: ``without_materialization()`` came to mean both "nothing has
+    materialized this yet" (a lazy NSS read, which an explicit ``df.cache()`` should
+    override) and "this is not worth materializing" (a client-side literal, which it
+    should not). Nothing in a boolean distinguished those, so each attempt to honour one
+    broke the other (SNOW-4231637).
+
+    States, and what ``force_materialize`` (an explicit ``cache()``/``persist()``) does:
+
+    * ``ALREADY``         -- already table-backed: COPY INTO reads, the loose-parquet
+                             ICEBERG path, and the output of a materialization. Nothing
+                             to do; a second write would be a redundant full copy.
+    * ``INCIDENTAL_OK``   -- the default. Materialize whenever ``df_cache_map`` memoizes.
+    * ``ON_REQUEST_ONLY`` -- lazy and nothing has materialized it: the NSS readers.
+                             Skipped incidentally, materialized on an explicit request.
+                             This is the state the fix exists for.
+    * ``NEVER``           -- not worth materializing at all. Not overridable.
+
+    Transitions live on the class as named methods, so a call site declares an intent
+    instead of assigning flags whose combination the reader has to interpret.
+    """
+
+    ALREADY = "already"
+    INCIDENTAL_OK = "incidental_ok"
+    ON_REQUEST_ONLY = "on_request_only"
+    NEVER = "never"
+
+
 class DataFrameContainer:
     """
     A container class that wraps a Snowpark DataFrame along with additional metadata.
@@ -84,7 +153,9 @@ class DataFrameContainer:
         partition_hint: int | None = None,
         dataframe_hint: str | None = None,
         can_be_cached: bool = True,
-        can_be_materialized: bool = True,
+        materialization_policy: MaterializationPolicy = (
+            MaterializationPolicy.INCIDENTAL_OK
+        ),
         aggregate_metadata: AggregateMetadata | None = None,
         cached_local_relation_arrow_table: pa.Table | None = None,
         sort_exprs: list[tuple[str, str, str]] | None = None,
@@ -119,7 +190,7 @@ class DataFrameContainer:
         self._partition_hint = partition_hint
         self._dataframe_hint = dataframe_hint
         self._can_be_cached = can_be_cached
-        self._can_be_materialized = can_be_materialized
+        self._materialization_policy = materialization_policy
         self._aggregate_metadata = aggregate_metadata
         self._cached_local_relation_arrow_table = cached_local_relation_arrow_table
         self._known_row_count: int | None = None
@@ -133,6 +204,9 @@ class DataFrameContainer:
         self.cached_schema_getter: Callable[
             [], StructType
         ] | None = cached_schema_getter
+        # Set when the schema was built from column types given at creation, so
+        # reading it needs no DESCRIBE. See ``known_schema``.
+        self._static_schema: StructType | None = None
 
         if cached_schema_getter is not None:
             self._apply_cached_schema_getter(cached_schema_getter)
@@ -157,6 +231,9 @@ class DataFrameContainer:
         can_be_cached: bool = True,
         aggregate_metadata: AggregateMetadata | None = None,
         sort_exprs: list[tuple[str, str, str]] | None = None,
+        materialization_policy: MaterializationPolicy = (
+            MaterializationPolicy.INCIDENTAL_OK
+        ),
     ) -> DataFrameContainer:
         """
         Create a new container with complete column mapping configuration.
@@ -203,6 +280,7 @@ class DataFrameContainer:
 
         # Determine the schema getter to use
         final_schema_getter = None
+        static_schema = None
 
         if cached_schema_getter is not None:
             # Use the provided schema getter
@@ -213,13 +291,14 @@ class DataFrameContainer:
                 snowpark_column_names, snowpark_column_types
             )
             if schema is not None:
+                static_schema = schema
 
                 def get_schema():
                     return schema
 
                 final_schema_getter = get_schema
 
-        return cls(
+        container = cls(
             dataframe=dataframe,
             column_map=column_map,
             table_name=table_name,
@@ -229,7 +308,10 @@ class DataFrameContainer:
             can_be_cached=can_be_cached,
             aggregate_metadata=aggregate_metadata,
             sort_exprs=sort_exprs,
+            materialization_policy=materialization_policy,
         )
+        container._static_schema = static_schema
+        return container
 
     @property
     def can_be_cached(self) -> bool:
@@ -237,13 +319,113 @@ class DataFrameContainer:
         return self._can_be_cached
 
     @property
+    def materialization_policy(self) -> MaterializationPolicy:
+        """How this container may be materialized. See ``MaterializationPolicy``."""
+        return self._materialization_policy
+
+    # ``can_be_materialized`` / ``is_materialized`` / ``must_not_materialize`` are derived
+    # reads kept for the many existing call sites. They are deliberately read-only: the
+    # states are mutually exclusive, and letting them be set independently is what allowed
+    # a container to claim both "already done" and "never" at once.
+
+    @property
     def can_be_materialized(self) -> bool:
-        """Indicate if the DataFrame can be materialized in df_cache"""
-        return self._can_be_materialized
+        """May this be materialized *incidentally*, when df_cache_map memoizes it?"""
+        return self._materialization_policy is MaterializationPolicy.INCIDENTAL_OK
+
+    @property
+    def is_materialized(self) -> bool:
+        """Is this container's DataFrame already backed by a temp table?"""
+        return self._materialization_policy is MaterializationPolicy.ALREADY
+
+    @property
+    def must_not_materialize(self) -> bool:
+        """Must even an explicit cache() decline to materialize this?"""
+        return self._materialization_policy is MaterializationPolicy.NEVER
+
+    def already_materialized(self):
+        """This read landed its own data in a temp table -- COPY INTO, or ICEBERG.
+
+        A later ``cache_result()`` would write a redundant second copy, which on the
+        default path is a full copy of the result.
+        """
+        self._materialization_policy = MaterializationPolicy.ALREADY
+        return self
+
+    def materialize_on_request_only(self):
+        """Lazy, and nothing has materialized it yet -- the NSS readers.
+
+        Skipped when ``df_cache_map`` merely memoizes (SNOW-3717231 keeps that saving),
+        but materialized when the client explicitly asks. Only containers from the actual
+        NSS reader get this: an NSS-*enabled* session still takes COPY for parquet, for
+        bz2/parallel JSON, and whenever inference yields no columns, so the engine's mode
+        is not a usable proxy for a read's provenance (SNOW-4231637).
+        """
+        self._materialization_policy = MaterializationPolicy.ON_REQUEST_ONLY
+        return self
+
+    def never_materialize(self):
+        """Not worth materializing at all, and not overridable.
+
+        For containers whose nature does not change between requests -- a client-side
+        literal, or a synthetic zero-row relation. Do NOT use it for a request-scoped
+        decision: the container is memoized in ``df_cache_map`` and outlives the request,
+        so a permanent prohibition leaks out of it and silently disables a later
+        ``df.cache()`` on the same read.
+        """
+        self._materialization_policy = MaterializationPolicy.NEVER
+        return self
+
+    def with_materialized_dataframe(
+        self, table: snowpark.DataFrame, schema: StructType
+    ) -> DataFrameContainer:
+        """Same container over ``table``, a materialized copy of this dataframe.
+
+        ``schema`` is this dataframe's schema, resolved by the caller before
+        materializing, so reading it later never needs the original plan.
+        """
+        # Imported here: column_name_handler imports this module.
+        from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
+
+        column_map = self._column_map
+        if isinstance(column_map, ColumnNameMap):
+            # Values now come from a temp table, which doesn't keep the NSS
+            # null-element encoding that posexplode's no-TRANSFORM path needs.
+            # Same as persist in utils/cache.py.
+            column_map = column_map.without_nss_data()
+        return DataFrameContainer(
+            table,
+            column_map,
+            table_name=self._table_name,
+            alias=self._alias,
+            partition_hint=self._partition_hint,
+            dataframe_hint=self._dataframe_hint,
+            can_be_cached=self._can_be_cached,
+            # Not ``ALREADY``: the table is dropped when this request ends, so a later
+            # cache() must still write a copy of its own.
+            materialization_policy=self._materialization_policy,
+            aggregate_metadata=self._aggregate_metadata,
+            # A fresh list, so an append on either container does not change the other.
+            sort_exprs=copy.copy(self.sort_exprs),
+            cached_schema_getter=lambda: schema,
+        ).with_known_schema(schema)
 
     def without_materialization(self):
-        """Prevent the DataFrame from being materialized in df_cache"""
-        self._can_be_materialized = False
+        """Suppress *incidental* materialization, preserving stronger states.
+
+        The transition applied by the read dispatcher and by the saveAsTable guard, both
+        of which mean "do not materialize this as a side effect right now":
+
+        * ``INCIDENTAL_OK``   -> ``NEVER``  -- preserves the pre-NSS behaviour of these
+          two sites. Deliberate compatibility preservation, not an assertion that it is
+          ideal: the prohibition does persist on the memoized container after the
+          request, which is an existing non-NSS caching limitation we are retaining.
+        * ``ON_REQUEST_ONLY`` -> unchanged -- an explicit cache() must still be able to
+          materialize an NSS read after a write resolves it.
+        * ``ALREADY`` / ``NEVER`` -> unchanged.
+        """
+        if self._materialization_policy is MaterializationPolicy.INCIDENTAL_OK:
+            self._materialization_policy = MaterializationPolicy.NEVER
         return self
 
     @property
@@ -257,12 +439,72 @@ class DataFrameContainer:
         return self._known_row_count
 
     @property
+    def static_schema(self) -> StructType | None:
+        """Schema built from the column types given at creation, if any."""
+        return self._static_schema
+
+    @property
     def dataframe(self) -> snowpark.DataFrame:
         """Get the underlying Snowpark DataFrame."""
         # Ensure the DataFrame has the _column_map attribute for backward compatibility
         # Some of the snowpark code needs references to _column_map
         self._dataframe._column_map = self._column_map
         return self._dataframe
+
+    def known_schema(self) -> StructType | None:
+        """The DataFrame's schema if known without a query, else None.
+
+        Known means Snowpark has already cached it, or it was built from the
+        column types given at creation. Never triggers a DESCRIBE. Always None
+        unless NSS is enabled, its only user (SNOW-4298898).
+        """
+        if not _is_known_schema_tracked():
+            return None
+        cached = getattr(self._dataframe, "__dict__", {}).get("schema")
+        return cached if cached is not None else self._static_schema
+
+    def _known_schema_without(
+        self, dropped_snowpark_names: set[str]
+    ) -> StructType | None:
+        """``known_schema`` without the dropped columns, in column order, or None.
+
+        SNOW-4298898: lets column-dropping operators keep the schema known
+        without a query, so a later sort can still check its key's type.
+        """
+        schema = self.known_schema()
+        if schema is None:
+            return None
+        try:
+            dropped = {quote_name(name) for name in dropped_snowpark_names}
+            return StructType(
+                [f for f in schema.fields if quote_name(f.name) not in dropped]
+            )
+        except Exception:
+            # A name we can't compare: leave the schema unknown.
+            _log_quote_name_failure("_known_schema_without")
+            return None
+
+    def with_known_schema(self, schema: StructType | None) -> DataFrameContainer:
+        """Record ``schema`` as known without a query and return ``self``.
+
+        For operators whose output keeps the input's columns and types, so
+        ``known_schema`` survives them (SNOW-4298898). A schema whose fields do
+        not line up with this container's columns is not recorded, since a
+        positional lookup would then read the wrong column's type.
+        """
+        if schema is None or not _is_known_schema_tracked():
+            return self
+        try:
+            lines_up = [quote_name(f.name) for f in schema.fields] == [
+                quote_name(c.snowpark_name) for c in self._column_map.columns
+            ]
+        except Exception:
+            # A name we can't compare: leave the schema unknown.
+            _log_quote_name_failure("with_known_schema")
+            lines_up = False
+        if lines_up:
+            self._static_schema = schema
+        return self
 
     @property
     def column_map(self) -> ColumnNameMap:
@@ -491,7 +733,13 @@ class DataFrameContainer:
             ),
             partition_hint=self._partition_hint,
             sort_exprs=self.sort_exprs,
-        )
+            # Removing columns does not change what backs the data, so the policy carries.
+            # Narrow on purpose: this helper only drops existing columns. A projection
+            # that introduces expressions -- a nondeterministic one especially -- can need
+            # to materialize its own results even from an ALREADY input, so this is not a
+            # general rule about projections (SNOW-4231637).
+            materialization_policy=self._materialization_policy,
+        ).with_known_schema(self._known_schema_without(dropped_snowpark_names))
 
     def without_internal_columns(self) -> DataFrameContainer:
         """
@@ -617,11 +865,15 @@ class DataFrameContainer:
             table_name=self._table_name,
             alias=self._alias,
             partition_hint=self._partition_hint,
+            # Same reasoning as _without_columns_matching: this drops one existing column,
+            # so what backs the data is unchanged and the policy carries. This rebuild is
+            # separate from that helper and was dropping the state independently.
+            materialization_policy=self._materialization_policy,
             # avoid evaluating filtered_df.schema (would trigger a describe query)
             cached_schema_getter=lambda: StructType(
                 [f for f in result_df.schema if f.name != METADATA_FILENAME_COLUMN]
             ),
-        )
+        ).with_known_schema(self._known_schema_without({METADATA_FILENAME_COLUMN}))
 
     def with_rewritten_metadata_filename(self, prefix: str) -> DataFrameContainer:
         """Prepend ``prefix`` to the stage-relative ``METADATA$FILENAME`` value so
@@ -678,10 +930,10 @@ class DataFrameContainer:
             partition_hint=self._partition_hint,
             dataframe_hint=self._dataframe_hint,
             can_be_cached=self._can_be_cached,
-            can_be_materialized=self._can_be_materialized,
+            materialization_policy=self._materialization_policy,
             aggregate_metadata=self._aggregate_metadata,
             cached_local_relation_arrow_table=self._cached_local_relation_arrow_table,
             # Column names/types are unchanged by the value rewrite, so reuse the
             # pre-rewrite schema and avoid a describe query on the new dataframe.
             cached_schema_getter=lambda: result_df.schema,
-        )
+        ).with_known_schema(self.known_schema())

@@ -24,9 +24,10 @@ from probe import __version__
 # `update_report` is imported HERE, at the top, for the same reason updater.py
 # imports its whole call graph eagerly (H8): it runs after `uv tool upgrade` has
 # replaced the installed tree, when a first import would read the new files.
-from probe.cli import autoupdate, plugin_cli, update_report, updater, versions, wizard_lock
+from probe.cli import autoupdate, plugin_cli, root_skills, update_report, updater, versions, wizard_lock
 from probe.cli.capabilities import agent_source
 from probe.harness import get_registry
+from probe.core import events as json_events
 
 
 @dataclass
@@ -34,6 +35,24 @@ class UpdateOutcome:
     lines: list[str]
     ok: bool
     restart_needed: bool
+
+
+#: Set by the Probe service (`probe.service.updater.SKIP_CLI_ENV`) when the CLI
+#: is current and daemon workers run from its env: plugins only.
+SKIP_CLI_ENV = "PROBE_UPDATE_SKIP_CLI"
+#: Set by the Probe service (`probe.service.updater.FORCED_ENV`) when it updates
+#: past what deferred it for DEFER_LIMIT_S: the run-lock check is skipped.
+FORCED_ENV = "PROBE_UPDATE_FORCED"
+
+
+def cli_left_alone(version: str) -> "updater.CliResult":
+    """The CLI step when the Probe service asked for plugins only (SKIP_CLI_ENV):
+    nothing ran, and the CLI is where it should be (a success, never a failure
+    in `probe doctor` or the update report)."""
+    return updater.CliResult(
+        ran=False, ok=True, changed=False, before=version, after=version,
+        message=f"CLI {version} current; left as it is while daemon workers run",
+    )
 
 
 def perform_update(
@@ -124,7 +143,11 @@ def _perform_update(
     # For the spawned path this is also a RE-check: the gate that allowed the
     # spawn ran before the wait, and a run started during it must not be
     # upgraded into by a decision made minutes earlier.
-    if not force:
+    # The Probe service decided to update past a live run (24 h of deferral,
+    # plan D33) and says so: that decision stands here too.
+    # Nor when it must update beside the running version (plan D6): a run keeps
+    # its own files then, and the service let it go on for that reason.
+    if not force and not os.environ.get(FORCED_ENV) and os.environ.get(updater.REQUIRE_SIDE_BY_SIDE_ENV) != "1":
         try:
             from probe.cli import run_lock
 
@@ -146,6 +169,7 @@ def _perform_update(
 
     # A failed manifest fetch must never block the upgrade -- being unable to
     # ask "what is latest" is not a reason to refuse to move.
+    json_events.step(json_events.Step.UPDATE_MANIFEST, json_events.Status.STARTED)
     if manifest is None:
         try:
             manifest = updater.fetch_latest(base_url)
@@ -154,6 +178,7 @@ def _perform_update(
     plugin_target = updater.plugin_latest(manifest)
     tap_target = updater.tap_latest(manifest)
     cli_target = updater.cli_latest(manifest)
+    json_events.step(json_events.Step.UPDATE_MANIFEST, json_events.Status.DONE)
 
     if include_plugin:
         # The pi step runs AFTER the CLI upgrade below has replaced the files
@@ -162,6 +187,7 @@ def _perform_update(
         from probe.cli import pi_config  # noqa: F401
         from probe.sdk import session_marker  # noqa: F401
 
+    json_events.step(json_events.Step.UPDATE_CLI, json_events.Status.STARTED)
     install = updater.detect_install()
     lines.append(f"Probe Research CLI {__version__}  (installed via: {install.method})")
     from probe.cli import capy_retire
@@ -182,11 +208,21 @@ def _perform_update(
         refused = updater.upgrade_cli(install, __version__, cli_target).message
         lines.append(f"  skipping auto-upgrade: {refused}")
     else:
-        res = updater.upgrade_cli(install, __version__, cli_target)
+        if os.environ.get(SKIP_CLI_ENV) == "1":
+            # The Probe service updates the plugins only: the CLI is current and
+            # daemon workers run from its env, which is left as it is (plan D7).
+            res = cli_left_alone(__version__)
+        else:
+            res = updater.upgrade_cli(install, __version__, cli_target)
         lines.append(f"  {res.message}")
         if res.changed:
             versions.record_installed_cli(res.after)
 
+    json_events.step(
+        json_events.Step.UPDATE_CLI,
+        json_events.Status.DONE if res is None or res.ok else json_events.Status.FAILED,
+    )
+    json_events.step(json_events.Step.UPDATE_INTEGRATIONS, json_events.Status.STARTED)
     restart_needed = False
     pres: updater.PluginResult | None = None
     pi_update: _PiUpdate | None = None
@@ -215,6 +251,14 @@ def _perform_update(
                 else updater.update_plugin(plugin_target)
             )
             lines.append(f"  {pres.message}")
+            if pres.attempted:
+                # Claude Code reads Probe's skills from its own skills folder
+                # (copies of the installed plugin's) and re-reads it when it
+                # changes: refreshing it now is what gives every open session
+                # the new plugin's skill text on its next skill call, instead of
+                # whenever a session next starts. A harness that reads the
+                # plugin's own folder (Codex, Kimi) has none: a no-op there.
+                lines.extend(f"  {line}" for line in root_skills.refresh(source))
             # The sessions still running a tap from before this update: the
             # machine reports the oldest live tap, so a current install beside
             # one of them still reads as the old version until it restarts.
@@ -265,6 +309,11 @@ def _perform_update(
         plugin_ok = False
         plugin_detail = "; ".join(part for part in (plugin_detail, pi_update.detail) if part)
     plugin_version = pres.after if pres is not None else None
+    json_events.step(
+        json_events.Step.UPDATE_INTEGRATIONS,
+        json_events.Status.DONE if plugin_ok else json_events.Status.FAILED,
+    )
+    json_events.step(json_events.Step.VERIFY_UPDATE, json_events.Status.STARTED)
 
     # The ONLY way a detached auto-update can report failure: it runs with no
     # terminal attached, so without this an updater that has been broken for a
@@ -318,6 +367,7 @@ def _perform_update(
         base_url=base_url,
     )
 
+    json_events.step(json_events.Step.VERIFY_UPDATE, json_events.Status.DONE)
     return UpdateOutcome(
         lines=lines,
         # Both halves, so `probe update`'s exit code means "the update worked",

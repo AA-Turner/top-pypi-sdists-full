@@ -133,6 +133,10 @@ class Step(StrEnum):
     #: The verdict: the plugins asked for are installed. Skipped when the agent's
     #: own CLI could not be asked, which is not a finding either way.
     VERIFY_PLUGINS = "verify_plugins"
+    UPDATE_MANIFEST = "update_manifest"
+    UPDATE_CLI = "update_cli"
+    UPDATE_INTEGRATIONS = "update_integrations"
+    VERIFY_UPDATE = "verify_update"
 
 
 def _usage_error(typer: Any) -> type[BaseException]:

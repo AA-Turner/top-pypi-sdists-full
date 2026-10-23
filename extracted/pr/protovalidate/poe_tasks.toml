@@ -50,7 +50,7 @@ sequence = [
   # this and the standard build, but need to make sure to disable stripping
   # which is needed for generation. Since it's a link argument, it doesn't
   # affect compile caching.
-  { cmd = "maturin generate-stubs --profile release --out protovalidate", env = { CARGO_PROFILE_RELEASE_STRIP = "none" } },
+  { cmd = "maturin generate-stubs --profile release --out .", env = { CARGO_PROFILE_RELEASE_STRIP = "none" } },
   "format-license-header",
   # Unsafe fixes are docstring rewrites (trailing whitespace, one-lining);
   # safe on a generated file whose docstrings come from Rust doc comments.
@@ -100,8 +100,8 @@ sequence = [
 [tasks.format-rust]
 help = "Format native extension code"
 sequence = [
-  { cmd = "cargo clippy --fix --allow-dirty" },
-  { cmd = "cargo fmt" },
+  { cmd = "cargo clippy --workspace --all-targets --fix --allow-dirty" },
+  { cmd = "cargo fmt --all" },
 ]
 
 [tasks.format-toml]
@@ -133,8 +133,12 @@ sequence = [
 [tasks.lint-rust]
 help = "Lint native extension code"
 sequence = [
-  { cmd = "cargo clippy" },
-  { cmd = "cargo fmt --check" },
+  { cmd = "cargo clippy --workspace --all-targets -- -D warnings" },
+  # The validator on its own, without the CEL backend, so the rules that never
+  # need it keep compiling without it. Scoped to the one package: across the
+  # workspace the extension's own `cel` feature would be unified back in.
+  { cmd = "cargo clippy -p protovalidate --all-targets --no-default-features -- -D warnings" },
+  { cmd = "cargo fmt --all --check" },
 ]
 
 [tasks.lint-python]
@@ -154,4 +158,19 @@ sequence = [
 
 [tasks.test]
 help = "Run unit tests"
+sequence = [
+  "test-python",
+  "test-rust",
+]
+
+[tasks.test-python]
+help = "Run the Python test suite"
 cmd = "pytest"
+
+[tasks.test-rust]
+help = "Run the native crates' unit tests"
+# The validator crates only: a test binary for the extension itself would link
+# libpython, which the extension module never does. The release profile is the
+# one the extension is built with, so the compiled C++ is shared rather than
+# built a second time in debug.
+cmd = "cargo test --release -p protovalidate -p protovalidate-deps"

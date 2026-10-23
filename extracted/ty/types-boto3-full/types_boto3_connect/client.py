@@ -69,6 +69,7 @@ from .paginator import (
     ListQueueQuickConnectsPaginator,
     ListQueuesPaginator,
     ListQuickConnectsPaginator,
+    ListReplicationFindingsPaginator,
     ListRoutingProfileManualAssignmentQueuesPaginator,
     ListRoutingProfileQueuesPaginator,
     ListRoutingProfilesPaginator,
@@ -517,6 +518,8 @@ from .type_defs import (
     ListQuickConnectsResponseTypeDef,
     ListRealtimeContactAnalysisSegmentsV2RequestTypeDef,
     ListRealtimeContactAnalysisSegmentsV2ResponseTypeDef,
+    ListReplicationFindingsRequestTypeDef,
+    ListReplicationFindingsResponseTypeDef,
     ListRoutingProfileManualAssignmentQueuesRequestTypeDef,
     ListRoutingProfileManualAssignmentQueuesResponseTypeDef,
     ListRoutingProfileQueuesRequestTypeDef,
@@ -3273,6 +3276,17 @@ class ConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#list_realtime_contact_analysis_segments_v2)
         """
 
+    def list_replication_findings(
+        self, **kwargs: Unpack[ListReplicationFindingsRequestTypeDef]
+    ) -> ListReplicationFindingsResponseTypeDef:
+        """
+        Lists replication findings for resources of a specified resource type in a
+        specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_replication_findings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#list_replication_findings)
+        """
+
     def list_routing_profile_manual_assignment_queues(
         self, **kwargs: Unpack[ListRoutingProfileManualAssignmentQueuesRequestTypeDef]
     ) -> ListRoutingProfileManualAssignmentQueuesResponseTypeDef:
@@ -5412,6 +5426,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_quick_connects"]
     ) -> ListQuickConnectsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_replication_findings"]
+    ) -> ListReplicationFindingsPaginator:
         """
         Create a paginator for an operation.
 

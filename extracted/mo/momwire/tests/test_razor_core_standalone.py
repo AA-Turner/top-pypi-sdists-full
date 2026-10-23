@@ -64,6 +64,15 @@ CORE_SOURCES = (
     # The NEC-5 deck reader (unit 2a): the executable's first step, card text
     # to the parsed deck, linked into `nec5_deck_driver.cpp` below.
     "_nec5_deck_core.cpp",
+    # The nec2 / nec4 deck reader (momwire#1607 A1): the NEC-4.2-dialect
+    # executables' first step, linked into `nec4_deck_driver.cpp` below.
+    "_nec4_deck_core.cpp",
+    # The NEC-4.2 seam front over it (momwire#1607 A2), linked into
+    # `nec4_seam_driver.cpp`.
+    "_nec4_seam_core.cpp",
+    # The NEC-4.2 build over it (momwire#1607 A2b), linked into
+    # `nec4_build_driver.cpp`.
+    "_nec4_build_core.cpp",
     # The seam's structure half (unit 2b): the parsed deck to RazorSolver's
     # arguments, linked into `nec5_razor_driver.cpp` (deck text -> currents);
     # the engine-neutral seam and razor-2p's engine over it.
@@ -184,6 +193,9 @@ def driver(accel, tmp_path_factory):
         "razor_chain_driver",
         "razor_front_driver",
         "nec5_deck_driver",
+        "nec4_deck_driver",
+        "nec4_seam_driver",
+        "nec4_build_driver",
         "nec5_razor_driver",
         "nec5_razor_printout_driver",
         "nec5_bspline_printout_driver",
@@ -221,6 +233,9 @@ def test_the_core_includes_no_python_header(driver):
     assert "_razor_solve_core.h" in seen, "the solve prototype's core was not built"
     assert "_razor_front_core.h" in seen, "the front half's core was not built"
     assert "_nec5_deck_core.h" in seen, "the deck reader's core was not built"
+    assert "_nec4_deck_core.h" in seen, "the nec2 / nec4 reader's core was not built"
+    assert "_nec4_seam_core.h" in seen, "the NEC-4.2 seam's core was not built"
+    assert "_nec4_build_core.h" in seen, "the NEC-4.2 build's core was not built"
     assert "_nec5_razor_seam_core.h" in seen, "the seam's core was not built"
     assert "_bspline_core.h" in seen, "the B-spline kernels' core was not built"
     for marker in ("Python.h", "pybind11", "numpy"):
@@ -232,6 +247,75 @@ def test_the_driver_links_no_python(driver):
     for exe in exes.values():
         libs = subprocess.run(["ldd", str(exe)], capture_output=True, text=True).stdout
         assert "libpython" not in libs, libs
+
+
+@pytest.mark.parametrize("dialect", ["nec4", "nec2"])
+def test_the_nec4_deck_reader_in_cxx_alone_is_pythons(driver, dialect):
+    """momwire#1607 A1: the nec2 / nec4 reader, built from the core TUs alone
+    (`nec4_deck_driver`), reads every NEC deck in tests/fixtures as
+    `momwire.deck.parse(text, dialect)` does, field for field (the
+    extension-bound twin of this check is `tests/test_nec4_deck_core.py`).
+    Only the three deliberately non-finite / oversized fixtures decline."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_nec4_deck_compare", SPLIT / "nec4_deck_compare.py"
+    )
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    counts, mismatches = nc.compare(decks, dialect, driver[0]["nec4_deck_driver"])
+    assert not mismatches, mismatches[:3]
+    assert counts["parsed"] >= 200 and counts["refused"] >= 100, counts
+    assert counts["declined"] <= 3, counts
+
+
+@pytest.mark.parametrize("basis", ["sinusoidal", "bspline"])
+def test_the_nec4_seam_in_cxx_alone_is_pythons(driver, basis):
+    """momwire#1607 A2: the NEC-4.2 slot's front (`_nec4.render` up to the
+    solve), built from the core TUs alone (`nec4_seam_driver`), serves and
+    refuses every NEC deck in tests/fixtures as the slot does, the printout's
+    view of the cards field for field (the extension-bound twin of this
+    check is `tests/test_nec4_seam_core.py`)."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_nec4_seam_compare", SPLIT / "nec4_seam_compare.py"
+    )
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    counts, mismatches = nc.compare(decks, basis, driver[0]["nec4_seam_driver"])
+    assert not mismatches, mismatches[:3]
+    assert counts["served"] >= 200 and counts["refused"] >= 100, counts
+    assert counts["declined"] <= 3, counts
+
+
+@pytest.mark.parametrize("basis", ["sinusoidal", "bspline"])
+def test_the_nec4_build_in_cxx_alone_is_pythons(driver, basis):
+    """momwire#1607 A2b: the NEC-4.2 build (DeckSolver's construction and
+    every operating point's solver arguments), built from the core TUs alone
+    (`nec4_build_driver`), is the slot's on every NEC deck in tests/fixtures,
+    field for field and bit for bit (the extension-bound twin of this check
+    is `tests/test_nec4_build_core.py`)."""
+    spec = importlib.util.spec_from_file_location(
+        "core_split_nec4_build_compare", SPLIT / "nec4_build_compare.py"
+    )
+    nc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nc)
+    decks = [
+        p
+        for p in sorted((ROOT / "tests" / "fixtures").rglob("*"))
+        if p.is_file() and p.suffix in (".nec", ".deck")
+    ]
+    counts, mismatches = nc.compare(decks, basis, driver[0]["nec4_build_driver"])
+    assert not mismatches, mismatches[:3]
+    assert counts["built"] >= 200, counts
+    assert counts["declined"] <= 3, counts
 
 
 @pytest.mark.parametrize("prefix", ["", "ek_"], ids=["reduced", "extended_kernel"])
@@ -468,6 +552,8 @@ def _seam_compare_module():
     return mod
 
 
+# Default-lane budget is 5 s; CI median 34 s (momwire 0.82.0 release prep).
+@pytest.mark.slow
 def test_deck_text_to_currents_in_cxx_alone_is_the_python_seam(driver, tmp_path):
     """Every NEC deck in tests/fixtures through the reader, the seam's
     structure half, the front half, the fill and the LU, in a process with no
@@ -548,6 +634,8 @@ NET_DECKS = ROOT / "tests" / "fixtures" / "razor_printout_net"
 EK_DECKS = ROOT / "tests" / "fixtures" / "razor_printout_ek"
 
 
+# Default-lane budget is 5 s; CI median 24 s (momwire 0.82.0 release prep).
+@pytest.mark.slow
 def test_deck_text_to_printout_in_cxx_alone_is_the_launchers(driver, tmp_path):
     """Every NEC deck in tests/fixtures through the whole chain -- the
     reader, the seam's structure half, the front half, the fill and the LU,
@@ -819,6 +907,8 @@ BURIED_DECKS = [
 ]
 
 
+# Default-lane budget is 5 s; CI median 11 s (momwire 0.82.0 release prep).
+@pytest.mark.slow
 def test_the_buried_decks_print_with_their_tables_filled_in_cxx(
     driver, tmp_path, monkeypatch
 ):
@@ -1187,6 +1277,8 @@ def _bspline_printouts(driver, decks, tmp_path):
     return counts, reasons
 
 
+# Default-lane budget is 5 s; CI median 101 s (momwire 0.82.0 release prep).
+@pytest.mark.slow
 def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
     """momwire#1517 step 1: every NEC deck in tests/fixtures through bs2's
     whole chain in a process with no Python -- the reader, the seam with the
@@ -1259,6 +1351,8 @@ BSPLINE_CROSSING_DECKS = [
 ]
 
 
+# Default-lane budget is 5 s; CI median 5.2 s (momwire 0.82.0 release prep).
+@pytest.mark.slow
 def test_the_crossing_decks_print_as_python(driver, tmp_path):
     """momwire#1517 step 4b: a one-radius crossing node. The crossing serve
     (`_bspline_crossing_core.cpp`) -- the split's cluster partition, its

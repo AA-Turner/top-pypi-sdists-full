@@ -300,17 +300,21 @@ def create_sproc(
 ) -> None:
     """Create a stage, upload import files, and execute the CREATE PROCEDURE DDL.
 
-    When *replace* is True the stage is recreated and all files are uploaded
-    unconditionally.  When *replace* is False the stage is created only if it
-    does not exist, and each file is skipped if the stage already contains a
-    file with the same basename (use ``replace=True`` to force re-upload of
-    changed content).
+    Each local import is uploaded with overwrite before the procedure DDL
+    runs. A basename already present on the stage is not reused. ``LIST``
+    cannot justify reuse either: its MD5 is the digest of the client-encrypted
+    payload and changes on every PUT, including when the plaintext is unchanged.
+
+    When *replace* is False the stage is created only if it does not exist,
+    and an existing procedure is left in place. When *replace* is True the
+    stage is recreated and the procedure is replaced.
 
     Args:
         create_sql: The CREATE PROCEDURE DDL to execute.
         import_files: Local file paths to upload to the stage (JARs, .py, etc.).
         stage_name: Name of the Snowflake stage for dependencies.
-        replace: If True, recreate stage and overwrite procedure.
+        replace: If True, recreate the stage and replace the procedure.
+            Import files are uploaded with overwrite either way.
         session: Optional Snowpark session. If None, a shared session is
             obtained via ``_get_session()``.
 
@@ -323,18 +327,12 @@ def create_sproc(
     if replace:
         logger.info(f"Replacing stage {stage_name}...")
         session.sql(f"CREATE OR REPLACE STAGE {stage_name}").collect()
-        existing_basenames: set[str] = set()
     else:
         logger.info(f"Creating stage {stage_name} (if not exists)...")
         session.sql(f"CREATE STAGE IF NOT EXISTS {stage_name}").collect()
-        listing = session.file.list(f"@{stage_name}")
-        existing_basenames = {os.path.basename(r.name) for r in listing}
 
     for import_file in import_files:
         bn = os.path.basename(import_file)
-        if not replace and bn in existing_basenames:
-            logger.info(f"Skipping {bn} (already on stage)")
-            continue
         logger.info(f"Uploading {bn} to @{stage_name}...")
         session.file.put(
             import_file,

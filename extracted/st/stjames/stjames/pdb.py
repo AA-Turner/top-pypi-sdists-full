@@ -163,6 +163,18 @@ class ResidueRef(NamedTuple):
     residue_key: str | None = None
 
 
+class ResidueAtomRef(NamedTuple):
+    """Address of one named atom within a residue.
+
+    Attributes:
+        residue: containing residue
+        atom_name: atom name within the residue
+    """
+
+    residue: ResidueRef
+    atom_name: str
+
+
 class PDBModel(BaseModel):
     """Structure data.
 

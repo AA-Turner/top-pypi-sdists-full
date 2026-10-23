@@ -19,6 +19,14 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -38,6 +46,13 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .micro_strategy_related import (
+    RelatedMicroStrategyAttribute,
+    RelatedMicroStrategyColumn,
+    RelatedMicroStrategyMetric,
+    RelatedMicroStrategyProject,
+    RelatedMicroStrategyReport,
+)
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -47,20 +62,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .micro_strategy_related import (
-    RelatedMicroStrategyAttribute,
-    RelatedMicroStrategyColumn,
-    RelatedMicroStrategyMetric,
-    RelatedMicroStrategyProject,
-    RelatedMicroStrategyReport,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -293,7 +294,7 @@ class MicroStrategyReport(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+/[^/]+$")
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/reports/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -366,6 +367,54 @@ class MicroStrategyReport(Asset):
         if self.guid is not UNSET:
             return RelatedMicroStrategyReport(guid=self.guid)
         return RelatedMicroStrategyReport(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        micro_strategy_project_qualified_name: str,
+        micro_strategy_project_name: str,
+        micro_strategy_id: str,
+        connection_qualified_name: Union[str, None] = None,
+    ) -> "MicroStrategyReport":
+        validate_required_fields(
+            [
+                "name",
+                "micro_strategy_project_qualified_name",
+                "micro_strategy_project_name",
+                "micro_strategy_id",
+            ],
+            [
+                name,
+                micro_strategy_project_qualified_name,
+                micro_strategy_project_name,
+                micro_strategy_id,
+            ],
+        )
+        fields = micro_strategy_project_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        connection_qn = connection_qualified_name or "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{micro_strategy_project_qualified_name}/reports/{micro_strategy_id}",
+            connection_qualified_name=connection_qn,
+            connector_name=connector_name,
+            micro_strategy_project_qualified_name=micro_strategy_project_qualified_name,
+            micro_strategy_project_name=micro_strategy_project_name,
+            micro_strategy_project=RelatedMicroStrategyProject(
+                qualified_name=micro_strategy_project_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "MicroStrategyReport":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "MicroStrategyReport":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -737,6 +786,7 @@ def _micro_strategy_report_to_nested(
         is_incomplete=micro_strategy_report.is_incomplete,
         provenance_type=micro_strategy_report.provenance_type,
         home_id=micro_strategy_report.home_id,
+        delete_handler=micro_strategy_report.delete_handler,
         depth=micro_strategy_report.depth,
         immediate_upstream=micro_strategy_report.immediate_upstream,
         immediate_downstream=micro_strategy_report.immediate_downstream,
@@ -787,6 +837,7 @@ def _micro_strategy_report_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

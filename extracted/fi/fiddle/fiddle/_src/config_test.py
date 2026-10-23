@@ -17,6 +17,7 @@
 
 import copy
 import dataclasses
+import functools
 import pickle
 import sys
 import threading
@@ -29,7 +30,7 @@ from fiddle import history
 from fiddle._src import config as config_lib
 from fiddle._src.experimental import daglish_legacy
 from fiddle._src.testing.example import demo_configs
-import pytype_extensions
+import typing_extensions
 
 
 class Tag1(fdl.Tag):
@@ -120,14 +121,14 @@ _T = TypeVar('_T')
 
 @dataclasses.dataclass
 class GenericClass(Generic[_T]):
-  x: _T = 1
+  x: _T = 1  # pyrefly: ignore[bad-assignment]
 
 
 class ConfigTest(parameterized.TestCase):
 
   def test_config_for_classes(self):
     class_config = fdl.Config(SampleClass, 1, kwarg2='kwarg2')
-    pytype_extensions.assert_type(class_config, fdl.Config[SampleClass])
+    typing_extensions.assert_type(class_config, fdl.Config[SampleClass])
     self.assertEqual(class_config.arg1, 1)
     self.assertEqual(class_config.kwarg2, 'kwarg2')
     class_config.arg1 = 'arg1'
@@ -136,7 +137,7 @@ class ConfigTest(parameterized.TestCase):
     class_config.kwarg1 = 'kwarg1'
 
     instance = fdl.build(class_config)
-    pytype_extensions.assert_type(instance, SampleClass)
+    typing_extensions.assert_type(instance, SampleClass)
     self.assertEqual(instance.arg1, 'arg1')
     self.assertEqual(instance.arg2, 'arg2')
     self.assertEqual(instance.kwarg1, 'kwarg1')
@@ -144,7 +145,7 @@ class ConfigTest(parameterized.TestCase):
 
   def test_config_for_functions(self):
     fn_config = fdl.Config(basic_fn, 1, kwarg2='kwarg2')
-    pytype_extensions.assert_type(
+    typing_extensions.assert_type(
         fn_config, fdl.Config[Dict[str, Any]]
     )  # use-fiddle-overlay
     self.assertEqual(fn_config.arg1, 1)
@@ -155,7 +156,7 @@ class ConfigTest(parameterized.TestCase):
     fn_config.kwarg1 = 'kwarg1'
 
     result = fdl.build(fn_config)
-    pytype_extensions.assert_type(result, Dict[str, Any])  # use-fiddle-overlay
+    typing_extensions.assert_type(result, Dict[str, Any])  # use-fiddle-overlay
     self.assertEqual(result, {
         'arg1': 'arg1',
         'arg2': 'arg2',
@@ -165,7 +166,7 @@ class ConfigTest(parameterized.TestCase):
 
   def test_config_for_functions_with_var_args(self):
     fn_config = fdl.Config(fn_with_var_args, 'arg1', kwarg1='kwarg1')
-    pytype_extensions.assert_type(fn_config, fdl.Config)
+    typing_extensions.assert_type(fn_config, fdl.Config)
     fn_args = fdl.build(fn_config)
     self.assertEqual(fn_args['arg1'], 'arg1')
     self.assertEqual(fn_args['kwarg1'], 'kwarg1')
@@ -173,7 +174,7 @@ class ConfigTest(parameterized.TestCase):
     fn_config.arg1 = 'new_arg1'
     fn_config.kwarg1 = 'new_kwarg1'
     fn_args = fdl.build(fn_config)
-    pytype_extensions.assert_type(fn_args, Any)
+    typing_extensions.assert_type(fn_args, Any)
     self.assertEqual(fn_args['arg1'], 'new_arg1')
     self.assertEqual(fn_args['kwarg1'], 'new_kwarg1')
 
@@ -531,8 +532,8 @@ class ConfigTest(parameterized.TestCase):
     fn_config_copy.arg2 = 'fn_arg2_copy'
     self.assertEqual(fn_config.arg2, 'fn_arg2')
     # But modifying a shared value is seen by both.
-    fn_config_copy.arg1.arg2 = 'mutated'  # pytype: disable=not-writable  # use-fiddle-overlay
-    self.assertEqual(fn_config.arg1.arg2, 'mutated')  # pytype: disable=attribute-error  # use-fiddle-overlay
+    fn_config_copy.arg1.arg2 = 'mutated'
+    self.assertEqual(fn_config.arg1.arg2, 'mutated')
 
   def test_buildable_subclass(self):
 
@@ -586,8 +587,8 @@ class ConfigTest(parameterized.TestCase):
     fn_config_copy.arg2 = 'fn_arg2_copy'
     self.assertEqual(fn_config.arg2, 'fn_arg2')
     # With a deep copy, the value is no longer shared.
-    fn_config_copy.arg1.arg2 = 'mutated'  # pytype: disable=not-writable  # use-fiddle-overlay
-    self.assertEqual(fn_config.arg1.arg2, 'arg2')  # pytype: disable=attribute-error  # use-fiddle-overlay
+    fn_config_copy.arg1.arg2 = 'mutated'
+    self.assertEqual(fn_config.arg1.arg2, 'arg2')
 
   def test_deep_copy_preserves_instance_sharing(self):
     class_config = fdl.Config(SampleClass, 'arg1', 'arg2')
@@ -626,9 +627,9 @@ class ConfigTest(parameterized.TestCase):
     cfg1 = make_nested_config()
     cfg2 = make_nested_config()
     self.assertEqual(cfg1, cfg2)
-    cfg2.arg2.arg1.kwarg1 = 'another value'  # pytype: disable=attribute-error  # use-fiddle-overlay
+    cfg2.arg2.arg1.kwarg1 = 'another value'
     self.assertNotEqual(cfg1, cfg2)
-    cfg1.arg2.arg1.kwarg1 = 'another value'  # pytype: disable=attribute-error  # use-fiddle-overlay
+    cfg1.arg2.arg1.kwarg1 = 'another value'
     self.assertEqual(cfg1, cfg2)
 
   def test_equality_fn_or_cls_mismatch(self):
@@ -659,8 +660,8 @@ class ConfigTest(parameterized.TestCase):
     self.assertFalse(cfg_subclass.__eq__(cfg))
 
   def test_equality_classmethods(self):
-    cfg_a = fdl.Config(SampleClass.a_classmethod)  # pytype: disable=invalid-annotation  # use-fiddle-overlay
-    cfg_b = fdl.Config(SampleClass.a_classmethod)  # pytype: disable=invalid-annotation  # use-fiddle-overlay
+    cfg_a = fdl.Config(SampleClass.a_classmethod)
+    cfg_b = fdl.Config(SampleClass.a_classmethod)
     self.assertEqual(cfg_a, cfg_b)
 
   def test_equality_positional_args_default_value(self):
@@ -787,17 +788,17 @@ class ConfigTest(parameterized.TestCase):
 
   def test_typed_config(self):
     class_config = make_typed_config()
-    pytype_extensions.assert_type(class_config, fdl.Config[SampleClass])
+    typing_extensions.assert_type(class_config, fdl.Config[SampleClass])
     instance = fdl.build(class_config)
-    pytype_extensions.assert_type(instance, SampleClass)
+    typing_extensions.assert_type(instance, SampleClass)
     self.assertEqual(instance.arg1, 1)
     self.assertEqual(instance.arg2, 2)
 
   def test_untyped_config(self):
     class_config = make_untyped_config(SampleClass, arg1=2, arg2=3)
-    pytype_extensions.assert_type(class_config, fdl.Config)
+    typing_extensions.assert_type(class_config, fdl.Config)
     instance = fdl.build(class_config)
-    pytype_extensions.assert_type(instance, Any)
+    typing_extensions.assert_type(instance, Any)
     self.assertEqual(instance.arg1, 2)
     self.assertEqual(instance.arg2, 3)
 
@@ -805,6 +806,18 @@ class ConfigTest(parameterized.TestCase):
     class_config = fdl.Config(SampleClass, 1, 2, kwarg1='kwarg1')
     expected_repr = "<Config[SampleClass(arg1=1, arg2=2, kwarg1='kwarg1')]>"
     self.assertEqual(repr(class_config), expected_repr)
+
+    self.assertEqual(class_config._fn_or_cls_name_repr(), 'SampleClass')
+    name_tags_and_value = list(class_config._params_name_tags_and_value())
+    self.assertEqual(
+        name_tags_and_value,
+        [
+            ('arg1', set(), 1),
+            ('arg2', set(), 2),
+            ('kwarg1', set(), 'kwarg1'),
+            ('kwarg2', set(), fdl.NO_VALUE),
+        ],
+    )
 
   def test_repr_nested_indentation(self):
     config = fdl.Config(basic_fn, 1,
@@ -831,10 +844,25 @@ class ConfigTest(parameterized.TestCase):
 
   def test_nonexistent_attribute_error(self):
     class_config = fdl.Config(SampleClass, 1)
-    expected_msg = (r"No parameter 'nonexistent_arg' has been set on "
-                    r'<Config\[SampleClass\(arg1=1\)\]>\.')
+    expected_msg = (
+        r"No parameter 'nonexistent_arg' has been set on "
+        r'<Config\[SampleClass\(arg1=1\)\]> \(Buildable='
+        r"'SampleClass', missing parameter='nonexistent_arg'\)."
+    )
     with self.assertRaisesRegex(AttributeError, expected_msg):
       getattr(class_config, 'nonexistent_arg')
+
+  def test_partial_nonexistent_attribute_error(self):
+    # This test serves as a regression test that `functools.partial`
+    # wasn't well handled in error reporting code.
+    partial_fn = functools.partial(basic_fn, arg1=1)
+    cfg = fdl.Config(partial_fn)
+    # The expected error should indicate the missing parameter, not crash trying
+    # to access __qualname__ on the partial object.
+    with self.assertRaisesRegex(
+        AttributeError, r"No parameter 'nonexistent_arg' has been set"
+    ):
+      getattr(cfg, 'nonexistent_arg')
 
   def test_nonexistent_parameter_error(self):
     class_config = fdl.Config(SampleClass)
@@ -893,7 +921,7 @@ class ConfigTest(parameterized.TestCase):
                      cfg.__argument_history__['arg1'][1].sequence_id)
 
   def test_custom_location_history_tracking(self):
-    with history.custom_location(lambda: 'abc:123'):
+    with history.custom_location(lambda: 'abc:123'):  # pyrefly: ignore[bad-argument-type]
       cfg = fdl.Config(SampleClass, 'arg1')
     cfg.arg2 = 'arg2'
     self.assertEqual(
@@ -956,7 +984,7 @@ class ConfigTest(parameterized.TestCase):
     with self.assertRaises(TypeError) as e:
       fdl.build(cfg)
     self.assertEqual(
-        e.exception.proxy_message,  # pytype: disable=attribute-error
+        e.exception.proxy_message,  # pyrefly: ignore[missing-attribute]
         '\n\nFiddle context: failed to construct or call SampleClass at '
         '<root>.arg1 with positional arguments: (), keyword arguments: '
         '(arg1=1).',
@@ -982,7 +1010,7 @@ class ConfigTest(parameterized.TestCase):
       fdl.build(cfg)
 
     self.assertEqual(
-        e.exception.proxy_message,  # pytype: disable=attribute-error
+        e.exception.proxy_message,  # pyrefly: ignore[missing-attribute]
         '\n\nFiddle context: failed to construct or call basic_fn at <root>.'
         "arg1[1]['c'] with positional arguments: (), keyword arguments: "
         '(arg1=1).',
@@ -1022,7 +1050,7 @@ class ConfigTest(parameterized.TestCase):
     cfg1 = fdl.Config(fn_with_var_kwargs, 1, 2)
     fdl.add_tag(cfg1, 'arg1', Tag1)
     with self.assertRaises(ValueError):
-      fdl.Partial(cfg1)  # pytype: disable=invalid-annotation  # use-fiddle-overlay
+      fdl.Partial(cfg1)
 
   def test_copy_constructor_with_updates_errors(self):
     cfg1 = fdl.Config(fn_with_var_kwargs, 1, 2, c=[])
@@ -1045,6 +1073,15 @@ class ConfigTest(parameterized.TestCase):
       cfg.child = fdl.Config(DataclassChild)  # override default w/ a value
       cfg.child.x = 5  # now it's ok to configure child.
       self.assertEqual(fdl.build(cfg), DataclassParent(DataclassChild(5)))
+
+  def test_unbound_method(self):
+    sample = fdl.Config(SampleClass, 0, 1)
+    cfg = fdl.Config(SampleClass.a_method, sample)
+    self.assertEqual(fdl.build(cfg), 4)
+
+  def test_fn_or_cls_argument_name(self):
+    cfg = fdl.Config(dict, fn_or_cls=123)
+    self.assertEqual(fdl.build(cfg), dict(fn_or_cls=123))
 
 
 class OrderedArgumentsTest(parameterized.TestCase):

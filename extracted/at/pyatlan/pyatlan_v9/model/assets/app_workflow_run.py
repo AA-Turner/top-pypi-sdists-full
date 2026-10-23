@@ -18,9 +18,17 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
+from .app_workflow_run_related import RelatedAppWorkflowRun
 from .asset import (
     _ASSET_REL_FIELDS,
     Asset,
@@ -47,14 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .app_workflow_run_related import RelatedAppWorkflowRun
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -771,6 +771,7 @@ def _app_workflow_run_to_nested(
         is_incomplete=app_workflow_run.is_incomplete,
         provenance_type=app_workflow_run.provenance_type,
         home_id=app_workflow_run.home_id,
+        delete_handler=app_workflow_run.delete_handler,
         depth=app_workflow_run.depth,
         immediate_upstream=app_workflow_run.immediate_upstream,
         immediate_downstream=app_workflow_run.immediate_downstream,
@@ -819,6 +820,7 @@ def _app_workflow_run_from_nested(nested: AppWorkflowRunNested) -> AppWorkflowRu
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

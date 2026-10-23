@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: ISC
-
+#
 # Copyright (c) 2021, Timothée Mazzucotelli and contributors
-
+#
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -304,7 +304,8 @@ class ObjectNode:
             and member is not type
             and member is not object
             and id(member) not in self._ids
-            and name in vars(self.obj)
+            # Module hooks can expose uncached members; other objects must exclude inherited members.
+            and (self.is_module or name in vars(self.obj))
         )
 
     @cached_property

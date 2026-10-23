@@ -82,9 +82,9 @@ def delegate_kwargs(to: Callable, *except_: str) -> Callable[[_C], _C]:
 				if param in to_params:
 					del to_params[param]
 
-			f.__signature__ = from_sig.replace(  # type: ignore
-				parameters=[*from_params.values(), *to_params.values()]
-				)
+			f.__signature__ = from_sig.replace(  # type: ignore[attr-defined]
+				parameters=[*from_params.values(), *to_params.values()],
+			)
 			f.__annotations__ = {**to_annotations, **from_annotations}
 
 		return f
@@ -100,7 +100,7 @@ def delegates(to: Callable) -> Callable[[_C], _C]:
 	:param to: The function the arguments are passed on to.
 	"""  # noqa: D400
 
-	def copy_annotations(f):
+	def copy_annotations(f):  # noqa: MAN001,MAN002
 		if hasattr(to, "__annotations__"):
 			if hasattr(f, "__annotations__"):
 				return_annotation = f.__annotations__.get("return", inspect.Parameter.empty)
@@ -116,13 +116,13 @@ def delegates(to: Callable) -> Callable[[_C], _C]:
 		from_params = dict(from_sig.parameters)
 
 		if tuple(from_params.keys()) == ("args", "kwargs"):
-			f.__signature__ = to_sig  # type: ignore
+			f.__signature__ = to_sig  # type: ignore[attr-defined]
 			copy_annotations(f)
 
 		elif tuple(from_params.keys()) == ("self", "args", "kwargs"):
-			f.__signature__ = from_sig.replace(  # type: ignore
-				parameters=[from_params["self"], *to_sig.parameters.values()]
-				)
+			f.__signature__ = from_sig.replace(  # type: ignore[attr-defined]
+				parameters=[from_params["self"], *to_sig.parameters.values()],
+			)
 
 			copy_annotations(f)
 

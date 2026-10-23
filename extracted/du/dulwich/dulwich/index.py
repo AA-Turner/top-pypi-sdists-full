@@ -89,6 +89,7 @@ __all__ = [
     "read_submodule_head",
     "refresh_index",
     "symlink",
+    "unchanged_entry_flags",
     "update_working_tree",
     "validate_path",
     "validate_path_element_default",
@@ -1603,7 +1604,9 @@ class Index:
         """
 
         def lookup_entry(path: bytes) -> tuple[bytes, int]:
-            entry = self[path]
+            # Tree paths are authoritative, so match them exactly rather
+            # than folding case through canonical_path.
+            entry = self._byname[path]
             if isinstance(entry, IndexEntry):
                 return entry.sha, cleanup_mode(entry.mode)
             else:
@@ -1950,6 +1953,8 @@ def index_entry_from_stat(
     stat_val: os.stat_result,
     hex_sha: bytes,
     mode: int | None = None,
+    flags: int = 0,
+    extended_flags: int = 0,
 ) -> IndexEntry:
     """Create a new index entry from a stat value.
 
@@ -1957,6 +1962,8 @@ def index_entry_from_stat(
       stat_val: POSIX stat_result instance
       hex_sha: Hex sha of the object
       mode: Optional file mode, will be derived from stat if not provided
+      flags: Index entry flags
+      extended_flags: Index entry extended flags
     """
     if mode is None:
         mode = cleanup_mode(stat_val.st_mode)
@@ -1995,15 +2002,40 @@ def index_entry_from_stat(
         gid=stat_val.st_gid,
         size=stat_val.st_size,
         sha=ObjectID(hex_sha),
-        flags=0,
-        extended_flags=0,
+        flags=flags,
+        extended_flags=extended_flags,
     )
+
+
+def unchanged_entry_flags(
+    index: "Index | dict[bytes, IndexEntry | ConflictedIndexEntry]",
+    path: bytes,
+    hex_sha: bytes,
+    mode: int,
+) -> tuple[int, int]:
+    """Return the flags to carry over when replacing the index entry for path.
+
+    An entry keeps its flags (such as assume-unchanged or skip-worktree)
+    as long as its sha and mode stay the same.
+
+    Returns:
+      Tuple of (flags, extended_flags); zeros if there is no matching entry
+    """
+    try:
+        entry = index[path]
+    except KeyError:
+        return 0, 0
+    if isinstance(entry, IndexEntry) and entry.sha == hex_sha and entry.mode == mode:
+        return entry.flags, entry.extended_flags
+    return 0, 0
 
 
 def index_entry_from_tree_entry(
     mode: int,
     hex_sha: bytes,
     size: int = 0,
+    flags: int = 0,
+    extended_flags: int = 0,
 ) -> IndexEntry:
     """Create an index entry from a tree entry, with zeroed stat fields.
 
@@ -2016,6 +2048,8 @@ def index_entry_from_tree_entry(
       mode: File mode from the tree entry
       hex_sha: Hex sha of the object
       size: Size of the object (0 for gitlinks or when unknown)
+      flags: Index entry flags
+      extended_flags: Index entry extended flags
     """
     from dulwich.objects import ObjectID
 
@@ -2029,8 +2063,8 @@ def index_entry_from_tree_entry(
         gid=0,
         size=size,
         sha=ObjectID(hex_sha),
-        flags=0,
-        extended_flags=0,
+        flags=flags,
+        extended_flags=extended_flags,
     )
 
 
@@ -2884,25 +2918,25 @@ def _check_file_matches(
             if current_mode != expected_mode:
                 return False
 
-    # If mode matches (or we don't care), check content via size first
     blob_obj = repo_object_store[entry_sha]
-    if current_stat.st_size != blob_obj.raw_length():
+    normalize = blob_normalizer is not None and tree_path is not None
+    # Filters can change the size, so only take the shortcut without them.
+    if not normalize and current_stat.st_size != blob_obj.raw_length():
         return False
 
-    # Size matches, check actual content
     try:
         with open(full_path, "rb") as f:
             current_content = f.read()
-            expected_content = blob_obj.as_raw_string()
-            if blob_normalizer and tree_path is not None:
-                assert isinstance(blob_obj, Blob)
-                normalized_blob = blob_normalizer.checkout_normalize(
-                    blob_obj, tree_path
-                )
-                expected_content = normalized_blob.as_raw_string()
-            return current_content == expected_content
     except (FileNotFoundError, PermissionError, IsADirectoryError):
         return False
+
+    # Like git, clean the working tree file and compare it with the blob.
+    if normalize:
+        assert blob_normalizer is not None and tree_path is not None
+        current_content = blob_normalizer.checkin_normalize(
+            Blob.from_string(current_content), tree_path
+        ).as_raw_string()
+    return current_content == blob_obj.as_raw_string()
 
 
 def _transition_to_submodule(
@@ -2926,8 +2960,11 @@ def _transition_to_submodule(
         ensure_submodule_placeholder(repo, path)
 
     st = os.lstat(full_path)
-    assert entry.sha is not None
-    index[path] = index_entry_from_stat(st, entry.sha)
+    assert entry.sha is not None and entry.mode is not None
+    flags, extended_flags = unchanged_entry_flags(index, path, entry.sha, entry.mode)
+    index[path] = index_entry_from_stat(
+        st, entry.sha, flags=flags, extended_flags=extended_flags
+    )
 
 
 def _transition_to_file(
@@ -2947,6 +2984,10 @@ def _transition_to_file(
 ) -> None:
     """Transition any type to regular file or symlink."""
     assert entry.sha is not None and entry.mode is not None
+    # Without core.filemode the working tree's executable bit is not
+    # trusted, so record the tree's mode in the index like git does.
+    index_mode = None if honor_filemode else entry.mode
+    flags, extended_flags = unchanged_entry_flags(index, path, entry.sha, entry.mode)
     # Check if we need to update
     if (
         current_stat is not None
@@ -2979,7 +3020,13 @@ def _transition_to_file(
     if not needs_update:
         # Just update index - current_stat should always be valid here since we're not updating
         assert current_stat is not None
-        index[path] = index_entry_from_stat(current_stat, entry.sha)
+        index[path] = index_entry_from_stat(
+            current_stat,
+            entry.sha,
+            mode=index_mode,
+            flags=flags,
+            extended_flags=extended_flags,
+        )
         return
 
     # Remove existing entry if needed
@@ -3022,7 +3069,9 @@ def _transition_to_file(
         tree_encoding=tree_encoding,
         symlink_fn=symlink_fn,
     )
-    index[path] = index_entry_from_stat(st, entry.sha)
+    index[path] = index_entry_from_stat(
+        st, entry.sha, mode=index_mode, flags=flags, extended_flags=extended_flags
+    )
 
 
 def _transition_to_absent(
@@ -3033,6 +3082,13 @@ def _transition_to_absent(
     index: Index,
 ) -> None:
     """Remove any type of entry."""
+    # The index entry has to go even if there is nothing on disk, e.g. for
+    # sparse-excluded paths or files deleted without "git rm".
+    try:
+        del index[path]
+    except KeyError:
+        pass
+
     if current_stat is None:
         return
 
@@ -3051,11 +3107,6 @@ def _transition_to_absent(
                     raise
     else:
         _remove_file_with_readonly_handling(full_path)
-
-    try:
-        del index[path]
-    except KeyError:
-        pass
 
     # Try to remove empty parent directories
     _remove_empty_parents(
@@ -3184,6 +3235,46 @@ def detect_case_only_renames(
     return result
 
 
+def _sparse_checkout_matcher(
+    repo: "Repo", config: "Config", tree_encoding: str
+) -> Callable[[bytes], bool] | None:
+    """Return a predicate for paths inside the sparse checkout, if enabled."""
+    if not config.get_boolean((b"core",), b"sparseCheckout", False):
+        return None
+    worktree = repo.get_worktree()
+    if not os.path.exists(worktree._sparse_checkout_file_path()):
+        # Without a patterns file, sparse checkout is not in effect.
+        return None
+    from .sparse_patterns import parse_sparse_patterns, sparse_path_matcher
+
+    lines = worktree.get_sparse_checkout_patterns()
+    if not parse_sparse_patterns(lines):
+        # An existing file without patterns excludes everything.
+        return lambda path: False
+    matcher = sparse_path_matcher(
+        lines,
+        worktree.infer_cone_mode(),
+        ignorecase=config.get_boolean((b"core",), b"ignorecase", False),
+    )
+    return lambda path: matcher(path.decode(tree_encoding))
+
+
+def _skip_worktree_entry(sha: ObjectID, mode: int) -> IndexEntry:
+    entry = IndexEntry(
+        ctime=0,
+        mtime=0,
+        dev=0,
+        ino=0,
+        mode=mode,
+        uid=0,
+        gid=0,
+        size=0,
+        sha=sha,
+    )
+    entry.set_skip_worktree(True)
+    return entry
+
+
 def update_working_tree(
     repo: "Repo",
     old_tree_id: bytes | None,
@@ -3209,6 +3300,10 @@ def update_working_tree(
     - Updating modified files
     - Removing deleted files
     - Cleaning up empty directories
+
+    If ``core.sparseCheckout`` is enabled, paths outside the sparse-checkout
+    patterns are recorded in the index with the skip-worktree bit set and
+    kept out of the working tree.
 
     Args:
       repo: Repository object
@@ -3257,6 +3352,7 @@ def update_working_tree(
         validate_path_element = get_path_element_validator(config)
 
     index = repo.open_index(config=config)
+    in_sparse_checkout = _sparse_checkout_matcher(repo, config, tree_encoding)
 
     # Convert iterator to list since we need multiple passes
     changes = list(change_iterator)
@@ -3272,71 +3368,73 @@ def update_working_tree(
         config = repo.get_config()
         changes = detect_case_only_renames(changes, config)
 
-    # Check for path conflicts where files need to become directories
-    paths_becoming_dirs = set()
-    for change in changes:
-        if change.type in (CHANGE_ADD, CHANGE_MODIFY, CHANGE_RENAME, CHANGE_COPY):
-            assert change.new is not None
-            path = change.new.path
-            assert path is not None
-            if b"/" in path:  # This is a file inside a directory
-                # Check if any parent path exists as a file in the old tree or changes
-                parts = path.split(b"/")
-                for i in range(1, len(parts)):
-                    parent = b"/".join(parts[:i])
-                    # See if this parent path is being deleted (was a file, becoming a dir)
-                    for other_change in changes:
-                        if (
-                            other_change.type == CHANGE_DELETE
-                            and other_change.old
-                            and other_change.old.path == parent
-                        ):
-                            paths_becoming_dirs.add(parent)
+    if not allow_overwrite_modified:
+        # Check for path conflicts where files need to become directories
+        paths_becoming_dirs = set()
+        for change in changes:
+            if change.type in (CHANGE_ADD, CHANGE_MODIFY, CHANGE_RENAME, CHANGE_COPY):
+                assert change.new is not None
+                path = change.new.path
+                assert path is not None
+                if b"/" in path:  # This is a file inside a directory
+                    # Check if any parent path exists as a file in the old tree or changes
+                    parts = path.split(b"/")
+                    for i in range(1, len(parts)):
+                        parent = b"/".join(parts[:i])
+                        # See if this parent path is being deleted (was a file, becoming a dir)
+                        for other_change in changes:
+                            if (
+                                other_change.type == CHANGE_DELETE
+                                and other_change.old
+                                and other_change.old.path == parent
+                            ):
+                                paths_becoming_dirs.add(parent)
 
-    # Check if any path that needs to become a directory has been modified
-    for path in paths_becoming_dirs:
-        full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
-        try:
-            current_stat = os.lstat(full_path)
-        except FileNotFoundError:
-            continue  # File doesn't exist, nothing to check
-        except OSError as e:
-            raise OSError(
-                f"Cannot access {path.decode('utf-8', errors='replace')}: {e}"
-            ) from e
+        # Check if any path that needs to become a directory has been modified
+        for path in paths_becoming_dirs:
+            full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
+            try:
+                current_stat = os.lstat(full_path)
+            except FileNotFoundError:
+                continue  # File doesn't exist, nothing to check
+            except OSError as e:
+                raise OSError(
+                    f"Cannot access {path.decode('utf-8', errors='replace')}: {e}"
+                ) from e
 
-        if stat.S_ISREG(current_stat.st_mode):
-            # Find the old entry for this path
-            old_change = None
-            for change in changes:
-                if (
-                    change.type == CHANGE_DELETE
-                    and change.old
-                    and change.old.path == path
-                ):
-                    old_change = change
-                    break
+            if stat.S_ISREG(current_stat.st_mode):
+                # Find the old entry for this path
+                old_change = None
+                for change in changes:
+                    if (
+                        change.type == CHANGE_DELETE
+                        and change.old
+                        and change.old.path == path
+                    ):
+                        old_change = change
+                        break
 
-            if old_change:
-                # Check if file has been modified
-                assert old_change.old is not None
-                assert (
-                    old_change.old.sha is not None and old_change.old.mode is not None
-                )
-                file_matches = _check_file_matches(
-                    repo.object_store,
-                    full_path,
-                    old_change.old.sha,
-                    old_change.old.mode,
-                    current_stat,
-                    honor_filemode,
-                    blob_normalizer,
-                    path,
-                )
-                if not file_matches:
-                    raise OSError(
-                        f"Cannot replace modified file with directory: {path!r}"
+                if old_change:
+                    # Check if file has been modified
+                    assert old_change.old is not None
+                    assert (
+                        old_change.old.sha is not None
+                        and old_change.old.mode is not None
                     )
+                    file_matches = _check_file_matches(
+                        repo.object_store,
+                        full_path,
+                        old_change.old.sha,
+                        old_change.old.mode,
+                        current_stat,
+                        honor_filemode,
+                        blob_normalizer,
+                        path,
+                    )
+                    if not file_matches:
+                        raise OSError(
+                            f"Cannot replace modified file with directory: {path!r}"
+                        )
 
     # Check for uncommitted modifications before making any changes
     if not allow_overwrite_modified and old_tree_id:
@@ -3380,7 +3478,9 @@ def update_working_tree(
                             f"Please commit your changes or stash them before you switch branches."
                         )
 
-    # Apply the changes
+    # Apply deletes before adds so that a directory being replaced by a file
+    # has its contents removed first (and vice versa, a file being replaced by
+    # a directory is removed before its new children are written).
     for change in changes:
         if change.type in (CHANGE_DELETE, CHANGE_RENAME):
             # Remove file/directory
@@ -3390,6 +3490,16 @@ def update_working_tree(
                 continue
 
             full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
+            try:
+                verify_leading_dirs(path, [], repo_path)
+            except InvalidPathError:
+                # Removing through the symlink would unlink a path outside
+                # the work tree; only drop the index entry, as git does.
+                logger.warning(
+                    "Not removing %r: leading path is not a real directory", path
+                )
+                _transition_to_absent(repo, path, full_path, None, index)
+                continue
             try:
                 delete_stat: os.stat_result | None = os.lstat(full_path)
             except FileNotFoundError:
@@ -3401,6 +3511,7 @@ def update_working_tree(
 
             _transition_to_absent(repo, path, full_path, delete_stat, index)
 
+    for change in changes:
         if change.type in (
             CHANGE_ADD,
             CHANGE_MODIFY,
@@ -3413,6 +3524,7 @@ def update_working_tree(
                 change.new is not None
                 and change.new.path is not None
                 and change.new.mode is not None
+                and change.new.sha is not None
             )
             path = change.new.path
             # Validate as we go and abort on the first invalid path,
@@ -3428,7 +3540,21 @@ def update_working_tree(
                     f"Cannot access {path.decode('utf-8', errors='replace')}: {e}"
                 ) from e
 
-            if S_ISGITLINK(change.new.mode):
+            if in_sparse_checkout is not None and not in_sparse_checkout(path):
+                # Only record paths outside the sparse checkout in the index.
+                # Remove them from disk only if they were checked out before,
+                # leaving untracked files alone.
+                try:
+                    old_entry = index[path]
+                except KeyError:
+                    pass
+                else:
+                    if not (
+                        isinstance(old_entry, IndexEntry) and old_entry.skip_worktree
+                    ):
+                        _transition_to_absent(repo, path, full_path, modify_stat, index)
+                index[path] = _skip_worktree_entry(change.new.sha, change.new.mode)
+            elif S_ISGITLINK(change.new.mode):
                 _transition_to_submodule(
                     repo, path, full_path, modify_stat, change.new, index
                 )
@@ -3445,6 +3571,12 @@ def update_working_tree(
                     blob_normalizer,
                     tree_encoding,
                 )
+            if in_sparse_checkout is not None and in_sparse_checkout(path):
+                # The path is now checked out, so a skip-worktree bit kept
+                # from the old entry no longer applies.
+                checked_out = index[path]
+                assert isinstance(checked_out, IndexEntry)
+                checked_out.set_skip_worktree(False)
 
     index.write()
 
@@ -3540,6 +3672,10 @@ def _check_entry_for_changes(
     if isinstance(entry, ConflictedIndexEntry):
         # Conflicted files are always unstaged
         return tree_path
+
+    if entry.skip_worktree:
+        # Paths outside the sparse checkout are not expected on disk.
+        return None
 
     full_path = _tree_to_fs_path(root_path, tree_path)
     try:
@@ -3952,7 +4088,13 @@ def apply_stat_refresh(
         entry = index[tree_path]
         if isinstance(entry, ConflictedIndexEntry):
             continue
-        index[tree_path] = index_entry_from_stat(st, entry.sha, mode=entry.mode)
+        index[tree_path] = index_entry_from_stat(
+            st,
+            entry.sha,
+            mode=entry.mode,
+            flags=entry.flags,
+            extended_flags=entry.extended_flags,
+        )
         updated = True
     return updated
 

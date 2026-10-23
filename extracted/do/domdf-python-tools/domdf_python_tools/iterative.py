@@ -306,9 +306,9 @@ def groupfloats(
 	.. code-block:: python
 
 		>>> list(groupfloats(
-		... 	[170.0, 170.05, 170.1, 170.15, 171.05, 171.1, 171.15, 171.2],
-		... 	step=0.05,
-		... ))
+		... 		[170.0, 170.05, 170.1, 170.15, 171.05, 171.1, 171.15, 171.2],
+		... 		step=0.05,
+		... 		))
 		[(170.0, 170.05, 170.1, 170.15), (171.05, 171.1, 171.15, 171.2)]
 		>>> list(groupfloats([1, 2, 3, 4, 5, 7, 8, 9, 10]))
 		[(1, 2, 3, 4, 5), (7, 8, 9, 10)]
@@ -334,7 +334,7 @@ def groupfloats(
 	a: float
 	b: Iterable[_group]
 
-	def key(pair):
+	def key(pair: Tuple[float, float]) -> float:
 		return (pair[1] * modifier) - ((pair[0] * modifier) * step)
 
 	for a, b in itertools.groupby(enumerate(iterable), key=key):
@@ -467,16 +467,16 @@ def count(start: AnyNum = 0, step: AnyNum = 1) -> Iterator[AnyNum]:
 
 	pos: int = 0
 
-	def get_next():
+	def get_next() -> float:
 		if pos:
-			return start + (step * pos)
+			return start + (step * pos)  # type: ignore[return-value]
 		else:
-			return start
+			return start  # type: ignore[return-value]
 
 	@final
 	class count(Iterator[AnyNum]):
 
-		def __next__(self):
+		def __next__(self) -> AnyNum:
 			nonlocal pos
 
 			val = get_next()
@@ -484,7 +484,7 @@ def count(start: AnyNum = 0, step: AnyNum = 1) -> Iterator[AnyNum]:
 
 			return val
 
-		def __iter__(self):
+		def __iter__(self) -> "count":
 			return self
 
 		if isinstance(step, int) and step == 1:
@@ -501,4 +501,4 @@ def count(start: AnyNum = 0, step: AnyNum = 1) -> Iterator[AnyNum]:
 
 	count.__qualname__ = count.__name__ = "count"
 
-	return count()  # type: ignore
+	return count()  # type: ignore[return-value]

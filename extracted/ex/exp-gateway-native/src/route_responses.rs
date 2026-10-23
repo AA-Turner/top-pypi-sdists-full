@@ -218,14 +218,14 @@ pub(crate) async fn responses(
         route: &admission.route,
         policy: admission.policy(),
         deadline,
-        pre_first_byte_deadline: crate::server::pre_first_byte_deadline(&state, deadline),
+        pre_first_byte_deadline: state.first_byte_budget(deadline, &admission.route, &body_text),
         time_to_first_byte: state.time_to_first_byte,
         time_to_first_byte_slope_seconds_per_million_input_tokens: state
             .time_to_first_byte_slope_seconds_per_million_input_tokens,
         time_to_first_token: state.time_to_first_token,
-        // Bytes over four approximates input tokens; a timeout heuristic
-        // only, never a billing quantity.
-        approximate_input_tokens: (body_text.len() as f64) / 4.0,
+        // Bytes over four, base64 media left out: a timeout heuristic only,
+        // never a billing quantity (shared with the budget floor).
+        approximate_input_tokens: crate::waterfall::approximate_input_tokens(&body_text),
         chat_logprobs: false,
         // A guardrail may rewrite the output the probabilities describe; it is
         // checked first so a guarded request never reserves a sidecar.

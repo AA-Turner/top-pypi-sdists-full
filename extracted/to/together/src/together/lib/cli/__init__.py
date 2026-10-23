@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import inspect
-from typing import Any, Optional, Annotated, get_args, get_origin
+from typing import Optional, Annotated, get_args, get_origin
 
 import httpx
 from cyclopts import App, Group, Parameter, CycloptsError, MissingArgumentError
@@ -37,7 +37,7 @@ from together.lib.cli.utils._debug import (
 )
 from together.lib.cli.utils.config import CLIConfig
 from together.lib.cli.utils._prompt import PromptParameter
-from together.lib.cli.utils._whoami import project_of, fetch_whoami
+from together.lib.cli.utils._whoami import project_of
 from together.lib.cli.utils._console import CliBrokenPipeError, console
 from together.lib.cli.utils._api_error import try_handle_server_error_message
 from together.lib.cli.utils._json_mode import emit_json, is_json_mode, use_json_mode, resolve_output_json
@@ -59,58 +59,52 @@ from together.lib.cli.utils._help_examples import (
     TOP_LEVEL_HELP_EXAMPLES,
     JIG_DEPLOY_HELP_EXAMPLES,
     JIG_SUBMIT_HELP_EXAMPLES,
-    BETA_MODELS_HELP_EXAMPLES,
     FINE_TUNING_HELP_EXAMPLES,
     JIG_DESTROY_HELP_EXAMPLES,
     JIG_SECRETS_HELP_EXAMPLES,
     JIG_VOLUMES_HELP_EXAMPLES,
+    ENDPOINTS_AB_HELP_EXAMPLES,
+    ENDPOINTS_LS_HELP_EXAMPLES,
+    ENDPOINTS_RM_HELP_EXAMPLES,
     EVALS_CREATE_HELP_EXAMPLES,
     FILES_UPLOAD_HELP_EXAMPLES,
     TRAINING_FP4_HELP_EXAMPLES,
+    ENDPOINTS_GET_HELP_EXAMPLES,
+    MODELS_CREATE_HELP_EXAMPLES,
+    MODELS_PUBLIC_HELP_EXAMPLES,
+    MODELS_UPDATE_HELP_EXAMPLES,
     MODELS_UPLOAD_HELP_EXAMPLES,
     BATCHES_SUBMIT_HELP_EXAMPLES,
-    BETA_ENDPOINTS_HELP_EXAMPLES,
     JIG_JOB_STATUS_HELP_EXAMPLES,
+    MODELS_CONFIGS_HELP_EXAMPLES,
     CLUSTERS_CREATE_HELP_EXAMPLES,
     CLUSTERS_UPDATE_HELP_EXAMPLES,
     JIG_SECRETS_SET_HELP_EXAMPLES,
+    MODELS_DOWNLOAD_HELP_EXAMPLES,
     BATCHES_DOWNLOAD_HELP_EXAMPLES,
     CLUSTERS_STORAGE_HELP_EXAMPLES,
-    ENDPOINTS_CREATE_HELP_EXAMPLES,
+    ENDPOINTS_DEPLOY_HELP_EXAMPLES,
+    ENDPOINTS_SHADOW_HELP_EXAMPLES,
     ENDPOINTS_UPDATE_HELP_EXAMPLES,
-    BETA_ENDPOINTS_AB_HELP_EXAMPLES,
-    BETA_ENDPOINTS_LS_HELP_EXAMPLES,
-    BETA_ENDPOINTS_RM_HELP_EXAMPLES,
+    ENDPOINTS_ROLLOUT_HELP_EXAMPLES,
     JIG_SECRETS_UNSET_HELP_EXAMPLES,
-    BETA_ENDPOINTS_GET_HELP_EXAMPLES,
-    BETA_MODELS_CREATE_HELP_EXAMPLES,
-    BETA_MODELS_PUBLIC_HELP_EXAMPLES,
-    BETA_MODELS_UPDATE_HELP_EXAMPLES,
-    BETA_MODELS_UPLOAD_HELP_EXAMPLES,
-    ENDPOINTS_HARDWARE_HELP_EXAMPLES,
     FINE_TUNING_CREATE_HELP_EXAMPLES,
     JIG_SECRETS_DELETE_HELP_EXAMPLES,
     JIG_VOLUMES_CREATE_HELP_EXAMPLES,
     JIG_VOLUMES_UPDATE_HELP_EXAMPLES,
-    BETA_MODELS_CONFIGS_HELP_EXAMPLES,
     FINE_TUNING_PREVIEW_HELP_EXAMPLES,
     TRAINING_FP4_CREATE_HELP_EXAMPLES,
-    BETA_MODELS_DOWNLOAD_HELP_EXAMPLES,
     FINE_TUNING_DOWNLOAD_HELP_EXAMPLES,
-    BETA_ENDPOINTS_DEPLOY_HELP_EXAMPLES,
-    BETA_ENDPOINTS_SHADOW_HELP_EXAMPLES,
-    BETA_ENDPOINTS_UPDATE_HELP_EXAMPLES,
     CLUSTERS_REMEDIATIONS_HELP_EXAMPLES,
-    BETA_ENDPOINTS_ROLLOUT_HELP_EXAMPLES,
+    MODELS_REMOTE_UPLOADS_HELP_EXAMPLES,
     FILES_RETRIEVE_CONTENT_HELP_EXAMPLES,
     CLUSTERS_STORAGE_CREATE_HELP_EXAMPLES,
     CLUSTERS_STORAGE_UPDATE_HELP_EXAMPLES,
     CLUSTERS_GET_CREDENTIALS_HELP_EXAMPLES,
     FINE_TUNING_LIST_METRICS_HELP_EXAMPLES,
     FINE_TUNING_MODEL_LIMITS_HELP_EXAMPLES,
-    BETA_MODELS_REMOTE_UPLOADS_HELP_EXAMPLES,
     CLUSTERS_REMEDIATIONS_CREATE_HELP_EXAMPLES,
-    BETA_MODELS_REMOTE_UPLOADS_CREATE_HELP_EXAMPLES,
+    MODELS_REMOTE_UPLOADS_CREATE_HELP_EXAMPLES,
     FINE_TUNING_DOWNLOAD_TOKENIZED_DATASET_HELP_EXAMPLES,
 )
 from together.lib.cli.utils._project_scope import ProjectScopeSwitched, explain_project_scope
@@ -136,8 +130,7 @@ _GLOBAL_PARAM_HELP = {
 # Commands that authenticate out-of-band (OIDC / step-ca) and make no Together
 # API calls, so the launcher must not require an API key or run the up-front
 # whoami() for them. Values match preparse_tokens() command paths with the beta
-# prefix stripped, so this covers both `tg clusters ssh` and the hidden
-# `tg beta clusters ssh` alias.
+# prefix stripped.
 _NO_AUTH_COMMANDS = frozenset({"clusters ssh"})
 # Top-level commands that perform their own auth (or clear it) and must not
 # require an existing API key or the project-resolution whoami().
@@ -145,7 +138,7 @@ _NO_AUTH_ROOT_COMMANDS = frozenset({"login", "logout", "switch"})
 
 
 async def _resolve_project_id(client: AsyncTogether) -> Optional[str]:
-    project = project_of(await fetch_whoami(client))
+    project = project_of(await client.whoami())
     return project.id if project is not None else None
 
 
@@ -396,11 +389,11 @@ async def _run_launcher(
 
     # Some commands authenticate out-of-band (OIDC / step-ca signed certificates)
     # and never call the Together API. They must not be gated on an API key or the
-    # up-front whoami() used for project resolution. `tg clusters ssh` is one
-    # (the hidden `tg beta clusters ssh` alias is the same command): its auth is
-    # entirely the cluster's Dex OIDC flow (see together.lib.cli.api.clusters.ssh).
-    # Before the whoami() was added for project resolution these commands worked
-    # with no key; skip client setup so they stay keyless.
+    # up-front whoami() used for project resolution. `tg clusters ssh` is one:
+    # its auth is entirely the cluster's Dex OIDC flow
+    # (see together.lib.cli.api.clusters.ssh). Before the whoami() was added for
+    # project resolution these commands worked with no key; skip client setup so
+    # they stay keyless.
     # `tg login` / `logout` / `switch` do their own auth against the stored issuer.
     no_auth_command = parsed_command in _NO_AUTH_COMMANDS or parsed_command in _NO_AUTH_ROOT_COMMANDS
 
@@ -791,46 +784,180 @@ training_fp4_app.command(f"{_FP4}.list_events:list_events", help="List events fo
 training_fp4_app.command(f"{_FP4}.cancel:cancel", help="Cancel an FP4 preparation job")
 
 ## Models API commands
-models_app = app.command(App(name="models", help="List and upload models", help_epilogue=MODELS_HELP_EXAMPLES))
-models_app.command((f"{_CLI}.models.list:list"), alias="ls", help="List available models")
-models_app.command((f"{_CLI}.models.upload:upload"), help="Upload a model", help_epilogue=MODELS_UPLOAD_HELP_EXAMPLES)
+models_app = app.command(
+    App(
+        name="models",
+        help="Register and manage models for dedicated inference",
+        help_epilogue=MODELS_HELP_EXAMPLES,
+    )
+)
+# `tg models deploy` is the same command as `tg endpoints deploy`.
+models_app.command(
+    (f"{_CLI}.endpoints.deploy:deploy"),
+    help="Create a deployment on a new or existing endpoint",
+    help_epilogue=ENDPOINTS_DEPLOY_HELP_EXAMPLES.replace(
+        "tg endpoints deploy",
+        "tg models deploy",
+    ),
+)
+models_app.command((f"{_CLI}.models.list:list"), alias="ls", help="List models in the caller's project")
+models_app.command(
+    (f"{_CLI}.models.public:public"),
+    help="List publicly-visible models across all projects",
+    help_epilogue=MODELS_PUBLIC_HELP_EXAMPLES,
+)
+models_app.command((f"{_CLI}.models.org:org"), help="List internal-visibility models in the caller's organization")
+models_app.command(
+    (f"{_CLI}.models.create:create"),
+    alias="-c",
+    help="Register a model (does not upload files)",
+    help_epilogue=MODELS_CREATE_HELP_EXAMPLES,
+)
+models_app.command((f"{_CLI}.models.list_files:list_files"), name="ls-files", help="List files in a model or adapter")
+models_app.command(
+    (f"{_CLI}.models.list_revisions:list_revisions"),
+    name="ls-revisions",
+    alias="list-revisions",
+    help="List revisions for a model",
+)
+models_app.command((f"{_CLI}.models.retrieve:retrieve"), alias="get", help="Get a model by ID")
+models_app.command(
+    (f"{_CLI}.models.update:update"),
+    help="Update a model (provided fields only)",
+    help_epilogue=MODELS_UPDATE_HELP_EXAMPLES,
+)
+models_app.command(
+    (f"{_CLI}.models.rm:rm"),
+    name="rm",
+    alias="-d",
+    help="Delete a model (metadata; does not delete files)",
+)
+models_app.command(
+    (f"{_CLI}.models.upload:upload"),
+    help="Upload files to a model or adapter",
+    help_epilogue=MODELS_UPLOAD_HELP_EXAMPLES,
+)
+models_app.command(
+    (f"{_CLI}.models.download:download"),
+    help="Download files from a model or adapter",
+    help_epilogue=MODELS_DOWNLOAD_HELP_EXAMPLES,
+)
+
+### Models > Remote Uploads API commands
+models_remote_uploads_app = models_app.command(
+    App(
+        name="remote-uploads",
+        help="Import model weights from Hugging Face or presigned URLs",
+        group="Subcommands",
+        help_epilogue=MODELS_REMOTE_UPLOADS_HELP_EXAMPLES,
+    )
+)
+models_remote_uploads_app.command(
+    (f"{_CLI}.models.remote_uploads.create:create"),
+    alias="-c",
+    help="Start a remote upload job",
+    help_epilogue=MODELS_REMOTE_UPLOADS_CREATE_HELP_EXAMPLES,
+)
+models_remote_uploads_app.command(
+    (f"{_CLI}.models.remote_uploads.retrieve:retrieve"),
+    alias="get",
+    help="Get a remote upload job by ID",
+)
+models_remote_uploads_app.command(
+    (f"{_CLI}.models.remote_uploads.list:list"),
+    alias="ls",
+    help="List remote upload jobs",
+)
+
+### Models > Configs API commands
+models_app.command(
+    (f"{_CLI}.models.configs.list:list"),
+    name="configs",
+    help="List deployable configs for a model",
+    help_epilogue=MODELS_CONFIGS_HELP_EXAMPLES,
+)
 
 ## Endpoints API commands
-endpoints_app = app.command(App(name="endpoints", help="Deploy and manage dedicated endpoints"))
-endpoints_app.command(
-    (f"{_CLI}.endpoints.hardware:hardware"),
-    help="List available hardware configurations for deploying models",
-    help_epilogue=ENDPOINTS_HARDWARE_HELP_EXAMPLES,
+endpoints_app = app.command(
+    App(
+        name="endpoints",
+        help="Deploy and manage dedicated inference endpoints",
+        help_epilogue=ENDPOINTS_HELP_EXAMPLES,
+    )
 )
 endpoints_app.command(
-    (f"{_CLI}.endpoints.create:create"),
-    alias="-c",
-    help="Create a new endpoint",
-    help_epilogue=ENDPOINTS_CREATE_HELP_EXAMPLES,
-)
-endpoints_app.command((f"{_CLI}.endpoints.retrieve:retrieve"), alias="get", help="Get endpoint details")
-endpoints_app.command((f"{_CLI}.endpoints.stop:stop"), help="Stop an endpoint")
-endpoints_app.command((f"{_CLI}.endpoints.start:start"), help="Start an endpoint")
-endpoints_app.command((f"{_CLI}.endpoints.delete:delete"), alias="-d", help="Delete an endpoint")
-endpoints_app.command((f"{_CLI}.endpoints.list:list"), alias="ls", help="List your endpoints")
-endpoints_app.command(
-    (f"{_CLI}.endpoints.update:update"), help="Update an endpoint", help_epilogue=ENDPOINTS_UPDATE_HELP_EXAMPLES
+    (f"{_CLI}.endpoints.deploy:deploy"),
+    help="Create a deployment on a new or existing endpoint",
+    help_epilogue=ENDPOINTS_DEPLOY_HELP_EXAMPLES,
+    sort_key=1,
 )
 endpoints_app.command(
-    (f"{_CLI}.endpoints.availability_zones:availability_zones"),
-    help="List availability zones for deploying models",
+    (f"{_CLI}.endpoints.list:list"),
+    name="ls",
+    help="List project, organization, or public endpoints",
+    help_epilogue=ENDPOINTS_LS_HELP_EXAMPLES,
+    sort_key=2,
 )
-endpoint_adapters_app = endpoints_app.command(
-    App(name="adapters", help="Manage LoRA adapters bound to dedicated endpoints", group="Subcommands")
+# Hidden `list` alias for `tg endpoints list …` (visible command is `ls`).
+endpoints_app.command(
+    (f"{_CLI}.endpoints.list:list"),
+    name="list",
+    show=False,
 )
-endpoint_adapters_app.command(
-    (f"{_CLI}.endpoints.adapters.list:list"), alias="ls", help="List adapters for an endpoint"
+endpoints_app.command(
+    (f"{_CLI}.endpoints.retrieve:retrieve"),
+    name="get",
+    help="Get endpoint or deployment details by name or ID",
+    help_epilogue=ENDPOINTS_GET_HELP_EXAMPLES,
+    sort_key=3,
 )
-endpoint_adapters_app.command((f"{_CLI}.endpoints.adapters.add:add"), help="Bind an adapter to an endpoint")
-endpoint_adapters_app.command(
-    (f"{_CLI}.endpoints.adapters.remove:remove"),
-    alias=("delete", "rm"),
-    help="Remove an adapter binding from an endpoint",
+# Explicit `retrieve` stays registered (hidden) for `tg endpoints retrieve …`.
+endpoints_app.command((f"{_CLI}.endpoints.retrieve:retrieve"), show=False)
+# Implicit get: `tg endpoints <name-or-id>` — cyclopts App.default, not token rewriting.
+# (Nested meta.default is not invoked by the root meta launcher's parse_known_args.)
+endpoints_app.default(endpoints_app["retrieve"].default_command)
+endpoints_app.command(
+    (f"{_CLI}.endpoints.update:update"),
+    help="Update a deployment's name, autoscaling, traffic weight, or A/B percent",
+    help_epilogue=ENDPOINTS_UPDATE_HELP_EXAMPLES,
+    sort_key=4,
+)
+endpoints_app.command(
+    (f"{_CLI}.endpoints.rm:rm"),
+    name="rm",
+    alias="-d",
+    sort_key=5,
+    help="Delete an endpoint, deployment, A/B experiment, shadow experiment, or rollout by ID",
+    help_epilogue=ENDPOINTS_RM_HELP_EXAMPLES,
+)
+# Hidden `delete` alias for `tg endpoints delete …` (visible command is `rm`).
+endpoints_app.command(
+    (f"{_CLI}.endpoints.rm:rm"),
+    name="delete",
+    show=False,
+)
+endpoints_app.command(
+    (f"{_CLI}.endpoints.events:events"),
+    help="List endpoint audit and lifecycle events",
+    sort_key=6,
+)
+endpoints_app.command(
+    (f"{_CLI}.endpoints.rollout:rollout"),
+    help="Roll out a model to receive traffic over another model",
+    help_epilogue=ENDPOINTS_ROLLOUT_HELP_EXAMPLES,
+    sort_key=9999,
+)
+endpoints_app.command(
+    (f"{_CLI}.endpoints.shadow:shadow"),
+    help="Mirror sampled live traffic to a new deployment without serving its responses",
+    help_epilogue=ENDPOINTS_SHADOW_HELP_EXAMPLES,
+    sort_key=9999,
+)
+endpoints_app.command(
+    (f"{_CLI}.endpoints.ab:ab"),
+    help="Create a variant deployment and split live traffic from a control deployment",
+    help_epilogue=ENDPOINTS_AB_HELP_EXAMPLES,
+    sort_key=9999,
 )
 
 ## Evals API commands
@@ -875,46 +1002,33 @@ beta_app = app.command(beta_root_app)
 clusters_app = app.command(
     App(name="clusters", help="Create and manage GPU clusters", help_epilogue=CLUSTERS_HELP_EXAMPLES)
 )
-# Hidden alias so `tg beta clusters` keeps working without showing up in help.
-# Cyclopts stores `show` on the App, so this is a separate App that shares subcommands.
-_beta_clusters_alias = beta_app.command(
-    App(name="clusters", show=False, help="Create and manage GPU clusters", help_epilogue=CLUSTERS_HELP_EXAMPLES)
-)
-
-
-def _clusters_command(obj: Any, /, *args: Any, **kwargs: Any) -> Any:
-    clusters_app.command(obj, *args, **kwargs)
-    _beta_clusters_alias.command(obj, *args, **kwargs)
-    return obj
-
-
-_clusters_command((f"{_CLI}.clusters.list:list"), alias="ls", help="List your clusters")
-_clusters_command(
+clusters_app.command((f"{_CLI}.clusters.list:list"), alias="ls", help="List your clusters")
+clusters_app.command(
     (f"{_CLI}.clusters.create:create"),
     alias="-c",
     help="Create a new cluster",
     help_epilogue=CLUSTERS_CREATE_HELP_EXAMPLES,
 )
-_clusters_command((f"{_CLI}.clusters.retrieve:retrieve"), alias="get", help="Get cluster details")
-_clusters_command(
+clusters_app.command((f"{_CLI}.clusters.retrieve:retrieve"), alias="get", help="Get cluster details")
+clusters_app.command(
     (f"{_CLI}.clusters.update:update"),
     help="Update a cluster",
     help_epilogue=CLUSTERS_UPDATE_HELP_EXAMPLES,
 )
-_clusters_command((f"{_CLI}.clusters.delete:delete"), alias="-d", help="Delete a cluster")
-_clusters_command((f"{_CLI}.clusters.list_regions:list_regions"), help="List regions for deploying clusters")
-_clusters_command(
+clusters_app.command((f"{_CLI}.clusters.delete:delete"), alias="-d", help="Delete a cluster")
+clusters_app.command((f"{_CLI}.clusters.list_regions:list_regions"), help="List regions for deploying clusters")
+clusters_app.command(
     (f"{_CLI}.clusters.get_credentials:get_credentials"),
     help="Get credentials for a cluster",
     help_epilogue=CLUSTERS_GET_CREDENTIALS_HELP_EXAMPLES,
 )
-_clusters_command(
+clusters_app.command(
     (f"{_CLI}.clusters.ssh:ssh"),
     help="SSH into a cluster via an OIDC-signed certificate",
 )
 
 ### Clusters > Storage API commands
-storage_app = _clusters_command(
+storage_app = clusters_app.command(
     App(
         name="storage",
         help="Manage cluster storage volumes",
@@ -942,7 +1056,7 @@ storage_app.command(
 storage_app.command((f"{_CLI}.clusters.storage.delete:delete"), help="Delete a storage volume", alias="-d")
 
 ### Clusters > Remediations API commands
-remediations_app = _clusters_command(
+remediations_app = clusters_app.command(
     App(
         name="remediations",
         help="Manage node remediations",
@@ -977,188 +1091,6 @@ remediations_app.command(
 remediations_app.command(
     (f"{_CLI}.clusters.remediations.reject:reject"),
     help="Reject a pending remediation",
-)
-
-### Beta Endpoints API commands
-
-beta_endpoints_app = beta_app.command(
-    App(
-        name="endpoints",
-        help="Deploy and manage dedicated inference endpoints",
-        help_epilogue=BETA_ENDPOINTS_HELP_EXAMPLES,
-    )
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.deploy:deploy"),
-    help="Create a deployment on a new or existing endpoint",
-    help_epilogue=BETA_ENDPOINTS_DEPLOY_HELP_EXAMPLES,
-    sort_key=1,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.list:list"),
-    name="ls",
-    help="List project, organization, or public endpoints",
-    help_epilogue=BETA_ENDPOINTS_LS_HELP_EXAMPLES,
-    sort_key=2,
-)
-# Hidden `list` alias for `tg beta endpoints list …` (visible command is `ls`).
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.list:list"),
-    name="list",
-    show=False,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.retrieve:retrieve"),
-    name="get",
-    help="Get endpoint or deployment details by name or ID",
-    help_epilogue=BETA_ENDPOINTS_GET_HELP_EXAMPLES,
-    sort_key=3,
-)
-# Explicit `retrieve` stays registered (hidden) for `tg beta endpoints retrieve …`.
-beta_endpoints_app.command((f"{_CLI}.beta.endpoints.retrieve:retrieve"), show=False)
-# Implicit get: `tg beta endpoints <name-or-id>` — cyclopts App.default, not token rewriting.
-# (Nested meta.default is not invoked by the root meta launcher's parse_known_args.)
-beta_endpoints_app.default(beta_endpoints_app["retrieve"].default_command)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.update:update"),
-    help="Update a deployment's name, autoscaling, traffic weight, or A/B percent",
-    help_epilogue=BETA_ENDPOINTS_UPDATE_HELP_EXAMPLES,
-    sort_key=4,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.rm:rm"),
-    name="rm",
-    alias="-d",
-    sort_key=5,
-    help="Delete an endpoint, deployment, adapter, A/B experiment, shadow experiment, or rollout by ID",
-    help_epilogue=BETA_ENDPOINTS_RM_HELP_EXAMPLES,
-)
-# Hidden `delete` alias for `tg beta endpoints delete …` (visible command is `rm`).
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.rm:rm"),
-    name="delete",
-    show=False,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.events:events"),
-    help="List endpoint audit and lifecycle events",
-    sort_key=6,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.rollout:rollout"),
-    help="Roll out a model to receive traffic over another model",
-    help_epilogue=BETA_ENDPOINTS_ROLLOUT_HELP_EXAMPLES,
-    sort_key=9999,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.shadow:shadow"),
-    help="Mirror sampled live traffic to a new deployment without serving its responses",
-    help_epilogue=BETA_ENDPOINTS_SHADOW_HELP_EXAMPLES,
-    sort_key=9999,
-)
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.ab:ab"),
-    help="Create a variant deployment and split live traffic from a control deployment",
-    help_epilogue=BETA_ENDPOINTS_AB_HELP_EXAMPLES,
-    sort_key=9999,
-)
-
-### Beta Models API commands
-beta_models_app = beta_app.command(
-    App(
-        name="models",
-        help="Register and manage models for dedicated inference",
-        help_epilogue=BETA_MODELS_HELP_EXAMPLES,
-    )
-)
-# `tg beta models deploy` is the same command as `tg beta endpoints deploy`.
-beta_models_app.command(
-    (f"{_CLI}.beta.endpoints.deploy:deploy"),
-    help="Create a deployment on a new or existing endpoint",
-    help_epilogue=BETA_ENDPOINTS_DEPLOY_HELP_EXAMPLES.replace(
-        "tg beta endpoints deploy",
-        "tg beta models deploy",
-    ),
-)
-beta_models_app.command((f"{_CLI}.beta.models.list:list"), alias="ls", help="List models in the caller's project")
-beta_models_app.command(
-    (f"{_CLI}.beta.models.public:public"),
-    help="List publicly-visible models across all projects",
-    help_epilogue=BETA_MODELS_PUBLIC_HELP_EXAMPLES,
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.org:org"), help="List internal-visibility models in the caller's organization"
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.create:create"),
-    alias="-c",
-    help="Register a model (does not upload files)",
-    help_epilogue=BETA_MODELS_CREATE_HELP_EXAMPLES,
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.list_files:list_files"), name="ls-files", help="List files in a model or adapter"
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.list_revisions:list_revisions"),
-    name="ls-revisions",
-    alias="list-revisions",
-    help="List revisions for a model",
-)
-beta_models_app.command((f"{_CLI}.beta.models.retrieve:retrieve"), alias="get", help="Get a model by ID")
-beta_models_app.command(
-    (f"{_CLI}.beta.models.update:update"),
-    help="Update a model (provided fields only)",
-    help_epilogue=BETA_MODELS_UPDATE_HELP_EXAMPLES,
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.rm:rm"),
-    name="rm",
-    alias="-d",
-    help="Delete a model (metadata; does not delete files)",
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.upload:upload"),
-    help="Upload files to a model or adapter",
-    help_epilogue=BETA_MODELS_UPLOAD_HELP_EXAMPLES,
-)
-beta_models_app.command(
-    (f"{_CLI}.beta.models.download:download"),
-    help="Download files from a model or adapter",
-    help_epilogue=BETA_MODELS_DOWNLOAD_HELP_EXAMPLES,
-)
-
-### Beta Models > Remote Uploads API commands
-beta_models_remote_uploads_app = beta_models_app.command(
-    App(
-        name="remote-uploads",
-        help="Import model weights from Hugging Face or presigned URLs",
-        group="Subcommands",
-        help_epilogue=BETA_MODELS_REMOTE_UPLOADS_HELP_EXAMPLES,
-    )
-)
-beta_models_remote_uploads_app.command(
-    (f"{_CLI}.beta.models.remote_uploads.create:create"),
-    alias="-c",
-    help="Start a remote upload job",
-    help_epilogue=BETA_MODELS_REMOTE_UPLOADS_CREATE_HELP_EXAMPLES,
-)
-beta_models_remote_uploads_app.command(
-    (f"{_CLI}.beta.models.remote_uploads.retrieve:retrieve"),
-    alias="get",
-    help="Get a remote upload job by ID",
-)
-beta_models_remote_uploads_app.command(
-    (f"{_CLI}.beta.models.remote_uploads.list:list"),
-    alias="ls",
-    help="List remote upload jobs",
-)
-
-### Beta Models > Configs API commands
-beta_models_app.command(
-    (f"{_CLI}.beta.models.configs.list:list"),
-    name="configs",
-    help="List deployable configs for a model",
-    help_epilogue=BETA_MODELS_CONFIGS_HELP_EXAMPLES,
 )
 
 ### Jig commands
@@ -1315,7 +1247,6 @@ def _pin_root_help_tail(root: App) -> None:
 _pin_root_help_tail(app)
 
 app.help_epilogue = TOP_LEVEL_HELP_EXAMPLES
-endpoints_app.help_epilogue = ENDPOINTS_HELP_EXAMPLES
 
 
 def main() -> None:
@@ -1323,12 +1254,6 @@ def main() -> None:
 
     # Shown in the root help page, but not a functional command
     BETA_GROUP_TITLE = "Beta Commands"
-    app.command(
-        App(name="beta endpoints", help="Deploy and manage dedicated inference endpoints", group=BETA_GROUP_TITLE)
-    )
-    app.command(
-        App(name="beta models", help="Register and manage models for dedicated inference", group=BETA_GROUP_TITLE)
-    )
     app.command(App(name="beta jig", help="Container deployment", group=BETA_GROUP_TITLE))
     beta_root_app.show = False
     _pin_root_help_tail(app)

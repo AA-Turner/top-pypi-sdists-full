@@ -31,10 +31,11 @@ import importlib
 import inspect
 import itertools
 import json
+import operator
 import re
 import sys
 import types
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 from fiddle import daglish
 from fiddle._src import config as config_lib
@@ -165,7 +166,7 @@ for set_type in (set, frozenset):
 register_node_traverser(
     bytes,
     flatten_fn=lambda x: ((x.decode('raw_unicode_escape'),), None),
-    unflatten_fn=lambda values, _: values[0].encode('raw_unicode_escape'),
+    unflatten_fn=lambda values, _: values[0].encode('raw_unicode_escape'),  # pyrefly: ignore[bad-index]
     path_elements_fn=lambda x: (IdentityElement(),),
 )
 
@@ -174,6 +175,15 @@ register_node_traverser(
     flatten_fn=lambda _: ((), None),
     unflatten_fn=lambda values, metadata: config_lib.NO_VALUE,
     path_elements_fn=lambda _: ())
+
+register_node_traverser(
+    slice,
+    flatten_fn=lambda x: ((x.start, x.stop, x.step), None),
+    unflatten_fn=lambda x, _: slice(*x),
+    path_elements_fn=lambda x: tuple(
+        daglish.Attr(k) for k in ['start', 'stop', 'step']
+    ),
+)
 
 
 def _is_leaf_type(value_type):
@@ -214,7 +224,7 @@ class PyrefPolicy(metaclass=abc.ABCMeta):
       symbol: The symbol to import from `module`.
     """
 
-  def allows_value(self, value: Any) -> bool:
+  def allows_value(self, value: Any) -> bool:  # pyrefly: ignore[bad-return]
     """Returns whether this policy allows an imported `value` to be used.
 
     This is called after `value` has already been imported, but before it is
@@ -222,7 +232,7 @@ class PyrefPolicy(metaclass=abc.ABCMeta):
 
     Args:
       value: An imported value.
-    """
+    """  # pytype: disable=bad-return-type
 
 
 class PyrefPolicyError(Exception):
@@ -573,10 +583,22 @@ class Serialization:
     module_name = module.__name__
     if isinstance(value, enum.Enum):
       symbol = value.__class__.__qualname__ + '.' + value.name
+    elif isinstance(value, types.MethodType) and hasattr(
+        value.__self__, '__qualname__'
+    ):
+      # Class methods needs special handling, since `value.__qualname__` returns
+      # the wrong class (the parent) when a class method that is defined in
+      # parent classes, is referenced from the child class.
+      symbol = value.__self__.__qualname__ + '.' + value.__name__
     else:
       symbol = value.__qualname__
     # Check to make sure we can import the symbol.
-    if value is not import_symbol(self._pyref_policy, module_name, symbol):
+    imported_value = import_symbol(self._pyref_policy, module_name, symbol)
+    # Class methods compare equal but do not preserve identity when imported.
+    matches = (
+        operator.eq if isinstance(value, types.MethodType) else operator.is_
+    )
+    if not matches(value, imported_value):
       msg = (
           f"Couldn't create a pyref for {value!r}; the same value was not"
           f' obtained by importing {symbol!r} from {module_name!r}. Error'
@@ -625,7 +647,7 @@ class Serialization:
       # If we should add paths (all_paths is not None) and we have an entry for
       # value in self._paths_by_id, use that, since it may contain additional
       # paths not available via the parent.
-      all_paths = self._paths_by_id.get(id(value), all_paths)
+      all_paths = self._paths_by_id.get(id(value), all_paths)  # pyrefly: ignore[bad-assignment]
 
     traverser = find_node_traverser(type(value))
     if traverser is None:
@@ -636,7 +658,9 @@ class Serialization:
         if all_paths is None:
           return value  # If we don't need to add paths, just return the value.
         output = self._leaf(value)
-      elif isinstance(value, (type, types.FunctionType, enum.Enum)):
+      elif isinstance(
+          value, (type, types.FunctionType, types.MethodType, enum.Enum)
+      ):
         output = self._pyref(value, current_path)
       elif isinstance(value, lazy_imports.ProxyObject):
         output = _serialize_lazy_imports(value)
@@ -827,7 +851,7 @@ def dump_json(
 
 
 def load_json(
-    serialized_value: str,
+    serialized_value: Union[str, bytes, bytearray],
     pyref_policy: Optional[PyrefPolicy] = None,
 ) -> Any:
   """Returns a Python object deserialized from `serialized_value`.

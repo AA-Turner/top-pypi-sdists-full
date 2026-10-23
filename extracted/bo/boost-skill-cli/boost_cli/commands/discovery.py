@@ -93,6 +93,13 @@ def _ai_rank(query: str, scored):
         max_tokens=400)
     order = _json_array(reply)
     if not order:
+        if reply:
+            ai.note_bad_reply("no JSON array of names", reply)
+        return None
+    # A reply naming none of the candidates leaves the order exactly as BM25
+    # had it, so crediting the AI with it would be a false label.
+    if not rag.names_any(scored, order, lambda t: t[0]["name"]):
+        ai.note_bad_reply("named none of the candidates", reply)
         return None
     # Homonyms from different taps are different rows; see reorder_by_names.
     return rag.reorder_by_names(scored, order, lambda t: t[0]["name"])
@@ -243,14 +250,15 @@ def cmd_search(argv):
     # The CLI's long-standing wording for the BM25 engine differs from the label
     # rag/eval use ("BM25 full-content"), and both are load-bearing: the latter
     # is pinned in tests/eval/baseline.json. Map instead of moving either.
-    ranker = _ENGINE_LABEL.get(engine, engine) if use_rag else "heuristic relevance"
+    ranker = _ENGINE_LABEL.get(engine, engine) if use_rag else rag.HEURISTIC_ENGINE
     if args.smart:
         reranked = None
         if ai.available():
             with spin.Spinner("ranking %d matches with Claude" % len(scored)):
                 reranked = _ai_rank(query, scored)
         if reranked:
-            scored, ranker = reranked, "Claude Haiku relevance"
+            # Named for the route that answered, not a model nobody checked.
+            scored, ranker = reranked, ai.ranker_label()
         else:
             # Fires whether AI was never available or was tried and failed —
             # a silent unranked list otherwise looks identical to a
@@ -722,8 +730,19 @@ def cmd_reindex(argv):
                  wrap=True)
     if args.dense:
         if dense_stats is None:
-            out.warn("dense index skipped — %s" % embed.fallback_note(),
-                     wrap=True)
+            from ..core import dense
+            st = dense.status()
+            # The extra is here and cannot load: "install the extra" would
+            # name the step this machine already took.
+            note = (dense.fix_hint(st["reason"], st)
+                    if st["reason"] == "no-extension-load"
+                    else embed.fallback_note())
+            out.warn("dense index skipped — %s" % note, wrap=True)
+        elif dense_stats.get("refused"):
+            from ..core import dense
+            msg, fix = dense.refusal_text(dense_stats)
+            out.warn(msg, wrap=True)
+            out.dim("hint: %s" % fix, wrap=True, indent=2)
         else:
             failed = dense_stats.get("failed") or []
             model_error = dense_stats.get("model_error")
@@ -857,6 +876,8 @@ def _reindex_dense(force, spinner=None):
     # embeds nothing and would otherwise never touch the model at all.
     embed.retry_local()
     stats = dense.build(force=force, on_progress=_embed_progress(spinner))
+    if isinstance(stats, dict) and stats.get("refused"):
+        return stats            # nothing was written; the caller words it
     if migrated and isinstance(stats, dict):
         stats = stats | {"quantized": migrated["chunks"]}
     if collapsed and isinstance(stats, dict) and collapsed["freed"]:
@@ -898,10 +919,12 @@ def cmd_index(argv):
             time.sleep(1)  # stay under the code-search rate limit
         try:
             proc = subprocess.run(
-                ["gh", "api", "-H", "Accept: application/vnd.github+json",
-                 "search/code?q=%s&per_page=100&page=%d"
-                 % (urllib.parse.quote(q, safe=":"), page)],
-                capture_output=True, text=True, timeout=120)
+                util.resolve_exe(
+                    ["gh", "api", "-H", "Accept: application/vnd.github+json",
+                     "search/code?q=%s&per_page=100&page=%d"
+                     % (urllib.parse.quote(q, safe=":"), page)]),
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=120)
         except (subprocess.TimeoutExpired, OSError) as e:
             spin.progress_clear()
             raise BoostError("gh api timed out on page %d" % page, hint=str(e)) from e
@@ -982,10 +1005,12 @@ def github_skill_search(query="", limit=20):
     per_page = max(1, min(int(limit), 100))
     try:
         proc = subprocess.run(
-            ["gh", "api", "-H", "Accept: application/vnd.github+json",
-             "search/code?q=%s&per_page=%d&page=1"
-             % (urllib.parse.quote(q, safe=":"), per_page)],
-            capture_output=True, text=True, timeout=120)
+            util.resolve_exe(
+                ["gh", "api", "-H", "Accept: application/vnd.github+json",
+                 "search/code?q=%s&per_page=%d&page=1"
+                 % (urllib.parse.quote(q, safe=":"), per_page)]),
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=120)
     except (subprocess.TimeoutExpired, OSError):
         return None
     if proc.returncode != 0:
@@ -1221,8 +1246,13 @@ def _ai_picks(stack: dict, cands):
         max_tokens=500)
     picks = _json_array(reply)
     if not picks:
+        if reply:
+            ai.note_bad_reply("no JSON array of picks", reply)
         return None
-    return [pk for pk in picks if isinstance(pk, dict) and pk.get("name")][:5]
+    usable = [pk for pk in picks if isinstance(pk, dict) and pk.get("name")][:5]
+    if not usable:
+        ai.note_bad_reply("no pick carried a name", reply)
+    return usable or None
 
 
 def cmd_recommend(argv):
@@ -1319,17 +1349,26 @@ def cmd_recommend(argv):
         out.info(name_cell + "  " + desc + " " * (desc_w - out.visible_len(desc))
                  + "  " + out.role(because, "muted"))
     if ai.available():
-        picks = _ai_picks(stack, [r["entry"] for r in ranked[:20]])
+        # A spinner, as search --smart has: the table above already looks
+        # finished, and a hung CLI otherwise sat silent until the timeout.
+        with spin.Spinner("asking AI for its picks"):
+            picks = _ai_picks(stack, [r["entry"] for r in ranked[:20]])
         if picks:
             out.heading("AI picks")
             for pk in picks:
                 out.info(out.role(str(pk.get("name", "?")), "accent") + "  "
                          + str(pk.get("reason", "")))
+        else:
+            # Same contract as every other AI-assisted command: a dropped
+            # "AI picks" section says why instead of vanishing.
+            out.warn(ai.fallback_note(), wrap=True, stream=sys.stderr)
     return 0
 
 
 def _browse_plain(entries, why: str):
-    out.warn(why + " — showing the full catalog")
+    # stderr: piping is the only scripted use of browse, so stdout's first
+    # line must be the table header, not this notice.
+    out.warn(why + " — showing the full catalog", stream=sys.stderr)
     # Same collapse the TUI does: a registry renders one skill into
     # .claude/, .cursor/, .gemini/ and a plugin root, and this fallback used
     # to list every copy with nothing to tell them apart.
@@ -2333,7 +2372,9 @@ def _print_categories(entries, categories, by_count=False) -> int:
                               order="count" if by_count else "az")[1:]
     out.heading("%d categories · %s items" % (len(rows),
                                               format(len(unique), ",")))
-    out.table([(c, format(n, ",")) for c, n in rows],
+    # plain(): a category is frontmatter, and its ESC/BEL bytes both reached
+    # the terminal and counted as columns, pushing that row's count out of line.
+    out.table([(out.plain(c), format(n, ",")) for c, n in rows],
               headers=("category", "items"), whole=("category",))
     out.info(out.c("open one with `boost browse --category <name>`", out.DIM))
     return 0
@@ -2351,6 +2392,8 @@ def cmd_browse(argv):
     p.add_argument("--by-count", action="store_true",
                    help="with --categories: largest first instead of A–Z")
     args = p.parse_args(argv)
+    if args.by_count and not args.categories:
+        p.error("--by-count only applies with --categories")
     entries = sorted(catalog.all_entries(), key=operator.itemgetter("name"))
     if not entries:
         raise BoostError("no skills available to browse",
@@ -2480,8 +2523,10 @@ def cmd_trending(argv):
             return 0
         # reserve name/version/kind columns
         descw = max(out.term_width() - 34, 24)
-        out.table([(e["name"], "v" + e["version"], e.get("kind", "skill"),
-                    out.truncate(e["description"], descw))
+        # Sanitised before the truncate, so it clips printable columns.
+        out.table([(out.plain(e["name"]), "v" + out.plain(e["version"]),
+                    out.plain(e.get("kind", "skill")),
+                    out.truncate(out.plain(e["description"]), descw))
                    for e in curated],
                   headers=("name", "version", "kind", "description"),
                   whole=("name",))  # `boost install <name>`
@@ -2508,9 +2553,10 @@ def cmd_trending(argv):
         return 0
     # reserve name/installs/last/kind columns
     descw = max(out.term_width() - 54, 24)
-    out.table([(name, str(rec["count"]), util.rel_time(rec["last"]),
-                entry_for[name].get("kind", "skill"),
-                out.truncate(entry_for[name].get("description", ""), descw))
+    out.table([(out.plain(name), str(rec["count"]), util.rel_time(rec["last"]),
+                out.plain(entry_for[name].get("kind", "skill")),
+                out.truncate(out.plain(entry_for[name].get("description", "")),
+                             descw))
                for name, rec in ranked[:args.limit]],
               headers=("name", "installs", "last", "kind", "description"),
               whole=("name",))  # `boost install <name>`
@@ -2544,10 +2590,18 @@ def cmd_stats(argv):
             kind, lock = "skill", prow.entry
     kind = kind or "skill"
     qualifier, _bare = catalog.split_name(args.name)
-    cat = catalog.for_lock(catalog.find(args.name), lock)
+    matches = catalog.find(args.name)
+    cat: dict | None
+    if lock is None and matches:
+        # Nothing installed to narrow by, so the row is picked the way `info`
+        # picks it: `matches[0]` described whichever tap sorted first — and
+        # suggested an install that then refused the same name as ambiguous.
+        cat = catalog.resolve_one(args.name)
+    else:
+        cat = catalog.for_lock(matches, lock)
     if not lock and not cat:
         raise BoostError("no skill named %r installed or in any tap" % args.name,
-                        hint=catalog.join_hints("try `boost search %s`" % name,
+                        hint=catalog.join_hints(catalog.search_hint(name),
                                                 catalog.stale_commit_hint()))
     acts = {a: len(catalog.events_for_tap(
                 journal.events(action=a, subject=name), qualifier, lock))
@@ -2580,6 +2634,14 @@ def cmd_stats(argv):
                          "description": cat["description"],
                          "upstream": upstream} if cat else None)}))
         return 0
+    # Display copies from here on: the lock and catalogue rows, the latest
+    # version and the upstream commit subject are all tap-authored text. The
+    # update check compares the raw versions, before they are sanitised.
+    newer = bool(lock and latest
+                 and util.semver_gt(latest, lock.get("version", "0")))
+    name, lock, cat = out.plain(name), out.plain_fields(lock), out.plain_fields(cat)
+    latest = out.plain(latest) if latest else latest
+    upstream = out.plain(upstream) if upstream else upstream
     out.heading(name if kind == "skill" else "%s (%s)" % (name, kind))
     if lock:
         out.kv("version", lock.get("version", "?"))
@@ -2608,11 +2670,14 @@ def cmd_stats(argv):
         out.kv("version", cat["version"])
         out.kv("tap", cat["tap"])
         out.kv("description", cat["description"], wrap=True)
-        out.info(out.role("not installed — `boost install %s`" % name, "muted"))
+        # As typed: a bare name can resolve to another tap's copy, or not at
+        # all, where the qualified spelling just resolved to this one.
+        out.info(out.role("not installed — `boost install %s`"
+                          % out.plain(args.name), "muted"))
     out.kv("activity", "%d installs · %d updates · %d uninstalls"
            % (acts["install"], acts["update"], acts["uninstall"]))
     if lock and latest:
-        if util.semver_gt(latest, lock.get("version", "0")):
+        if newer:
             out.kv("latest", "%s %s" % (latest, out.role("(update available)", "warn")))
         else:
             out.kv("latest", "%s %s" % (latest, out.role("(up to date)", "muted")))

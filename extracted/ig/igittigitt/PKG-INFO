@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.2.8
+Version: 2.2.9
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -24,8 +24,8 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: click>=8.5.0
 Requires-Dist: lib-cli-exit-tools>=2.4.1
-Requires-Dist: lib-layered-config>=7.1.9
-Requires-Dist: lib-log-rich>=6.5.3
+Requires-Dist: lib-layered-config>=7.3.0
+Requires-Dist: lib-log-rich>=6.5.6
 Requires-Dist: orjson>=3.13.0
 Requires-Dist: pydantic>=2.14.1
 Requires-Dist: python-dotenv>=1.2.4
@@ -34,6 +34,7 @@ Requires-Dist: wcmatch>=11.1
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
+Requires-Dist: certifi>=2026.10.19; extra == 'dev'
 Requires-Dist: hatchling>=1.32.4; extra == 'dev'
 Requires-Dist: httpx2>=2.13.1; extra == 'dev'
 Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
@@ -50,7 +51,7 @@ Requires-Dist: ruff>=0.17.0; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Requires-Dist: urllib3>=2.8.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.14.7; extra == 'dev'
+Requires-Dist: virtualenv>=21.14.9; extra == 'dev'
 Requires-Dist: wheel>=0.48.0; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -79,7 +80,8 @@ whether a path is ignored, or use it directly as the `ignore=` callback of
   exactly - a single ordered pass with *last-matching-pattern-wins*, correct
   **negations** (`!pattern`), the rule that a file cannot be re-included when a parent
   directory is excluded, per-directory `.gitignore` precedence, anchors, trailing-slash
-  (directory-only), `**`, `*`, `?` and `[...]` character classes. Compatibility is
+  (directory-only), `**` (a segment of three or more asterisks such as `***/build` counts
+  as `**` too, as in git), `*`, `?` and `[...]` character classes. Compatibility is
   proven by a differential test suite that compares igittigitt against real `git
   check-ignore` on hundreds of generated cases. *(This fixes the negation and
   nested-precedence limitations of older releases.)*

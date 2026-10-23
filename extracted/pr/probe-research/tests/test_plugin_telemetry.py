@@ -342,6 +342,11 @@ def test_routes_json_wires_exactly_the_decided_events() -> None:
     # the command, so the "does this even mention probe" test cannot happen in
     # the shell the way the Stop hook's opt-in flag does. The hook itself is
     # already minimal on the common path -- parse stdin, one stat, return.
+    #
+    # TurnStarted joined for Kimi Code only (D19, 2026-10-22): a skill the person
+    # types there fires no UserPromptSubmit, so the switch runs on TurnStarted.
+    # Claude Code and Codex never fire it (no hooks.json entry names it), and
+    # Kimi's entry matches only a skill activation, so it costs nothing per turn.
     assert set(hooks) == {
         "UserPromptSubmit",
         "SessionStart",
@@ -350,6 +355,7 @@ def test_routes_json_wires_exactly_the_decided_events() -> None:
         "PostToolUse",
         "SessionEnd",
         "Stop",
+        "TurnStarted",
     }
     pre = hooks["PreToolUse"][0]
     assert pre["matcher"] == "^Bash$|probe[-_]research", (
@@ -374,8 +380,17 @@ def test_routes_json_wires_exactly_the_decided_events() -> None:
     # edits group: new groups go last, never between existing ones.
     [papers] = [g for g in hooks["PreToolUse"] if g["matcher"] == "^WebSearch$"]
     assert "papers_hook.py" in papers["hooks"][0]["command"]
+    # The skills refresh (2026-10-22): before a Skill call, Probe's copies in
+    # Claude Code's own skills folder are brought to the installed plugin's, so
+    # a session open across a plugin update reads the new text. Skill calls are
+    # rare; each costs one in-process python run, and a silent one when current.
+    [skills] = [g for g in hooks["PreToolUse"] if g["matcher"] == "^Skill$"]
+    assert '/hooks/root_skills_sync.py" skill-call' in skills["hooks"][0]["command"]
+    assert skills["hooks"][0]["timeout"] == 5
     order = [g["matcher"] for g in hooks["PreToolUse"]]
-    assert order[-2:] == [edits["matcher"], papers["matcher"]], "new groups go last: indexes are part of the trust key"
+    assert order[-3:] == [edits["matcher"], papers["matcher"], skills["matcher"]], (
+        "new groups go last: indexes are part of the trust key"
+    )
     prompt_hooks = hooks["UserPromptSubmit"][0]["hooks"]
     assert "tracking_guard.py" in prompt_hooks[0]["command"]
     assert all(h["timeout"] == 5 for h in prompt_hooks)

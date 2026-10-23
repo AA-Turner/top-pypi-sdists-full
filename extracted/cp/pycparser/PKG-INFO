@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycparser
-Version: 3.11
+Version: 3.12
 Summary: C parser in Python
 Author-email: Eli Bendersky <eliben@gmail.com>
 Maintainer-email: Eli Bendersky <eliben@gmail.com>
@@ -8,13 +8,12 @@ License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/eliben/pycparser
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: license-file
@@ -70,9 +69,12 @@ simple to install and deploy.
 Which version of C does pycparser support?
 ------------------------------------------
 
-**pycparser** aims to support the full C99 language (according to the standard
-ISO/IEC 9899). Some features from C11 are also supported, and patches to support
-more are welcome.
+**pycparser** aims to support the full C11 language, including earlier
+revisions like C99.
+
+C23 support is conditional on a ``dialect="c23"`` setting, since this revision
+introduces new keywords like ``bool`` that would conflict with existing C code
+if not handled properly.
 
 **pycparser** supports very few GCC extensions, but it's fairly easy to set
 things up so that it parses code with a lot of GCC-isms successfully. See the
@@ -170,6 +172,20 @@ that most realistic C code samples would require running the C preprocessor
 before passing the code to **pycparser**; see the previous sections for more
 details.
 
+For example, to parse C23 source with a preprocessor that supports ``-std=c23``::
+
+    from pycparser import CParser, parse_file
+
+    ast = parse_file(
+        "example.c",
+        use_cpp=True,
+        cpp_args=["-std=c23"],
+        parser=CParser(dialect="c23"),
+    )
+
+The parser's dialect does not configure the external preprocessor; select its
+language mode separately through ``cpp_args``.
+
 .. |examples| replace:: ``examples``
 .. _examples: examples
 
@@ -180,6 +196,32 @@ Advanced usage
 The public interface of **pycparser** is well documented with comments in
 ``pycparser/c_parser.py``. For a detailed overview of the various AST nodes
 created by the parser, see ``pycparser/_c_ast.cfg``.
+
+The root node is a ``FileAST``, whose ``ext`` attribute is a list of top-level
+declarations and function definitions. Explore nodes through their named fields,
+and use ``show()`` on a subtree to inspect just that part of the AST::
+
+    from pycparser import CParser
+
+    ast = CParser().parse("int x; int f(void) { return x; }")
+    print(len(ast.ext))  # 2
+    func = ast.ext[1]
+    func.body.show()
+
+For generic exploration, call ``children()`` to get a tuple of ``(field_name,
+child_node)`` pairs for the immediate children. The tuple supports length and
+indexing directly::
+
+    children = func.children()
+    print(len(children))  # 2: decl and body
+    name, child = children[0]
+    print(name)  # decl
+    child.show()
+
+Iterating over a node directly (``for child in node``) yields just the child
+nodes, without their names. For a guided walkthrough, see
+`examples/explore_ast.py <examples/explore_ast.py>`_; for recursive traversal,
+see the ``NodeVisitor`` example in `examples/func_defs.py <examples/func_defs.py>`_.
 
 There's also a `FAQ available here <https://github.com/eliben/pycparser/wiki/FAQ>`_.
 In any case, you can always drop me an `email <eliben@gmail.com>`_ for help.

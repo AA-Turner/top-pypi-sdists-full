@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: ISC
-
+#
 # Copyright (c) 2021, Timothée Mazzucotelli and contributors
-
+#
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -141,29 +141,31 @@ class BreakageKind(StrEnum):
     """Enumeration of the possible API breakages."""
 
     PARAMETER_MOVED = "Positional parameter was moved"
-    """Positional parameter was moved"""
+    """Positional parameter was moved."""
     PARAMETER_REMOVED = "Parameter was removed"
-    """Parameter was removed"""
+    """Parameter was removed."""
     PARAMETER_CHANGED_KIND = "Parameter kind was changed"
-    """Parameter kind was changed"""
+    """Parameter kind was changed."""
     PARAMETER_CHANGED_DEFAULT = "Parameter default was changed"
-    """Parameter default was changed"""
+    """Parameter default was changed."""
     PARAMETER_CHANGED_REQUIRED = "Parameter is now required"
-    """Parameter is now required"""
+    """Parameter is now required."""
     PARAMETER_ADDED_REQUIRED = "Parameter was added as required"
-    """Parameter was added as required"""
+    """Parameter was added as required."""
     RETURN_CHANGED_TYPE = "Return types are incompatible"
-    """Return types are incompatible"""
+    """Return types are incompatible."""
     OBJECT_REMOVED = "Public object was removed"
-    """Public object was removed"""
+    """Public object was removed."""
     OBJECT_CHANGED_KIND = "Public object points to a different kind of object"
-    """Public object points to a different kind of object"""
+    """Public object points to a different kind of object."""
     ATTRIBUTE_CHANGED_TYPE = "Attribute types are incompatible"
-    """Attribute types are incompatible"""
-    ATTRIBUTE_CHANGED_VALUE = "Attribute value was changed"
-    """Attribute value was changed"""
+    """Attribute types are incompatible."""
     CLASS_REMOVED_BASE = "Base class was removed"
-    """Base class was removed"""
+    """Base class was removed."""
+
+    # YORE: Bump 3: Remove block.
+    ATTRIBUTE_CHANGED_VALUE = "Attribute value was changed"
+    """Attribute value was changed."""
 
 
 class Parser(StrEnum):

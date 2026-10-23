@@ -53,7 +53,7 @@ OPENSEO_TO_OURS: dict[str, str | None] = {
     "heading-order-skip": "heading_hierarchy",
     "slow-response": "ttfb_server_response",
     "deep-page": "crawl_depth",
-    "no-outgoing-links": None,
+    "no-outgoing-links": "dead_end_page",
     # Crawl states, not checks (spec §8.1 — Lane H's reason codes).
     "blocked-page": None,
     "rate-limited-page": None,

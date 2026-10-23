@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: uiautomator2
-Version: 3.7.0
+Version: 3.7.1
 Summary: uiautomator for android device
 Home-page: https://github.com/openatx/uiautomator2
 License: MIT
@@ -66,12 +66,17 @@ uiautomator2 version
 
 Install element inspection tool (optional, but highly recommended):
 
-> For more detailed usage instructions, refer to: https://github.com/codeskyblue/uiautodev QQ:536481989
+> For more detailed usage instructions, refer to: https://github.com/uiautodev/uiautodev QQ:536481989
 
 ```sh
-pip install uiautodev
+# Recommended: launch via npx (requires Node.js), it will automatically open the browser
+npx uiautodev -open
 
-# After starting from the command line, it will automatically open the browser
+# If Node.js is not installed, download the standalone binary for your platform
+# from https://get.uiauto.dev and run it directly.
+
+# Alternative: install the Python version via pip
+pip install uiautodev
 uiautodev
 # or: python -m uiautodev
 ```
@@ -206,6 +211,7 @@ For more usage, refer to [XPath Interface Document](XPATH.md)
 ## Plugins
 
 - webview: https://github.com/YuYoungG/uiautomator2-webview
+- flutter: https://github.com/assassinaj602/u2_flutter - Flutter driver plugin, lets you locate and operate Flutter widgets (e.g., `flutter.find_by_key("submit_btn").tap()`) instead of the empty native view hierarchy. See [proposal #1191](https://github.com/openatx/uiautomator2/issues/1191).
 
 To maintain the project's simplicity and extensibility, future plugins will be integrated as third-party libraries.
 
@@ -1333,6 +1339,19 @@ To use a non-default uiautomator2 server port, pass `-p`/`--port` after the subc
 
 # Agent CLI
 `u2cli` is a lightweight command-line wrapper around common device operations, useful for agent-driven workflows that need to inspect and control a device without writing Python code.
+
+## Skill
+
+This repository also ships a skill for Android device automation. After installing `uiautomator2`, you can add the bundled `uiautomator2` skill with either `npx` or `gh`:
+
+```sh
+npx skills add https://github.com/openatx/uiautomator2 --skill uiautomator2
+
+# or
+gh skill install https://github.com/openatx/uiautomator2 skills/uiautomator2
+```
+
+The installed skill uses `u2cli` under the hood, so make sure `pip install uiautomator2` is already available in your environment.
 
 ```sh
 u2cli device-info

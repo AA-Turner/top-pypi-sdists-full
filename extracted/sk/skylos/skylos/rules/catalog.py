@@ -243,7 +243,7 @@ _RULES = (
         finding_type="defect",
     ),
     RuleCatalogEntry("SKY-Q501", "God class", "quality", finding_type="advice"),
-    RuleCatalogEntry("SKY-Q502", "Class too large", "quality", finding_type="advice"),
+    RuleCatalogEntry("SKY-Q502", "File too large", "quality", finding_type="advice"),
     RuleCatalogEntry("SKY-Q701", "High coupling", "quality", finding_type="advice"),
     RuleCatalogEntry("SKY-Q702", "Low cohesion", "quality", finding_type="advice"),
     RuleCatalogEntry(
@@ -352,7 +352,35 @@ _RULES = (
         "SKY-L035", "Blanket ESLint disable", "quality", "HIGH", finding_type="review"
     ),
     RuleCatalogEntry(
-        "SKY-P401", "Inefficient loop pattern", "quality", finding_type="advice"
+        "SKY-L036",
+        "Import repeated inside function",
+        "quality",
+        "LOW",
+        finding_type="advice",
+    ),
+    RuleCatalogEntry(
+        "SKY-L037",
+        "Conditional returning bool literals",
+        "quality",
+        "LOW",
+        finding_type="advice",
+    ),
+    RuleCatalogEntry(
+        "SKY-L038",
+        "Conversion call inside f-string",
+        "quality",
+        "LOW",
+        finding_type="advice",
+    ),
+    RuleCatalogEntry(
+        "SKY-L039",
+        "Except clause that only re-raises",
+        "quality",
+        "LOW",
+        finding_type="advice",
+    ),
+    RuleCatalogEntry(
+        "SKY-P401", "Potential unbounded read", "quality", finding_type="advice"
     ),
     RuleCatalogEntry(
         "SKY-P402", "Repeated expensive operation", "quality", finding_type="advice"
@@ -371,7 +399,7 @@ _RULES = (
         "SKY-T101", "Missing type annotations", "quality", finding_type="advice"
     ),
     RuleCatalogEntry(
-        "SKY-T102", "Weak framework route typing", "quality", finding_type="advice"
+        "SKY-T102", "Missing return type annotations", "quality", finding_type="advice"
     ),
     RuleCatalogEntry(
         "SKY-T103",
@@ -867,7 +895,7 @@ _RULES = (
         "SKY-D299",
         "GitHub Actions secret outside environment",
         "security",
-        "HIGH",
+        "MEDIUM",
         finding_type="review",
     ),
     RuleCatalogEntry(
@@ -965,7 +993,7 @@ _RULES = (
         "SKY-D313",
         "GitHub Actions privileged job missing timeout",
         "security",
-        "MEDIUM",
+        "LOW",
         finding_type="review",
     ),
     RuleCatalogEntry(
@@ -1006,6 +1034,46 @@ _RULES = (
         "security",
         "HIGH",
         aliases=("GHSA-8q5r-mmjf-575q", "GHSA-wpqr-6v78-jr5g"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D360",
+        "Dependabot insecure external code execution",
+        "security",
+        "HIGH",
+        aliases=("insecure-external-code-execution", "dependabot-execution"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D361",
+        "Dependabot cooldown under seven days",
+        "security",
+        "LOW",
+        aliases=("dependabot cooldown", "dependabot-cooldown"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D362",
+        "GitHub Actions decoded secret printed unmasked",
+        "security",
+        "MEDIUM",
+        aliases=("fromJSON(secrets)", "unredacted-secrets"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D363",
+        "GitHub Actions obfuscated action path or expression",
+        "security",
+        "MEDIUM",
+        aliases=("obfuscation", "constant expression"),
+        finding_type="review",
+    ),
+    RuleCatalogEntry(
+        "SKY-D364",
+        "GitHub Actions long-lived publish token where trusted publishing exists",
+        "security",
+        "MEDIUM",
+        aliases=("trusted publishing", "use-trusted-publishing", "PyPI token", "NPM_TOKEN"),
         finding_type="review",
     ),
     RuleCatalogEntry(

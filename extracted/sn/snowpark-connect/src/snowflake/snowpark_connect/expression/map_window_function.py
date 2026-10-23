@@ -5,9 +5,13 @@
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 
 from snowflake import snowpark
-from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
+from snowflake.snowpark_connect.column_name_handler import (
+    ColumnNameMap,
+    JoinColumnNameMap,
+)
 from snowflake.snowpark_connect.config import (
     is_collect_list_window_order_by_direction_enabled,
+    is_default_frame_last_includes_peers_enabled,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import (
@@ -54,6 +58,106 @@ CAPITAL_FUNCTION_NAMES = frozenset(["rank()", "dense_rank()", "percent_rank()"])
 # ORDER BY direction). collect_set is intentionally excluded: Spark leaves set
 # order unspecified and Snowflake's ARRAY_UNIQUE_AGG rejects WITHIN GROUP.
 ORDER_SENSITIVE_ARRAY_AGG_FUNCTIONS = frozenset(["collect_list", "array_agg"])
+
+
+def _gate_running_first_ignore_nulls(
+    exp: expressions_proto.Expression,
+    proto_func_name: str,
+    window_func: TypedColumn,
+    partitions: list[snowpark.Column],
+    orders: list[snowpark.Column],
+    frame: snowpark.window.WindowSpec,
+    column_mapping: ColumnNameMap,
+    typer: ExpressionTyper,
+    *,
+    has_order_spec: bool,
+    lower: int,
+    upper: int,
+) -> snowpark.Column | None:
+    """Match Spark first(ignorenulls) when the frame starts at the partition.
+
+    Snowflake's ``FIRST_VALUE(x) IGNORE NULLS`` over a frame that begins at
+    unbounded preceding still returns the first non-null of the whole partition,
+    so rows before that value are not null. Spark's ``First`` aggregate only
+    sees rows the frame feeds it. The first non-null in any prefix of the
+    partition is null until that value is inside the frame, and is then the
+    partition's first non-null. ``COUNT(x)`` over the Spark frame is that
+    test. ``FIRST_VALUE(x) IGNORE NULLS`` over the whole partition is the
+    value, which Snowflake does honor.
+
+    With no explicit frame, ``first`` is planned as ROWS
+    (``ROWS_ONLY_FUNCTIONS``), but Spark's frame is RANGE, so peers count,
+    including a null key; the count for that case uses RANGE. Explicit ROWS
+    and RANGE frames are counted on that frame.
+
+    The argument is evaluated twice, once in ``COUNT`` and once in
+    ``FIRST_VALUE``. A nondeterministic argument such as
+    ``when(rand() > 0.5, x)`` gets an independent draw in each, so the gate
+    and the value can disagree, and an expensive UDF in the argument runs
+    twice per row.
+
+    A frame that does not start at unbounded preceding is a different shape
+    and is left unchanged. Returns None when this rewrite does not apply.
+    """
+    if proto_func_name not in ("first", "first_value"):
+        return None
+    if not has_order_spec or not orders:
+        return None
+    if lower != snowpark.Window.UNBOUNDED_PRECEDING:
+        return None
+    if upper == snowpark.Window.UNBOUNDED_FOLLOWING:
+        return None
+    from snowflake.snowpark_connect.config import (
+        is_first_ignore_nulls_respects_frame_enabled,
+    )
+
+    if not is_first_ignore_nulls_respects_frame_enabled():
+        return None
+    arguments = exp.window.window_function.unresolved_function.arguments
+    if len(arguments) < 2 or not _literal_bool(arguments[1]):
+        return None
+    function = getattr(window_func.col, "_expression", None)
+    if getattr(function, "expr", None) is None or not getattr(
+        function, "ignore_nulls", False
+    ):
+        return None
+
+    from snowflake.snowpark.functions import count, first_value, when
+    from snowflake.snowpark_connect.expression.map_expression import (
+        map_single_column_expression,
+    )
+
+    # window_func already wraps the argument in FIRST_VALUE over the original
+    # frame, so the bare argument is mapped again from the proto. COUNT and the
+    # new FIRST_VALUE share that one mapping, as both windows share the
+    # partitions and orders: Snowpark renders a shared node in each window.
+    argument = map_single_column_expression(arguments[0], column_mapping, typer)[1].col
+    # Unspecified ordered frame: Spark RANGE peers, not the ROWS prefix that
+    # first is planned as. Explicit ROWS and RANGE frames keep `frame`.
+    if (
+        exp.window.frame_spec.frame_type
+        == expressions_proto.Expression.Window.WindowFrame.FrameType.FRAME_TYPE_UNDEFINED
+    ):
+        if partitions:
+            count_window = snowpark.Window.partition_by(partitions).order_by(orders)
+        else:
+            count_window = snowpark.Window.order_by(orders)
+        count_window = count_window.range_between(
+            snowpark.Window.UNBOUNDED_PRECEDING,
+            snowpark.Window.CURRENT_ROW,
+        )
+    else:
+        count_window = frame
+    seen = count(argument).over(count_window)
+    if partitions:
+        whole = snowpark.Window.partition_by(partitions).order_by(orders)
+    else:
+        whole = snowpark.Window.order_by(orders)
+    whole = whole.rows_between(
+        snowpark.Window.UNBOUNDED_PRECEDING,
+        snowpark.Window.UNBOUNDED_FOLLOWING,
+    )
+    return when(seen > 0, first_value(argument, True).over(whole))
 
 
 def try_eval_foldable_boundary_int(
@@ -142,6 +246,175 @@ def _array_agg_within_group_over(
     )
 
 
+def _literal_bool(argument: expressions_proto.Expression) -> bool:
+    """True only for a boolean literal true (Spark requires a boolean here)."""
+    return (
+        argument.HasField("literal")
+        and argument.literal.HasField("boolean")
+        and argument.literal.boolean
+    )
+
+
+def _range_frame_key(order_key: TypedColumn) -> snowpark.Column | None:
+    """The key as a type that Snowflake accepts for RANGE CURRENT ROW, if any.
+
+    That frame needs a numeric or date ORDER BY (010054). A timestamp only
+    takes interval bounds (010057), so it is ordered by its epoch nanoseconds,
+    which are equal exactly when the timestamps are. A float key is folded by
+    ``_peer_key``, because the frame tells -0.0 from 0.0.
+    """
+    from snowflake.snowpark.functions import date_part
+    from snowflake.snowpark.types import (
+        DateType,
+        DoubleType,
+        FloatType,
+        TimestampType,
+        _NumericType,
+    )
+
+    data_type = order_key.typ
+    if isinstance(data_type, (FloatType, DoubleType)):
+        return _peer_key(order_key)
+    if isinstance(data_type, (_NumericType, DateType)):
+        return order_key.col
+    if isinstance(data_type, TimestampType):
+        return date_part("epoch_nanosecond", order_key.col)
+    return None
+
+
+def _peer_key(order_key: TypedColumn) -> snowpark.Column:
+    """An ORDER BY key as the peer window reads it (range key or PARTITION BY).
+
+    Spark treats -0.0 and 0.0 as peers; adding 0.0 turns -0.0 into 0.0.
+    """
+    from snowflake.snowpark.functions import lit
+    from snowflake.snowpark.types import DoubleType, FloatType
+
+    if isinstance(order_key.typ, (FloatType, DoubleType)):
+        return order_key.col + lit(0.0)
+    return order_key.col
+
+
+def _last_including_peers(
+    window_func: TypedColumn,
+    partitions: list[snowpark.Column],
+    orders: list[snowpark.Column],
+    order_keys: list[TypedColumn],
+    typer: ExpressionTyper | None,
+    column_mapping: ColumnNameMap,
+    *,
+    ignore_nulls: bool,
+) -> snowpark.Column:
+    """``last()`` over RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW.
+
+    Snowflake rejects that cumulative RANGE frame for LAST_VALUE (002303), but
+    the frame ends at the current row's last peer, so ``last()`` over it is
+    LAST_VALUE over the peer group alone. Every peer gets the same value, and
+    it is one of the peers' values. Neither Spark nor Snowflake defines which
+    tied row that is.
+
+    The peer group is RANGE BETWEEN CURRENT ROW AND CURRENT ROW on one key,
+    with the other keys in PARTITION BY. When no key has a type that frame
+    accepts, every key goes into PARTITION BY and the frame is the whole
+    partition.
+    """
+    range_keys = [_range_frame_key(key) for key in order_keys]
+    index = next((i for i, key in enumerate(range_keys) if key is not None), None)
+    if index is None:
+        peer_window = (
+            snowpark.Window.partition_by([*partitions, *map(_peer_key, order_keys)])
+            .order_by(orders[0])
+            .rows_between(
+                snowpark.Window.UNBOUNDED_PRECEDING,
+                snowpark.Window.UNBOUNDED_FOLLOWING,
+            )
+        )
+    else:
+        other_keys = [_peer_key(k) for i, k in enumerate(order_keys) if i != index]
+        peer_window = (
+            snowpark.Window.partition_by([*partitions, *other_keys])
+            .order_by(range_keys[index])
+            .range_between(snowpark.Window.CURRENT_ROW, snowpark.Window.CURRENT_ROW)
+        )
+    last = window_func.over(peer_window)
+    if not ignore_nulls:
+        return last
+    # An all-null peer group carries the value of the nearest earlier group that
+    # has one. A second window over the source rows breaks that group's ties in
+    # its own order, so the fill reads the peer value itself, from a select
+    # under the projection. Without that select (e.g. a window in an aggregate)
+    # the carried value is still a peer's, but not always the one its group shows.
+    from snowflake.snowpark.functions import coalesce, last_value
+    from snowflake.snowpark_connect.utils.expression_transformer import (
+        is_child_agg_function_expression,
+    )
+
+    rows_before = _rows_before_peers(partitions, orders)
+    # A window over an aggregate cannot be computed in a select under a global
+    # aggregate projection (000979), so it keeps the second window.
+    # LAST_VALUE keeps its argument in ``expr``, not in ``children``.
+    func = window_func.col._expression
+    over_aggregate = any(
+        is_child_agg_function_expression(e)
+        for e in (
+            getattr(func, "expr", func),
+            *(c._expression for c in (*partitions, *orders)),
+        )
+    )
+    # The select under the projection sees only the input columns. A lateral
+    # alias from the same projection (Spark rejects it in a window, SCOS lets
+    # Snowflake resolve it) is not one of them, so it keeps the second window.
+    # A window that reads no column at all, such as last(lit("x"), true) over
+    # orderBy(lit(1)) next to count(*), may sit in a global aggregate, where an
+    # outer reference to the lifted column is not grouped (000979).
+    peer_value = (
+        typer.lift_window_input(last)
+        if typer is not None
+        and typer.lifts_window_inputs
+        and not over_aggregate
+        and _reads_only_input_columns(
+            (window_func.col, *partitions, *orders), column_mapping
+        )
+        else None
+    )
+    if peer_value is None:
+        return coalesce(last, window_func.over(rows_before))
+    return coalesce(peer_value, last_value(peer_value, True).over(rows_before))
+
+
+def _reads_only_input_columns(
+    columns: tuple[snowpark.Column, ...], column_mapping: ColumnNameMap
+) -> bool:
+    """True when these expressions read at least one column, all in ``column_mapping``."""
+    from snowflake.snowpark._internal.analyzer.analyzer_utils import quote_name
+
+    if isinstance(column_mapping, JoinColumnNameMap):
+        return False
+    available = {
+        quote_name(name)
+        for name in column_mapping.get_snowpark_columns(with_hidden=True)
+    }
+    read: set[str] = set()
+    for column in columns:
+        names = column._expression.dependent_column_names()
+        if names is None:
+            return False
+        read |= names
+    return bool(read) and read <= available
+
+
+def _rows_before_peers(
+    partitions: list[snowpark.Column], orders: list[snowpark.Column]
+) -> snowpark.WindowSpec:
+    """ROWS frame ending at 1 PRECEDING.
+
+    Only used when the current peer group is all null, so the earlier rows of
+    that group add nothing and the frame reaches back to earlier keys.
+    """
+    spec = snowpark.Window.partition_by(partitions) if partitions else snowpark.Window
+    return spec.order_by(*orders).rows_between(snowpark.Window.UNBOUNDED_PRECEDING, -1)
+
+
 def map_window_function(
     exp: expressions_proto.Expression,
     column_mapping: ColumnNameMap,
@@ -197,11 +470,14 @@ def map_window_function(
             partitions.append(typed_col.col)
 
         orders = []
+        order_keys = []
         order_col_names = []
         for order in exp.window.order_spec:
-            order_col_name, (order_exp, _) = map_single_column_expression(
+            order_col_name, order_typed = map_single_column_expression(
                 order.child, column_mapping, typer
             )
+            order_exp = order_typed.col
+            order_keys.append(order_typed)
 
             order_col_name_parts = [order_col_name]
             match order.direction:
@@ -235,6 +511,8 @@ def map_window_function(
             order_col_names.append(" ".join(order_col_name_parts))
 
         frame_name = []
+        default_frame = False
+        explicit_cumulative_range = False
         proto_func_name = (
             exp.window.window_function.unresolved_function.function_name.lower()
         )
@@ -280,6 +558,10 @@ def map_window_function(
                 upper_name, upper = parse_frame_boundary(
                     exp.window.frame_spec.upper, is_upper=True
                 )
+                explicit_cumulative_range = (
+                    lower == snowpark.Window.UNBOUNDED_PRECEDING
+                    and upper == snowpark.Window.CURRENT_ROW
+                )
                 if lower == upper == snowpark.Window.CURRENT_ROW and orders:
                     # only one order is allowed when the frame is between current row and current row. and spark seems
                     # to ignore the non-first order.
@@ -310,11 +592,13 @@ def map_window_function(
 
                 RANKING window functions do not accept FRAMING.
                 """
+                default_frame = True
                 frame_type_func_string = "rows_between"
                 frame_type_string = "ROWS"
                 if orders:
-                    # Work around functions that support ROWS BETWEEN but not RANGE BETWEEN:
-                    # for current row or unbounded limits there should be no difference.
+                    # Work around functions that support ROWS BETWEEN but not RANGE BETWEEN.
+                    # ROWS matches RANGE only when no two rows tie on the ORDER BY
+                    # keys: RANGE CURRENT ROW also covers the current row's peers.
                     lower_name, lower = (
                         "UNBOUNDED PRECEDING",
                         snowpark.Window.UNBOUNDED_PRECEDING,
@@ -322,6 +606,12 @@ def map_window_function(
                     upper_name, upper = "CURRENT ROW", snowpark.Window.CURRENT_ROW
                     match proto_func_name:
                         case "nth_value":
+                            frame_type_string = "RANGE"
+                        case "last" | "last_value" if (
+                            is_default_frame_last_includes_peers_enabled()
+                        ):
+                            # Logical frame is RANGE. LAST_VALUE cannot emit it
+                            # (002303); _last_including_peers builds the value.
                             frame_type_string = "RANGE"
                         case "lag" | "lead":
                             frame_type_func_string = "range_between"
@@ -395,7 +685,39 @@ def map_window_function(
             and is_collect_list_window_order_by_direction_enabled()
         ):
             result_exp = _array_agg_within_group_over(window_func, orders, partitions)
+        elif (
+            proto_func_name in ("last", "last_value")
+            and has_order_spec
+            and (explicit_cumulative_range or default_frame)
+            and is_default_frame_last_includes_peers_enabled()
+        ):
+            func_args = exp.window.window_function.unresolved_function.arguments
+            result_exp = _last_including_peers(
+                window_func,
+                partitions,
+                orders,
+                order_keys,
+                typer,
+                column_mapping,
+                ignore_nulls=len(func_args) > 1 and _literal_bool(func_args[1]),
+            )
         else:
             result_exp = window_func.over(window)
+
+        gated_first = _gate_running_first_ignore_nulls(
+            exp,
+            proto_func_name,
+            window_func,
+            partitions,
+            orders,
+            window,
+            column_mapping,
+            typer,
+            has_order_spec=has_order_spec,
+            lower=lower,
+            upper=upper,
+        )
+        if gated_first is not None:
+            result_exp = gated_first
 
         return spark_col_name, TypedColumn(result_exp, lambda: window_func.field_types)

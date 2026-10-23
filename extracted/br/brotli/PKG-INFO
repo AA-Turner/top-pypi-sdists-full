@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: brotli
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python bindings for the Brotli compression library
 Home-page: https://github.com/google/brotli
 Author: The Brotli Authors

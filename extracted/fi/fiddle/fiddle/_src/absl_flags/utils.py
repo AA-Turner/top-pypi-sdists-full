@@ -17,41 +17,57 @@
 
 import ast
 import base64
+import copy
 import dataclasses
 import enum
 import importlib
 import re
 import types
 import typing
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple, TypeVar
 import zlib
 
 from fiddle._src import config
 from fiddle._src import daglish
 from fiddle._src import daglish_extensions
 from fiddle._src import module_reflection
+from fiddle._src.experimental import auto_config
 from fiddle._src.experimental import serialization
 
 
 class ImportDottedNameDebugContext(enum.Enum):
-  """Context of importing a sumbol, for error messages."""
+  """Context of importing a symbol, for error messages."""
 
   BASE_CONFIG = 1
   FIDDLER = 2
+  SWEEP = 3
 
   def error_prefix(self, name: str) -> str:
     if self == ImportDottedNameDebugContext.BASE_CONFIG:
       return f'Could not init a buildable from {name!r}'
-    assert self == ImportDottedNameDebugContext.FIDDLER
-    return f'Could not load fiddler {name!r}'
+    if self == ImportDottedNameDebugContext.FIDDLER:
+      return f'Could not load fiddler {name!r}'
+    assert self == ImportDottedNameDebugContext.SWEEP
+    return f'Could not load sweep {name!r}'
 
 
-def import_dotted_name(name: str, mode: ImportDottedNameDebugContext) -> Any:
+def _is_dotted_name(name: str) -> bool:
+  return len(name.split('.')) >= 2
+
+
+def _import_dotted_name(
+    name: str,
+    mode: ImportDottedNameDebugContext,
+    module: Optional[types.ModuleType],
+) -> Any:
   """Returns the Python object with the given dotted name.
 
   Args:
     name: The dotted name of a Python object, including the module name.
-    mode: Whether we're looking for a base config function or a fiddler.
+    mode: Whether we're looking for a base config function or a fiddler, used
+      only for constructing error messages.
+    module: A common namespace to use as the basis for resolving the import, if
+      None, we will attempt to use absolute imports.
 
   Returns:
     The named value.
@@ -62,12 +78,16 @@ def import_dotted_name(name: str, mode: ImportDottedNameDebugContext) -> Any:
     AttributeError: If the imported module does not contain a value with
       the indicated name.
   """
-  name_pieces = name.split('.')
-  if len(name_pieces) < 2:
+
+  if not _is_dotted_name(name):
     raise ValueError(
         f'{mode.error_prefix(name)}: Expected a dotted name including the '
         'module name.'
     )
+
+  name_pieces = name.split('.')
+  if module is not None:
+    name_pieces = [module.__name__] + name_pieces
 
   # We don't know where the module ends and the name begins; so we need to
   # try different split points.  Longer module names take precedence.
@@ -83,12 +103,25 @@ def import_dotted_name(name: str, mode: ImportDottedNameDebugContext) -> Any:
           )
           module_name = '.'.join(name_pieces[: i + j])
           failing_name = name_pieces[i + j]
-          raise ValueError(
+          raise AttributeError(
               f'{mode.error_prefix(name)}: module {module_name!r} has no '
               f'attribute {failing_name!r}; available names: {available_names}'
           ) from None
       return value
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as e:
+      # If the missing module isn't along the path we tried to import,
+      # it's an internal import error — surface the real error.
+      # e.name is None when the error has no associated module name
+      if e.name is None:
+        raise
+      # If e.name is a prefix of name_pieces, the path simply doesn't
+      # exist at this split point. Otherwise, the module
+      # exists but broke importing an unrelated dependency.
+      splitted_name_pieces = []
+      for pieces in name_pieces:
+        splitted_name_pieces += pieces.split('.')
+      if (missing := e.name.split('.')) != splitted_name_pieces[: len(missing)]:
+        raise
       if i == 1:  # Final iteration through the loop.
         raise
 
@@ -223,7 +256,8 @@ def resolve_function_reference(
     module: A common namespace to use as the basis for finding configs and
       fiddlers. May be `None`; if `None`, only fully qualified Fiddler imports
       will be used (or alternatively a base configuration can be specified using
-      the `--fdl_config_file` flag.)
+      the `--fdl_config_file` flag.). Dotted imports are resolved relative to
+      `module` if not None, by preference, or else absolutely.
     allow_imports: If true, then fully qualified dotted names may be used to
       specify configs or fiddlers that should be automatically imported.
     failure_msg_prefix: Prefix string to prefix log messages in case of
@@ -234,31 +268,90 @@ def resolve_function_reference(
   """
   if hasattr(module, function_name):
     return getattr(module, function_name)
-  elif allow_imports:
+  elif allow_imports and _is_dotted_name(function_name):
+    # Try a relative import first.
+    if module is not None:
+      try:
+        return _import_dotted_name(
+            function_name,
+            mode=mode,
+            module=module,
+        )
+      except (ModuleNotFoundError, ValueError, AttributeError):
+        # Intentionally ignore the exception here. We will reraise after trying
+        # again without relative import.
+        pass
+
+    # Try absolute import for the provided function name / symbol.
     try:
-      return import_dotted_name(
+      return _import_dotted_name(
           function_name,
           mode=mode,
+          module=None,
       )
     except ModuleNotFoundError as e:
       raise ValueError(f'{failure_msg_prefix} {function_name!r}: {e}') from e
   else:
     available_names = module_reflection.find_base_config_like_things(module)
     raise ValueError(
-        f'{failure_msg_prefix} {function_name!r}; '
-        f'available names: {", ".join(available_names)}.'
+        f'{failure_msg_prefix} {function_name!r}: Could not resolve reference '
+        f'to named function, available names: {", ".join(available_names)}.'
     )
 
 
+def init_config_from_expression(
+    expression: str,
+    module: Optional[types.ModuleType] = None,
+    allow_imports: bool = True,
+) -> config.Buildable:
+  """Initializes a `fdl.Buildable` from a function call expression.
+
+  Args:
+    expression: A string containing a function call expression, e.g.,
+      "my_config_fn(arg1=1, arg2='hello')".
+    module: A common namespace to use as the basis for finding configs.
+    allow_imports: If true, then fully qualified dotted names may be used to
+      specify configs that should be automatically imported.
+
+  Returns:
+    A `fdl.Buildable` instance created by calling the resolved function.
+  """
+  call_expr = CallExpression.parse(expression)
+  base_name = call_expr.func_name
+  base_fn = resolve_function_reference(
+      base_name,
+      ImportDottedNameDebugContext.BASE_CONFIG,
+      module,
+      allow_imports,
+      'Could not init a buildable from',
+  )
+  if auto_config.is_auto_config(base_fn):
+    return base_fn.as_buildable(*call_expr.args, **call_expr.kwargs)
+  else:
+    return base_fn(*call_expr.args, **call_expr.kwargs)
+
+
 def set_value(cfg: config.Buildable, assignment: str) -> None:
-  """Set an attribute's value.
+  """Parse an assignment string and use it to set an attribute's value.
 
   Args:
     cfg: A `fdl.Buildable` whose attribute is to be overridden.
     assignment: String representing attribute's override expression. Of the form
-      `attribute=value`.
+      `path.to['example'].attribute=value`.
   """
   path, value = assignment.split('=', maxsplit=1)
+  literal_value = parse_value(value=value, path=path)
+  set_value_at_path(cfg, path, literal_value)
+
+
+def set_value_at_path(cfg: config.Buildable, path: str, value: Any) -> None:
+  """Set an attribute's value.
+
+  Args:
+    cfg: A `fdl.Buildable` whose attribute is to be overridden.
+    path: A string path to the attribute to override.
+    value: The value to set the attribute to.
+  """
   *parents, last = parse_path(path)
 
   walk = typing.cast(Any, cfg)
@@ -268,16 +361,40 @@ def set_value(cfg: config.Buildable, assignment: str) -> None:
   except Exception as e:
     raise ValueError(f'Invalid path "{path}".') from e
 
-  literal_value = parse_value(value=value, path=path)
   try:
     if isinstance(last, daglish.Attr):
-      setattr(walk, last.name, literal_value)
+      setattr(walk, last.name, value)
     elif isinstance(last, daglish.Key):
-      walk[last.key] = literal_value
+      walk[last.key] = value
     else:
       raise ValueError(f'Unexpected path element {last}.')
   except Exception as e:
     raise ValueError(f'Could not set "{path}" to "{value}".') from e
+
+
+_Buildable = TypeVar('_Buildable', bound=config.Buildable)
+
+
+def with_overrides(
+    buildable: _Buildable, overrides: Mapping[str, Any]
+) -> _Buildable:
+  """Apply a dict of attribute overrides.
+
+  This returns a new Buildable and does not mutate the original. The main use
+  case is to apply overrides specified for a sweep.
+
+  Args:
+    buildable: The config to override.
+    overrides: A mapping from path strings to values, of the form:
+      {'foo.bar[0].baz': 42, 'foo.qux': 'hello'}
+
+  Returns:
+    A new config with the overrides applied.
+  """
+  buildable = copy.deepcopy(buildable)
+  for path, value in overrides.items():
+    set_value_at_path(buildable, path, value)
+  return buildable
 
 
 class ZlibJSONSerializer:

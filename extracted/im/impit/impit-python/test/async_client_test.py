@@ -611,6 +611,21 @@ class TestRequestBody:
         assert json.loads(response.text)['form']['Impit-Test'] == '👾🕵🏻‍♂️🧑‍💻'
 
     @pytest.mark.asyncio
+    async def test_form_keeps_custom_content_type(self, browser: Browser) -> None:
+        impit = AsyncClient(browser=browser)
+
+        with echoing_server() as port:
+            response = await impit.post(
+                f'http://localhost:{port}/',
+                data={'Impit-Test': 'foo'},
+                headers={'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'},
+                timeout=5,
+            )
+
+        assert 'content-type: application/x-www-form-urlencoded; charset=utf-8\r\n' in response.text.lower()
+        assert response.text.endswith('Impit-Test=foo')
+
+    @pytest.mark.asyncio
     async def test_passing_binary_body(self, browser: Browser) -> None:
         impit = AsyncClient(browser=browser)
 
@@ -794,6 +809,21 @@ class TestStreamRequest:
 
         with pytest.raises(StreamClosed):
             _ = response.content
+
+    async def test_read_truncated_body_raises_remote_protocol_error(self, browser: Browser) -> None:
+        port_holder = [0]
+        thread = threading.Thread(target=truncating_server, args=(port_holder,))
+        thread.start()
+        await asyncio.sleep(0.1)
+
+        impit = AsyncClient(browser=browser)
+
+        async with impit.stream('GET', f'http://localhost:{port_holder[0]}/', timeout=5) as response:
+            assert response.status_code == 200
+            with pytest.raises(RemoteProtocolError):
+                await response.aread()
+
+        thread.join()
 
     async def test_truncated_stream_raises(self, browser: Browser) -> None:
         port_holder = [0]

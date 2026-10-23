@@ -23,8 +23,6 @@ _SETTINGS = {
     ),
     "onboarding_path": _Setting("/v1/onboarding"),
     "auth_config_path": _Setting("/auth/config"),
-    "login_path": _Setting("/auth/login"),
-    "login_status_path": _Setting("/auth/status"),
     "logout_path": _Setting("/auth/logout"),
     "whoami_path": _Setting("/v1/users"),
     "organization_path": _Setting("/v1/organizations"),
@@ -47,6 +45,7 @@ _SETTINGS = {
     # per service, so the binding path hardcodes "production" the same way the
     # dashboard does; it becomes a parameter when multi-environment lands.
     "github_install_url_path": _Setting("/v1/organizations/{org}/github/install-url"),
+    "github_link_url_path": _Setting("/v1/organizations/{org}/github/link-url"),
     "github_installation_path": _Setting("/v1/organizations/{org}/github/installation"),
     "github_repositories_path": _Setting("/v1/organizations/{org}/github/repositories"),
     "service_git_path": _Setting(

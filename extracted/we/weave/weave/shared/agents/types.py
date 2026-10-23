@@ -1,8 +1,8 @@
 """Request/response types for the Weave Agents observability API.
 
 All types are Pydantic BaseModel subclasses used by both the FastAPI
-endpoints (services/weave-trace) and the ClickHouse query handlers
-(weave/trace_server/clickhouse_trace_server_batched.py).
+endpoints (services/weave-trace) and the ClickHouse query handlers, both in
+wandb/core.
 
 Response models inherit AgentResponseModel so defaulted fields are required
 in the serialization JSON Schema. Request models stay on BaseModel.
@@ -11,6 +11,7 @@ in the serialization JSON Schema. Request models stay on BaseModel.
 from __future__ import annotations
 
 import datetime
+import warnings
 from typing import TYPE_CHECKING, Annotated, Any, Literal, get_args
 from uuid import UUID
 
@@ -23,31 +24,41 @@ from pydantic import (
     model_validator,
 )
 
-from weave.shared.agents import semconv
-from weave.shared.agents.constants import (
-    DEFAULT_AGENT_CUSTOM_ATTR_SCHEMA_LIMIT,
-    DEFAULT_AGENT_QUERY_LIMIT,
-    DEFAULT_AGENT_STATS_GROUP_LIMIT,
-    DEFAULT_SEARCH_LIMIT,
-    MAX_AGENT_CUSTOM_ATTR_DISTRIBUTION_BINS,
-    MAX_AGENT_CUSTOM_ATTR_DISTRIBUTION_SPECS,
-    MAX_AGENT_CUSTOM_ATTR_DISTRIBUTION_TOP_N,
-    MAX_AGENT_CUSTOM_ATTR_SCHEMA_LIMIT,
-    MAX_AGENT_QUERY_LIMIT,
-    MAX_AGENT_STATS_GROUP_LIMIT,
-    MAX_AGENT_STATS_RANGE_DAYS,
-    MAX_CONVERSATION_CHAT_TURNS,
-    MAX_SEARCH_LIMIT,
-    SPAN_GROUP_RESULT_COLS,
+# Sibling modules warn too; one warning, this module's, is enough.
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", FutureWarning)
+    from weave.shared.agents import semconv
+    from weave.shared.agents.constants import (
+        DEFAULT_AGENT_CUSTOM_ATTR_SCHEMA_LIMIT,
+        DEFAULT_AGENT_QUERY_LIMIT,
+        DEFAULT_AGENT_STATS_GROUP_LIMIT,
+        DEFAULT_SEARCH_LIMIT,
+        MAX_AGENT_CUSTOM_ATTR_DISTRIBUTION_BINS,
+        MAX_AGENT_CUSTOM_ATTR_DISTRIBUTION_SPECS,
+        MAX_AGENT_CUSTOM_ATTR_DISTRIBUTION_TOP_N,
+        MAX_AGENT_CUSTOM_ATTR_SCHEMA_LIMIT,
+        MAX_AGENT_QUERY_LIMIT,
+        MAX_AGENT_STATS_GROUP_LIMIT,
+        MAX_AGENT_STATS_RANGE_DAYS,
+        MAX_CONVERSATION_CHAT_TURNS,
+        MAX_SEARCH_LIMIT,
+        SPAN_GROUP_RESULT_COLS,
+    )
+    from weave.shared.agents.schema import (
+        NormalizedMessage,
+        SpanKindLiteral,
+        StatusCodeLiteral,
+    )
+    from weave.shared.interface.feedback_types import AgentSpanFeedbackType
+    from weave.shared.interface.query import Query
+    from weave.shared.sensitive_data.policy import SensitiveDataPolicy
+
+# TODO: delete this module together with weave.shared.
+warnings.warn(
+    "weave.shared.agents.types is deprecated and will be removed in a future release.",
+    FutureWarning,
+    stacklevel=2,
 )
-from weave.shared.agents.schema import (
-    NormalizedMessage,
-    SpanKindLiteral,
-    StatusCodeLiteral,
-)
-from weave.shared.interface.feedback_types import AgentSpanFeedbackType
-from weave.shared.interface.query import Query
-from weave.shared.sensitive_data.policy import SensitiveDataPolicy
 
 if TYPE_CHECKING:
     from weave.shared.trace_server_interface import ProcessedResourceSpans
@@ -102,7 +113,7 @@ AgentSpanStatsDerivedMetric = Literal[
     # Query-time costs (USD). Computed by joining the span's model against
     # llm_token_prices; only resolvable when the query's span source is
     # cost-augmented. Mirror of span_costs.COST_DERIVED_METRIC_NAMES — keep the
-    # two in sync. See weave/trace_server/agents/span_costs.py.
+    # two in sync. See agents/span_costs.py in wandb/core's trace server.
     "total_cost_usd",
     "input_cost_usd",
     "output_cost_usd",
@@ -512,7 +523,8 @@ class AgentSpanSchema(AgentResponseModel):
     cache_read_input_tokens: int | None = None
     # Query-time costs (USD), only populated when AgentSpansQueryReq.include_costs
     # is set. None (not 0) when the span's model has no matching price, so the UI
-    # can distinguish "unpriced" from "free". See agents/span_costs.py.
+    # can distinguish "unpriced" from "free". See agents/span_costs.py in
+    # wandb/core's trace server.
     input_cost_usd: float | None = None
     output_cost_usd: float | None = None
     cache_read_cost_usd: float | None = None
@@ -792,7 +804,8 @@ class AgentSpanGroupRow(AgentResponseModel):
     error_count: int = 0
     # Summed query-time costs (USD) across the group's spans. Only populated
     # when AgentSpansQueryReq.include_costs is set; None when no span in the
-    # group had a matching model price. See agents/span_costs.py.
+    # group had a matching model price. See agents/span_costs.py in wandb/core's
+    # trace server.
     total_cost_usd: float | None = None
     total_input_cost_usd: float | None = None
     total_output_cost_usd: float | None = None

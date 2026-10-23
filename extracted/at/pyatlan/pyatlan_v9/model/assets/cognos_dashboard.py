@@ -19,6 +19,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -30,6 +38,11 @@ from .asset import (
     AssetRelationshipAttributes,
     _extract_asset_attrs,
     _populate_asset_attrs,
+)
+from .cognos_related import (
+    RelatedCognosColumn,
+    RelatedCognosDashboard,
+    RelatedCognosFolder,
 )
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
@@ -47,18 +60,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cognos_related import (
-    RelatedCognosColumn,
-    RelatedCognosDashboard,
-    RelatedCognosFolder,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -269,9 +270,7 @@ class CognosDashboard(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/dashboard/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -338,6 +337,37 @@ class CognosDashboard(Asset):
         if self.guid is not UNSET:
             return RelatedCognosDashboard(guid=self.guid)
         return RelatedCognosDashboard(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        connection_qualified_name: str,
+        cognos_id: str,
+    ) -> "CognosDashboard":
+        validate_required_fields(
+            ["name", "connection_qualified_name", "cognos_id"],
+            [name, connection_qualified_name, cognos_id],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            qualified_name=f"{connection_qualified_name}/dashboard/{cognos_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            cognos_id=cognos_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CognosDashboard":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CognosDashboard":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -675,6 +705,7 @@ def _cognos_dashboard_to_nested(
         is_incomplete=cognos_dashboard.is_incomplete,
         provenance_type=cognos_dashboard.provenance_type,
         home_id=cognos_dashboard.home_id,
+        delete_handler=cognos_dashboard.delete_handler,
         depth=cognos_dashboard.depth,
         immediate_upstream=cognos_dashboard.immediate_upstream,
         immediate_downstream=cognos_dashboard.immediate_downstream,
@@ -723,6 +754,7 @@ def _cognos_dashboard_from_nested(nested: CognosDashboardNested) -> CognosDashbo
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

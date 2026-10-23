@@ -20,11 +20,13 @@ class Config:
     """
 
     dsn: str | None = None
-    queues: dict[str, int] = field(default_factory=dict)
+    leadership: bool | None = None
     name: str | None = None
     node: str | None = None
+    notifier: dict[str, Any] | None = None
     prefix: str | None = None
-    leadership: bool | None = None
+    queues: dict[str, int] = field(default_factory=dict)
+    shutdown_grace_period: float | None = None
 
     # Core loop configurations
     lifeline: dict[str, Any] | None = None
@@ -67,6 +69,8 @@ class Config:
         - OBAN_QUEUES: Comma-separated queue:limit pairs (e.g., "default:10,mailers:5")
         - OBAN_PREFIX: Schema prefix
         - OBAN_NODE: Node identifier
+        - OBAN_NOTIFIER: Notifier type (e.g., "postgres")
+        - OBAN_SHUTDOWN_GRACE_PERIOD: Seconds to wait for running jobs when stopping
         - OBAN_POOL_MIN_SIZE: Minimum connection pool size
         - OBAN_POOL_MAX_SIZE: Maximum connection pool size
         - OBAN_POOL_TIMEOUT: Seconds to wait for a connection from the pool
@@ -84,6 +88,8 @@ class Config:
             params["node"] = value
         if (value := os.getenv("OBAN_PREFIX")) is not None:
             params["prefix"] = value
+        if (value := os.getenv("OBAN_SHUTDOWN_GRACE_PERIOD")) is not None:
+            params["shutdown_grace_period"] = float(value)
         if (value := os.getenv("OBAN_POOL_MIN_SIZE")) is not None:
             params["pool_min_size"] = int(value)
         if (value := os.getenv("OBAN_POOL_MAX_SIZE")) is not None:
@@ -96,6 +102,8 @@ class Config:
             params["pool_max_idle"] = float(value)
         if (value := os.getenv("OBAN_POOL_CHECK")) is not None:
             params["pool_check"] = value.lower() == "true"
+        if (value := os.getenv("OBAN_NOTIFIER")) is not None:
+            params["notifier"] = {"type": value}
 
         return cls(**params)
 
@@ -127,8 +135,10 @@ class Config:
 
     def merge(self, other: Config) -> Config:
         def merge_dicts(this, that):
-            if that is None or this is None:
+            if that is None:
                 return this
+            if this is None:
+                return that
 
             merged = this.copy()
             merged.update(that)
@@ -189,6 +199,7 @@ class Config:
             "pool": pool,
             "dispatcher": dispatcher,
             "name": self.name,
+            "notifier": self.notifier,
             "prefix": self.prefix,
             "queues": self.queues,
         }
@@ -203,6 +214,7 @@ class Config:
                 "pruner",
                 "refresher",
                 "scheduler",
+                "shutdown_grace_period",
                 "stager",
             ]
             if getattr(self, key) is not None

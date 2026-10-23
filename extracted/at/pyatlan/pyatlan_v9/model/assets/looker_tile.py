@@ -20,6 +20,15 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model import looker_qn
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -39,6 +48,13 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .looker_related import (
+    RelatedLookerDashboard,
+    RelatedLookerField,
+    RelatedLookerLook,
+    RelatedLookerQuery,
+    RelatedLookerTile,
+)
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -48,20 +64,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .looker_related import (
-    RelatedLookerDashboard,
-    RelatedLookerField,
-    RelatedLookerLook,
-    RelatedLookerQuery,
-    RelatedLookerTile,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -284,9 +286,7 @@ class LookerTile(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/tile/[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -353,6 +353,58 @@ class LookerTile(Asset):
         if self.guid is not UNSET:
             return RelatedLookerTile(guid=self.guid)
         return RelatedLookerTile(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        dashboard_qualified_name: str,
+        tile_id: str | int,
+        look_qualified_name: str | None = None,
+    ) -> "LookerTile":
+        """
+        Create a new LookerTile, keyed as atlan-looker-app keys it:
+        ``{connection_qualified_name}/tile/{tile_id}``. The qualifiedName is not nested
+        under the dashboard.
+
+        Args:
+            name: Name of the tile
+            dashboard_qualified_name: Unique name of the dashboard that holds the tile
+            tile_id: Looker id of the tile. A whole float (``11.0``) is written as ``11``.
+            look_qualified_name: Unique name of the look the tile shows, for a look tile
+
+        Returns:
+            LookerTile instance ready to be created
+        """
+        validate_required_fields(
+            ["name", "dashboard_qualified_name", "tile_id"],
+            [name, dashboard_qualified_name, tile_id],
+        )
+        connection_qn = looker_qn.parse_content(
+            "dashboard", dashboard_qualified_name
+        ).connection_qualified_name
+        source_id = looker_qn.looker_id(tile_id, "tile_id")
+        tile = cls(
+            name=name,
+            qualified_name=f"{connection_qn}/tile/{source_id}",
+            connection_qualified_name=connection_qn,
+            connector_name=looker_qn.connector_name(connection_qn),
+            dashboard=RelatedLookerDashboard(qualified_name=dashboard_qualified_name),
+        )
+        if look_qualified_name is not None:
+            looker_qn.parse_content("look", look_qualified_name, connection_qn)
+            tile.look = RelatedLookerLook(qualified_name=look_qualified_name)
+        return tile
+
+    @classmethod
+    def create(cls, **kwargs) -> "LookerTile":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "LookerTile":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -692,6 +744,7 @@ def _looker_tile_to_nested(looker_tile: LookerTile) -> LookerTileNested:
         is_incomplete=looker_tile.is_incomplete,
         provenance_type=looker_tile.provenance_type,
         home_id=looker_tile.home_id,
+        delete_handler=looker_tile.delete_handler,
         depth=looker_tile.depth,
         immediate_upstream=looker_tile.immediate_upstream,
         immediate_downstream=looker_tile.immediate_downstream,
@@ -738,6 +791,7 @@ def _looker_tile_from_nested(nested: LookerTileNested) -> LookerTile:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

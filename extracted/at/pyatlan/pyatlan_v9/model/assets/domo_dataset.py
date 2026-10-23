@@ -14,9 +14,18 @@ This module provides:
 
 from __future__ import annotations
 
+import re
 from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -34,6 +43,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .domo_related import RelatedDomoCard, RelatedDomoDataset, RelatedDomoDatasetColumn
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
@@ -46,14 +56,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .domo_related import RelatedDomoCard, RelatedDomoDataset, RelatedDomoDatasetColumn
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -256,6 +258,8 @@ class DomoDataset(Asset):
     # SDK Methods
     # =========================================================================
 
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/dataset/[^/]+$")
+
     def validate(self, for_creation: bool = False) -> None:
         """
         Dry-run validation of this DomoDataset instance.
@@ -280,6 +284,11 @@ class DomoDataset(Asset):
             errors.append("name is required")
         if self.qualified_name is UNSET or self.qualified_name is None:
             errors.append("qualified_name is required")
+        elif not self._QUALIFIED_NAME_PATTERN.match(self.qualified_name):
+            errors.append(
+                f"qualified_name '{self.qualified_name}' does not match expected "
+                f"pattern: {self._QUALIFIED_NAME_PATTERN.pattern}"
+            )
         if errors:
             raise ValueError(f"DomoDataset validation failed: {errors}")
 
@@ -311,6 +320,40 @@ class DomoDataset(Asset):
         if self.guid is not UNSET:
             return RelatedDomoDataset(guid=self.guid)
         return RelatedDomoDataset(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        domo_id: str,
+        connection_qualified_name: str,
+    ) -> "DomoDataset":
+        """Create a new DomoDataset asset."""
+        validate_required_fields(
+            ["name", "domo_id", "connection_qualified_name"],
+            [name, domo_id, connection_qualified_name],
+        )
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            domo_id=domo_id,
+            qualified_name=f"{connection_qualified_name}/dataset/{domo_id}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+        )
+
+    @classmethod
+    def updater(cls, *, qualified_name: str, name: str) -> "DomoDataset":
+        """Create a DomoDataset instance for update operations."""
+        validate_required_fields(["qualified_name", "name"], [qualified_name, name])
+        return cls(qualified_name=qualified_name, name=name)
+
+    def trim_to_required(self) -> "DomoDataset":
+        """Return only fields required for update operations."""
+        return DomoDataset.updater(qualified_name=self.qualified_name, name=self.name)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -630,6 +673,7 @@ def _domo_dataset_to_nested(domo_dataset: DomoDataset) -> DomoDatasetNested:
         is_incomplete=domo_dataset.is_incomplete,
         provenance_type=domo_dataset.provenance_type,
         home_id=domo_dataset.home_id,
+        delete_handler=domo_dataset.delete_handler,
         depth=domo_dataset.depth,
         immediate_upstream=domo_dataset.immediate_upstream,
         immediate_downstream=domo_dataset.immediate_downstream,
@@ -676,6 +720,7 @@ def _domo_dataset_from_nested(nested: DomoDatasetNested) -> DomoDataset:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

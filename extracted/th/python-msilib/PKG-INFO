@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-msilib
-Version: 0.7.2
+Version: 0.7.3
 Summary: Read and write Microsoft Installer files
 Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>, "Martin v. Löwis" <loewis@users.noreply.github.com>
 License-Expression: PSF-2.0

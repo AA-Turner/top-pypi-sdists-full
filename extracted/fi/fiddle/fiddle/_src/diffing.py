@@ -107,7 +107,7 @@ class Diff:
     Returns:
       A new `Diff` without changes that relate to the given `paths`.
     """
-    paths = set(paths)
+    paths = set(paths)  # pyrefly: ignore[bad-argument-type]
 
     def _ignore_fn(change: DiffOperation):
       return any(
@@ -123,7 +123,7 @@ class SetValue(DiffOperation):
 
   The target's parent may not be a sequence (list or tuple).
   """
-  target: daglish.Path
+  target: daglish.Path  # pyrefly: ignore[bad-override]
   new_value: Union[Reference, Any]
 
   def apply(self, parent: Any, child: daglish.PathElement):
@@ -142,13 +142,13 @@ class ModifyValue(DiffOperation):
 
   The target's parent may not be a tuple.
   """
-  target: daglish.Path
+  target: daglish.Path  # pyrefly: ignore[bad-override]
   new_value: Union[Reference, Any]
 
   def apply(self, parent: Any, child: daglish.PathElement):
     """Replaces `child.follow(parent)` with self.new_value."""
     if isinstance(child, daglish.BuildableFnOrCls):
-      mutate_buildable.update_callable(parent, self.new_value)
+      mutate_buildable.update_callable(parent, self.new_value)  # pyrefly: ignore[bad-argument-type]
     elif isinstance(child, daglish.Attr):
       setattr(parent, child.name, self.new_value)
     elif isinstance(child, daglish.Index):
@@ -165,7 +165,7 @@ class DeleteValue(DiffOperation):
 
   The target's parent may not be a sequence (list or tuple).
   """
-  target: daglish.Path
+  target: daglish.Path  # pyrefly: ignore[bad-override]
 
   def apply(self, parent: Any, child: daglish.PathElement):
     """Deletes `child.follow(parent)`."""
@@ -183,7 +183,7 @@ class AddTag(DiffOperation):
 
   The target's parent must be a `fdl.Buildable`.
   """
-  target: daglish.Path
+  target: daglish.Path  # pyrefly: ignore[bad-override]
   tag: tag_type.TagType
 
   def apply(self, parent: Any, child: daglish.PathElement):
@@ -199,7 +199,7 @@ class RemoveTag(DiffOperation):
 
   The target's parent must be a `fdl.Buildable`.
   """
-  target: daglish.Path
+  target: daglish.Path  # pyrefly: ignore[bad-override]
   tag: tag_type.TagType
 
   def apply(self, parent: Any, child: daglish.PathElement):
@@ -629,20 +629,23 @@ class _DiffFromAlignmentBuilder:
       self.record_tag_diffs(old_path, old_value, new_value)
 
     for name in old_value.__arguments__:
-      old_child = getattr(old_value, name)
-      old_child_path = old_path + (daglish.Attr(name),)
+      path_elt = daglish.attr_or_index(name)
+      old_child_path = old_path + (path_elt,)
+      old_child = path_elt.follow(old_value)
       if name in new_value.__arguments__:
-        new_child = getattr(new_value, name)
+        new_child = path_elt.follow(new_value)
         if not self.aligned_or_equal(old_child, new_child):
-          self.changes.append(
-              ModifyValue(old_child_path, getattr(diff_value, name)))
+          diff_child = path_elt.follow(diff_value)
+          self.changes.append(ModifyValue(old_child_path, diff_child))
       else:
         self.changes.append(DeleteValue(old_child_path))
 
     for name in new_value.__arguments__:
       if name not in old_value.__arguments__:
-        old_child_path = old_path + (daglish.Attr(name),)
-        self.changes.append(SetValue(old_child_path, getattr(diff_value, name)))
+        path_elt = daglish.attr_or_index(name)
+        old_child_path = old_path + (path_elt,)
+        diff_child = path_elt.follow(diff_value)
+        self.changes.append(SetValue(old_child_path, diff_child))
 
   def record_tag_diffs(self, old_path: daglish.Path,
                        old_value: config_lib.Buildable,
@@ -653,7 +656,7 @@ class _DiffFromAlignmentBuilder:
     empty_set = set([])  # Default value for dict.get.
     tag_name = lambda tag: tag.__name__  # For sorting.
     for arg_name in sorted(set(old_arg_tags) | set(new_arg_tags)):
-      target = old_path + (daglish.Attr(arg_name),)
+      target = old_path + (daglish.Attr(arg_name),)  # pyrefly: ignore[bad-argument-type]
       old_tags = old_arg_tags.get(arg_name, empty_set)
       new_tags = new_arg_tags.get(arg_name, empty_set)
       for removed_tag in sorted(old_tags - new_tags, key=tag_name):
@@ -953,7 +956,7 @@ class AnyCallable(AnyValue):
   """Object used by `skeleton_from_diff` to encode an unknown callable."""
   __name__ = '*'
 
-  def __call__(self, **kwargs):
+  def __call__(self, /, **kwargs):
     raise ValueError('AnyCallable should not be called.')
 
 
@@ -1011,7 +1014,7 @@ def skeleton_from_diff(diff: Diff):
     if isinstance(change, RemoveTag):
       tagging.add_tag(
           daglish.follow_path(root, change.target[:-1]),
-          change.target[-1].name,
+          change.target[-1].name,  # pyrefly: ignore[missing-attribute]
           change.tag,
       )
   daglish_legacy.traverse_with_path(add_reference_target,
@@ -1059,7 +1062,7 @@ def _add_path_to_skeleton(skeleton, path, skip_leaf=False):
     raise ValueError(f'Unuspported PathElement {path[0]}')
 
   # Recurse to the child element.
-  child = _add_path_to_skeleton(path[0].follow(skeleton), path[1:], skip_leaf)
+  child = _add_path_to_skeleton(path[0].follow(skeleton), path[1:], skip_leaf)  # pyrefly: ignore[bad-argument-type]
   if isinstance(path[0], daglish.Attr):
     assert isinstance(skeleton, config_lib.Config)
     setattr(skeleton, path[0].name, child)

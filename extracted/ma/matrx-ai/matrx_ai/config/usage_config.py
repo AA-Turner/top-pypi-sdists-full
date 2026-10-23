@@ -275,6 +275,16 @@ USAGE_BASIS_SPECS: dict[str | None, UsageBasisSpec] = {
         "Music generation (Lyria): one generated track = 1 unit whatever its length. output_price is $/track. "
         "The Google chat translator records the unit (apply_track_billing) because the provider reports tokens, not tracks.",
     ),
+    "audio_second_output": UsageBasisSpec(
+        "output_tokens",
+        1_000_000,
+        "second",
+        True,
+        "$ / second of audio",
+        "Music generation billed by generated seconds (ElevenLabs Eleven Music: $0.15 / minute = $0.0025 / second). "
+        "output_tokens = seconds x 1M; output_price is $/second. The ElevenLabs music adapter records the seconds "
+        "(apply_audio_seconds_billing) because the provider returns raw audio with no usage object.",
+    ),
     "minute": UsageBasisSpec(
         "input_tokens",
         1_000_000,
@@ -1491,6 +1501,11 @@ class TokenUsage:
         never replace the amount written to request/runtime cost columns.
         ``at`` is the request time the dated tiers are chosen for (default now).
         """
+        if self.metadata.get("billed_to_own_key"):
+            # The call ran on the person's (or organization's) own provider key:
+            # the platform paid nothing, so it costs no points. The list price
+            # stays visible through calculate_catalog_cost (evidence only).
+            return 0.0
         breakdown = self.calculate_cost_breakdown(pricing_lookup, at)
         return breakdown.total_cost if breakdown is not None else None
 
@@ -2062,6 +2077,63 @@ def apply_track_billing(usage: Any, *, tracks: int, matrx_model_name: str, api: 
     usage.metadata["billing_kind"] = "synthetic:audio_unit_output"
     usage.metadata["billed_tracks"] = int(tracks)
     return True
+
+
+def build_audio_seconds_billed_usage(
+    *,
+    seconds: float,
+    matrx_model_name: str,
+    provider_model_name: str,
+    api: str,
+    response_id: str = "",
+    extra_metadata: dict[str, Any] | None = None,
+) -> TokenUsage:
+    """Basis-aware TokenUsage for a music endpoint that returns raw audio with NO provider usage object.
+
+    ``audio_second_output`` -> ``output_tokens = seconds x 1M`` (cost = seconds x $/second). Any other basis (or a
+    pricing lookup that is not warm) records the seconds in metadata, leaves the billable tokens at 0 and SCREAMS with
+    the exact fix, never a quiet $0 (the Lyria ``per_song`` bug of 2026-10-17 is why).
+    """
+    secs = max(0.0, float(seconds))
+    pricing_known, basis = resolve_usage_basis(matrx_model_name, api)
+    metadata: dict[str, Any] = {"modality": "audio", "billed_audio_seconds": round(secs, 3)}
+    if extra_metadata:
+        metadata.update(extra_metadata)
+    output_tokens = 0
+    if basis == "audio_second_output":
+        output_tokens = int(round(secs * 1_000_000))
+        metadata["billing_kind"] = "synthetic:audio_second_output"
+    elif not pricing_known:
+        output_tokens = int(round(secs * 1_000_000))
+        metadata["billing_kind"] = "audio_seconds_unpriced"
+    else:
+        metadata["billing_kind"] = "uncomputable_music_no_usage"
+        _warn_billing_once(
+            matrx_model_name,
+            api,
+            f"music endpoint returns audio bytes with no usage, but usage_basis={basis!r} is not audio_second_output",
+            f"cost set to $0 ({secs:.1f} s recorded in metadata). Fix: set usage_basis='audio_second_output' on this "
+            f"model's pricing row (output_price as $/second).",
+        )
+    return TokenUsage(
+        input_tokens=0,
+        output_tokens=output_tokens,
+        cached_input_tokens=0,
+        matrx_model_name=matrx_model_name,
+        provider_model_name=provider_model_name,
+        api=api,
+        response_id=response_id,
+        metadata=metadata,
+    )
+
+
+async def build_audio_seconds_billed_usage_async(**kwargs: Any) -> TokenUsage:
+    """``build_audio_seconds_billed_usage`` with a guaranteed-warm pricing lookup."""
+    try:
+        await ensure_pricing_lookup()
+    except Exception:
+        pass
+    return build_audio_seconds_billed_usage(**kwargs)
 
 
 async def build_character_billed_usage_async(

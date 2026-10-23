@@ -11,6 +11,15 @@ from rich.text import Text
 
 from skylos.api._snippets import _resolve_snippet_path
 from skylos.deadcode.confidence import confidence_detail
+from skylos.reporting.advice_display import (
+    ADVICE_PRIORITY_NOTE,
+    advice_display_counts,
+    advice_priority,
+    combine_complexity_advice,
+    complexity_display,
+    group_advice_for_display,
+)
+from skylos.reporting.advice_policy import prepare_advice_view
 from skylos.reporting.assessment_display import (
     assessment_coverage_text,
     assessment_rows,
@@ -19,11 +28,10 @@ from skylos.reporting.assessment_display import (
 )
 from skylos.reporting.finding_types import (
     get_finding_type,
-    group_advice,
     iter_result_findings,
-    summarize_finding_types,
 )
 from skylos.reporting.rollups import FINDING_SECTIONS
+from skylos.reporting.typing_coverage import typing_coverage_text
 from skylos.ui.dead_code_evidence import (
     compact_dead_code_evidence,
     dead_code_candidate_counts,
@@ -130,7 +138,11 @@ def render_pretty_results(
     root_path=None,
     limit: int | None = None,
     expand_advice: bool = False,
+    all_advice: bool = False,
 ) -> None:
+    result, visibility = prepare_advice_view(
+        result, project_root=root_path, all_advice=all_advice
+    )
     from skylos.reporting.sca_summary import group_advisories, is_advisory
 
     # Advisories print as one row per package; JSON keeps every advisory.
@@ -153,10 +165,17 @@ def render_pretty_results(
         (f"  {total_files} file{'s' if total_files != 1 else ''} analyzed", "dim"),
     )
     console.print(header)
+    annotation_summary = typing_coverage_text(result.get("analysis_summary"))
+    if annotation_summary:
+        console.print(Text(annotation_summary, style="dim"))
 
     summary = _summary_line(result)
     if summary.plain:
         console.print(summary)
+    if visibility.message:
+        console.print(Text(_sanitize_terminal_text(visibility.message), style="dim"))
+    if advice_display_counts(result)["advice"]:
+        console.print(Text(ADVICE_PRIORITY_NOTE, style="dim"))
     uncertainty = dead_code_uncertainty_text(dead_code_uncertainty_summary(result))
     if uncertainty:
         console.print(Text(_sanitize_terminal_text(uncertainty), style="yellow"))
@@ -167,7 +186,9 @@ def render_pretty_results(
         for detail in dependency_coverage_lines(result.get("analysis_summary")):
             console.print(Text("  " + _sanitize_terminal_text(detail), style="dim"))
     summary = result.get("analysis_summary") or {}
-    if summary.get("assessment_includes_filtered_findings") or summary.get("grade_includes_filtered_findings"):
+    if summary.get("assessment_includes_filtered_findings") or summary.get(
+        "grade_includes_filtered_findings"
+    ):
         label = "Assessment" if result.get("assessment") else "Grade"
         console.print(
             Text(
@@ -235,11 +256,17 @@ def _print_sca_packages(console: Console, groups, *, root_path=None, limit=None)
         console.print(
             Text.assemble(
                 ("  ", ""),
-                (_severity_badge(group.worst_severity), _severity_rail_style(group.worst_severity)),
+                (
+                    _severity_badge(group.worst_severity),
+                    _severity_rail_style(group.worst_severity),
+                ),
                 (" ", ""),
                 (_sanitize_terminal_text(f"{group.name}@{group.version}"), "bold"),
                 (_sanitize_terminal_text(f"  upgrade to {group.fix_text()}"), ""),
-                (_sanitize_terminal_text(f"  {group.count}: {group.ids_text()}"), "dim"),
+                (
+                    _sanitize_terminal_text(f"  {group.count}: {group.ids_text()}"),
+                    "dim",
+                ),
                 (f"  {location}", "dim"),
             )
         )
@@ -255,13 +282,29 @@ def _print_assessment(console: Console, result: dict) -> None:
     assessment = result.get("assessment")
     if not isinstance(assessment, dict) or not assessment:
         return
-    for label, detail in assessment_rows(assessment, gate=result.get("gate") or result.get("quality_gate")):
-        console.print(Text.assemble((f"  {label}: ", "bold"), (_sanitize_terminal_text(detail), "")))
-    console.print(Text("  " + _sanitize_terminal_text(assessment_coverage_text(assessment)), style="dim"))
+    for label, detail in assessment_rows(
+        assessment, gate=result.get("gate") or result.get("quality_gate")
+    ):
+        console.print(
+            Text.assemble(
+                (f"  {label}: ", "bold"), (_sanitize_terminal_text(detail), "")
+            )
+        )
+    console.print(
+        Text(
+            "  " + _sanitize_terminal_text(assessment_coverage_text(assessment)),
+            style="dim",
+        )
+    )
     for detail in dependency_coverage_lines(result.get("analysis_summary")):
         console.print(Text("  " + _sanitize_terminal_text(detail), style="dim"))
     for label, spread, magnitude in maintainability_rows(assessment):
-        console.print(Text("    " + _sanitize_terminal_text(f"{label}: {spread}; {magnitude}"), style="dim"))
+        console.print(
+            Text(
+                "    " + _sanitize_terminal_text(f"{label}: {spread}; {magnitude}"),
+                style="dim",
+            )
+        )
 
 
 def _print_architecture_advisory_status(console: Console, result: dict) -> None:
@@ -281,8 +324,6 @@ def _print_architecture_advisory_status(console: Console, result: dict) -> None:
             style="dim",
         )
     )
-
-
 
 
 def _print_publisher_review_status(console: Console, result: dict) -> None:
@@ -306,8 +347,6 @@ def _print_publisher_review_status(console: Console, result: dict) -> None:
         )
 
 
-
-
 def _finding_count_label(findings: list[PrettyFinding]) -> str:
     counts = Counter(finding.finding_type for finding in findings)
     return (
@@ -321,23 +360,27 @@ def _finding_count_label(findings: list[PrettyFinding]) -> str:
 
 
 def _finding_type_headline(result):
-    counts = summarize_finding_types(result)
+    counts = advice_display_counts(result)
     defect_label = "defect" if counts["defect"] == 1 else "defects"
     group_label = "group" if counts["advice_groups"] == 1 else "groups"
+    advice = f"{counts['advice']} advice"
+    if counts["raw_advice"] != counts["advice"]:
+        entry_label = "entry" if counts["advice"] == 1 else "entries"
+        advice += f" {entry_label} ({counts['raw_advice']} findings)"
     return (
         f"{counts['defect']} {defect_label} · {counts['review']} review · "
-        f"{counts['advice']} advice in {counts['advice_groups']} {group_label}"
+        f"{advice} in {counts['advice_groups']} {group_label}"
     )
 
 
 def _print_advice_groups(console, result, *, root_path=None, limit=None):
-    groups = group_advice(result)
+    groups = group_advice_for_display(result)
     if not groups:
         return
     console.print(Text("  Advice", style="bold"))
     table = Table(box=None, padding=(0, 1), expand=True)
     table.add_column("Type", width=6)
-    table.add_column("Severity", width=9, overflow="fold")
+    table.add_column("Advice priority", width=15, overflow="fold")
     table.add_column("Rule", width=20, overflow="fold")
     table.add_column("Count", width=5, justify="right")
     table.add_column("Top files", overflow="fold")
@@ -346,7 +389,7 @@ def _print_advice_groups(console, result, *, root_path=None, limit=None):
         severities = ", ".join(
             sorted(
                 {
-                    str(finding.get("severity") or "MEDIUM").upper()
+                    advice_priority(finding, "quality")
                     for finding in group["findings"]
                 }
             )
@@ -380,7 +423,7 @@ def _print_advice_groups(console, result, *, root_path=None, limit=None):
         )
     console.print(
         Text(
-            "  Use --expand-advice for every location and message, or --format json for complete findings.",
+            "  Use --expand-advice for every location and message, or --format json for full records.",
             style="dim",
         )
     )
@@ -404,7 +447,7 @@ def collect_pretty_findings(
         for item in result.get(section, []) or []:
             source_sections.setdefault((id(item), section == "custom_rules"), section)
     by_category = {"analysis_errors": result.get("analysis_errors", []) or []}
-    for category, item in iter_result_findings(result):
+    for category, item in combine_complexity_advice(iter_result_findings(result)):
         section = source_sections.get((id(item), category == "custom_rules"), "quality")
         by_category.setdefault(section, []).append(item)
 
@@ -443,8 +486,15 @@ def _make_pretty_finding(
     )
     line = _line_number(item)
     severity = _severity(item, category)
-    rule = _sanitize_terminal_text(_rule_id(item, category))
-    title = _sanitize_terminal_text(_title(item, category, fallback_label))
+    complexity = complexity_display(item)
+    rule = _sanitize_terminal_text(
+        complexity.rule_label if complexity is not None else _rule_id(item, category)
+    )
+    title = _sanitize_terminal_text(
+        f"{complexity.name}: {item.get('name') or item.get('simple_name')}"
+        if complexity is not None
+        else _title(item, category, fallback_label)
+    )
     snippet = _sanitize_terminal_text(
         _snippet(item, category, root_path=root_path, source_cache=source_cache)
     )
@@ -452,6 +502,9 @@ def _make_pretty_finding(
     why = _sanitize_terminal_text(
         _dead_code_why(item) if category in DEAD_CODE_TYPES else ""
     )
+    details = _context_details(item)
+    if complexity is not None:
+        details = [*complexity.message.splitlines(), *details]
     return PrettyFinding(
         category=category,
         category_label=category_label,
@@ -465,9 +518,7 @@ def _make_pretty_finding(
         fix=fix,
         why=why,
         finding_type=get_finding_type(item, category),
-        details=tuple(
-            _sanitize_terminal_text(detail) for detail in _context_details(item)
-        ),
+        details=tuple(_sanitize_terminal_text(detail) for detail in details),
     )
 
 
@@ -499,11 +550,12 @@ def _context_details(item):
 
 
 def _print_finding(console: Console, finding: PrettyFinding, short_path: str) -> None:
+    priority_label = "Advice priority" if finding.finding_type == "advice" else "Severity"
     first = Text.assemble(
         ("    ", ""),
         ("█", _severity_rail_style(finding.severity)),
         (" ", ""),
-        (f"Type: {finding.finding_type.title()}  Severity: ", "dim"),
+        (f"Type: {finding.finding_type.title()}  {priority_label}: ", "dim"),
         (
             _severity_badge(finding.severity),
             SEVERITY_STYLES.get(finding.severity, "dim"),
@@ -730,6 +782,8 @@ def _line_number(item: dict) -> int:
 
 
 def _severity(item: dict, category: str) -> str:
+    if get_finding_type(item, category) == "advice":
+        return advice_priority(item, category)
     raw = item.get("severity")
     if raw:
         label = str(raw).strip().upper()

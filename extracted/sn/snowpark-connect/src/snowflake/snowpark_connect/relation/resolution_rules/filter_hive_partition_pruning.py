@@ -54,7 +54,7 @@ def _with_pruned_dataframe(
         partition_hint=read_container.partition_hint,
         dataframe_hint=read_container._dataframe_hint,
         can_be_cached=read_container.can_be_cached,
-        can_be_materialized=read_container.can_be_materialized,
+        materialization_policy=read_container.materialization_policy,
         aggregate_metadata=read_container._aggregate_metadata,
         cached_local_relation_arrow_table=read_container.cached_local_relation_arrow_table,
     )

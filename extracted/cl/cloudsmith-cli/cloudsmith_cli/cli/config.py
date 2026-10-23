@@ -1,5 +1,6 @@
 """CLI - Configuration."""
 
+import configparser
 import os
 import re
 import threading
@@ -62,7 +63,12 @@ class ConfigSchema:
         api_headers = ConfigParam(name="api_headers", type=str)
         api_host = ConfigParam(name="api_host", type=str)
         api_proxy = ConfigParam(name="api_proxy", type=str)
+        proxy = ConfigParam(name="proxy", type=str)
         api_ssl_verify = ConfigParam(name="api_ssl_verify", type=bool, default=True)
+        ssl_verify = ConfigParam(name="ssl_verify", type=bool)
+        ssl_verify_strict = ConfigParam(
+            name="ssl_verify_strict", type=bool, default=True
+        )
         api_user_agent = ConfigParam(name="api_user_agent", type=str)
         mcp_allowed_tools = ConfigParam(name="mcp_allowed_tools", type=str)
         mcp_allowed_tool_groups = ConfigParam(name="mcp_allowed_tool_groups", type=str)
@@ -76,6 +82,7 @@ class ConfigSchema:
         oidc_disabled_detectors = ConfigParam(name="oidc_disabled_detectors", type=str)
         metadata_failure_mode = ConfigParam(name="metadata_failure_mode", type=str)
         check_for_update = ConfigParam(name="check_for_update", type=bool, default=True)
+        telemetry = ConfigParam(name="telemetry", type=bool, default=True)
 
     @matches_section("profile:*")
     class Profile(Default):
@@ -192,7 +199,14 @@ class ConfigReader(ConfigFileReader):
             else:
                 cls.config_files.insert(0, path)
 
-        config = cls.read_config()
+        try:
+            config = cls.read_config()
+        except (configparser.Error, UnicodeDecodeError) as exc:
+            # A malformed file is the user's to fix, not a CLI bug: keep the
+            # error as-is for the user, but never send it to error reporting
+            # (see core.telemetry.is_reportable).
+            exc.report_to_telemetry = False
+            raise
         values = config.get("default", {})
         cls._load_values_into_opts(opts, values)
 
@@ -214,6 +228,10 @@ class ConfigReader(ConfigFileReader):
             preferred_workspace = preferred_workspace.strip()
         has_preferred_workspace = bool(preferred_workspace)
         for k, v in values.items():
+            if k == "api_ssl_verify" and values.get("ssl_verify") is not None:
+                continue
+            if k == "api_proxy" and values.get("proxy"):
+                continue
             if has_preferred_workspace and k in ("org", "organization", "oidc_org"):
                 continue
             if v is None:
@@ -394,24 +412,54 @@ class Options:  # pylint: disable=too-many-public-methods
         self._set_option("api_key_from_file", value, allow_clear=True)
 
     @property
+    def proxy(self):
+        """Get value for the HTTP proxy."""
+        return self._get_option("proxy")
+
+    @proxy.setter
+    def proxy(self, value):
+        """Set value for the HTTP proxy."""
+        self._set_option("proxy", value)
+
+    @property
     def api_proxy(self):
-        """Get value for API proxy."""
-        return self._get_option("api_proxy")
+        """Get the HTTP proxy using the legacy API-prefixed name."""
+        return self.proxy
 
     @api_proxy.setter
     def api_proxy(self, value):
-        """Set value for API proxy."""
-        self._set_option("api_proxy", value)
+        """Set the HTTP proxy using the legacy API-prefixed name."""
+        self.proxy = value
+
+    @property
+    def ssl_verify(self):
+        """Get value for SSL verification."""
+        return self._get_option("ssl_verify", default=True)
+
+    @ssl_verify.setter
+    def ssl_verify(self, value):
+        """Set value for SSL verification."""
+        self._set_option("ssl_verify", value, allow_clear=False)
 
     @property
     def api_ssl_verify(self):
-        """Get value for API SSL verify."""
-        return self._get_option("api_ssl_verify", default=True)
+        """Get SSL verification using the legacy API-prefixed name."""
+        return self.ssl_verify
 
     @api_ssl_verify.setter
     def api_ssl_verify(self, value):
-        """Set value for API SSL verify."""
-        self._set_option("api_ssl_verify", value, allow_clear=False)
+        """Set SSL verification using the legacy API-prefixed name."""
+        self.ssl_verify = value
+
+    @property
+    def ssl_verify_strict(self):
+        """Get value for strict X.509 SSL verification."""
+        return self._get_option("ssl_verify_strict", default=True)
+
+    @ssl_verify_strict.setter
+    def ssl_verify_strict(self, value):
+        """Set value for strict X.509 SSL verification."""
+        self._set_option("ssl_verify_strict", value, allow_clear=False)
 
     @property
     def api_user_agent(self):
@@ -614,6 +662,18 @@ class Options:  # pylint: disable=too-many-public-methods
         if value is None:
             return
         self._set_option("check_for_update", bool(value))
+
+    @property
+    def telemetry(self):
+        """Get value for the telemetry (anonymous error reporting) toggle."""
+        return self._get_option("telemetry", default=True)
+
+    @telemetry.setter
+    def telemetry(self, value):
+        """Set value for the telemetry (anonymous error reporting) toggle."""
+        if value is None:
+            return
+        self._set_option("telemetry", bool(value))
 
     @property
     def output(self):

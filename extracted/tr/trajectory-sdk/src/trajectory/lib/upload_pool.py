@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import queue
 import random
 import threading
 import time
 from collections.abc import Callable, Iterator
-from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -25,7 +26,6 @@ from trajectory.types.benchmark_upload_url import BenchmarkUploadUrl
 UPLOAD_BATCH_FILES = 64
 DEFAULT_UPLOAD_TIMEOUT = 60 * 60.0
 DEFAULT_UPLOAD_CONCURRENCY = 8
-BENCHMARK_UPLOAD_CONCURRENCY = 64
 # Room for two 5,000-file allocation batches ahead of completed uploads, so workers stay busy
 # while the next batch is allocated.
 MAX_PENDING_FILES = 2 * 5000
@@ -112,6 +112,8 @@ class UploadPool:
     self.parse_retry_after = parse_retry_after
     self.pool = ThreadPoolExecutor(max_workers=max_concurrency)
     self.pending: dict[Future[None], UploadFile] = {}
+    # Finished uploads arrive here, so collecting them never scans thousands of pending futures.
+    self.completed: queue.SimpleQueue[Future[None]] = queue.SimpleQueue()
     self.max_pending = max(MAX_PENDING_FILES, max_concurrency)
     self.waiting_bytes = 0
     self.upload_started = threading.Condition()
@@ -167,6 +169,7 @@ class UploadPool:
         self.waiting_bytes += file.size_bytes
       future = self.pool.submit(self._start_put, file, target)
       self.pending[future] = file
+      future.add_done_callback(self.completed.put)
     # Report successful files and surface failures between allocations without waiting.
     self._drain_completed(timeout=0)
 
@@ -208,11 +211,23 @@ class UploadPool:
       return
     if timeout is None:
       timeout = self.progress.interval
-    done, _ = wait(self.pending, timeout=timeout, return_when=FIRST_COMPLETED)
-    for future in done:
+    try:
+      # A timeout of None waits until an upload finishes, as `concurrent.futures.wait` did.
+      if timeout is not None and timeout <= 0:
+        future = self.completed.get_nowait()
+      else:
+        future = self.completed.get(timeout=timeout)
+    except queue.Empty:
+      self.progress.emit()
+      return
+    while True:
       file = self.pending.pop(future)
       future.result()
       self.progress.completed(file.path, file.size_bytes)
+      try:
+        future = self.completed.get_nowait()
+      except queue.Empty:
+        break
     self.progress.emit()
 
   @staticmethod

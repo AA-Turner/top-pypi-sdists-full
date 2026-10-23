@@ -14,7 +14,7 @@ from tests.integ.managed_account.utils import (
 from ..utils import backup_role
 
 
-pytestmark = [pytest.mark.internal_only, pytest.mark.skip_notebook]
+pytestmark = [pytest.mark.internal_only]
 
 
 def test_drop_managed_account(temp_customer_account_managed_accounts, sf_cursor, temp_customer_account_cursor):

@@ -9,11 +9,11 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from datetime import datetime
 from functools import lru_cache
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 from jsonschema_rs import Draft7Validator, ValidationError
 from sphinx.environment import BuildEnvironment
@@ -22,9 +22,46 @@ from sphinx_needs.config import NeedsSphinxConfig
 from sphinx_needs.data import NeedsCoreFields, SphinxNeedsData
 from sphinx_needs.logging import get_logger, log_warning
 from sphinx_needs.need_item import NeedItem, _link_natural_sort_key
-from sphinx_needs.needs_schema import FieldLiteralValue, FieldsSchema
+from sphinx_needs.needs_schema import FieldLiteralValue, FieldSchema, FieldsSchema
 
 log = get_logger(__name__)
+
+
+class NeedsJsonCreatorType(TypedDict):
+    """The ``creator`` of a version in a ``needs.json``: the program that wrote it."""
+
+    program: str
+    version: str
+
+
+class NeedsJsonVersionType(TypedDict, total=False):
+    """One entry of ``versions`` in a ``needs.json``.
+
+    Every key is optional: :meth:`NeedsList.update_or_add_version` writes ``needs``,
+    ``needs_amount`` and ``creator`` for a version it creates, and the other three
+    by configuration, but a version kept from a file read by
+    :meth:`NeedsList.load_json` may be of an older shape that has any of them
+    missing (before 3.0 there was no ``creator`` or ``needs_schema``).
+    """
+
+    created: str
+    creator: NeedsJsonCreatorType
+    needs: dict[str, dict[str, Any]]
+    """The needs of the version by ID, each a JSON object of its fields."""
+    needs_amount: int
+    needs_defaults_removed: bool
+    needs_schema: dict[str, Any]
+    """The JSON schema of one need, from :func:`generate_needs_schema`."""
+
+
+class NeedsJsonType(TypedDict):
+    """The envelope of a ``needs.json``, as :class:`NeedsList` holds and writes it."""
+
+    project: str
+    current_version: str
+    versions: dict[str, NeedsJsonVersionType]
+    created: NotRequired[str]
+    """Left out under ``needs_reproducible_json``."""
 
 
 def generate_needs_schema(
@@ -33,7 +70,8 @@ def generate_needs_schema(
     """Generate a JSON schema for all fields in each need item.
 
     It is based on:
-    * the core fields defined in NeedsCoreFields
+    * the core fields defined in NeedsCoreFields, those in the fields schema as the
+      project declares them (a ``needs_fields`` entry may narrow one)
     * the extra fields defined dynamically
     * the global options defined dynamically
     * the links defined dynamically
@@ -41,30 +79,27 @@ def generate_needs_schema(
     A derived field or link type (one with a ``derive`` or ``derive_by_type`` rule) is
     marked ``"readOnly": true``; its ``default`` is the value of a need type without a
     rule.
+
+    It is the schema of the fields every need type shares: the global view of the
+    schema (:meth:`~sphinx_needs.needs_schema.FieldsSchema.for_type` of no need type),
+    whatever a need type declares anew.
     """
+    # the union by design: one projection for the needs of every type
+    needs_schema = needs_schema.for_type(None)
     properties: dict[str, Any] = {}
 
     for field in needs_schema.iter_extra_fields():
-        properties[field.name] = {
-            "type": [field.type, "null"] if field.nullable else field.type,
-            "description": field.description,
-            "field_type": "extra",
-        }
-        if field.item_type is not None:
-            properties[field.name]["items"] = {"type": field.item_type}
-        if isinstance(field.default, FieldLiteralValue):
-            properties[field.name]["default"] = field.default.value
-        elif field.nullable:
-            properties[field.name]["default"] = None
-        if field.derived:
-            # derived: an importer takes the value as data, and does not compute it
-            properties[field.name]["readOnly"] = True
+        properties[field.name] = _field_property(field, "extra")
 
     # TODO currently extra fields can overlap with core fields,
     # in which case they are ignored,
     # (this is the case for `type` added by the github service)
     # hence this is why we add the core options after the extra fields
     for name, core_params in NeedsCoreFields.items():
+        if (field := needs_schema.get_core_field(name)) is not None:
+            # as the project declares it, a needs_fields entry narrowing it included
+            properties[name] = _field_property(field, "core")
+            continue
         properties[name] = deepcopy(core_params["schema"])
         properties[name]["description"] = f"{core_params['description']}"
         properties[name]["field_type"] = "core"
@@ -105,6 +140,42 @@ def generate_needs_schema(
     }
 
 
+def _field_property(field: FieldSchema, field_type: str, /) -> dict[str, Any]:
+    """The ``needs_schema`` property of a field, from its global declaration: its type
+    (with ``null`` where it is nullable), item type and default; its other constraints
+    (an ``enum``, a ``pattern``) are not written."""
+    prop: dict[str, Any] = {
+        "type": [field.type, "null"] if field.nullable else field.type,
+        "description": field.description,
+        "field_type": field_type,
+    }
+    if field.item_type is not None:
+        prop["items"] = {"type": field.item_type}
+    if isinstance(field.default, FieldLiteralValue):
+        prop["default"] = field.default.value
+    elif field.nullable:
+        prop["default"] = None
+    if field.derived:
+        # derived: an importer takes the value as data, and does not compute it
+        prop["readOnly"] = True
+    return prop
+
+
+def _is_json_default(value: Any, default: Any, /) -> bool:
+    """Whether *value* is *default* as a JSON value: equal, and of the same JSON type
+    (``bool`` is not ``int``, ``int`` is not ``float``: ``1.0`` is not ``1``), through
+    lists and objects."""
+    if value != default:
+        return False
+    if isinstance(value, bool | int | float):
+        return type(value) is type(default)
+    if isinstance(value, list | tuple):
+        return all(map(_is_json_default, value, default))
+    if isinstance(value, Mapping):
+        return all(_is_json_default(item, default[key]) for key, item in value.items())
+    return True
+
+
 class NeedsList:
     def __init__(
         self,
@@ -119,7 +190,7 @@ class NeedsList:
         self.confdir = confdir
         self.current_version = self.config.version
         self.project = self.config.project
-        self.needs_list = {
+        self.needs_list: NeedsJsonType = {
             "project": self.project,
             "current_version": self.current_version,
             "versions": {},
@@ -150,7 +221,7 @@ class NeedsList:
         from sphinx_needs import __version__
 
         if version not in self.needs_list["versions"]:
-            self.needs_list["versions"][version] = {  # ty: ignore[invalid-assignment]
+            self.needs_list["versions"][version] = {
                 "needs_amount": 0,
                 "needs": {},
                 "creator": {
@@ -159,17 +230,17 @@ class NeedsList:
                 },
             }
             if self._schema:
-                self.needs_list["versions"][version]["needs_schema"] = self._schema  # ty: ignore[invalid-argument-type]
+                self.needs_list["versions"][version]["needs_schema"] = self._schema
             if self.needs_config.json_remove_defaults:
-                self.needs_list["versions"][version]["needs_defaults_removed"] = True  # ty: ignore[invalid-argument-type]
+                self.needs_list["versions"][version]["needs_defaults_removed"] = True
             if not self.needs_config.reproducible_json:
-                self.needs_list["versions"][version]["created"] = ""  # ty: ignore[invalid-argument-type]
+                self.needs_list["versions"][version]["created"] = ""
 
-        if "needs" not in self.needs_list["versions"][version]:  # ty: ignore[invalid-argument-type]
-            self.needs_list["versions"][version]["needs"] = {}  # ty: ignore[invalid-argument-type]
+        if "needs" not in self.needs_list["versions"][version]:
+            self.needs_list["versions"][version]["needs"] = {}
 
         if not self.needs_config.reproducible_json:
-            self.needs_list["versions"][version]["created"] = datetime.now().isoformat()  # ty: ignore[invalid-argument-type]
+            self.needs_list["versions"][version]["created"] = datetime.now().isoformat()
 
     def add_need(self, version: str, need_info: NeedItem) -> None:
         self.update_or_add_version(version)
@@ -188,17 +259,19 @@ class NeedsList:
                 key: value
                 for key, value in writable_needs.items()
                 if not (
-                    key in self._need_defaults and value == self._need_defaults[key]
+                    key in self._need_defaults
+                    and _is_json_default(value, self._need_defaults[key])
                 )
             }
-        self.needs_list["versions"][version]["needs"][need_info["id"]] = writable_needs  # ty: ignore[invalid-argument-type]
-        self.needs_list["versions"][version]["needs_amount"] = len(  # ty: ignore[invalid-argument-type]
-            self.needs_list["versions"][version]["needs"]  # ty: ignore[invalid-argument-type]
+        # `needs` is optional in a version, but `update_or_add_version` above has set it
+        self.needs_list["versions"][version]["needs"][need_info["id"]] = writable_needs
+        self.needs_list["versions"][version]["needs_amount"] = len(
+            self.needs_list["versions"][version]["needs"]
         )
 
     def wipe_version(self, version: str) -> None:
         if version in self.needs_list["versions"]:
-            del self.needs_list["versions"][version]  # ty: ignore[not-subscriptable]
+            del self.needs_list["versions"][version]
 
     def _finalise(self) -> None:
         self.update_or_add_version(self.current_version)
@@ -250,6 +323,8 @@ class NeedsList:
                         None,
                     )
                 else:
+                    # JSON from disk is `Any`: it is taken as a `NeedsJsonType` unchecked,
+                    # since the schema errors above are only logged
                     self.needs_list = needs_list
 
             self.log.debug(f"needs.json file loaded: {file}")

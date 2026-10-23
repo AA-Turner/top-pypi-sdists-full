@@ -5,9 +5,10 @@
 import copy
 import json
 import os
+import re
 import shutil
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -29,12 +30,15 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
 )
 from snowflake.snowpark.exceptions import SnowparkSQLException
 from snowflake.snowpark.functions import (
+    builtin,
     col,
     lit,
     object_construct,
     object_construct_keep_null,
     random,
     row_number,
+    sql_expr,
+    to_char,
     when,
 )
 from snowflake.snowpark.types import (
@@ -54,6 +58,7 @@ from snowflake.snowpark.types import (
     StringType,
     StructField,
     StructType,
+    TimestampTimeZone,
     TimestampType,
     TimeType,
     VariantType,
@@ -64,15 +69,25 @@ from snowflake.snowpark_connect.config import (
     SessionConfig,
     get_iceberg_target_file_size_for_writes,
     get_parquet_metadata_generation_enabled,
+    get_parquet_output_timestamp_type,
+    get_parquet_write_timestamp_ltz_as_utc_ntz,
+    get_parquet_write_timestamp_micros,
     get_success_file_generation_enabled,
     global_config,
     is_column_nullability_tracking_enabled,
+    is_csv_write_java_floating_format_enabled,
+    is_csv_write_null_as_empty_enabled,
+    is_csv_write_spark_timestamp_format_enabled,
     raise_if_unsupported_data_source,
     sessions_config,
     str_to_bool,
 )
 from snowflake.snowpark_connect.constants import SPARK_VERSION
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.date_time_format_mapping import (
+    convert_java_datetime_format_for_fileformat,
+    strip_optional_section_brackets,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.integral_types_support import (
@@ -102,7 +117,12 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
     without_internal_columns,
 )
 from snowflake.snowpark_connect.relation.read.reader_config import (
+    SPARK_CSV_WRITE_TIMESTAMP_NTZ_FORMAT,
     CsvWriterConfig,
+    csv_legacy_null_if_token_enabled,
+    csv_null_if_sql_literal,
+    csv_null_if_token,
+    lowercase_dict_keys,
     validate_charset_name,
 )
 from snowflake.snowpark_connect.relation.stage_locator import get_paths_from_stage
@@ -113,6 +133,20 @@ from snowflake.snowpark_connect.relation.utils import (
     generate_spark_compatible_filename,
     qualify_dbtable_with_sf_options,
     random_string,
+)
+from snowflake.snowpark_connect.relation.write.csv_floating_format import (
+    csv_java_floating_column,
+    unquoted_csv_float_names,
+)
+from snowflake.snowpark_connect.relation.write.csv_minimal_quote import (
+    adjust_csv_unload_for_minimal_quoting,
+    csv_partition_directory_expr,
+    csv_partition_key_text_sql,
+    csv_write_minimal_quoting_active,
+    quote_csv_header_names,
+    quote_csv_string_cells,
+    resolved_csv_escape,
+    settle_unenclosed_null_token,
 )
 from snowflake.snowpark_connect.relation.write.spark_rw_options import (
     build_spark_rw_options_params_v1,
@@ -163,6 +197,7 @@ from snowflake.snowpark_connect.utils.io_utils import (
     get_partition_spec,
     get_table_type,
     get_transform_overwrite_condition,
+    rollback_after_failed_overwrite,
 )
 from snowflake.snowpark_connect.utils.schema_utils import force_nullable_schema
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
@@ -342,6 +377,10 @@ def get_param_from_options(
             params["single"] = False
 
             params["format_type_options"] = snowpark_args
+            if csv_write_minimal_quoting_active(options):
+                adjust_csv_unload_for_minimal_quoting(
+                    params["format_type_options"], options
+                )
             clean_params(params)
         case "json":
             params["format_type_options"]["FILE_EXTENSION"] = source
@@ -395,10 +434,90 @@ def get_param_from_options(
     if should_write_to_single_file and not has_partitioning_columns:
         params["single"] = True
 
-    if (
-        source in ("csv", "parquet", "json") and "nullValue" in options
-    ):  # TODO: Null value handling if not specified
+    # SNOW-4209027: Spark writes NULL as a bare empty field (nullValue="").
+    # Snowflake's unload default is NULL_IF=('\\N'), and the CSV escape then
+    # stores that as \\N. A later header+inferSchema read keeps the token as
+    # text and widens int/double/timestamp columns to string. NULL_IF='' alone
+    # is rejected on unload (100093) unless fields are optionally enclosed;
+    # EMPTY_FIELD_AS_NULL=FALSE lets Snowflake emit the bare empty field.
+    # rewrite_df already projects a real empty string to the literal '""', so
+    # it stays distinct from NULL. Parquet and JSON are unchanged: NULL_IF is
+    # set only when the caller passed nullValue.
+    #
+    # That bare-empty encoding only survives when fields are not enclosed.
+    # Spark's quote becomes FIELD_OPTIONALLY_ENCLOSED_BY, and Snowflake then
+    # writes the empty field as "". The reader keeps that as data, so every
+    # NULL would come back as ''. An explicit nullValue still always reaches
+    # NULL_IF. Only the default NULL_IF='' and the
+    # EMPTY_FIELD_AS_NULL=FALSE flip are skipped when a quote is set. Quoted
+    # writes stay on today's \\N unload; Spark parity under quote is a
+    # follow-up (no file-format knob encloses every field except nulls).
+    #
+    # All of the above needs snowpark.connect.csv.writeNullAsEmpty, because it
+    # changes the bytes of existing writes. With it off (default), CSV takes
+    # the pre-#5862 path below: NULL_IF comes from CsvWriterConfig, and the
+    # exact nullValue key overrides it. Either way the token goes through
+    # _csv_write_null_if, so legacyNullIfToken applies.
+    if source == "csv" and is_csv_write_null_as_empty_enabled():
+        # CsvWriterConfig already lowercases keys and last-write wins.
+        null_value_set = "nullvalue" in config.user_option_keys
+        null_value = config.get("nullValue")
+        enclosed = "FIELD_OPTIONALLY_ENCLOSED_BY" in params["format_type_options"]
+        if null_value_set:
+            params["format_type_options"]["NULL_IF"] = _csv_write_null_if(
+                null_value, params["format_type_options"]
+            )
+            if null_value == "" and not enclosed:
+                params["format_type_options"]["EMPTY_FIELD_AS_NULL"] = False
+        elif not enclosed:
+            params["format_type_options"]["NULL_IF"] = ""
+            params["format_type_options"]["EMPTY_FIELD_AS_NULL"] = False
+    elif source == "csv":
+        format_options = params["format_type_options"]
+        null_value = (
+            options["nullValue"]
+            if "nullValue" in options
+            else format_options.get("NULL_IF")
+        )
+        if isinstance(null_value, str):
+            format_options["NULL_IF"] = _csv_write_null_if(null_value, format_options)
+    elif source in ("parquet", "json") and "nullValue" in options:
         params["format_type_options"]["NULL_IF"] = options["nullValue"]
+    # Not gated: before #5862 an unquoted CSV NULL_IF='' write either failed
+    # with 100093 or emitted no empty field, so EMPTY_FIELD_AS_NULL=FALSE
+    # changes no output that used to work.
+    if (
+        source == "csv"
+        and params["format_type_options"].get("NULL_IF") == ""
+        and "FIELD_OPTIONALLY_ENCLOSED_BY" not in params["format_type_options"]
+    ):
+        params["format_type_options"]["EMPTY_FIELD_AS_NULL"] = False
+
+
+def _csv_write_null_if(null_value: str, format_options: dict) -> str:
+    """``NULL_IF`` for a CSV write's ``nullValue``, as a SQL string literal.
+
+    Under ``legacyNullIfToken`` (default) the token is sent raw, as earlier
+    releases did (``csv_null_if_token``): ``nullValue='\\N'`` writes ``N``,
+    which a legacy read reads back as NULL.
+
+    With the flag false, ``csv_null_if_sql_literal`` makes Snowflake see the
+    exact token. With an explicit ``quote`` the field is enclosed: the NULL
+    token is written enclosed and ``ESCAPE`` doubles its backslash
+    (``"\\\\N"``), which Spark and the SCOS reader both read back as NULL. The
+    one exception is an unenclosed write (``writeMinimalQuoting=false``) while
+    ``ESCAPE`` is a backslash: the unload applies ``ESCAPE`` to the NULL token,
+    so the correct literal would write ``\\\\N`` for ``\\N``, and Spark writes
+    ``\\N``. Such a token stays raw (it unloads as ``N``) until those writes
+    drop ``ESCAPE`` (SNOW-3486487).
+    """
+    if csv_legacy_null_if_token_enabled():
+        return csv_null_if_token(null_value)
+    escape = format_options.get("escape", format_options.get("ESCAPE"))
+    enclosed = "FIELD_OPTIONALLY_ENCLOSED_BY" in format_options
+    if "\\" in null_value and escape in ("\\", "\\\\") and not enclosed:
+        return null_value
+    return csv_null_if_sql_literal(null_value)
 
 
 def _spark_to_snowflake(multipart_id: str) -> str:
@@ -413,7 +532,7 @@ def _spark_to_snowflake(multipart_id: str) -> str:
 def _validate_table_exist_and_of_type(
     snowpark_table_name: str,
     session: snowpark.Session,
-    table_type: str,
+    allowed_types: Sequence[str],
     table_schema_or_error: DataType | SnowparkSQLException,
 ) -> None:
     if not isinstance(table_schema_or_error, DataType):
@@ -422,33 +541,28 @@ def _validate_table_exist_and_of_type(
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
         raise exception
-    _validate_table_type(snowpark_table_name, session, table_type)
+    _validate_table_type(snowpark_table_name, session, allowed_types)
 
 
 def _validate_table_type(
     snowpark_table_name: str,
     session: snowpark.Session,
-    table_type: str,
+    allowed_types: Sequence[str],
 ) -> None:
     actual_type = get_table_type(snowpark_table_name, session)
-    if table_type == "iceberg":
-        if actual_type not in ("ICEBERG", "TABLE"):
-            exception = AnalysisException(
-                f"Table {snowpark_table_name} is not an iceberg table"
-            )
-            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-            raise exception
-    elif table_type == "fdn":
-        if actual_type not in ("NORMAL", "TABLE"):
-            exception = AnalysisException(
-                f"Table {snowpark_table_name} is not a FDN table"
-            )
-            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
-            raise exception
+    # TABLE is get_table_type's lookup-failure fallback, so every check accepts
+    # it. Callers pass the catalog types this write may target. Pre-existing:
+    # a HYBRID table whose catalog lookup fails would slip through here too,
+    # same as before this PR.
+    if actual_type in (*allowed_types, "TABLE"):
+        return
+    if "ICEBERG" in allowed_types:
+        message = f"Table {snowpark_table_name} is not an iceberg table"
     else:
-        raise ValueError(
-            f"Invalid table_type: {table_type}. Must be 'iceberg' or 'fdn'"
-        )
+        message = f"Table {snowpark_table_name} is not a FDN table"
+    exception = AnalysisException(message)
+    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+    raise exception
 
 
 def _is_create_table_mode_v2(mode: commands_proto.WriteOperationV2.Mode) -> bool:
@@ -1162,6 +1276,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
         snowpark_column_names,
         spark_column_names,
         qualifiers,
+        csv_float_names,
     ) = handle_column_names(result, write_op.source)
 
     # Create updated container with transformed dataframe, then filter METADATA$FILENAME columns
@@ -1379,6 +1494,46 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 == commands_proto.WriteOperation.SaveMode.SAVE_MODE_OVERWRITE
             )
 
+            # Computed before the overwrite block: dynamic-overwrite REMOVE paths must
+            # format converted LTZ/TZ partition values exactly like PARTITION BY does.
+            utc_ntz_converted: set[str] = set()
+            ntz_partition_columns: set[str] = set()
+            ntz_partition_format = None
+            if write_op.source == "parquet":
+                rewritten_df, utc_ntz_converted = _rewrite_df_for_parquet(
+                    input_df,
+                    partition_columns=[
+                        f'"{updated_result.column_map.get_canonical_spark_name(name)}"'
+                        for name in write_op.partitioning_columns
+                    ],
+                )
+            else:
+                write_options = dict(write_op.options)
+                # Taken before rewrite_df, which turns NTZ columns into strings.
+                if (
+                    write_op.source == "csv"
+                    and write_op.partitioning_columns
+                    and is_csv_write_spark_timestamp_format_enabled()
+                ):
+                    ntz_partition_columns = _ntz_column_name_set(input_df) & {
+                        _normalized_writer_col_name(
+                            updated_result.column_map.get_canonical_spark_name(name)
+                        )
+                        for name in write_op.partitioning_columns
+                    }
+                ntz_partition_format = (
+                    _csv_write_ntz_partition_format(write_options)
+                    if ntz_partition_columns
+                    else None
+                )
+                rewritten_df = rewrite_df(
+                    input_df,
+                    write_op.source,
+                    write_options,
+                    csv_float_names,
+                    ntz_partition_columns=ntz_partition_columns,
+                )
+
             if overwrite:
                 # Trailing slash is required as calling remove with just write_path would remove everything in the
                 # stage path with the same prefix.
@@ -1409,30 +1564,27 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     write_op.partitioning_columns
                     and partition_overwrite_mode == "dynamic"
                 ):
-                    partitioning_columns = write_op.partitioning_columns
-                    snowpark_partitioning_columns = [
-                        quote_name_without_upper_casing(partition_column)
-                        for partition_column in partitioning_columns
-                    ]
-                    distinct_values = (
-                        input_df.select(*snowpark_partitioning_columns)
-                        .distinct()
-                        .collect()
+                    partition_paths = _dynamic_overwrite_partition_paths(
+                        rewritten_df,
+                        _partition_by_sql(
+                            write_op.source,
+                            [
+                                updated_result.column_map.get_canonical_spark_name(name)
+                                for name in write_op.partitioning_columns
+                            ],
+                            rewritten_df,
+                            utc_ntz_converted,
+                            ntz_partition_columns,
+                            ntz_partition_format,
+                            options=write_op.options,
+                        ),
                     )
-                    partition_paths = set()
-                    for row in distinct_values:
-                        paths = []
-                        for key, value in zip(partitioning_columns, row):
-                            if value is None:
-                                value = "__HIVE_DEFAULT_PARTITION__"
-                            paths.append(f"{key}={value}")
-                        if paths:
-                            partition_paths.add("/".join(paths))
 
                     for partition_path in partition_paths:
                         # There is no concurrent remove of the directory hence it has to be done sequentially
+                        remove_pattern = _partition_dir_remove_pattern(partition_path)
                         remove_command = (
-                            f"REMOVE '{write_path}' PATTERN = '.*/{partition_path}.*'"
+                            f"REMOVE '{write_path}' PATTERN = '{remove_pattern}'"
                         )
                         session.sql(remove_command).collect()
                         logger.info(
@@ -1493,9 +1645,6 @@ def map_write(request: proto_base.ExecutePlanRequest):
             # This helps control when Snowflake splits files into multiple parts
             if max_file_size:
                 parameters["max_file_size"] = max_file_size
-            rewritten_df: snowpark.DataFrame = rewrite_df(
-                input_df, write_op.source, dict(write_op.options)
-            )
             get_param_from_options(
                 parameters,
                 write_op.options,
@@ -1503,6 +1652,20 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 should_write_to_single_file=should_write_to_single_file,
                 has_partitioning_columns=bool(write_op.partitioning_columns),
             )
+            # SNOW-3309109: COPY prints column names as the header unenclosed.
+            # Rename here, not in rewrite_df, so a name such as a,b is quoted.
+            csv_header_identifiers: dict[str, str] = {}
+            if write_op.source == "csv" and parameters.get("header") is True:
+                if csv_write_minimal_quoting_active(write_op.options):
+                    # rewrite_df keeps these names and order. Reading them from
+                    # the column map avoids a describe.
+                    rewritten_df, csv_header_identifiers = quote_csv_header_names(
+                        rewritten_df,
+                        write_op.options,
+                        updated_result.column_map.get_snowpark_columns(),
+                    )
+            # After the rename, so an empty frame writes the quoted header.
+            header_only_source_df = rewritten_df
             if write_op.partitioning_columns:
                 # Build Spark-style directory structure: col1=value1/col2=value2/...
                 # Example produced expression (Snowflake SQL):
@@ -1524,16 +1687,16 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     )
                     attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
                     raise exception
-                partition_expr_parts: list[str] = []
-                for col_name in partitioning_column_names:
-                    if write_op.source == "json":
-                        quoted = f"{rewritten_df.columns[0]}['{col_name}']"
-                        segment = f"'{col_name}=' || COALESCE(TO_VARCHAR({quoted}), '__HIVE_DEFAULT_PARTITION__')"
-                    else:
-                        quoted = f'"{col_name}"'
-                        segment = f"'{col_name}=' || COALESCE(TO_VARCHAR({quoted}), '__HIVE_DEFAULT_PARTITION__')"
-                    partition_expr_parts.append(segment)
-                parameters["partition_by"] = " || '/' || ".join(partition_expr_parts)
+                parameters["partition_by"] = _partition_by_sql(
+                    write_op.source,
+                    partitioning_column_names,
+                    rewritten_df,
+                    utc_ntz_converted,
+                    ntz_partition_columns,
+                    ntz_partition_format,
+                    options=write_op.options,
+                    identifiers=csv_header_identifiers,
+                )
                 # When using PARTITION BY, Snowflake writes into subdirectories under the base path.
                 # Download from the base write path to preserve partition directories locally.
                 download_stage_path = write_path
@@ -1556,14 +1719,40 @@ def map_write(request: proto_base.ExecutePlanRequest):
             # writes only round-trip a single bounded query (cheap on any
             # warehouse) rather than running a full aggregate over the
             # entire DataFrame on the hot path.
+            # After get_param_from_options, which may set NULL_IF=''. Without
+            # enclosure that needs EMPTY_FIELD_AS_NULL=FALSE (100093 otherwise).
+            if write_op.source == "csv":
+                if csv_write_minimal_quoting_active(write_op.options):
+                    settle_unenclosed_null_token(
+                        parameters["format_type_options"], write_op.options
+                    )
             empty_csv_header_only_synthesized = False
+            # writeTimestampMicros (off by default): Spark's µs unless
+            # outputTimestampType is TIMESTAMP_MILLIS. With this off, Snowflake
+            # picks the unit from the column scale (<=3 -> millis), so millis is
+            # handled by casting to scale 3 in _rewrite_df_for_parquet. When the
+            # flag is off, TIMESTAMP_MICROS still gets µs, as before this flag.
+            # Statement-scoped on purpose.
+            if write_op.source == "parquet" and (
+                get_parquet_write_timestamp_micros()
+                or get_parquet_output_timestamp_type() == "TIMESTAMP_MICROS"
+            ):
+                parameters["statement_params"] = {
+                    **(parameters.get("statement_params") or {}),
+                    "UNLOAD_PARQUET_TIME_TIMESTAMP_MILLIS": "false",
+                }
             if (
                 write_op.source == "csv"
                 and parameters.get("header") is True
                 and not write_op.partitioning_columns
                 and rewritten_df.limit(1).count() == 0
             ):
-                _write_csv_header_only_file(rewritten_df, session, parameters)
+                _write_csv_header_only_file(
+                    header_only_source_df,
+                    session,
+                    parameters,
+                    minimal_quoting=csv_write_minimal_quoting_active(write_op.options),
+                )
                 empty_csv_header_only_synthesized = True
 
             # partition directory, matching the common repartition(1)+partitionBy idiom.
@@ -1843,7 +2032,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         )
                 case "append":
                     if isinstance(table_schema_or_error, DataType):  # Table exists
-                        _validate_table_type(schema_table_name, session, "iceberg")
+                        _validate_table_type(schema_table_name, session, ("ICEBERG",))
                     elif dml_target.has_ref:
                         reject_ref_dml_table_creation(dml_target, "append")
                     elif is_cld:
@@ -1960,7 +2149,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 case "overwrite":
                     table_exists = isinstance(table_schema_or_error, DataType)
                     if table_exists:
-                        _validate_table_type(schema_table_name, session, "iceberg")
+                        _validate_table_type(schema_table_name, session, ("ICEBERG",))
 
                     if table_exists and is_insert_into:
                         # SNOW-3717449: insertInto(overwrite) overwrites rows in
@@ -2028,7 +2217,10 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         )
                 case "overwrite_partitions":
                     _validate_table_exist_and_of_type(
-                        schema_table_name, session, "iceberg", table_schema_or_error
+                        schema_table_name,
+                        session,
+                        ("ICEBERG",),
+                        table_schema_or_error,
                     )
 
                     table_partition_spec = get_partition_spec(
@@ -2154,20 +2346,27 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         partition_column_names,
                     )
                     if overwrite_condition is not None:
-                        _validate_schema_and_get_writer(
-                            input_df,
-                            "overwrite",
-                            schema_table_name,
-                            table_schema_or_error,
-                        ).saveAsTable(
-                            table_name=snowpark_table_name,
-                            table_exists=True,
-                            mode="overwrite",
-                            column_order=_column_order_for_write,
-                            overwrite_condition=overwrite_condition,
-                            iceberg_config=iceberg_config,
-                            statement_params=iceberg_statement_params,
-                        )
+                        try:
+                            _validate_schema_and_get_writer(
+                                input_df,
+                                "overwrite",
+                                schema_table_name,
+                                table_schema_or_error,
+                            ).saveAsTable(
+                                table_name=snowpark_table_name,
+                                table_exists=True,
+                                mode="overwrite",
+                                column_order=_column_order_for_write,
+                                overwrite_condition=overwrite_condition,
+                                iceberg_config=iceberg_config,
+                                statement_params=iceberg_statement_params,
+                            )
+                        except SnowparkSQLException:
+                            # A failed atomic overwrite_condition leaves the txn
+                            # open; roll back before surfacing so the session is
+                            # not left holding an uncommitted DELETE.
+                            rollback_after_failed_overwrite(session)
+                            raise
                 case _:
                     telemetry.report_iceberg_unsupported_feature(
                         "write_mode_unsupported_v1"
@@ -2238,7 +2437,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         # ``"TABLE"`` for missing targets and rejecting
                         # iceberg targets), so we keep it and drop the
                         # describe.
-                        _validate_table_type(snowpark_table_name, session, "fdn")
+                        _validate_table_type(snowpark_table_name, session, ("NORMAL",))
 
                         write_mode = "overwrite"
                         _validate_schema_and_get_writer(
@@ -2274,7 +2473,12 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             snowpark_table_name, session
                         )
                         if isinstance(table_schema_or_error, DataType):  # Table exists
-                            _validate_table_type(snowpark_table_name, session, "fdn")
+                            # SNOW-4314882: preserve-table writes also accept HYBRID
+                            _validate_table_type(
+                                snowpark_table_name,
+                                session,
+                                ("NORMAL", "HYBRID"),
+                            )
 
                         _validate_schema_and_get_writer(
                             input_df,
@@ -2291,7 +2495,12 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             snowpark_table_name, session
                         )
                         if isinstance(table_schema_or_error, DataType):  # Table exists
-                            _validate_table_type(snowpark_table_name, session, "fdn")
+                            # SNOW-4314882: preserve-table writes also accept HYBRID
+                            _validate_table_type(
+                                snowpark_table_name,
+                                session,
+                                ("NORMAL", "HYBRID"),
+                            )
 
                         _validate_schema_and_get_writer(
                             input_df,
@@ -2390,6 +2599,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         snowpark_column_names,
         spark_column_names,
         qualifiers,
+        _,
     ) = handle_column_names(result, "table")
 
     # Create updated container with transformed dataframe, then filter METADATA$FILENAME columns
@@ -2424,7 +2634,6 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         write_op.mode,
         is_cld,
     )
-    table_type = "iceberg" if is_iceberg else "fdn"
     snowpark_table_name, use_branch_dml = _write_v2_dml_routing(
         dml_target, is_iceberg=is_iceberg
     )
@@ -2655,8 +2864,12 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             )
             if not isinstance(table_schema_or_error, DataType) and dml_target.has_ref:
                 reject_ref_dml_table_creation(dml_target, "append")
+            # SNOW-4314882: preserve-table writes also accept HYBRID
             _validate_table_exist_and_of_type(
-                schema_table_name, session, table_type, table_schema_or_error
+                schema_table_name,
+                session,
+                ("ICEBERG",) if is_iceberg else ("NORMAL", "HYBRID"),
+                table_schema_or_error,
             )
             if is_iceberg:
                 input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
@@ -2703,8 +2916,12 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             table_schema_or_error = _get_table_schema_or_error(
                 schema_table_name, session
             )
+            # SNOW-4314882: preserve-table writes also accept HYBRID
             _validate_table_exist_and_of_type(
-                schema_table_name, session, table_type, table_schema_or_error
+                schema_table_name,
+                session,
+                ("ICEBERG",) if is_iceberg else ("NORMAL", "HYBRID"),
+                table_schema_or_error,
             )
             # SNOW-3310119 / mergeSchema: V2 overwrite preserves the table
             # definition, so evolve the Iceberg schema (ALTER + NULL-pad) the
@@ -2977,7 +3194,10 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 schema_table_name, session
             )
             _validate_table_exist_and_of_type(
-                schema_table_name, session, table_type, table_schema_or_error
+                schema_table_name,
+                session,
+                ("ICEBERG",) if is_iceberg else ("NORMAL",),
+                table_schema_or_error,
             )
             writer = _validate_schema_and_get_writer(
                 input_df,
@@ -3081,6 +3301,14 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     statement_params=iceberg_statement_params,
                 )
             else:
+                # CREATE OR REPLACE TABLE drops a hybrid table and creates a
+                # standard one. Reject before that rebuild.
+                if get_table_type(schema_table_name, session) == "HYBRID":
+                    exception = AnalysisException(
+                        "createOrReplace is not supported for hybrid tables"
+                    )
+                    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                    raise exception
                 writer.saveAsTable(
                     table_name=schema_table_name,
                     mode="overwrite",
@@ -4698,6 +4926,11 @@ def _overwrite_with_condition_and_cld_fallback(
             **extra,
         )
     except SnowparkSQLException as exc:
+        # Roll back the transaction the atomic overwrite_condition left open before
+        # taking any error path below (see rollback_after_failed_overwrite); the
+        # non-atomic fallback then re-issues its own DML against a clean session.
+        rollback_after_failed_overwrite(session)
+
         if not (is_iceberg and _is_unmanaged_transaction_error(exc)):
             exception = AnalysisException(
                 f"Failed to overwrite table {snowpark_table_name} with condition: "
@@ -4710,8 +4943,8 @@ def _overwrite_with_condition_and_cld_fallback(
         if _error_on_non_atomic_unmanaged_overwrite_enabled():
             # Default: fail fast rather than silently doing the non-atomic
             # DELETE + APPEND (which can leave rows missing if the APPEND fails
-            # after the DELETE commits). Consistent with the non-091586 branch
-            # above, we raise directly without a rollback. Set
+            # after the DELETE commits). The rejected atomic transaction was
+            # already rolled back at the top of this handler. Set
             # snowpark.connect.iceberg.error_on_non_atomic_unmanaged_overwrite=false
             # to restore the fallback.
             exception = AnalysisException(
@@ -4724,10 +4957,9 @@ def _overwrite_with_condition_and_cld_fallback(
             raise exception from exc
 
         # Fallback path (flag off): a non-atomic targeted DELETE followed by an
-        # APPEND.
-        #
-        # Without the ROLLBACK below the fallback DML would run inside the still-open
-        # transaction and hit 091586 again.
+        # APPEND. The still-open transaction from the rejected atomic attempt was
+        # already rolled back at the top of this handler, so this DML runs on a
+        # clean (auto-commit) session rather than inside that transaction.
         logger.warning(
             "Unmanaged (CLD) Iceberg table %s rejected the atomic "
             "overwrite-with-condition write (Snowflake error 091586 — "
@@ -4737,7 +4969,6 @@ def _overwrite_with_condition_and_cld_fallback(
             "will be absent until the next successful write.",
             snowpark_table_name,
         )
-        session.sql("ROLLBACK").collect()
         session.table(snowpark_table_name).delete(overwrite_condition)
         writer.saveAsTable(
             table_name=snowpark_table_name,
@@ -4920,7 +5151,9 @@ def _is_complex_structured_type(dt: DataType) -> bool:
     return False
 
 
-def _rewrite_df_for_parquet(input_df: snowpark.DataFrame) -> snowpark.DataFrame:
+def _rewrite_df_for_parquet(
+    input_df: snowpark.DataFrame, partition_columns: Iterable[str] = ()
+) -> tuple[snowpark.DataFrame, set[str]]:
     """
     Cast structured complex-type columns to VARIANT before COPY INTO.
 
@@ -4931,21 +5164,111 @@ def _rewrite_df_for_parquet(input_df: snowpark.DataFrame) -> snowpark.DataFrame:
 
     On read, the FLATTEN-based schema discovery in map_read_parquet.py detects
     VARIANT columns, infers the nested schema, and casts back to structured types.
+
+    SNOW-2436884: COPY INTO also cannot unload TIMESTAMP_LTZ/TZ to Parquet
+    (error 100171). Such columns are converted to the same instant as UTC
+    TIMESTAMP_NTZ, which only works because Snowflake writes NTZ Parquet columns
+    with isAdjustedToUTC=true. If that NTZ annotation changes, or native LTZ unload
+    (ENABLE_PARQUET_UNLOAD_TIMESTAMP_LTZ) ships, this conversion must be turned off.
+
+    Returns the rewritten DataFrame and the normalized (``_normalized_writer_col_name``)
+    names of the converted columns. ``partition_columns`` keep full precision under
+    TIMESTAMP_MILLIS, because Spark applies outputTimestampType to the file data
+    only, not to the partition directory value.
     """
+    convert_ltz = get_parquet_write_timestamp_ltz_as_utc_ntz()
+    # Spark applies outputTimestampType only to TimestampType (LTZ); NTZ stays µs.
+    ltz_millis = (
+        convert_ltz and get_parquet_output_timestamp_type() == "TIMESTAMP_MILLIS"
+    )
+    default_is_ltz = convert_ltz and _default_timestamp_is_ltz_or_tz(input_df)
+    partition_columns = {_normalized_writer_col_name(c) for c in partition_columns}
     new_cols = []
+    converted: set[str] = set()
     needs_rewrite = False
-    for co in input_df.columns:
-        field_dt = input_df.schema[co].datatype
+    for field in input_df.schema.fields:
+        co = field.name
+        field_dt = field.datatype
         if _is_complex_structured_type(field_dt):
             new_cols.append(col(co).cast(VariantType()).alias(co))
+            needs_rewrite = True
+        elif convert_ltz and _is_ltz_or_tz_timestamp(field_dt, default_is_ltz):
+            # Snowpark drops the quotes of all-uppercase names ("TS" -> TS), so
+            # compare normalized names.
+            normalized = _normalized_writer_col_name(co)
+            converted.add(normalized)
+            if ltz_millis and normalized not in partition_columns:
+                # Scale 3 makes COPY INTO write TIMESTAMP(MILLIS) for this column.
+                # Raw SQL needs the quoted name: Snowpark unquotes e.g. "ORDER".
+                new_cols.append(
+                    sql_expr(
+                        f"CONVERT_TIMEZONE('UTC', {normalized})::TIMESTAMP_NTZ(3)"
+                    ).alias(co)
+                )
+            else:
+                new_cols.append(
+                    builtin("CONVERT_TIMEZONE")(lit("UTC"), col(co))
+                    .cast(TimestampType(TimestampTimeZone.NTZ))
+                    .alias(co)
+                )
             needs_rewrite = True
         else:
             new_cols.append(col(co))
 
     if not needs_rewrite:
-        return input_df
+        return input_df, converted
 
-    return input_df.select(new_cols)
+    return input_df.select(new_cols), converted
+
+
+def _spark_partition_timestamp_text(quoted: str) -> str:
+    """SQL rendering a timestamp instant the way Spark names its partition directory.
+
+    Session-local time, with trailing fractional zeros (and a bare '.') stripped.
+    Works on both the original LTZ/TZ column and its UTC NTZ conversion, so the
+    PARTITION BY expression and the dynamic-overwrite REMOVE paths always agree.
+    """
+    ltz = f"TO_TIMESTAMP_LTZ(DATE_PART(EPOCH_NANOSECOND, {quoted}), 9)"
+    return (
+        "RTRIM(REGEXP_REPLACE(TO_VARCHAR("
+        f"{ltz}, 'YYYY-MM-DD HH24:MI:SS.FF6'), '0+$', ''), '.')"
+    )
+
+
+def _is_ltz_or_tz_timestamp(dt: DataType, default_is_ltz: bool = False) -> bool:
+    if not isinstance(dt, TimestampType):
+        return False
+    if dt.tz == TimestampTimeZone.DEFAULT:
+        return default_is_ltz
+    return dt.tz in (TimestampTimeZone.LTZ, TimestampTimeZone.TZ)
+
+
+def _default_timestamp_is_ltz_or_tz(input_df: snowpark.DataFrame) -> bool:
+    """Whether DEFAULT-tz timestamps resolve to LTZ/TZ via TIMESTAMP_TYPE_MAPPING.
+
+    Only queried when such a column exists. If the mapping cannot be read the
+    columns are left unconverted: a wrong LTZ guess would silently shift NTZ
+    wall-clock values, while an unconverted LTZ column fails loudly with 100171.
+    """
+    if not any(
+        isinstance(f.datatype, TimestampType)
+        and f.datatype.tz == TimestampTimeZone.DEFAULT
+        for f in input_df.schema.fields
+    ):
+        return False
+    try:
+        rows = input_df.session.sql(
+            "SHOW PARAMETERS LIKE 'TIMESTAMP_TYPE_MAPPING' IN SESSION"
+        ).collect()
+    except Exception as e:
+        logger.warning(
+            f"Could not read TIMESTAMP_TYPE_MAPPING ({e}); leaving DEFAULT timestamp "
+            "columns unconverted for the Parquet write"
+        )
+        return False
+    if not rows:
+        return False
+    return str(rows[0]["value"]).upper() in ("TIMESTAMP_LTZ", "TIMESTAMP_TZ")
 
 
 def _resolve_ignore_null_fields(options: dict | None) -> bool:
@@ -5011,10 +5334,299 @@ def _build_json_value_expr(
     return col_expr
 
 
+def _partition_by_sql(
+    source: str,
+    partitioning_column_names: list[str],
+    rewritten_df: snowpark.DataFrame,
+    utc_ntz_converted: set[str],
+    ntz_partition_columns: set[str],
+    ntz_partition_format: str | None,
+    *,
+    options: dict | None = None,
+    identifiers: dict[str, str] | None = None,
+) -> str:
+    """COPY INTO ``PARTITION BY`` expression over ``rewritten_df``.
+
+    Builds Spark-style ``col1=value1/col2=value2/...`` directories, e.g.
+    ``'department=' || COALESCE(TO_VARCHAR("department"), '__HIVE_DEFAULT_PARTITION__')``.
+    The dynamic-overwrite REMOVE runs the same expression, so a CSV key that
+    writeMinimalQuoting quoted in the file cell is peeled the same way for
+    both (SNOW-3309109). ``identifiers`` holds the SQL names
+    ``quote_csv_header_names`` gave renamed columns.
+    """
+    peel_quotes = source == "csv" and csv_write_minimal_quoting_active(options)
+    # Sep, escape, and lineSep do not change across columns.
+    escape = resolved_csv_escape(options) if peel_quotes else None
+    identifiers = identifiers or {}
+    partition_expr_parts: list[str] = []
+    for col_name in partitioning_column_names:
+        if source == "json":
+            quoted = f"{rewritten_df.columns[0]}['{col_name}']"
+            segment = f"'{col_name}=' || COALESCE(TO_VARCHAR({quoted}), '__HIVE_DEFAULT_PARTITION__')"
+        else:
+            identifier = identifiers.get(col_name)
+            if _normalized_writer_col_name(col_name) in utc_ntz_converted:
+                # Parquet only: keep the directory value in session-local
+                # time, as before the column was converted to UTC NTZ.
+                identifier = _spark_partition_timestamp_text(f'"{col_name}"')
+            # rewrite_df has already turned NTZ partition columns
+            # into text; see _csv_write_ntz_partition_format.
+            segment = _csv_partition_segment(
+                col_name,
+                ntz_snowflake_format=(
+                    ntz_partition_format
+                    if _normalized_writer_col_name(col_name) in ntz_partition_columns
+                    else None
+                ),
+                peel_quotes=peel_quotes,
+                options=options,
+                identifier=identifier,
+                escape=escape,
+            )
+        partition_expr_parts.append(segment)
+    return " || '/' || ".join(partition_expr_parts)
+
+
+def _dynamic_overwrite_partition_paths(
+    rewritten_df: snowpark.DataFrame, partition_by_sql: str
+) -> set[str]:
+    """Distinct ``k=v[/k2=v2...]`` directories COPY writes for this data.
+
+    Runs the ``PARTITION BY`` expression itself over the frame COPY unloads,
+    so REMOVE's exact pattern names each directory as COPY spells it:
+    ``TO_VARCHAR`` text (``ts=2024-09-23 06:28:21.000``, ``b=true``), the
+    rendered CSV float text, the UTC-converted LTZ text, and the
+    ``__HIVE_DEFAULT_PARTITION__`` for NULL. Both run in the same session, so
+    they print timestamps with the same output format.
+    """
+    rows = rewritten_df.select(sql_expr(partition_by_sql)).distinct().collect()
+    return {row[0] for row in rows}
+
+
+_REGEX_METACHARS = frozenset(".^$*+?()[]{}|\\")
+
+
+def _partition_dir_remove_pattern(partition_path: str) -> str:
+    """REMOVE ``PATTERN`` literal body for one partition directory.
+
+    PATTERN is a regex over the whole staged path. The key is escaped and
+    closed with ``/`` so ``n=1.0`` removes only ``n=1.0/``, not ``n=1.05/``,
+    ``n=1.0E7/`` or ``n=1x0/``. Backslashes and quotes are then doubled for
+    the SQL string literal, where a lone backslash is dropped.
+    """
+    escaped = "".join(
+        "\\" + char if char in _REGEX_METACHARS else char for char in partition_path
+    )
+    regex = f".*/{escaped}/.*"
+    return regex.replace("\\", "\\\\").replace("'", "''")
+
+
+def _prepare_csv_java_floating_text(
+    input_df: snowpark.DataFrame,
+    options: dict | None,
+    float_names: frozenset[str],
+) -> snowpark.DataFrame:
+    """Render float/double with Java toString before COPY (SNOW-4222765).
+
+    The rendered column is a string. With a non-empty explicit ``quote``,
+    COPY's FIELD_OPTIONALLY_ENCLOSED_BY encloses every string cell, including
+    the NULL token, and Snowflake has no per-column enclosure. Spark leaves
+    numbers bare, so in that case nothing is rendered and the file keeps
+    COPY's native FLOAT text (whole numbers print without ``.0``; see
+    SNOW-3309109). Without an explicit ``quote``, writeMinimalQuoting runs
+    after this and quotes the rendered text as a string cell, so a quoted
+    float (``quoteAll``, or a separator in the text) carries the Java text.
+    """
+    if not is_csv_write_java_floating_format_enabled():
+        return input_df
+    # Same last-wins, case-insensitive lookup CsvWriterConfig uses.
+    quote = lowercase_dict_keys(options or {}).get("quote")
+    if quote:
+        return input_df
+    projected: list[snowpark.Column] = []
+    rendered = False
+    schema = input_df.schema
+    names = unquoted_csv_float_names(float_names)
+    for name in input_df.columns:
+        datatype = schema[name].datatype
+        if isinstance(datatype, (DoubleType, FloatType)):
+            projected.append(
+                csv_java_floating_column(col(name), datatype, name, names).alias(name)
+            )
+            rendered = True
+        else:
+            projected.append(col(name).alias(name))
+    if not rendered:
+        return input_df
+    return input_df.select(projected)
+
+
+def _normalized_writer_col_name(name: str) -> str:
+    return quote_name_without_upper_casing(unquote_if_quoted(name))
+
+
+def _ntz_column_name_set(input_df: snowpark.DataFrame) -> set[str]:
+    """Normalized names of TIMESTAMP_NTZ columns on ``input_df``."""
+    names: set[str] = set()
+    for field in input_df.schema.fields:
+        datatype = field.datatype
+        if isinstance(datatype, TimestampType) and datatype.tz == TimestampTimeZone.NTZ:
+            names.add(_normalized_writer_col_name(field.name))
+    return names
+
+
+def _csv_write_ntz_spark_format(options: dict | None) -> str:
+    """``timestampNTZFormat`` for a CSV write, with optional sections resolved.
+
+    Spark formats TIMESTAMP_NTZ only with ``timestampNTZFormat`` (default
+    ``yyyy-MM-dd'T'HH:mm:ss[.SSS]``). ``timestampFormat`` never applies to it.
+    """
+    raw = next(
+        (v for k, v in (options or {}).items() if k.lower() == "timestampntzformat"),
+        SPARK_CSV_WRITE_TIMESTAMP_NTZ_FORMAT,
+    )
+    # TO_CHAR has no optional sections and would print the brackets.
+    return strip_optional_section_brackets(str(raw), for_timestamp_ntz=True)
+
+
+# TO_VARCHAR of a TIMESTAMP_NTZ (TIMESTAMP_NTZ_OUTPUT_FORMAT, which SCOS does
+# not set), as a Java pattern for the quoting path's collision check.
+_NTZ_TO_VARCHAR_JAVA_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS"
+
+
+def _csv_write_ntz_snowflake_format(options: dict | None) -> str:
+    """Snowflake ``TO_CHAR`` format for TIMESTAMP_NTZ cells in a CSV write."""
+    return convert_java_datetime_format_for_fileformat(
+        _csv_write_ntz_spark_format(options)
+    )
+
+
+# Pattern letter -> run lengths that print the whole field as digits and that
+# convert_java_datetime_format_for_fileformat maps to a Snowflake token TO_CHAR
+# and TRY_TO_TIMESTAMP_NTZ both accept. S needs 3+ digits: TO_VARCHAR prints
+# milliseconds (SCOS does not set TIMESTAMP_NTZ_OUTPUT_FORMAT).
+_NTZ_ROUND_TRIP_FIELD_RUNS = {
+    "y": {1, 4},
+    "M": {1, 2},
+    "d": {1, 2},
+    "H": {1, 2},
+    "m": {1, 2},
+    "s": {1, 2},
+    "S": set(range(3, 10)),
+}
+
+
+def _ntz_format_round_trips(spark_format: str) -> bool:
+    """True when ``spark_format`` text parses back to ``TO_VARCHAR`` of the value.
+
+    It must print year, month, day, 24-hour hour, minute, second and at least
+    milliseconds, each exactly once. Everything else must be a separator
+    (`` :/-.,``), unquoted or quoted, or a quoted ``'T'``. Digits, other
+    letters and ``''`` are not reparsed.
+    """
+    runs: dict[str, int] = {}
+    for i, part in enumerate(re.split(r"('(?:[^']|'')*')", spark_format)):
+        if i % 2:
+            if not re.fullmatch(r"[T :/\-.,]+", part[1:-1]):
+                return False
+            continue
+        if not re.fullmatch(r"[A-Za-z :/\-.,]*", part):
+            return False
+        for match in re.finditer(r"([A-Za-z])\1*", part):
+            letter, run = match.group(1), len(match.group(0))
+            if letter in runs or run not in _NTZ_ROUND_TRIP_FIELD_RUNS.get(letter, ()):
+                return False
+            runs[letter] = run
+    return runs.keys() == _NTZ_ROUND_TRIP_FIELD_RUNS.keys()
+
+
+def _csv_write_ntz_partition_format(options: dict | None) -> str | None:
+    """Snowflake format for a TIMESTAMP_NTZ partition column in a CSV write.
+
+    SCOS keeps partition columns in the file, and ``COPY INTO`` ``PARTITION BY``
+    only sees the projected column. When ``timestampNTZFormat`` round-trips
+    (see ``_ntz_format_round_trips``) the cell uses it and the directory parses
+    it back. Otherwise ``None``: the cell is ``TO_CHAR`` with no format, so the
+    directory stays ``TO_VARCHAR`` of the original timestamp, as on main.
+    """
+    if not _ntz_format_round_trips(_csv_write_ntz_spark_format(options)):
+        return None
+    return _csv_write_ntz_snowflake_format(options)
+
+
+def _csv_partition_directory_value_sql(
+    quoted_col: str, ntz_snowflake_format: str | None
+) -> str:
+    """SQL for the value half of a ``col=value`` CSV partition directory.
+
+    With ``ntz_snowflake_format`` ``None`` the value is ``TO_VARCHAR`` of the
+    unloaded column. That covers non-NTZ columns, and NTZ columns whose
+    ``timestampNTZFormat`` fails ``_ntz_format_round_trips``: rewrite_df has
+    already projected those as ``TO_CHAR`` with no format, so this is the text
+    ``TO_VARCHAR`` of the original timestamp gives, as on main.
+
+    Otherwise the NTZ column was projected with ``TO_CHAR`` in that format (no
+    offset), so the file cell does not go through ``TIMESTAMP_FORMAT``.
+    ``COPY INTO`` ``PARTITION BY`` can only see that projected column, so the
+    directory expression parses the formatted text back and ``TO_VARCHAR``s it:
+    Snowflake's default timestamp rendering, no ``T`` and no offset. The parsed
+    value keeps only the fraction digits the format prints (at least
+    milliseconds), so this equals ``TO_VARCHAR`` of the original timestamp when
+    ``TIMESTAMP_NTZ_OUTPUT_FORMAT`` prints milliseconds, its default; SCOS does
+    not set it. An account that sets it finer gets directories truncated to the
+    format's precision. If the text cannot be parsed, it is used as is rather
+    than collapsing the row into the null partition.
+    """
+    if ntz_snowflake_format is None:
+        value_sql = f"TO_VARCHAR({quoted_col})"
+    else:
+        fmt = ntz_snowflake_format.replace("'", "''")
+        value_sql = (
+            f"COALESCE(TO_VARCHAR(TRY_TO_TIMESTAMP_NTZ({quoted_col}, '{fmt}')), "
+            f"{quoted_col})"
+        )
+    return f"COALESCE({value_sql}, '__HIVE_DEFAULT_PARTITION__')"
+
+
+def _csv_partition_segment(
+    col_name: str,
+    *,
+    ntz_snowflake_format: str | None,
+    peel_quotes: bool,
+    options: dict | None,
+    identifier: str | None,
+    escape: str | None,
+) -> str:
+    """One ``col=value`` CSV directory segment.
+
+    The key text has its CSV quoting undone first (``csv_partition_key_text_sql``).
+    A TIMESTAMP_NTZ key whose ``timestampNTZFormat`` round-trips is then parsed
+    back, see ``_csv_partition_directory_value_sql``.
+    """
+    key_args = {
+        "peel_quotes": peel_quotes,
+        "options": options,
+        "identifier": identifier,
+        "escape": escape,
+    }
+    if ntz_snowflake_format is None:
+        return csv_partition_directory_expr(col_name, **key_args)
+    # Unquoted, the projected NTZ text is already VARCHAR: parse it as is.
+    key_text = (
+        csv_partition_key_text_sql(col_name, **key_args)
+        if peel_quotes
+        else identifier or f'"{col_name}"'
+    )
+    value_sql = _csv_partition_directory_value_sql(key_text, ntz_snowflake_format)
+    return f"'{col_name}=' || {value_sql}"
+
+
 def rewrite_df(
     input_df: snowpark.DataFrame,
     source: str,
     options: dict | None = None,
+    float_names: frozenset[str] | None = None,
+    ntz_partition_columns: set[str] | None = None,
 ) -> snowpark.DataFrame:
     """
     Rewrite dataframe if needed.
@@ -5025,7 +5637,11 @@ def rewrite_df(
                to aggregate the dataframe into 1 column. Recurses into nested
                StructType columns so the toggle applies at every level.
         csv:
-            Use "" to replace empty string
+            Use "" to replace empty string. With
+            snowpark.connect.csv.writeSparkTimestampFormat on, format
+            TIMESTAMP_NTZ columns with timestampNTZFormat;
+            ``ntz_partition_columns`` holds the normalized names of NTZ
+            partition columns.
     """
     match source:
         case "json":
@@ -5045,6 +5661,12 @@ def rewrite_df(
                 )
             return rewritten_df.select(construct_fn(*construct_key_values))
         case "csv":
+            # float_names is this write's Spark floats, captured before the
+            # rename select. A caller that omits it does not inherit another
+            # write's names.
+            input_df = _prepare_csv_java_floating_text(
+                input_df, options, float_names or frozenset()
+            )
             options = options or {}
             empty_value = next(
                 (v for k, v in options.items() if k.lower() == "emptyvalue"),
@@ -5052,26 +5674,83 @@ def rewrite_df(
             )
             # SNOW-3389610: when the user sets `emptyValue`, pre-project
             # "" -> the user's token. Otherwise, keep the existing default of
-            # "" -> the literal '""' so an empty string round-trips back as
-            # an empty string (distinguishable from NULL via NULL_IF). NULL
-            # is preserved either way (handled by NULL_IF on the Snowflake
-            # side via `nullValue` -> `NULL_IF`).
+            # "" -> the literal '""' so an empty string stays distinct from
+            # NULL. NULL itself is unloaded via NULL_IF. With
+            # snowpark.connect.csv.writeNullAsEmpty on, unquoted CSV writes
+            # default that to '' (SNOW-4209027); otherwise, or with a quote
+            # option, the unload stays on Snowflake's \\N default. An explicit
+            # nullValue is copied through either way.
             empty_replacement = (
                 lit(empty_value) if empty_value is not None else lit('""')
             )
+            # With snowpark.connect.csv.writeSparkTimestampFormat off, NTZ
+            # columns stay timestamps and use the unload's TIMESTAMP_FORMAT.
+            spark_timestamp_format = is_csv_write_spark_timestamp_format_enabled()
+            ntz_format = (
+                _csv_write_ntz_snowflake_format(options)
+                if spark_timestamp_format
+                else None
+            )
+            ntz_partition_columns = ntz_partition_columns or set()
+            ntz_partition_format = (
+                _csv_write_ntz_partition_format(options)
+                if ntz_partition_columns
+                else None
+            )
             new_cols = []
+            ntz_text: dict[int, tuple[snowpark.Column, str]] = {}
             for co in input_df.columns:
-                if isinstance(input_df.schema[co].datatype, StringType):
+                datatype = input_df.schema[co].datatype
+                if isinstance(datatype, StringType):
                     new_col = col(co)
                     new_col = when(
                         new_col.isNotNull() & (new_col == ""), empty_replacement
                     ).otherwise(new_col)
                     new_cols.append(new_col.alias(co))
+                elif (
+                    spark_timestamp_format
+                    and isinstance(datatype, TimestampType)
+                    and datatype.tz == TimestampTimeZone.NTZ
+                ):
+                    # SNOW-4215403: the unload has a single TIMESTAMP_FORMAT (from
+                    # timestampFormat), whose offset (TZH:TZM) Snowflake renders as
+                    # "Z" on TIMESTAMP_NTZ. Spark writes NTZ with timestampNTZFormat
+                    # whether or not timestampFormat is set. Partition columns are
+                    # projected too, so their file cell has no false Z.
+                    is_partition = (
+                        _normalized_writer_col_name(co) in ntz_partition_columns
+                    )
+                    fmt = ntz_partition_format if is_partition else ntz_format
+                    text = to_char(col(co), fmt) if fmt else to_char(col(co))
+                    # The format the text follows. Without a format (a
+                    # partition format that does not round-trip, or a
+                    # timestampNTZFormat that resolves to empty) TO_CHAR prints
+                    # TO_VARCHAR's default.
+                    ntz_text[len(new_cols)] = (
+                        text,
+                        (
+                            _csv_write_ntz_spark_format(options)
+                            if fmt
+                            else _NTZ_TO_VARCHAR_JAVA_FORMAT
+                        ),
+                    )
+                    new_cols.append(text.alias(co))
                 else:
                     new_cols.append(col(co))
+            # SNOW-3309109: quote cells the way Spark does, in this same select.
+            # The empty-string token is quoted when it needs it. The directory
+            # expression peels quotes off partition keys.
+            if csv_write_minimal_quoting_active(options):
+                new_cols = quote_csv_string_cells(
+                    input_df.schema.fields,
+                    new_cols,
+                    options,
+                    empty_value,
+                    rendered_text=ntz_text,
+                )
             return input_df.select(new_cols)
         case "parquet":
-            return _rewrite_df_for_parquet(input_df)
+            return _rewrite_df_for_parquet(input_df)[0]
         case _:
             return input_df
 
@@ -5125,14 +5804,44 @@ def _map_overwrite_condition(
     return typed_col.col
 
 
+def _csv_float_output_names(
+    df: snowpark.DataFrame, column_map: ColumnNameMap
+) -> frozenset[str]:
+    """Spark float columns, named the way ``rewrite_df`` will see them.
+
+    ``handle_column_names`` selects into quoted Spark names, and that select
+    makes Snowflake report the column as double. Capture FloatType first.
+    """
+    by_snowpark = column_map.snowpark_to_spark_map()
+    # Snowpark lists a quoted alias such as "F1" as bare F1 on the schema.
+    by_unquoted = {
+        unquote_if_quoted(snowpark_name): spark_name
+        for snowpark_name, spark_name in by_snowpark.items()
+    }
+    names: set[str] = set()
+    for field in df.schema.fields:
+        if not isinstance(field.datatype, FloatType):
+            continue
+        spark_name = by_snowpark.get(field.name)
+        if spark_name is None:
+            spark_name = by_unquoted.get(unquote_if_quoted(field.name))
+        if spark_name is None:
+            continue
+        names.add(quote_name_without_upper_casing(spark_name))
+    return frozenset(names)
+
+
 def handle_column_names(
     container: DataFrameContainer, source: str
-) -> tuple[snowpark.DataFrame, list[str], list[str], list | None]:
+) -> tuple[snowpark.DataFrame, list[str], list[str], list | None, frozenset[str]]:
     """
     Handle column names before write so they match spark schema.
 
     Returns:
-        A 4-tuple of (dataframe, snowpark_column_names, spark_column_names, qualifiers).
+        A 5-tuple of (dataframe, snowpark_column_names, spark_column_names,
+        qualifiers, csv_float_names). ``csv_float_names`` is empty unless
+        ``source`` is csv. Those names are passed to ``rewrite_df``; they are
+        not kept on the module.
 
     Raises:
         AnalysisException: If the column map contains duplicate Spark column names
@@ -5141,6 +5850,11 @@ def handle_column_names(
     """
     df = container.dataframe
     column_map = container.column_map
+    # SNOW-4222765: capture Spark floats before the select below widens them.
+    # The select makes Snowflake report both float and double as double.
+    csv_float_names = (
+        _csv_float_output_names(df, column_map) if source == "csv" else frozenset()
+    )
 
     if source == "jdbc":
         # don't change column names for jdbc sources as we directly use spark column names for writing to the destination tables.
@@ -5149,6 +5863,7 @@ def handle_column_names(
             column_map.get_snowpark_columns(),
             column_map.get_spark_columns(),
             column_map.get_qualifiers(),
+            csv_float_names,
         )
 
     snowpark_column_names: list[str] = []
@@ -5186,7 +5901,7 @@ def handle_column_names(
         )
         qualifiers = column_map.get_qualifiers()
 
-    return df, snowpark_column_names, spark_column_names, qualifiers
+    return df, snowpark_column_names, spark_column_names, qualifiers, csv_float_names
 
 
 def _generate_metadata_files(
@@ -5244,10 +5959,102 @@ def _write_success_file_locally(directory_path: str) -> None:
         logger.warning(f"Failed to create _SUCCESS file at {directory_path}: {e}")
 
 
+# Control characters COPY can use as a one-field delimiter. Newline and carriage
+# return stay out of this list: they are the record breaks a header may contain.
+_CSV_HEADER_DELIMITER_CANDIDATES: tuple[str, ...] = (
+    "\x1e",
+    "\x1f",
+    "\x1d",
+    "\x1c",
+    "\x01",
+    "\x02",
+    "\x03",
+    "\x04",
+    "\x05",
+    "\x06",
+    "\x07",
+    "\x08",
+    "\x0b",
+    "\x0c",
+    "\x0e",
+    "\x0f",
+    "\x10",
+    "\x11",
+    "\x12",
+    "\x13",
+    "\x14",
+    "\x15",
+    "\x16",
+    "\x17",
+    "\x18",
+    "\x19",
+    "\x1a",
+    "\x1b",
+)
+
+
+class _UnquotedSql:
+    """SQL keyword ``convert_value_to_sql_option`` inserts without quotes.
+
+    A string ``"NONE"`` becomes ``'NONE'``, a four-character delimiter.
+    ``RECORD_DELIMITER = NONE`` is the keyword that appends nothing. Strings
+    are quoted; other objects use ``str``. Connect sessions set
+    ``ast_enabled`` false, so this object is not written into a protobuf
+    string field.
+    """
+
+    __slots__ = ("_keyword",)
+
+    def __init__(self, keyword: str) -> None:
+        self._keyword = keyword
+
+    def __str__(self) -> str:
+        return self._keyword
+
+
+_RECORD_DELIMITER_NONE = _UnquotedSql("NONE")
+
+
+def _configured_record_delimiter(fmt: dict) -> str:
+    raw = fmt.get("RECORD_DELIMITER", fmt.get("record_delimiter", "\n"))
+    if raw is None:
+        return "\n"
+    return str(raw)
+
+
+def _logical_record_delimiter(sql_record: str) -> str:
+    """Undo the backslash doubling ``csv_convert_to_snowpark_args`` applies.
+
+    A ``lineSep`` of ``_/-\\_`` is stored as ``RECORD_DELIMITER`` ``_/-\\\\_``
+    so Snowflake's SQL parser restores one backslash. The header text uses
+    the logical separator. Leave the doubled value in the format option when
+    that separator is kept: ``convert_value_to_sql_option`` quotes it again.
+    """
+    return sql_record.replace("\\\\", "\\")
+
+
+def _field_delimiter_absent(text: str, record: str | None) -> str:
+    for candidate in _CSV_HEADER_DELIMITER_CANDIDATES:
+        # Snowflake rejects a field delimiter that occurs inside the record
+        # delimiter, including a one-character piece of a longer lineSep.
+        if record and candidate in record:
+            continue
+        if candidate not in text:
+            return candidate
+    exception = AnalysisException(
+        "Cannot write an empty CSV header. The header text contains every "
+        "delimiter that can keep it one record."
+    )
+    attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+    raise exception
+
+
 def _write_csv_header_only_file(
     rewritten_df: snowpark.DataFrame,
     session: snowpark.Session,
     parameters: dict[str, Any],
+    *,
+    minimal_quoting: bool,
 ) -> None:
     """SNOW-3389612 Sub-fix A.
 
@@ -5263,16 +6070,43 @@ def _write_csv_header_only_file(
     identical to a header-only file.
     """
     column_names = [f.name for f in rewritten_df.schema.fields]
-    header_row_df = session.create_dataframe(
-        [tuple(column_names)],
-        schema=StructType([StructField(c, StringType()) for c in column_names]),
-    )
     header_params = copy.deepcopy(parameters)
     # We ARE the header line — don't have Snowflake prepend another one.
     header_params["header"] = False
     # Empty + partitionBy is degenerate; the call site already excludes that
     # case, so this is just defensive.
     header_params.pop("partition_by", None)
+    if not minimal_quoting:
+        header_row_df = session.create_dataframe(
+            [tuple(column_names)],
+            schema=StructType([StructField(c, StringType()) for c in column_names]),
+        )
+        header_row_df.write.copy_into_location(**header_params)
+        return
+    fmt = header_params["format_type_options"]
+    sep = str(fmt.get("FIELD_DELIMITER", fmt.get("field_delimiter", ",")))
+    # The unquoted name is the text COPY prints as the header. A renamed name is
+    # already Spark's quoted text and can contain the delimiter, so write the
+    # line as one field. A second CSV parse would split it.
+    line = sep.join(unquote_if_quoted(name) for name in column_names)
+    # COPY splits a record on RECORD_DELIMITER even when that character sits
+    # inside a quoted name. A replacement character would be written after the
+    # line and stick to the last column. Keep the reader's delimiter when it
+    # is absent; otherwise put it in the cell and append nothing.
+    record = _logical_record_delimiter(_configured_record_delimiter(fmt))
+    if record and record not in line:
+        row = line
+    else:
+        row = f"{line}{record}"
+        fmt["RECORD_DELIMITER"] = _RECORD_DELIMITER_NONE
+        fmt.pop("record_delimiter", None)
+        record = None
+    fmt["FIELD_DELIMITER"] = _field_delimiter_absent(row, record)
+    fmt.pop("field_delimiter", None)
+    header_row_df = session.create_dataframe(
+        [[row]],
+        schema=StructType([StructField("header", StringType())]),
+    )
     header_row_df.write.copy_into_location(**header_params)
 
 
@@ -5549,7 +6383,9 @@ def store_files_locally(
         else:
             os.makedirs(local_dir, exist_ok=True)
 
-        src_dir = f"@{base_prefix}{parent_dir}"
+        # GET is a prefix match: without the trailing "/", n=1.0 also
+        # downloads n=1.05/ and n=1.0E7/ into this directory.
+        src_dir = f"@{base_prefix}{parent_dir}/"
         file_op.get(src_dir, str(local_dir))
 
 

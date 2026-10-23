@@ -18,6 +18,14 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
+from .airflow_related import RelatedAirflow, RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -45,14 +53,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSpark, RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .airflow_related import RelatedAirflow, RelatedAirflowTask
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -637,6 +637,7 @@ def _airflow_to_nested(airflow: Airflow) -> AirflowNested:
         is_incomplete=airflow.is_incomplete,
         provenance_type=airflow.provenance_type,
         home_id=airflow.home_id,
+        delete_handler=airflow.delete_handler,
         depth=airflow.depth,
         immediate_upstream=airflow.immediate_upstream,
         immediate_downstream=airflow.immediate_downstream,
@@ -681,6 +682,7 @@ def _airflow_from_nested(nested: AirflowNested) -> Airflow:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

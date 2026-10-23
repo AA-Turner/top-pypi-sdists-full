@@ -580,6 +580,18 @@ class TestMcpReadHonoursTheQualifier:
 # ── edit ─────────────────────────────────────────────────────────────────
 
 class TestEdit:
+    def test_a_quarantined_skill_names_the_release_not_sync(self, boost,
+                                                           installed):
+        # Its copy is held out of the store; "repair the store with `boost
+        # sync`" looped, since sync leaves a held skill alone.
+        boost("quarantine", "brainstorming")
+        r = boost("edit", "brainstorming", expect=1)
+        assert ("Error: brainstorming is quarantined — its store copy is held "
+                "aside") in r.err
+        assert "`boost quarantine --release brainstorming` puts it back first" \
+            in " ".join(r.err.split())
+        assert "boost sync" not in r.err
+
     @pytest.mark.skipif(sys.platform == "win32",
                         reason="POSIX shebang script isn't directly executable on Windows")
     def test_editor_change_updates_lock_and_warns(self, boost, installed,
@@ -636,6 +648,26 @@ class TestEdit:
         assert "editor exited with status 1" in r.out
         assert "no changes" not in r.out
         assert _lock()["brainstorming"]["sha256"] == sha_before
+
+    def test_editor_launches_the_resolved_shim(self, boost, installed,
+                                               monkeypatch):
+        # `code` is code.cmd on Windows: launched by its bare name it raises
+        # FileNotFoundError although `shutil.which` finds it.
+        from boost_cli.core import util
+        launched = []
+
+        def call(argv):
+            launched.append(argv)
+            return 0
+        monkeypatch.setenv("EDITOR", "code -w")
+        monkeypatch.delenv("VISUAL", raising=False)
+        monkeypatch.setattr(util.shutil, "which",
+                            lambda n: "C:\\vs\\bin\\code.cmd" if n == "code"
+                            else None)
+        monkeypatch.setattr(info.subprocess, "call", call)
+        boost("edit", "brainstorming")
+        skill_md = paths.store_dir() / "brainstorming" / "SKILL.md"
+        assert launched == [["C:\\vs\\bin\\code.cmd", "-w", str(skill_md)]]
 
     def test_not_installed_rc1(self, boost, tapped):
         r = boost("edit", "brainstorming", expect=1)

@@ -237,8 +237,8 @@ class BuildCMakeExtension(build_ext.build_ext):
 
         # Reconstruct destination path preserving structure
         # Strip leading 'mujoco/' if present to avoid duplicate 'mujoco/mujoco/'
-        if rel_file_path.startswith('mujoco/'):
-          target_rel_path = rel_file_path[len('mujoco/') :]
+        if rel_file_path.startswith('mujoco' + os.sep):
+          target_rel_path = rel_file_path[len('mujoco' + os.sep) :]
         else:
           target_rel_path = rel_file_path
 
@@ -417,6 +417,7 @@ setuptools.setup(
         install_scripts=InstallScripts,
     ),
     ext_modules=[
+        CMakeExtension('mujoco._batch'),
         CMakeExtension('mujoco._callbacks'),
         CMakeExtension('mujoco._constants'),
         CMakeExtension('mujoco._enums'),
@@ -430,7 +431,6 @@ setuptools.setup(
         CMakeExtension('mujoco._structs'),
         # Studio extensions
         CMakeExtension('mujoco.experimental.studio.native_viewer_cc'),
-        CMakeExtension('mujoco.experimental.studio.renderer'),
         CMakeExtension('mujoco.experimental.studio.ux'),
         CMakeExtension('mujoco.experimental.studio.sim'),
         CMakeExtension('mujoco.experimental.studio.window'),

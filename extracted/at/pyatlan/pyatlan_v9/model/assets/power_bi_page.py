@@ -20,6 +20,14 @@ from typing import Any, ClassVar, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -42,20 +50,13 @@ from .knowledge_related import RelatedKnowledgeFile
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
+from .power_bi_related import RelatedPowerBIPage, RelatedPowerBIReport
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .power_bi_related import RelatedPowerBIPage, RelatedPowerBIReport
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -343,6 +344,42 @@ class PowerBIPage(Asset):
         if self.guid is not UNSET:
             return RelatedPowerBIPage(guid=self.guid)
         return RelatedPowerBIPage(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        report_qualified_name: str,
+        page_id: str,
+    ) -> "PowerBIPage":
+        validate_required_fields(
+            ["name", "report_qualified_name", "page_id"],
+            [name, report_qualified_name, page_id],
+        )
+        fields = report_qualified_name.split("/")
+        if len(fields) != 5 or not all(fields):
+            raise ValueError("report_qualified_name is invalid")
+        return cls(
+            name=name,
+            qualified_name=f"{report_qualified_name}/{page_id}",
+            connection_qualified_name="/".join(fields[:3]),
+            connector_name=fields[1],
+            workspace_qualified_name="/".join(fields[:4]),
+            report_qualified_name=report_qualified_name,
+            report=RelatedPowerBIReport(
+                unique_attributes={"qualifiedName": report_qualified_name}
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "PowerBIPage":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "PowerBIPage":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -675,6 +712,7 @@ def _power_bi_page_to_nested(power_bi_page: PowerBIPage) -> PowerBIPageNested:
         is_incomplete=power_bi_page.is_incomplete,
         provenance_type=power_bi_page.provenance_type,
         home_id=power_bi_page.home_id,
+        delete_handler=power_bi_page.delete_handler,
         depth=power_bi_page.depth,
         immediate_upstream=power_bi_page.immediate_upstream,
         immediate_downstream=power_bi_page.immediate_downstream,
@@ -721,6 +759,7 @@ def _power_bi_page_from_nested(nested: PowerBIPageNested) -> PowerBIPage:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

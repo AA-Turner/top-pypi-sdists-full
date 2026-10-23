@@ -1,8 +1,10 @@
 import os
 import logging
 
+from ..lib._httpx import httpx
+
 logger: logging.Logger = logging.getLogger("ours_privacy")
-httpx_logger: logging.Logger = logging.getLogger("httpx")
+httpx_logger: logging.Logger = logging.getLogger(httpx.__name__)
 
 
 def _basic_config() -> None:

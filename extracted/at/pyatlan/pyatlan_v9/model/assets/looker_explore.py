@@ -19,6 +19,15 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model import looker_qn
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -38,6 +47,12 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .looker_related import (
+    RelatedLookerExplore,
+    RelatedLookerField,
+    RelatedLookerModel,
+    RelatedLookerProject,
+)
 from .model_related import RelatedModelAttribute, RelatedModelEntity
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
@@ -47,19 +62,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .looker_related import (
-    RelatedLookerExplore,
-    RelatedLookerField,
-    RelatedLookerModel,
-    RelatedLookerProject,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -262,9 +264,7 @@ class LookerExplore(Asset):
     # SDK Methods
     # =========================================================================
 
-    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(
-        r"^.+/[^/]+/[^/]+/[^/]+$"
-    )
+    _QUALIFIED_NAME_PATTERN: ClassVar[re.Pattern] = re.compile(r"^.+/[^/]+::[^/]+$")
 
     def validate(self, for_creation: bool = False) -> None:
         """
@@ -298,8 +298,6 @@ class LookerExplore(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.model is UNSET:
-                errors.append("model is required for creation")
             if self.model_name is UNSET:
                 errors.append("model_name is required for creation")
             if self.project_name is UNSET:
@@ -337,6 +335,50 @@ class LookerExplore(Asset):
         if self.guid is not UNSET:
             return RelatedLookerExplore(guid=self.guid)
         return RelatedLookerExplore(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        model_qualified_name: str,
+    ) -> "LookerExplore":
+        """
+        Create a new LookerExplore, keyed as atlan-looker-app keys it:
+        ``{model_qualified_name}/{model}::{name}``.
+
+        Args:
+            name: Name of the explore (its LookML name, not its title)
+            model_qualified_name: Unique name of the model in which the explore exists
+
+        Returns:
+            LookerExplore instance ready to be created
+        """
+        validate_required_fields(
+            ["name", "model_qualified_name"], [name, model_qualified_name]
+        )
+        explore = looker_qn.looker_id(name, "name")
+        parent = looker_qn.parse_model(model_qualified_name)
+        project_qn = f"{parent.connection_qualified_name}/project/{parent.project_name}"
+        return cls(
+            name=name,
+            qualified_name=f"{model_qualified_name}/{parent.model_name}::{explore}",
+            connection_qualified_name=parent.connection_qualified_name,
+            connector_name=looker_qn.connector_name(parent.connection_qualified_name),
+            project_name=parent.project_name,
+            model_name=parent.model_name,
+            project=RelatedLookerProject(qualified_name=project_qn),
+            model=RelatedLookerModel(qualified_name=model_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "LookerExplore":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "LookerExplore":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -657,6 +699,7 @@ def _looker_explore_to_nested(looker_explore: LookerExplore) -> LookerExploreNes
         is_incomplete=looker_explore.is_incomplete,
         provenance_type=looker_explore.provenance_type,
         home_id=looker_explore.home_id,
+        delete_handler=looker_explore.delete_handler,
         depth=looker_explore.depth,
         immediate_upstream=looker_explore.immediate_upstream,
         immediate_downstream=looker_explore.immediate_downstream,
@@ -705,6 +748,7 @@ def _looker_explore_from_nested(nested: LookerExploreNested) -> LookerExplore:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -730,10 +774,7 @@ def _looker_explore_from_nested_bytes(data: bytes, serde: Serde) -> LookerExplor
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 LookerExplore.PROJECT_NAME = KeywordField("projectName", "projectName")
 LookerExplore.MODEL_NAME = KeywordField("modelName", "modelName")

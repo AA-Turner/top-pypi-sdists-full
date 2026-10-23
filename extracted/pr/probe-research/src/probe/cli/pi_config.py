@@ -21,10 +21,10 @@ same checkout are the same package as far as pi is concerned, and treating
 them as different would let a wizard re-run append a duplicate pi would
 happily also load.
 
-Kept STDLIB-ONLY (with one deliberate exception -- see the `claude_cli` import
-below) so `agent_rules.py` can import `pi_agent_dir()` from here without
-pulling that module's whole dependency graph along, and so this module can be
-imported early without caring what else is wired up yet.
+Kept STDLIB-ONLY (with two deliberate exceptions -- see the `claude_cli` and
+`durable` imports below) so `agent_rules.py` can import `pi_agent_dir()` from
+here without pulling that module's whole dependency graph along, and so this
+module can be imported early without caring what else is wired up yet.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-# The only non-stdlib import in this module, and it does not cost anything:
+# One of the two non-stdlib imports here (`durable` below is the other), and free:
 # claude_cli.py is itself stdlib-only (shutil/subprocess/dataclasses, see its
 # own docstring), so importing it adds no dependency weight and, critically,
 # no import cycle -- it does not import agent_rules, pi_config, or anything
@@ -50,6 +50,10 @@ from pathlib import Path
 # `.detail` off one. Inventing a second, differently-shaped result type here
 # would make that wiring a translation layer instead of a drop-in.
 from probe.cli import claude_cli
+
+# Stdlib-only as well (its only import is `probe._shared.oscompat`, also
+# stdlib-only), and it imports nothing from probe.cli back.
+from probe.sdk.durable import through_symlink, write_text_atomic
 
 #: The npm name our package.json declares, and the identity a
 #: `npm:probe-research-pi` entry is matched against. Not yet installable this
@@ -620,22 +624,25 @@ def _load_settings(path: Path) -> dict:
 
 
 def _write_settings(path: Path, data: dict) -> None:
-    """Atomic write: tmp file in the SAME directory, then `os.replace`.
+    """Atomic write: a uniquely named temp file in the SAME directory, then a
+    replace (`write_text_atomic`).
 
-    Same-directory is load-bearing, not decoration -- `os.replace` is only
-    atomic within one filesystem, and a tmp file in `/tmp` replacing a target
-    under `~/.pi` can cross a mount boundary silently on some setups.
+    Same-directory is load-bearing, not decoration -- a replace is only atomic
+    within one filesystem, and a tmp file in `/tmp` replacing a target under
+    `~/.pi` can cross a mount boundary silently on some setups. The temp name
+    is unique and created exclusively: with a symlinked settings.json it lands
+    in the user's dotfiles folder, where a fixed name could already be taken
+    (or be a link). The file keeps its mode.
     2-space indent + trailing newline matches how pi itself writes this file,
     so a subsequent pi-side write does not show a whole-file diff.
+    A settings.json symlinked into a dotfiles repo is written through, so the
+    link survives.
     """
+    path = through_symlink(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(data, indent=2) + "\n"
-    tmp = path.with_name(path.name + ".probe.tmp")
     try:
-        tmp.write_text(text, encoding="utf-8")
-        os.replace(tmp, path)
+        write_text_atomic(path, json.dumps(data, indent=2) + "\n", keep_mode=True)
     except OSError as exc:
-        tmp.unlink(missing_ok=True)
         raise _SettingsRefusal(f"could not write {path}: {exc}") from exc
 
 

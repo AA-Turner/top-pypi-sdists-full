@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -32,6 +40,7 @@ from .asset import (
     _extract_asset_attrs,
     _populate_asset_attrs,
 )
+from .cassandra_related import RelatedCassandraIndex, RelatedCassandraTable
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
@@ -48,14 +57,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .cassandra_related import RelatedCassandraIndex, RelatedCassandraTable
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -339,6 +340,44 @@ class CassandraIndex(Asset):
         if self.guid is not UNSET:
             return RelatedCassandraIndex(guid=self.guid)
         return RelatedCassandraIndex(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        name: str,
+        table_qualified_name: str,
+        connection_qualified_name: str | None = None,
+    ) -> "CassandraIndex":
+        validate_required_fields(
+            ["name", "table_qualified_name"], [name, table_qualified_name]
+        )
+        fields = table_qualified_name.split("/")
+        if len(fields) < 5:
+            raise ValueError(
+                "table_qualified_name must be "
+                "{connection_qualified_name}/{keyspace}/{table}"
+            )
+        connection_qualified_name = connection_qualified_name or "/".join(fields[:3])
+        return cls(
+            name=name,
+            qualified_name=f"{table_qualified_name}/{name}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=fields[1],
+            cassandra_keyspace_name=fields[-2],
+            cassandra_table_name=fields[-1],
+            cassandra_table_qualified_name=table_qualified_name,
+            cassandra_table=RelatedCassandraTable(qualified_name=table_qualified_name),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "CassandraIndex":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "CassandraIndex":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -670,6 +709,7 @@ def _cassandra_index_to_nested(cassandra_index: CassandraIndex) -> CassandraInde
         is_incomplete=cassandra_index.is_incomplete,
         provenance_type=cassandra_index.provenance_type,
         home_id=cassandra_index.home_id,
+        delete_handler=cassandra_index.delete_handler,
         depth=cassandra_index.depth,
         immediate_upstream=cassandra_index.immediate_upstream,
         immediate_downstream=cassandra_index.immediate_downstream,
@@ -718,6 +758,7 @@ def _cassandra_index_from_nested(nested: CassandraIndexNested) -> CassandraIndex
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -743,10 +784,7 @@ def _cassandra_index_from_nested_bytes(data: bytes, serde: Serde) -> CassandraIn
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 CassandraIndex.CASSANDRA_INDEX_KIND = KeywordField(
     "cassandraIndexKind", "cassandraIndexKind"

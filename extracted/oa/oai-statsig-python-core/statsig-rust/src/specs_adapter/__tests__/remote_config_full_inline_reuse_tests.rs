@@ -109,6 +109,7 @@ async fn parse_hydrated_update(
         ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("inline-full-reuse-update"),
             capture_hydrated_data_store_bytes: capture_sidecar,
             preserve_session_update_mode,

@@ -15,11 +15,13 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     create_file_format_statement,
     unquote_if_quoted,
 )
+from snowflake.snowpark.exceptions import SnowparkSQLException
 from snowflake.snowpark.functions import col, date_trunc, equal_null, lit
 from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.identifiers import FQN, spark_to_sf_single_id
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.table_metadata_cache import (
     get_or_create_table_metadata_cache,
@@ -80,7 +82,9 @@ def cached_file_format(
     bare_name = f"__SNOWPARK_CONNECT_FILE_FORMAT__{file_format}_{function_name}"
 
     # Qualify the name when the session has no current database.
-    if session.get_current_database() is None and db_schema_fallback:
+    with scos_internal_query_tag():
+        current_db = session.get_current_database()
+    if current_db is None and db_schema_fallback:
         file_format_name = f"{db_schema_fallback}.{bare_name}"
     else:
         file_format_name = bare_name
@@ -273,6 +277,29 @@ def get_partition_spec(table_name: str, session: Session) -> PartitionSpec | Non
         for f in partition_specs[0]["fields"]
     ]
     return PartitionSpec(fields)
+
+
+def rollback_after_failed_overwrite(session: Session) -> None:
+    """Best-effort ROLLBACK after an atomic ``overwrite_condition`` write failed.
+
+    Snowpark compiles ``saveAsTable(..., overwrite_condition=...)`` to an atomic
+    ``BEGIN; DELETE; INSERT; COMMIT``. When a statement fails, Snowflake leaves the
+    transaction OPEN (``TRANSACTION_ABORT_ON_ERROR`` defaults to false), so the
+    session is left holding an uncommitted DELETE -- a dangling transaction that
+    holds table locks and, if later committed, silently drops the targeted rows.
+    Every caller of ``overwrite_condition`` must roll back before surfacing the
+    error. A missing/already-closed transaction is a no-op (not an error), so a
+    raised ``SnowparkSQLException`` here is a genuine rollback failure and is
+    logged rather than silently swallowed.
+    """
+    try:
+        session.sql("ROLLBACK").collect()
+    except SnowparkSQLException as exc:
+        logger.warning(
+            "rollback_after_failed_overwrite: ROLLBACK failed (%s: %s)",
+            type(exc).__name__,
+            exc,
+        )
 
 
 def get_overwrite_condition(

@@ -1649,6 +1649,7 @@ class UnifiedAIClient:
         "xai_video": "XAIVideoGeneration",
         "huggingface_chat": "HuggingFaceChat",
         "elevenlabs_chat": "ElevenLabsChat",
+        "elevenlabs_music": "ElevenLabsMusic",
         "mock_chat": "MockChat",
         "moonshot_chat": "MoonshotChat",
     }
@@ -1714,6 +1715,8 @@ class UnifiedAIClient:
     async def execute(
         self,
         request: AIMatrixRequest,
+        *,
+        transient_retries: int = 0,
     ) -> dict[str, Any]:
         """Dispatch one request, and make a decision turn out of it when asked.
 
@@ -1732,7 +1735,9 @@ class UnifiedAIClient:
         )
 
         try:
-            response = await self._execute_dispatch(request)
+            response = await self._execute_dispatch(
+                request, transient_retries=transient_retries
+            )
         finally:
             _restore_decision_text_gate(request)
             _pending = getattr(request.config, "metadata", None)
@@ -1773,6 +1778,8 @@ class UnifiedAIClient:
     async def _execute_dispatch(
         self,
         request: AIMatrixRequest,
+        *,
+        transient_retries: int = 0,
     ) -> dict[str, Any]:
         from matrx_ai.catalog.resolve import resolve_tts_call_profile
         from matrx_ai.decisions.translate import prepare_verbalized_decision
@@ -2148,6 +2155,7 @@ class UnifiedAIClient:
                         profile=profile,
                         provider_client=instance,
                         config=wire_config,
+                        transient_retries=transient_retries,
                     ),
                     profile,
                     config,
@@ -2175,6 +2183,7 @@ class UnifiedAIClient:
                     profile=profile,
                     provider_client=provider_client,
                     config=wire_config,
+                    transient_retries=transient_retries,
                 ),
                 profile,
                 config,
@@ -2350,8 +2359,11 @@ class UnifiedAIClient:
         defer_setting_rejection: bool = False,
     ) -> Any:
         from matrx_ai.providers.admission import admit_provider_call
-        from matrx_ai.providers.keys import prepare_provider_clients
+        from matrx_ai.providers.keys import begin_dispatch_key_scope, prepare_provider_clients
 
+        # Unconditionally: dispatches with no provider client (decisions, fastino,
+        # embeddings, rerank, extraction) must not read an earlier call's "own".
+        begin_dispatch_key_scope()
         if provider_client is not None:
             await prepare_provider_clients(provider_client)
 
@@ -2376,6 +2388,12 @@ class UnifiedAIClient:
             try:
                 result = await dispatch()
                 succeeded = True
+                # WHO PAID FOR THIS CALL is known only here, in the task that
+                # preflighted the key: a call on the person's own key is stamped
+                # so its model cost is 0 points (owner ruling 2026-10-15 #6).
+                from matrx_ai.providers.keys import mark_usage_key_source
+
+                mark_usage_key_source(getattr(result, "usage", None))
                 # The wire shape this model ACCEPTED — the comparison point an
                 # opaque settings rejection (Google "invalid argument") names
                 # its suspect params against. Cheap, in-process, never raises.
@@ -2432,6 +2450,11 @@ class UnifiedAIClient:
                 if is_request_capture(exc):
                     # Captured, never sent: not a failure, nothing to report.
                     raise
+                # A failed call the provider still billed: same own-key stamp.
+                from matrx_ai.providers.errors import get_billed_usage
+                from matrx_ai.providers.keys import mark_usage_key_source
+
+                mark_usage_key_source(get_billed_usage(exc))
                 # THE one door every dispatched provider failure takes to the
                 # operator (out-of-credit alarm), then LAYER 2 — shared with
                 # runtimes that cannot hand their call here. Never raises.

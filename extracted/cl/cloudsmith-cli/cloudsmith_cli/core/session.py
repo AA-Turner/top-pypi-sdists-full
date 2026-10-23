@@ -1,14 +1,31 @@
 """HTTP session creation with retry support."""
 
+import ssl
 import sys
 import time
 
 import requests
 import urllib3
 from requests.adapters import HTTPAdapter
+from urllib3.exceptions import MaxRetryError
 from urllib3.util.retry import Retry
+from urllib3.util.ssl_ import create_urllib3_context
+
+from .certificate_errors import find_certificate_error
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+_default_proxy = {"url": None}
+
+
+def set_default_proxy(proxy):
+    """Set the proxy for every HTTP client that is not given one."""
+    _default_proxy["url"] = proxy
+
+
+def get_default_proxy():
+    """Get the proxy that set_default_proxy() set, or None."""
+    return _default_proxy["url"]
 
 
 class ApiKeySafeSession(requests.Session):
@@ -18,6 +35,15 @@ class ApiKeySafeSession(requests.Session):
         super().rebuild_auth(prepared_request, response)
         if self.should_strip_auth(response.request.url, prepared_request.url):
             prepared_request.headers.pop("X-Api-Key", None)
+
+    def merge_environment_settings(self, url, proxies, stream, verify, cert):
+        # requests lets HTTPS_PROXY and HTTP_PROXY override session.proxies.
+        request_proxies = dict(proxies or {})
+        settings = super().merge_environment_settings(
+            url, proxies, stream, verify, cert
+        )
+        settings["proxies"].update({**self.proxies, **request_proxies})
+        return settings
 
 
 class RetryWithCallback(Retry):
@@ -30,6 +56,20 @@ class RetryWithCallback(Retry):
     def new(self, **kw):
         kw["error_retry_cb"] = self.error_retry_cb
         return super().new(**kw)
+
+    def increment(
+        self,
+        method=None,
+        url=None,
+        response=None,
+        error=None,
+        _pool=None,
+        _stacktrace=None,
+    ):
+        # A failed certificate check fails the same way on every attempt.
+        if error is not None and find_certificate_error(error) is not None:
+            raise MaxRetryError(_pool, url, error) from error
+        return super().increment(method, url, response, error, _pool, _stacktrace)
 
     def sleep_for_retry(self, response=None):
         retry_after = self.get_retry_after(response)
@@ -50,6 +90,45 @@ class RetryWithCallback(Retry):
         if self.error_retry_cb and callable(self.error_retry_cb):
             self.error_retry_cb(seconds, context=context)
         return time.sleep(seconds)
+
+
+def disable_x509_strict(context):
+    """Clear ``VERIFY_X509_STRICT`` on the SSL context and return it.
+
+    Python 3.13+ (and urllib3 on those versions) enables strict X.509
+    verification by default, which rejects certificates that lack extensions
+    such as Authority Key Identifier. Such certificates are common when
+    corporate proxies intercept TLS traffic, so this allows opting out.
+    """
+    context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    return context
+
+
+class SSLContextAdapter(HTTPAdapter):
+    """An HTTPAdapter that verifies certificates using custom SSL contexts."""
+
+    def __init__(self, *args, ssl_context_factory=None, **kwargs):
+        self.ssl_context_factory = ssl_context_factory
+        self.ssl_contexts = {}
+        super().__init__(*args, **kwargs)
+
+    def build_connection_pool_key_attributes(self, request, verify, cert=None):
+        host_params, pool_kwargs = super().build_connection_pool_key_attributes(
+            request, verify, cert
+        )
+        # The custom context requires verification, so skip it when disabled
+        if self.ssl_context_factory is not None and verify is not False:
+            # urllib3 adds each CA bundle to the context it gets, so one shared
+            # context would trust every bundle that the session ever used
+            key = (verify, cert)
+            if key not in self.ssl_contexts:
+                self.ssl_contexts[key] = self.ssl_context_factory()
+            pool_kwargs["ssl_context"] = self.ssl_contexts[key]
+        return host_params, pool_kwargs
+
+
+def _create_non_strict_ssl_context():
+    return disable_x509_strict(create_urllib3_context())
 
 
 def _sdk_configuration():
@@ -75,6 +154,7 @@ def create_requests_session(
     pools_size=4,
     maxsize=4,
     ssl_verify=None,
+    ssl_verify_strict=None,
     ssl_cert=None,
     proxy=None,
     session=None,
@@ -104,6 +184,10 @@ def create_requests_session(
     if ssl_verify is None:
         ssl_verify = config.verify_ssl if config is not None else True
 
+    if ssl_verify_strict is None:
+        verify_strict = getattr(config, "ssl_verify_strict", None)
+        ssl_verify_strict = verify_strict if verify_strict is not None else True
+
     if ssl_cert is None and config is not None:
         if config.cert_file and config.key_file:
             ssl_cert = (config.cert_file, config.key_file)
@@ -112,6 +196,9 @@ def create_requests_session(
 
     if proxy is None and config is not None:
         proxy = config.proxy
+
+    if proxy is None:
+        proxy = get_default_proxy()
 
     session = session or ApiKeySafeSession()
     session.verify = ssl_verify
@@ -132,11 +219,14 @@ def create_requests_session(
         respect_retry_after_header=respect_retry_after_header,
     )
 
-    adapter = HTTPAdapter(
+    adapter = SSLContextAdapter(
         max_retries=retry,
         pool_connections=pools_size,
         pool_maxsize=maxsize,
         pool_block=True,
+        ssl_context_factory=(
+            None if ssl_verify_strict else _create_non_strict_ssl_context
+        ),
     )
 
     session.mount("http://", adapter)

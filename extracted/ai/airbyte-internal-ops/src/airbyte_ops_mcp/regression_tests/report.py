@@ -43,7 +43,7 @@ import difflib
 import json
 import os
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from itertools import zip_longest
 from pathlib import Path
@@ -252,10 +252,10 @@ class StreamSection:
     """One collapsible section for a single stream.
 
     `status` drives the section's colour and whether it starts expanded:
-    `pass`, `fail`, or `info` for a section that carries data but asserts
-    nothing. Sections start as `info`; when the record comparison ran,
-    `_apply_record_comparison` re-marks every compared stream `pass` or
-    `fail` and attaches the failure detail as diff blocks.
+    `pass`, `warn`, `fail`, or `info` for a section that carries data but
+    asserts nothing. Sections start as `info`; when the record comparison
+    ran, `_apply_record_comparison` re-marks every compared stream `pass`,
+    `warn` or `fail` and attaches the finding detail as diff blocks.
     """
 
     stream: str
@@ -641,6 +641,7 @@ def _build_stream_sections(
     target_counts: dict[str, int],
     configured_streams: tuple[str, ...] = (),
     failing_streams: frozenset[str] = frozenset(),
+    warning_streams: frozenset[str] = frozenset(),
 ) -> tuple[tuple[StreamSection, ...], int]:
     """Build one section per stream, capped at `MAX_STREAM_SECTIONS`.
 
@@ -657,18 +658,25 @@ def _build_stream_sections(
             come from the records themselves, so a stream that emitted nothing
             has no entry -- without this it would be missing from the report
             entirely rather than shown as zero.
-        failing_streams: Streams the record comparison failed. Sorted to the
-            front so the section cap can never hide a failing stream behind
-            200 alphabetically-earlier passing ones -- the detail blocks are
-            attached per section, so a failing stream past the cap would
-            lose its detail entirely.
+        failing_streams: Streams the record comparison failed on. Sorted to
+            the front so the section cap can never hide a failing stream
+            behind 200 alphabetically-earlier ones -- the detail blocks are
+            attached per section, so a failing stream past the cap would lose
+            its detail entirely.
+        warning_streams: Streams the record comparison only warned on. Next
+            after the failing ones and before the rest, so 200 warnings
+            cannot push a failure's detail out either.
     """
     every_stream = (
         set(control_counts or {}) | set(target_counts) | set(configured_streams or ())
     )
-    all_streams = sorted(every_stream & failing_streams) + sorted(
-        every_stream - failing_streams
-    )
+    failing = every_stream & failing_streams
+    warning = (every_stream & warning_streams) - failing
+    all_streams = [
+        *sorted(failing),
+        *sorted(warning),
+        *sorted(every_stream - failing - warning),
+    ]
     omitted = max(0, len(all_streams) - MAX_STREAM_SECTIONS)
 
     sections: list[StreamSection] = []
@@ -915,12 +923,18 @@ def _comparison_check(
     return CheckResult(name=name, passed=result.passed, summary=summary)
 
 
-def _comparison_failing_streams(
+def _comparison_flagged_streams(
     summary: RecordComparisonSummary | None,
-) -> frozenset[str]:
-    """Every stream at least one record-comparison check failed on."""
+) -> tuple[frozenset[str], frozenset[str]]:
+    """The streams a record-comparison check failed on, then those it warned on.
+
+    A stream warns when every check passed it but a version has duplicate
+    PKs, or its count passed on the duplicate-row allowance -- the same rule
+    `_stream_comparison_detail` uses for the section's status. A failing
+    stream is not also listed as warning.
+    """
     if summary is None:
-        return frozenset()
+        return frozenset(), frozenset()
 
     checks = (
         summary.count_comparison,
@@ -929,14 +943,142 @@ def _comparison_failing_streams(
         summary.target_pk_uniqueness,
         summary.field_comparison,
     )
-
-    return frozenset(
-        name
+    results = [
+        (name, result)
         for check in checks
         if check is not None
         for name, result in check.stream_results.items()
-        if not result.passed
+    ]
+    failing = frozenset(name for name, result in results if not result.passed)
+    warning = (
+        frozenset(name for name, result in results if result.duplicate_pk_count)
+        | frozenset(
+            name
+            for name, result in summary.count_comparison.stream_results.items()
+            if _count_shortfall_allowed(result)
+        )
+        | frozenset(
+            name
+            for name, result in (
+                summary.field_comparison.stream_results.items()
+                if summary.field_comparison is not None
+                else ()
+            )
+            if _added_copies(result)
+        )
     )
+
+    return failing, warning - failing
+
+
+def _added_copies(result: StreamComparisonResult) -> int:
+    """Identical copies the target added under already-duplicated PKs."""
+    return result.record_diff.added_copy_count if result.record_diff else 0
+
+
+def _count_shortfall_allowed(result: StreamComparisonResult) -> bool:
+    """A record count that passed with fewer target records.
+
+    Only the duplicate-row allowance passes a shortfall, so this is a stream
+    whose shortfall is within the drop in duplicate rows: a warning, not a
+    pass. Whether the dropped rows were copies is the field values' call.
+    """
+    return result.passed and result.target_count < result.control_count
+
+
+def _warning_check(
+    name: str, result: ComparisonResult, warned: list[str], note: str = ""
+) -> CheckResult:
+    """A passing check with streams that warn, as a `diagnostic` row.
+
+    Names the streams like a failing check does (capped at
+    `MAX_FAILING_STREAMS_NAMED`) and lists each one's message as a detail.
+    """
+    shown = ", ".join(warned[:MAX_FAILING_STREAMS_NAMED])
+    if len(warned) > MAX_FAILING_STREAMS_NAMED:
+        shown += f" and {len(warned) - MAX_FAILING_STREAMS_NAMED} more"
+    plural = "s" if len(warned) > 1 else ""
+    summary = f"{result.message} — {len(warned)} stream{plural}: {shown}"
+    if note:
+        summary += f" ({note})"
+
+    return CheckResult(
+        name=name,
+        passed=False,
+        severity="diagnostic",
+        summary=summary,
+        details=tuple(result.stream_results[stream].message for stream in warned),
+    )
+
+
+def _pk_integrity_check(name: str, result: ComparisonResult) -> CheckResult:
+    """A PK integrity row of the per-check table.
+
+    Fails like any comparison check, with each failing stream's finding as a
+    detail. A version whose only finding is duplicates the target did not
+    introduce -- pre-existing in both versions, or fixed by the target --
+    warns instead, naming the streams the same way.
+    """
+    if not result.passed:
+        return replace(
+            _comparison_check(name, result),
+            details=tuple(
+                stream_result.message
+                for _stream, stream_result in sorted(result.stream_results.items())
+                if not stream_result.passed
+            ),
+        )
+    warned = sorted(
+        stream
+        for stream, stream_result in result.stream_results.items()
+        if stream_result.duplicate_pk_count
+    )
+    if not warned:
+        return _comparison_check(name, result)
+
+    return _warning_check(name, result, warned)
+
+
+def _record_count_check(
+    name: str, result: ComparisonResult, note: str = ""
+) -> CheckResult:
+    """The record-count row of the per-check table.
+
+    Fails like any comparison check. A check that passed only because a
+    stream's shortfall is within the drop in duplicate rows warns instead,
+    naming those streams.
+    """
+    warned = sorted(
+        stream
+        for stream, stream_result in result.stream_results.items()
+        if _count_shortfall_allowed(stream_result)
+    )
+    if not result.passed or not warned:
+        return _comparison_check(name, result, note)
+
+    return _warning_check(name, result, warned, note)
+
+
+def _field_values_check(name: str, result: ComparisonResult) -> CheckResult:
+    """The field-values row of the per-check table.
+
+    Fails like any comparison check. A check that passed, but on streams
+    whose target emits more identical copies under PKs the control already
+    duplicates, warns instead, naming those streams.
+    """
+    warned = sorted(
+        stream
+        for stream, stream_result in result.stream_results.items()
+        if stream_result.passed and _added_copies(stream_result)
+    )
+    if not result.passed or not warned:
+        return _comparison_check(name, result)
+
+    return _warning_check(name, result, warned)
+
+
+# Builds one check's row from its display name and its result.
+_CheckBuilder = Callable[[str, ComparisonResult], CheckResult]
 
 
 def build_record_comparison_checks(
@@ -947,7 +1089,12 @@ def build_record_comparison_checks(
     These are `strict` checks: folding them into the verdict is what makes a
     dropped record or a mutated field value fail a run whose containers both
     exited cleanly -- the same rule `record_comparison_passed` applies to the
-    CLI's GitHub outputs, so the two surfaces cannot disagree.
+    CLI's GitHub outputs, so the two surfaces cannot disagree. The softenings
+    are the PK integrity pair, where duplicates the target did not introduce
+    pass the check and warn on its row (`_pk_integrity_check`); record
+    counts, where a shortfall within the drop in duplicate rows does the same
+    (`_record_count_check`); and field values, where identical copies the
+    target added under an already-duplicated PK do (`_field_values_check`).
 
     The PK-dependent checks are `None` on a catalog with no keyed streams and
     are omitted rather than shown as trivially passing.
@@ -959,17 +1106,31 @@ def build_record_comparison_checks(
             "count comparison only"
         )
 
-    named_results: tuple[tuple[str, ComparisonResult | None, str], ...] = (
-        ("Record counts", summary.count_comparison, no_pk_note),
-        ("Primary key presence", summary.pk_presence, ""),
-        ("Primary key integrity (control)", summary.control_pk_uniqueness, ""),
-        ("Primary key integrity (target)", summary.target_pk_uniqueness, ""),
-        ("Field values", summary.field_comparison, ""),
+    # Each check names the builder for its row, so a check that can warn is
+    # chosen explicitly rather than by matching its display name.
+    named_results: tuple[tuple[str, ComparisonResult | None, _CheckBuilder], ...] = (
+        (
+            "Record counts",
+            summary.count_comparison,
+            lambda name, result: _record_count_check(name, result, no_pk_note),
+        ),
+        ("Primary key presence", summary.pk_presence, _comparison_check),
+        (
+            "Primary key integrity (control)",
+            summary.control_pk_uniqueness,
+            _pk_integrity_check,
+        ),
+        (
+            "Primary key integrity (target)",
+            summary.target_pk_uniqueness,
+            _pk_integrity_check,
+        ),
+        ("Field values", summary.field_comparison, _field_values_check),
     )
 
     return tuple(
-        _comparison_check(name, result, note)
-        for name, result, note in named_results
+        build(name, result)
+        for name, result, build in named_results
         if result is not None
     )
 
@@ -1059,11 +1220,59 @@ def _pk_presence_group(result: StreamComparisonResult) -> DiffBlock:
     )
 
 
-def _duplicate_pk_block(version: str, result: StreamComparisonResult) -> DiffBlock:
-    """One version's duplicated PK values, with occurrence counts."""
+def _duplicate_pk_split_text(result: StreamComparisonResult) -> str:
+    """`118 pre-existing, 3 new in target` -- the non-zero parts of the split."""
+    parts = [
+        f"{count:,} {what}"
+        for count, what in (
+            (result.pre_existing_duplicate_pk_count, "pre-existing"),
+            (result.new_duplicate_pk_count, "new in target"),
+            (result.fixed_duplicate_pk_count, "fixed in target"),
+            (
+                result.lost_duplicate_pk_count,
+                "with records dropped or changed in target",
+            ),
+        )
+        if count
+    ]
+    return ", ".join(parts)
+
+
+def _duplicate_pk_block(
+    version: str,
+    result: StreamComparisonResult,
+    other: StreamComparisonResult | None,
+) -> DiffBlock:
+    """One version's duplicated PK values, with occurrence counts.
+
+    A value the other version also duplicates is pre-existing and rendered as
+    context; one it does not is this version's own -- new in the target; in
+    the control, fixed in the target or, when the target dropped or changed
+    records of it, "records dropped or changed in target". Classified on the
+    capped example lists, so exact up to `MAX_EXAMPLE_PKS` per version. A
+    control value is called fixed only while the list of dropped-or-changed
+    values is complete; past its cap, one missing from it may still belong
+    there, so it is only "not duplicated in target".
+    """
     counts = result.duplicate_pk_counts
+    shared = set(other.duplicate_pks) if other is not None else set()
+    lost = set(result.lost_duplicate_pks)
+    lost_complete = result.lost_duplicate_pk_count == len(result.lost_duplicate_pks)
+
+    def label(pk: Any) -> str:
+        if pk in shared:
+            return "pre-existing"
+        if version == "target":
+            return "new in target"
+        if pk in lost:
+            return "records dropped or changed in target"
+        return "fixed in target" if lost_complete else "not duplicated in target"
+
     lines = [
-        DiffLine(kind="del", text=f"{_pk_text(pk)} \u00d7{count:,}")
+        DiffLine(
+            kind="ctx" if pk in shared else "del",
+            text=f"{_pk_text(pk)} \u00d7{count:,} ({label(pk)})",
+        )
         for pk, count in counts.items()
     ]
 
@@ -1090,13 +1299,23 @@ def _duplicate_pk_group(
     """
     children: list[DiffBlock] = []
     parts: list[str] = []
-    for version, result in (("control", control_result), ("target", target_result)):
+    for version, result, other in (
+        ("control", control_result, target_result),
+        ("target", target_result, control_result),
+    ):
         if result is not None and result.duplicate_pks:
-            children.append(_duplicate_pk_block(version, result))
+            children.append(_duplicate_pk_block(version, result, other))
             parts.append(f"{result.duplicate_pk_count:,} in {version}")
 
+    title = f"Duplicate primary keys \u2014 {', '.join(parts)}"
+    # Both versions carry the same split, so either one describes the stream.
+    classified = target_result if target_result is not None else control_result
+    split = _duplicate_pk_split_text(classified) if classified is not None else ""
+    if split:
+        title += f" ({split})"
+
     return DiffBlock(
-        title=f"Duplicate primary keys \u2014 {', '.join(parts)}",
+        title=title,
         lines=(
             DiffLine(
                 kind="meta",
@@ -1105,8 +1324,12 @@ def _duplicate_pk_group(
                     "single version's output (\u00d7N = how many records shared "
                     "the value) \u2014 the same entity was read more than once "
                     "(e.g. broken pagination or slicing), which breaks "
-                    "destination-side dedup. Each version's duplicates are "
-                    "its own finding; both fail the test."
+                    "destination-side dedup. A value duplicated in both "
+                    "versions is pre-existing and only warns; one duplicated "
+                    "in the target alone is new and fails the test; one "
+                    "duplicated in the control alone was fixed by the target, "
+                    "unless the target dropped or changed records of it, which "
+                    "the field values or PK presence fail on."
                 ),
             ),
         ),
@@ -1276,19 +1499,16 @@ def _value_diff_rows(example: dict[str, Any]) -> list[SplitDiffRow]:
     visible. `emitted_at` is dropped from both sides because the comparison
     excluded it -- showing it would present a passing field as a diff.
 
+    A PK emitted more than once carries each side's unmatched records as a
+    list, diffed the same way. A lost record or an added copy has an empty
+    list on the other side, which renders as an empty column rather than as
+    a `[]` line.
+
     Falls back to the raw DeepDiff dict when an example carries no record
     copies, so a malformed example still shows *what* changed.
     """
-    control = {
-        key: value
-        for key, value in (example.get("control") or {}).items()
-        if key not in EXCLUDE_PATHS
-    }
-    target = {
-        key: value
-        for key, value in (example.get("target") or {}).items()
-        if key not in EXCLUDE_PATHS
-    }
+    control = _without_excluded_fields(example.get("control"))
+    target = _without_excluded_fields(example.get("target"))
     if not control and not target:
         text = json.dumps(json_safe(example.get("diff") or {}), indent=2, default=str)
 
@@ -1297,7 +1517,55 @@ def _value_diff_rows(example: dict[str, Any]) -> list[SplitDiffRow]:
             for line in text.splitlines()
         ]
 
-    return _split_record_rows(_record_json(control), _record_json(target))
+    return _split_record_rows(_side_json(control), _side_json(target))
+
+
+def _without_excluded_fields(side: Any) -> Any:
+    """A record, or a list of records, minus the fields the comparison excluded."""
+    if isinstance(side, list):
+        return [_without_excluded_fields(record) for record in side]
+    return {
+        key: value for key, value in (side or {}).items() if key not in EXCLUDE_PATHS
+    }
+
+
+def _side_json(side: Any) -> list[str]:
+    """One side of a value-diff example as JSON lines; none for an empty group."""
+    if isinstance(side, list) and not side:
+        return []
+    return _record_json(side)
+
+
+def _example_record(side: Any) -> dict[str, Any] | None:
+    """The record to pin the PK fields from: the first one of a group.
+
+    `None` for a group with no records on this side, which then pins nothing.
+    """
+    if isinstance(side, list):
+        return side[0] if side else None
+    return side or {}
+
+
+def _pinned_pk_line(side: Any, pk_path: list[str]) -> DiffLine | None:
+    """The pinned `pk <field> = <value>` cell for one side of an example."""
+    record = _example_record(side)
+    if record is None:
+        return None
+    return DiffLine(kind="ctx", text=_pk_field_text(record, pk_path))
+
+
+def _example_header(example: dict[str, Any]) -> str:
+    """`record pk = [7]`, plus the example's note when it has one.
+
+    The note says what a duplicated PK's difference is when one side has no
+    records left -- a record the target no longer emits, or more copies of
+    one -- which the bare side-by-side diff cannot say on its own.
+    """
+    pk = example.get("pk")
+    header = f"record pk = {_pk_text(pk)}" if pk is not None else "record"
+    if example.get("note"):
+        header += f" \u2014 {example['note']}"
+    return header
 
 
 def _value_diff_block(diff: RecordDiff) -> DiffBlock:
@@ -1310,26 +1578,15 @@ def _value_diff_block(diff: RecordDiff) -> DiffBlock:
     """
     rows: list[SplitDiffRow] = []
     for example in diff.records_with_value_diff:
-        pk = example.get("pk")
-        rows.append(
-            SplitDiffRow(
-                header=f"record pk = {_pk_text(pk)}" if pk is not None else "record",
-            )
-        )
+        rows.append(SplitDiffRow(header=_example_header(example)))
         # Pin the identifying fields above the diff: on a wide record the PK
         # field itself can land past the row cap or inside a collapsed gap,
         # and the reader must never have to hunt for which record this is.
         for pk_path in diff.pk_paths or []:
             rows.append(
                 SplitDiffRow(
-                    left=DiffLine(
-                        kind="ctx",
-                        text=_pk_field_text(example.get("control") or {}, pk_path),
-                    ),
-                    right=DiffLine(
-                        kind="ctx",
-                        text=_pk_field_text(example.get("target") or {}, pk_path),
-                    ),
+                    left=_pinned_pk_line(example.get("control"), pk_path),
+                    right=_pinned_pk_line(example.get("target"), pk_path),
                 )
             )
         rows.extend(_value_diff_rows(example))
@@ -1351,13 +1608,7 @@ def _value_diff_deepdiff_block(diff: RecordDiff) -> DiffBlock:
     """
     lines: list[DiffLine] = []
     for example in diff.records_with_value_diff:
-        pk = example.get("pk")
-        lines.append(
-            DiffLine(
-                kind="meta",
-                text=f"record pk = {_pk_text(pk)}" if pk is not None else "record",
-            )
-        )
+        lines.append(DiffLine(kind="meta", text=_example_header(example)))
         # Through `json_safe` first: DeepDiff's own set containers are not
         # JSON-serializable, and the `default=str` fallback alone would
         # collapse each one into a single unreadable line.
@@ -1409,19 +1660,51 @@ def _records_only_in_control_block(diff: RecordDiff) -> DiffBlock:
     )
 
 
+def _added_copies_block(diff: RecordDiff) -> DiffBlock:
+    """The duplicated PK values the target emits more identical copies of."""
+    lines = [
+        DiffLine(
+            kind="meta",
+            text=(
+                "PK values the control already emits more than once, where the "
+                "target emits more identical copies of the same records (+N = "
+                "how many more). A live read with offset pagination can return "
+                "a row twice, so this warns and does NOT fail the test."
+            ),
+        ),
+        *(
+            DiffLine(kind="add", text=f"{_pk_text(pk)} +{count:,}")
+            for pk, count in diff.added_copy_pks.items()
+        ),
+    ]
+    block = build_diff_block(
+        f"Identical copies added in target \u2014 {diff.added_copy_count:,} "
+        f"more under {diff.added_copy_pk_count:,} PK value(s)",
+        lines,
+    )
+    return replace(
+        block,
+        truncated_line_count=block.truncated_line_count
+        + (diff.added_copy_pk_count - len(diff.added_copy_pks)),
+    )
+
+
 def _stream_comparison_detail(
     stream: str,
     summary: RecordComparisonSummary,
-) -> tuple[bool, list[str], tuple[DiffBlock, ...]] | None:
-    """One stream's comparison verdict, headline fragments and detail blocks.
+) -> tuple[str, list[str], tuple[DiffBlock, ...]] | None:
+    """One stream's comparison status, headline fragments and detail blocks.
 
-    Returns `None` for a stream the comparison never saw -- a configured
-    stream that emitted nothing on either side, which the coverage check
-    reports instead.
+    The status is `fail`, `warn` (every check passed, but a version has
+    duplicate PKs the target did not introduce, the count passed on the
+    duplicate-row allowance, or the target added identical copies under a
+    duplicated PK) or `pass`. Returns `None` for
+    a stream the comparison never saw -- a configured stream that emitted
+    nothing on either side, which the coverage check reports instead.
 
-    Detail blocks are built only for the sub-checks that failed: a passing
+    Detail blocks are built only for the sub-checks with a finding: a passing
     stream's section stays a single line, and the report's weight goes where
-    the failures are.
+    the findings are.
     """
 
     def result_for(check: ComparisonResult | None) -> StreamComparisonResult | None:
@@ -1450,30 +1733,56 @@ def _stream_comparison_detail(
     fragments: list[str] = []
     blocks: list[DiffBlock] = []
 
-    if count_result is not None and not count_result.passed:
+    count_warned = count_result is not None and _count_shortfall_allowed(count_result)
+    if count_result is not None and (count_warned or not count_result.passed):
         fewer = count_result.control_count - count_result.target_count
-        fragments.append(f"{fewer:,} fewer record(s) in target")
+        fragments.append(
+            f"{fewer:,} fewer record(s) in target, within the duplicate rows it dropped"
+            if count_warned
+            else f"{fewer:,} fewer record(s) in target"
+        )
 
     if presence_result is not None and not presence_result.passed:
         fragments.append(f"{presence_result.missing_pk_count:,} missing PK(s)")
         blocks.append(_pk_presence_group(presence_result))
 
+    # Both versions carry the same split, so either one describes the stream.
+    uniqueness = (
+        target_uniqueness if target_uniqueness is not None else control_uniqueness
+    )
     has_duplicates = False
+    if uniqueness is not None:
+        if uniqueness.new_duplicate_pk_count:
+            fragments.append(
+                f"{uniqueness.new_duplicate_pk_count:,} new duplicate PK(s) in target"
+            )
+        if uniqueness.pre_existing_duplicate_pk_count:
+            fragments.append(
+                f"{uniqueness.pre_existing_duplicate_pk_count:,} pre-existing "
+                "duplicate PK(s), unchanged"
+            )
+        if uniqueness.fixed_duplicate_pk_count:
+            fragments.append(
+                f"{uniqueness.fixed_duplicate_pk_count:,} duplicate PK(s) in "
+                "control fixed in target"
+            )
+        if uniqueness.lost_duplicate_pk_count:
+            fragments.append(
+                f"{uniqueness.lost_duplicate_pk_count:,} duplicate PK(s) in "
+                "control with records dropped or changed in target"
+            )
+        has_duplicates = any(
+            result is not None and result.duplicate_pk_count
+            for result in (control_uniqueness, target_uniqueness)
+        )
     has_records_missing_pk = False
-    for version, uniqueness in (
+    for version, version_uniqueness in (
         ("control", control_uniqueness),
         ("target", target_uniqueness),
     ):
-        if uniqueness is None or uniqueness.passed:
-            continue
-        if uniqueness.duplicate_pks:
+        if version_uniqueness is not None and version_uniqueness.records_missing_pk:
             fragments.append(
-                f"{uniqueness.duplicate_pk_count:,} duplicate PK(s) in {version}"
-            )
-            has_duplicates = True
-        if uniqueness.records_missing_pk:
-            fragments.append(
-                f"{uniqueness.records_missing_pk:,} record(s) without PK "
+                f"{version_uniqueness.records_missing_pk:,} record(s) without PK "
                 f"values in {version}"
             )
             has_records_missing_pk = True
@@ -1500,7 +1809,23 @@ def _stream_comparison_detail(
             # the first few, which is what makes a drop diagnosable.
             blocks.append(_records_only_in_control_block(record_diff))
 
-    return all(result.passed for result in results), fragments, tuple(blocks)
+    copies_added = field_result is not None and _added_copies(field_result)
+    if copies_added and field_result.record_diff is not None:
+        record_diff = field_result.record_diff
+        copies = "copy" if record_diff.added_copy_count == 1 else "copies"
+        fragments.append(
+            f"{record_diff.added_copy_count:,} more identical {copies} in target "
+            f"under {record_diff.added_copy_pk_count:,} duplicated PK(s)"
+        )
+        blocks.append(_added_copies_block(record_diff))
+
+    if not all(result.passed for result in results):
+        status = "fail"
+    elif has_duplicates or count_warned or copies_added:
+        status = "warn"
+    else:
+        status = "pass"
+    return status, fragments, tuple(blocks)
 
 
 def _apply_record_comparison(
@@ -1509,11 +1834,11 @@ def _apply_record_comparison(
 ) -> tuple[StreamSection, ...]:
     """Fold the record comparison into the per-stream sections.
 
-    Every compared stream is re-marked `pass` or `fail` -- the comparison is
-    part of the verdict now, so its sections assert rather than inform -- and
-    a failing stream's headline says in one line what went wrong, with the
-    detail attached as collapsible diff blocks. Streams the comparison never
-    saw stay `info`.
+    Every compared stream is re-marked `pass`, `warn` or `fail` -- the
+    comparison is part of the verdict now, so its sections assert rather than
+    inform -- and a flagged stream's headline says in one line what was found,
+    with the detail attached as collapsible diff blocks. Streams the
+    comparison never saw stay `info`.
     """
     updated: list[StreamSection] = []
     for section in sections:
@@ -1522,7 +1847,7 @@ def _apply_record_comparison(
             updated.append(section)
             continue
 
-        passed, fragments, blocks = detail
+        status, fragments, blocks = detail
         headline = section.headline
         if section.stream in summary.streams_without_pk:
             headline += " — no primary key: count comparison only"
@@ -1532,7 +1857,7 @@ def _apply_record_comparison(
         updated.append(
             replace(
                 section,
-                status="pass" if passed else "fail",
+                status=status,
                 headline=headline,
                 diff_blocks=section.diff_blocks + blocks,
             )
@@ -1761,11 +2086,13 @@ def build_comparison_report_model(
     target_counts = _with_configured_streams(
         target_result.get("record_counts_per_stream", {}), configured_streams
     )
+    failing_streams, warning_streams = _comparison_flagged_streams(record_comparison)
     stream_sections, omitted = _build_stream_sections(
         control_counts,
         target_counts,
         configured_streams,
-        failing_streams=_comparison_failing_streams(record_comparison),
+        failing_streams=failing_streams,
+        warning_streams=warning_streams,
     )
     if record_comparison is not None:
         stream_sections = _apply_record_comparison(stream_sections, record_comparison)

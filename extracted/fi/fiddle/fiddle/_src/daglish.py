@@ -61,7 +61,7 @@ class Index(PathElement):
 
   def __lt__(self, other: PathElement) -> bool:
     if type(self) is type(other):
-      return self.index < other.index
+      return self.index < other.index  # pyrefly: ignore[missing-attribute]
     else:
       return super().__lt__(other)
 
@@ -80,7 +80,7 @@ class Key(PathElement):
 
   def __lt__(self, other: PathElement) -> bool:
     if type(self) is type(other):
-      return self.key < other.key
+      return self.key < other.key  # pyrefly: ignore[missing-attribute]
     else:
       return super().__lt__(other)
 
@@ -99,7 +99,7 @@ class Attr(PathElement):
 
   def __lt__(self, other: PathElement) -> bool:
     if type(self) is type(other):
-      return self.name < other.name
+      return self.name < other.name  # pyrefly: ignore[missing-attribute]
     else:
       return super().__lt__(other)
 
@@ -182,7 +182,7 @@ class NodeTraverserRegistry:
     if isinstance(use_fallback, NodeTraverserRegistry):
       fallback_registry = use_fallback
     elif use_fallback:
-      fallback_registry = _default_traverser_registry  # pytype: disable=name-error
+      fallback_registry = _default_traverser_registry
     else:
       fallback_registry = None
     self.fallback_registry = fallback_registry
@@ -273,7 +273,7 @@ register_node_traverser(
     dict,
     flatten_fn=lambda x: (tuple(x.values()), tuple(x.keys())),
     unflatten_fn=lambda values, keys: dict(zip(keys, values)),
-    path_elements_fn=lambda x: [Key(key) for key in x.keys()])
+    path_elements_fn=lambda x: [Key(key) for key in x.keys()])  # pyrefly: ignore[bad-argument-type]
 
 
 def flatten_defaultdict(node):
@@ -380,7 +380,8 @@ def is_memoizable(value: Any) -> bool:
   """
   return (
       not isinstance(value, _IMMUTABLE_NONCONTAINER_TYPES) and
-      value != ()  # pylint: disable=g-explicit-bool-comparison
+      # NB: Guard value != () because numpy treats it as element-wise.
+      (not isinstance(value, tuple) or value != ())  # pylint: disable=g-explicit-bool-comparison
   )  # pyformat: disable
 
 
@@ -468,7 +469,7 @@ class Traversal(metaclass=abc.ABCMeta):
     Returns:
       The initial state (from `initial_state`) of a new traversal instance.
     """
-    return cls(traversal_fn=fn, root_obj=root_obj).initial_state()  # pytype: disable=not-instantiable
+    return cls(traversal_fn=fn, root_obj=root_obj).initial_state()
 
   @classmethod
   def run(cls, fn: Callable[..., Any], root_obj: Any) -> Any:

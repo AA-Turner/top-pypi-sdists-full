@@ -168,3 +168,50 @@ def test_the_agent_scrape_tool_runs_inside_the_chat_budget(monkeypatch) -> None:
     asyncio.run(specs._scraper_scrape({"url": URL}))
     assert seen and seen[0] is not None
     assert stealth_browser.current_read_deadline() is None
+
+
+def test_a_second_retry_while_the_slot_is_busy_skips_stealth_and_keeps_its_answer(monkeypatch) -> None:
+    """knowledge.scraper.stealth_max_concurrent (default 1): the second concurrent retry never queues and never launches."""
+    stealth_browser._stealth_slots_in_use = 0
+    started = asyncio.Event()
+    release = asyncio.Event()
+    calls: list[str] = []
+    rescue = _result(text="The real page text. " * 80)
+
+    async def fake(url: str, **kwargs: Any):
+        calls.append(url)
+        started.set()
+        await release.wait()
+        return rescue
+
+    monkeypatch.setattr(orchestrator, "_fetch_and_parse", fake)
+
+    async def go():
+        def retry(original):
+            return orchestrator._maybe_retry_with_stealth(
+                original, url=URL, use_proxy=False, fast=True, browser_pool=None, user_agent=None, deadline=None
+            )
+
+        first = asyncio.create_task(retry(WALL))
+        await started.wait()
+        second = await asyncio.wait_for(retry(WALL), 1)  # returns at once: no queueing behind the first
+        release.set()
+        return await first, second
+
+    first, second = asyncio.run(go())
+    assert first is rescue
+    assert second is WALL and len(calls) == 1
+    assert stealth_browser._stealth_slots_in_use == 0  # the slot is released afterwards
+
+
+def test_the_slot_is_released_when_the_retry_fails_and_the_cap_follows_the_knob(monkeypatch) -> None:
+    stealth_browser._stealth_slots_in_use = 0
+    out, calls = _run(monkeypatch, WALL, rendered=None)
+    assert out is WALL and len(calls) == 1 and stealth_browser._stealth_slots_in_use == 0
+    monkeypatch.setattr(knobs, "parser_knob", lambda key, mirror: 2 if key == "stealth_max_concurrent" else mirror)
+    assert stealth_browser.stealth_max_concurrent() == 2
+    assert stealth_browser.try_acquire_stealth_slot() and stealth_browser.try_acquire_stealth_slot()
+    assert not stealth_browser.try_acquire_stealth_slot()
+    stealth_browser.release_stealth_slot()
+    stealth_browser.release_stealth_slot()
+    assert stealth_browser._stealth_slots_in_use == 0

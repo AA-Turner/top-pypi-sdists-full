@@ -6,8 +6,6 @@ import os
 from typing import TYPE_CHECKING, Any, Mapping
 from typing_extensions import Self, override
 
-import httpx
-
 from . import _exceptions
 from ._qs import Querystring
 from ._types import (
@@ -27,6 +25,7 @@ from ._utils import (
 from ._compat import cached_property
 from ._version import __version__
 from ._streaming import Stream as Stream, AsyncStream as AsyncStream
+from .lib._httpx import httpx
 from ._exceptions import APIStatusError
 from ._base_client import (
     DEFAULT_MAX_RETRIES,

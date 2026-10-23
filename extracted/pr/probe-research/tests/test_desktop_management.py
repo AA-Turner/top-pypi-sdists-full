@@ -95,9 +95,70 @@ def test_registry_counts_are_live_processes_not_imported_history(monkeypatch):
     rows = {row["source"]: row for row in result["agents"]}
     assert result["available"] and rows["claude_code"]["activeAgents"] == 1
     assert rows["codex"]["activeAgents"] == 2
-    assert all(row["pending"] is None and row["lastReceived"] is None for row in result["agents"])
     monkeypatch.setattr(client, "call", lambda *a, **k: (_ for _ in ()).throw(OSError()))
     assert all(row["activeAgents"] is None for row in d.snapshot_delivery()["agents"])
+
+
+def _service(monkeypatch, *, listing=None, status=None):
+    """`client.call` answering per method: a value is returned, an exception raised."""
+    from probe.service import client
+    from probe.service.protocol import Method
+    asked = []
+
+    def call(method, *args, **kwargs):
+        asked.append(method)
+        answer = {Method.SESSION_LIST: listing, Method.STATUS: status}[method]
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(client, "call", call)
+    return asked
+
+
+def _status(state="running", in_progress=False):
+    return {"state": state, "update": {"in_progress": in_progress}, "sessions": 1}
+
+
+@pytest.mark.parametrize("listing, status, state, available, words", [
+    (FileNotFoundError(), None, d.ServiceState.NOT_RUNNING, False, "probe service start"),
+    (ConnectionRefusedError(), None, d.ServiceState.NOT_RUNNING, False, "not running"),
+    (PermissionError(), None, d.ServiceState.REFUSED, False, "not private to this user"),
+    (TimeoutError(), None, d.ServiceState.UNREACHABLE, False, "did not answer in time"),
+    (OSError("broken pipe"), None, d.ServiceState.UNREACHABLE, False, "the connection failed (broken pipe)"),
+    ({"sessions": "x"}, _status(), d.ServiceState.UNREACHABLE, False, "its answer could not be read"),
+    ({"sessions": []}, _status("discovering"), d.ServiceState.STARTING, True, "still checking in"),
+    ({"sessions": []}, _status(in_progress=True), d.ServiceState.UPDATING, True, "installing an update"),
+    ({"sessions": []}, _status(), d.ServiceState.RUNNING, True, "live-session registry"),
+    ({"sessions": []}, OSError(), d.ServiceState.RUNNING, True, "live-session registry"),
+    ({"sessions": "x"}, _status(in_progress=True), d.ServiceState.UPDATING, False, "Try again in a minute"),
+    ({"sessions": "x"}, _status("discovering"), d.ServiceState.STARTING, False, "Try again in a few seconds"),
+], ids=["no-socket", "refused-connect", "foreign-folder", "timeout", "broken", "unreadable", "discovering",
+        "updating", "running", "running-no-status", "updating-unlisted", "starting-unlisted"])
+def test_the_overview_says_why_its_counts_are_missing_or_partial(monkeypatch, listing, status, state, available, words):
+    """D30: "unavailable" alone told nobody what to do."""
+    asked = _service(monkeypatch, listing=listing, status=status)
+    result = d.snapshot_delivery()
+    assert (result["serviceState"], result["available"]) == (state, available)
+    assert words in result["reason"]
+    if isinstance(listing, (FileNotFoundError, PermissionError, TimeoutError)):
+        assert len(asked) == 1, "nothing there to ask what it is doing: no second call"
+
+
+def test_a_refusal_says_what_the_service_said(monkeypatch):
+    from probe.service import client
+    _service(monkeypatch, listing=client.ServiceError(-32013, "unsupported_api"), status=client.ServiceError(-32013, "x"))
+    result = d.snapshot_delivery()
+    assert result["serviceState"] == d.ServiceState.REFUSED and "(unsupported_api)" in result["reason"]
+
+
+def test_off_posix_there_is_no_service_to_ask(monkeypatch):
+    import os
+    asked = _service(monkeypatch, listing=AssertionError("asked"), status=AssertionError("asked"))
+    with monkeypatch.context() as windows:
+        windows.setattr(os, "name", "nt")
+        result = d.snapshot_delivery()
+    assert (result["serviceState"], result["available"], asked) == (d.ServiceState.UNSUPPORTED, False, [])
 
 
 def test_cli_envelope_is_versioned_and_contains_no_traceback():
@@ -411,3 +472,29 @@ def test_desktop_admission_stamps_origin_without_passing_marker_to_worker(review
     assert origin["invoked_by"] == "human" and origin["surface"] == "desktop"
     assert "PROBE_DESKTOP_HUMAN" not in launches[0][1]["env"]
     assert records[0]["event"] == telemetry.EVENT_IMPORT_JOB_ENQUEUED
+
+
+def test_last_received_and_pending_are_the_recorders_own(monkeypatch, tmp_path):
+    """D29: the tap's state (its last upload, its outbox) per agent."""
+    import sqlite3
+
+    from probe.harness import get_registry
+    from probe.service import client
+
+    monkeypatch.setattr(client, "call", lambda *a, **k: {"sessions": []})
+    claude = next(row for row in get_registry().captured() if row.id == "claude_code")
+    state = claude.capture.state_dir()
+    state.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(state / "state.db")
+    conn.executescript(
+        "CREATE TABLE outbox (id INTEGER PRIMARY KEY, session_id TEXT); CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);"
+        "INSERT INTO outbox (session_id) VALUES ('a'), ('b');"
+        "INSERT INTO meta VALUES ('last_successful_post_at', '1761100000');"
+    )
+    conn.commit()
+    conn.close()
+    rows = {row["source"]: row for row in d.snapshot_delivery()["agents"]}
+    assert rows["claude_code"]["pending"] == 2
+    assert rows["claude_code"]["lastReceived"] == "2025-10-22T02:26:40Z"
+    assert rows["codex"]["pending"] is None and rows["codex"]["lastReceived"] is None
+    assert "recorder's own" in d.snapshot_delivery()["reason"]

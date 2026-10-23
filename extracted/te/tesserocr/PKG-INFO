@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tesserocr
-Version: 2.11.0
+Version: 2.12.0
 Summary: A simple, Pillow-friendly, Python wrapper around tesseract-ocr API using Cython
 Home-page: https://github.com/sirfz/tesserocr
 Author: Fayez Zouheiry
@@ -13,6 +13,7 @@ Classifier: Topic :: Multimedia :: Graphics :: Capture :: Scanners
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Scientific/Engineering :: Image Recognition
 Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -20,13 +21,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Cython
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: cysignals
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -36,7 +37,6 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
@@ -75,7 +75,7 @@ Requirements
 
 **Python 3.9+** is required. tesserocr no longer supports Python 2.
 
-Requires libtesseract (>=3.04) and libleptonica (>=1.71).
+Building from source requires libtesseract (>=3.04) and libleptonica (>=1.71).
 
 On Debian/Ubuntu:
 
@@ -87,7 +87,7 @@ You may need to `manually compile tesseract`_ for a more recent version. Note th
 to update your ``LD_LIBRARY_PATH`` environment variable to point to the right library versions in
 case you have multiple tesseract/leptonica installations.
 
-|Cython|_ (>=0.23) is required for building and optionally |Pillow|_ to support ``PIL.Image`` objects.
+|Cython|_ (>=3.1.8,<3.4) is required for building and optionally |Pillow|_ to support ``PIL.Image`` objects.
 
 .. _manually compile tesseract: https://github.com/tesseract-ocr/tesseract/wiki/Compiling
 .. |Cython| replace:: ``Cython``
@@ -95,11 +95,31 @@ case you have multiple tesseract/leptonica installations.
 
 Installation
 ============
-Linux and BSD/MacOS
--------------------
+
+Install from PyPI:
+
 ::
 
     $ pip install tesserocr
+
+Pre-built wheels for Linux, macOS, and 64-bit Windows bundle Tesseract, Leptonica, and their
+runtime dependencies. No separate Tesseract installation is required to use these wheels.
+Language data must still be installed separately (see `tessdata`_).
+
+Conda
+-----
+
+Alternatively, install from the `conda-forge <https://anaconda.org/conda-forge/tesserocr>`_ channel:
+
+::
+
+    $ conda install -c conda-forge tesserocr
+
+Build from source
+-----------------
+
+If a wheel is not available for your platform or Python version, pip will build from source
+using the dependencies listed above.
 
 The setup script attempts to detect the include/library dirs (via |pkg-config|_ if available) but you
 can override them with your own parameters, e.g.:
@@ -114,48 +134,10 @@ or
 
     $ python setup.py build_ext -I/usr/local/include
 
-Tested on Linux and BSD/MacOS
+For Windows source builds, see `Windows.build.md`_.
 
 .. |pkg-config| replace:: **pkg-config**
 .. _pkg-config: https://pkgconfig.freedesktop.org/
-
-Windows
--------
-
-The proposed downloads consist of stand-alone packages containing all the Windows libraries needed for execution. This means that no additional installation of tesseract is required on your system.
-
-The recommended method of installation is via Conda as described below.
-
-Conda
-`````
-
-You can use the `simonflueckiger <https://anaconda.org/simonflueckiger/tesserocr>`_ channel to install from Conda:
-
-::
-
-    > conda install -c simonflueckiger tesserocr
-
-Or alternatively the `conda-forge <https://anaconda.org/conda-forge/tesserocr>`_ channel:
-
-::
-
-    > conda install -c conda-forge tesserocr
-
-pip
-```
-
-Download the wheel file corresponding to your Windows platform and Python installation from `simonflueckiger/tesserocr-windows_build/releases <https://github.com/simonflueckiger/tesserocr-windows_build/releases>`_ and install them via:
-
-::
-
-    > pip install <package_name>.whl
-
-Build from source
-`````````````````
-
-If you need Windows tessocr package and your Python version is not supported by above mentioned project,
-you can try to follow `step by step instructions for Windows 64bit` in `Windows.build.md`_.
-
 .. _Windows.build.md: Windows.build.md
 
 tessdata
@@ -211,8 +193,33 @@ Basic example using available helper functions:
     # or
     print(tesserocr.file_to_text('sample.jpg'))
 
-``image_to_text`` and ``file_to_text`` can be used with ``threading`` to
-concurrently process multiple images which is highly efficient.
+Thread safety and free-threaded Python
+--------------------------------------
+
+``tesserocr`` supports free-threaded CPython without enabling the GIL on import.
+``image_to_text`` and ``file_to_text`` can process independent images concurrently.
+The same ownership rules apply with or without the GIL:
+
+* Use a separate ``PyTessBaseAPI`` instance per worker. Instances and their
+  iterators have no internal lock. Do not call an active instance from another
+  thread or re-enter it from a signal handler, including ``Clear`` and ``End``.
+* Keep the API alive while using its iterators. Calls such as ``Init``,
+  ``SetImage``, ``Recognize``, ``Clear`` and ``End`` invalidate existing iterators.
+* Some Tesseract parameters, particularly in ``classify`` and ``textord``, are
+  process-wide even with separate API instances. Configure these before starting
+  parallel native work and do not change them while it runs. This applies to
+  ``SetVariable``, ``SetDebugVariable``, config files and ``InitFull`` variables.
+* Leptonica's log level and Tesseract's persistent cache are also process-wide.
+  Set ``set_leptonica_log_level`` and call ``ClearPersistentCache`` only while
+  no native work is running. Use separate processes for independent settings
+  that must change during OCR.
+
+``Recognize``, ``GetUTF8Text``, ``image_to_text`` and ``file_to_text`` use
+Tesseract's cooperative cancellation to propagate Python signal exceptions
+(such as ``KeyboardInterrupt``) after recognition unwinds safely. Python handles
+signals only on the main thread: interrupting the main thread does not cancel
+OCR running in a worker. Layout analysis and other native operations without
+cancellation checkpoints may delay signal handling until they return.
 
 Advanced API Examples
 ---------------------

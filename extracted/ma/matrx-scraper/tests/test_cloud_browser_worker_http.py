@@ -72,6 +72,8 @@ def test_http_app_exposes_health_and_all_worker_operations() -> None:
         "stream_view": False,
         # Chrome older than the profile's last Chrome (ruling 16); none here.
         "chrome_downgrade": None,
+        # Heartbeats may ask this image for a liveness probe.
+        "browser_liveness": True,
     }
     paths = {route.path for route in client.app.routes}
     assert {

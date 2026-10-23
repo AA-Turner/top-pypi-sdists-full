@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,17 +51,10 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .sage_maker_related import RelatedSageMaker
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .sage_maker_related import RelatedSageMaker
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -750,6 +750,7 @@ def _sage_maker_to_nested(sage_maker: SageMaker) -> SageMakerNested:
         is_incomplete=sage_maker.is_incomplete,
         provenance_type=sage_maker.provenance_type,
         home_id=sage_maker.home_id,
+        delete_handler=sage_maker.delete_handler,
         depth=sage_maker.depth,
         immediate_upstream=sage_maker.immediate_upstream,
         immediate_downstream=sage_maker.immediate_downstream,
@@ -796,6 +797,7 @@ def _sage_maker_from_nested(nested: SageMakerNested) -> SageMaker:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

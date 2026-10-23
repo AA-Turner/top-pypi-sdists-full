@@ -71,11 +71,12 @@ class TestKernelsPull(unittest.TestCase):
         # Call method with version
         self.api.kernels_pull("owner/my-slug/3", path=os.path.join("/tmp", "dummy"))
 
-        # Verify request has version in slug
+        # The version goes in version_label as v<N>; appended to the slug, the API returns 403.
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
-        self.assertEqual(request.kernel_slug, "my-slug/3")
+        self.assertEqual(request.kernel_slug, "my-slug")
+        self.assertEqual(request.version_label, "v3")
 
         # Verify file write (path should still use clean slug)
         expected_path = os.path.join("/tmp", "dummy", "my-slug.py")
@@ -123,11 +124,12 @@ class TestKernelsPull(unittest.TestCase):
         # Call method with metadata=True
         self.api.kernels_pull("owner/my-slug/3", path=os.path.join("/tmp", "dummy"), metadata=True)
 
-        # Verify request has version in slug
+        # The version goes in version_label as v<N>; appended to the slug, the API returns 403.
         call_args = mock_kaggle.kernels.kernels_api_client.get_kernel.call_args
         request = call_args[0][0]
         self.assertEqual(request.user_name, "owner")
-        self.assertEqual(request.kernel_slug, "my-slug/3")
+        self.assertEqual(request.kernel_slug, "my-slug")
+        self.assertEqual(request.version_label, "v3")
 
         # Verify open was called twice (one for script, one for metadata)
         self.assertEqual(mock_open_file.call_count, 2)
@@ -245,7 +247,10 @@ class TestKernelsPull(unittest.TestCase):
         m = mock_open(read_data=metadata_json)
         mock_open_file.side_effect = m
 
-        self.api.kernels_pull(None, path="/tmp/dummy")
+        # Pass the OS-native effective path so os.path.join() in production yields
+        # separators that match the os.path.normpath() expectations below (on
+        # Windows a POSIX-style path would keep forward slashes and not match).
+        self.api.kernels_pull(None, path=effective_path)
 
         mock_open_file.assert_any_call(metadata_path)
 
@@ -268,7 +273,9 @@ class TestKernelsPull(unittest.TestCase):
             self.api.kernels_pull(None, path="/tmp/dummy")
         self.assertIn("A kernel must be specified", str(context.exception))
 
-    @patch("os.getcwd", return_value="/tmp/cwd")
+    # os.path.normpath keeps the mocked cwd OS-native so production's os.path.join()
+    # matches the os.path.normpath() expectations below on Windows and Linux alike.
+    @patch("os.getcwd", return_value=os.path.normpath("/tmp/cwd"))
     @patch("os.path.exists")
     @patch("os.path.isfile")
     @patch("builtins.open")
@@ -316,7 +323,9 @@ class TestKernelsPull(unittest.TestCase):
     @patch("os.path.exists", return_value=True)
     @patch("os.path.isfile", return_value=False)
     @patch("builtins.open", new_callable=mock_open)
-    @patch.object(KaggleApi, "get_default_download_dir", return_value="/tmp/default_dir")
+    # os.path.normpath keeps the mocked download dir OS-native so production's
+    # os.path.join() matches the os.path.normpath() expectation below on Windows.
+    @patch.object(KaggleApi, "get_default_download_dir", return_value=os.path.normpath("/tmp/default_dir"))
     @patch.object(KaggleApi, "build_kaggle_client")
     def test_kernels_pull_no_path(self, mock_client, mock_get_dir, mock_open_file, mock_isfile, mock_exists):
         mock_kaggle = MagicMock()
@@ -337,6 +346,12 @@ class TestKernelsPull(unittest.TestCase):
 
         expected_path = os.path.normpath("/tmp/default_dir/my-slug.py")
         mock_open_file.assert_called_once_with(expected_path, "w", encoding="utf-8")
+
+    @patch.object(KaggleApi, "kernels_pull")
+    def test_kernels_pull_cli_honors_kernel_opt(self, mock_pull):
+        self.api.kernels_pull_cli(None, kernel_opt="owner/my-slug")
+
+        mock_pull.assert_called_once_with("owner/my-slug", path=None, metadata=False, quiet=False)
 
 
 if __name__ == "__main__":

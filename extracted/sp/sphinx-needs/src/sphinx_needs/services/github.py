@@ -3,18 +3,18 @@ from __future__ import annotations
 import os
 import textwrap
 import time
+from collections.abc import Mapping
 from contextlib import suppress
 from typing import Any
 from urllib.parse import urlparse
 
 import requests
 from sphinx.application import Sphinx
+from sphinx.config import Config
 from sphinx.util.docutils import SphinxDirective
 from sphinx.util.logging import getLogger
 
-from sphinx_needs.api import add_need_type
-from sphinx_needs.config import NeedsSphinxConfig
-from sphinx_needs.exceptions import NeedsApiConfigException
+from sphinx_needs.config import _NEEDS_CONFIG, NeedsSphinxConfig, NeedType
 from sphinx_needs.logging import log_warning
 from sphinx_needs.services.base import BaseService
 from sphinx_needs.services.config.github import (
@@ -24,9 +24,87 @@ from sphinx_needs.services.config.github import (
     EXTRA_LINK_OPTIONS,
     GITHUB_DATA,
     GITHUB_LAYOUT,
+    GITHUB_SERVICES,
 )
 
 LOGGER = getLogger(__name__)
+
+#: The GitHub services' need types: each is added only when its service is configured
+GITHUB_NEED_TYPES: tuple[NeedType, ...] = (
+    {
+        "directive": "issue",
+        "title": "Issue",
+        "prefix": "IS_",
+        "color": "#cccccc",
+        "style": "card",
+    },
+    {
+        "directive": "pr",
+        "title": "PullRequest",
+        "prefix": "PR_",
+        "color": "#aaaaaa",
+        "style": "card",
+    },
+    {
+        "directive": "commit",
+        "title": "Commit",
+        "prefix": "C_",
+        "color": "#888888",
+        "style": "card",
+    },
+)
+
+
+def add_configured_github_services(app: Sphinx, config: Config) -> None:
+    """Record the built-in GitHub services ``needs_services`` configures, and add the
+    need type of each and the ``github`` layout to sphinx-needs' registry, as its
+    lowest tier, never to the ``needs_types`` and ``needs_layouts`` values (#2265).
+
+    A built-in is configured when ``needs_services`` names it with a mapping of options
+    (``{}`` will do), in ``conf.py`` or a ``[needs.services.<name>]`` table of the
+    ``needs_from_toml`` file; any other value is a ``needs.config`` warning, and the
+    service is not registered. Each configured service adds its own need type alone
+    (``github-issues`` adds ``issue``) and registers its directive, so a handler above
+    12 finds both, and any of them adds the ``github`` layout; the
+    services themselves, and their fields, are registered from the same record when
+    the documents are about to be read.
+
+    Connected to ``config-inited`` at priority 12, right after ``resolve_need_types``:
+    after the ``needs_from_toml`` file is read (10), so the final value is the one
+    read, and before the documented readers of the need types (above 12). Each type or
+    layout is read after every configured or added one, and only where none of its
+    name is configured or added -- whenever that happens: each gives way on its own.
+
+    :param app: The Sphinx application.
+    :param config: The Sphinx configuration.
+    """
+    from sphinx_needs.needs import _register_need_directive  # avoid circular import
+
+    services = NeedsSphinxConfig(config).services
+    if not isinstance(services, Mapping):
+        return
+    need_types = {need_type["directive"]: need_type for need_type in GITHUB_NEED_TYPES}
+    configured = False
+    for name, gh_type in GITHUB_SERVICES.items():
+        if name not in services:
+            continue
+        value = services[name]
+        if not isinstance(value, Mapping):
+            log_warning(
+                LOGGER,
+                f"needs_services entry {name!r} is not registered: its configuration "
+                "must be a mapping of options "
+                f"(got a value of type {type(value).__name__!r})",
+                "config",
+                None,
+            )
+            continue
+        _NEEDS_CONFIG.add_builtin_service(name)
+        _NEEDS_CONFIG.add_builtin_need_type(need_types[gh_type])
+        _register_need_directive(app, gh_type)
+        configured = True
+    if configured:
+        _NEEDS_CONFIG.add_builtin_layout("github", GITHUB_LAYOUT)
 
 
 class GithubService(BaseService):
@@ -55,10 +133,6 @@ class GithubService(BaseService):
         self.username = self.config.get("username")
         self.token = self.config.get("token")
 
-        layouts = NeedsSphinxConfig(self.app.config).layouts
-        if "github" not in layouts:
-            layouts["github"] = GITHUB_LAYOUT
-
         self.gh_type_config = {
             "issue": {
                 "url": "search/issues",
@@ -68,14 +142,6 @@ class GithubService(BaseService):
             "pr": {"url": "search/issues", "query": "is:pr", "need_type": "pr"},
             "commit": {"url": "search/commits", "query": "", "need_type": "commit"},
         }
-
-        with suppress(NeedsApiConfigException):
-            # Issue already exists, so we are fine
-            add_need_type(self.app, "issue", "Issue", "IS_", "#cccccc", "card")
-            # PR already exists, so we are fine
-            add_need_type(self.app, "pr", "PullRequest", "PR_", "#aaaaaa", "card")
-            # Commit already exists, so we are fine
-            add_need_type(self.app, "commit", "Commit", "C_", "#888888", "card")
 
         if "gh_type" in kwargs:
             self.gh_type = kwargs["gh_type"]

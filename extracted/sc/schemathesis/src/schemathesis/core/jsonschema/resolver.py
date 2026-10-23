@@ -5,7 +5,7 @@ import sys
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote, urldefrag, urljoin, urlsplit, urlunsplit
 from urllib.request import urlopen
 
@@ -183,7 +183,7 @@ def _load_remote_uri(uri: str) -> Any:
 
     document = deserialize_yaml(response.content)
 
-    if not isinstance(document, dict | list):
+    if not isinstance(document, (dict, list)):
         raise RemoteDocumentError(
             f"Remote document is parsed as {type(document).__name__}, but an object/array is expected {_suffix()}"
         )
@@ -338,7 +338,8 @@ def resolve_reference_with_uri(resolver: Resolver, reference: str) -> tuple[str,
         error.add_note(reference)
         raise error from exc
     # Bind `resolved.contents` so subsequent local-fragment walks land in the right document.
-    return resolved_uri, Resolver(resolved.resolver, resolved.contents), resolved.contents
+    # A reference may point at any JSON value, not only a schema.
+    return resolved_uri, Resolver(resolved.resolver, cast(JsonSchema, resolved.contents)), resolved.contents
 
 
 NOT_IN_CYCLE = sys.maxsize

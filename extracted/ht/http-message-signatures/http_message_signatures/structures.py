@@ -52,6 +52,8 @@ class VerifyResult(NamedTuple):
 def normalize_header_value(value: str) -> str:
     # RFC 9421 section 2.1: unfold obsolete HTTP/1.1 line folding and trim OWS.
     # Bare CR/LF are not folds and must remain visible to validation.
+    if "\r\n" not in value:
+        return value.strip(" \t")
     # Only try preceding OWS at the start of a whitespace run, avoiding
     # quadratic retries. CRLF can still match after a previous fold's RWS.
     return re.sub(r"(?:(?<![ \t])[ \t]+)?\r\n[ \t]+", " ", value).strip(" \t")
@@ -105,13 +107,18 @@ class CaseInsensitiveDict(MutableMapping):
         return str(dict(self.items()))
 
 
-def get_header_fields(headers):
-    """Combine all field lines exposed by items(), preserving their wire order."""
+def get_header_field_lines(headers):
+    """Group normalized field lines without losing their boundaries or wire order."""
     fields = CaseInsensitiveDict()
     for name, value in headers.items():
         value = normalize_header_value(value)
         if name in fields:
-            fields[name] += ", " + value
+            fields[name].append(value)
         else:
-            fields[name] = value
+            fields[name] = [value]
     return fields
+
+
+def get_header_fields(headers):
+    """Combine all field lines exposed by items(), preserving their wire order."""
+    return CaseInsensitiveDict((name, ", ".join(values)) for name, values in get_header_field_lines(headers).items())

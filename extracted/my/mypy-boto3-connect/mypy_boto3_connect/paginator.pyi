@@ -54,6 +54,7 @@ Usage::
         ListQueueQuickConnectsPaginator,
         ListQueuesPaginator,
         ListQuickConnectsPaginator,
+        ListReplicationFindingsPaginator,
         ListRoutingProfileManualAssignmentQueuesPaginator,
         ListRoutingProfileQueuesPaginator,
         ListRoutingProfilesPaginator,
@@ -147,6 +148,7 @@ Usage::
     list_queue_quick_connects_paginator: ListQueueQuickConnectsPaginator = client.get_paginator("list_queue_quick_connects")
     list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
     list_quick_connects_paginator: ListQuickConnectsPaginator = client.get_paginator("list_quick_connects")
+    list_replication_findings_paginator: ListReplicationFindingsPaginator = client.get_paginator("list_replication_findings")
     list_routing_profile_manual_assignment_queues_paginator: ListRoutingProfileManualAssignmentQueuesPaginator = client.get_paginator("list_routing_profile_manual_assignment_queues")
     list_routing_profile_queues_paginator: ListRoutingProfileQueuesPaginator = client.get_paginator("list_routing_profile_queues")
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
@@ -288,6 +290,8 @@ from .type_defs import (
     ListQueuesResponseTypeDef,
     ListQuickConnectsRequestPaginateTypeDef,
     ListQuickConnectsResponseTypeDef,
+    ListReplicationFindingsRequestPaginateTypeDef,
+    ListReplicationFindingsResponseTypeDef,
     ListRoutingProfileManualAssignmentQueuesRequestPaginateTypeDef,
     ListRoutingProfileManualAssignmentQueuesResponseTypeDef,
     ListRoutingProfileQueuesRequestPaginateTypeDef,
@@ -430,6 +434,7 @@ __all__ = (
     "ListQueueQuickConnectsPaginator",
     "ListQueuesPaginator",
     "ListQuickConnectsPaginator",
+    "ListReplicationFindingsPaginator",
     "ListRoutingProfileManualAssignmentQueuesPaginator",
     "ListRoutingProfileQueuesPaginator",
     "ListRoutingProfilesPaginator",
@@ -1244,6 +1249,24 @@ class ListQuickConnectsPaginator(_ListQuickConnectsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListQuickConnects.html#Connect.Paginator.ListQuickConnects.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listquickconnectspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListReplicationFindingsPaginatorBase = Paginator[ListReplicationFindingsResponseTypeDef]
+else:
+    _ListReplicationFindingsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListReplicationFindingsPaginator(_ListReplicationFindingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListReplicationFindings.html#Connect.Paginator.ListReplicationFindings)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listreplicationfindingspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListReplicationFindingsRequestPaginateTypeDef]
+    ) -> PageIterator[ListReplicationFindingsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListReplicationFindings.html#Connect.Paginator.ListReplicationFindings.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listreplicationfindingspaginator)
         """
 
 if TYPE_CHECKING:

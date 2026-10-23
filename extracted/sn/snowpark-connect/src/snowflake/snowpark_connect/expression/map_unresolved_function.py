@@ -4,6 +4,7 @@
 
 import datetime
 import functools
+import json
 import math
 import operator
 import random
@@ -34,14 +35,15 @@ from pyspark.errors.exceptions.base import (
     ParseException,
     SparkRuntimeException,
     SparkUpgradeException,
+    UnsupportedOperationException,
 )
 from pyspark.sql.types import _parse_datatype_json_string
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark import Column, Session
-from snowflake.snowpark._internal.analyzer.expression import Literal
-from snowflake.snowpark._internal.analyzer.unary_expression import Alias
+from snowflake.snowpark._internal.analyzer.expression import Interval, Literal
+from snowflake.snowpark._internal.analyzer.unary_expression import Alias, Cast
 from snowflake.snowpark.types import (
     ArrayType,
     BinaryType,
@@ -77,11 +79,22 @@ from snowflake.snowpark_connect.column_name_handler import (
 )
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
 from snowflake.snowpark_connect.config import (
+    GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG,
     get_boolean_session_config_param,
     get_timestamp_type,
     global_config,
     is_aggregate_string_coercion_enabled,
     is_complex_type_nullability_enabled,
+    is_floating_point_spark_rounding_enabled,
+    is_format_string_spark_compatible_enabled,
+    is_implicit_timestamp_to_spark_string_enabled,
+    is_nss_posexplode_without_transform_enabled,
+    is_pivot_first_last_ignore_nulls_enabled,
+    is_spark_string_datetime_comparison_enabled,
+    is_spark_string_datetime_in_enabled,
+    is_split_java_regex_semantics_enabled,
+    is_to_json_null_array_element_enabled,
+    is_to_json_spark_compatible_struct_enabled,
 )
 from snowflake.snowpark_connect.constants import (
     DUPLICATE_KEY_FOUND_ERROR_TEMPLATE,
@@ -95,6 +108,12 @@ from snowflake.snowpark_connect.date_time_format_mapping import (
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.expression.floating_to_string import (
+    format_string_floating_arguments,
+)
+from snowflake.snowpark_connect.expression.fractional_rounding import (
+    spark_round_fractional,
+)
 from snowflake.snowpark_connect.expression.function_defaults import (
     inject_function_defaults,
 )
@@ -112,6 +131,8 @@ from snowflake.snowpark_connect.expression.map_cast import (
     cast_force_nullable,
     cast_nullable,
     map_cast,
+    normalize_iso_t_separator,
+    parse_timestamp_string,
     timestamp_to_spark_string,
     wider_decimal_type,
 )
@@ -120,15 +141,24 @@ from snowflake.snowpark_connect.expression.map_extension import (
     get_in_subquery_sql,
 )
 from snowflake.snowpark_connect.expression.map_unresolved_star import (
+    dataframe_star_plan_id,
     map_unresolved_star_as_single_column,
     map_unresolved_star_struct,
 )
+from snowflake.snowpark_connect.expression.posexplode_flatten import (
+    is_nss_value_path,
+    null_preserving_flatten_input_sql,
+)
+from snowflake.snowpark_connect.expression.to_json_array import to_json_array_column
 from snowflake.snowpark_connect.expression.typer import (
     ExpressionTyper,
     LambdaExpressionTyper,
 )
 from snowflake.snowpark_connect.relation.catalogs.utils import CURRENT_CATALOG_NAME
-from snowflake.snowpark_connect.relation.utils import is_aggregate_function
+from snowflake.snowpark_connect.relation.utils import (
+    is_aggregate_function,
+    pivot_aggregate_forces_first_last_ignore_nulls,
+)
 from snowflake.snowpark_connect.type_mapping import (
     map_json_schema_to_snowpark,
     map_pyspark_types_to_snowpark_types,
@@ -154,6 +184,9 @@ from snowflake.snowpark_connect.utils.context import (
     get_is_in_udtf_context,
     get_spark_version,
     is_window_enabled,
+    note_pivot_first_last,
+    pivot_forces_all_first_last,
+    pivot_rewrites_first_last,
     push_udtf_context,
     resolving_fun_args,
     resolving_lambda_function,
@@ -166,6 +199,11 @@ from snowflake.snowpark_connect.utils.datetime_format_udf import (
     get_java_parse_datetime_legacy_udf,
     get_java_parse_datetime_udf,
     substitute_proleptic_year,
+)
+from snowflake.snowpark_connect.utils.format_string_udf import (
+    argument_kinds,
+    format_string_argument,
+    make_spark_format_string,
 )
 from snowflake.snowpark_connect.utils.python_udf_marshal import (
     encode_native_or_variant_args,
@@ -183,6 +221,10 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     cached_udtf,
     register_cached_java_udf,
     register_cached_sql_udf,
+)
+from snowflake.snowpark_connect.utils.variant_utils import (
+    epoch_to_temporal_col,
+    temporal_to_epoch_col,
 )
 from snowflake.snowpark_connect.utils.xxhash64 import DEFAULT_SEED
 
@@ -308,11 +350,83 @@ def _inner_nullable(val: bool) -> bool:
     return val if is_complex_type_nullability_enabled() else True
 
 
+def _map_key_type_sql(t: DataType | None) -> str:
+    """Spark-style SQL name for a map key type; never raises on unstructured types."""
+    match t:
+        case ArrayType():
+            if t.element_type is None:
+                return "ARRAY"
+            return f"ARRAY<{_map_key_type_sql(t.element_type)}>"
+        case MapType():
+            if t.key_type is None or t.value_type is None:
+                return "MAP"
+            key = _map_key_type_sql(t.key_type)
+            return f"MAP<{key}, {_map_key_type_sql(t.value_type)}>"
+        case StructType():
+            fields = []
+            for f in t.fields:
+                name = f.name.strip('"')
+                fields.append(f"{name}: {_map_key_type_sql(f.datatype)}")
+            return f"STRUCT<{', '.join(fields)}>"
+    try:
+        return t.simpleString().upper()
+    except Exception:
+        return type(t).__name__
+
+
+def _contains_map_type(t: DataType | None) -> bool:
+    match t:
+        case MapType():
+            return True
+        case ArrayType():
+            return _contains_map_type(t.element_type)
+        case StructType():
+            return any(_contains_map_type(f.datatype) for f in t.fields)
+    return False
+
+
+def _check_map_key_type(key_type: DataType | None, spark_function_name: str) -> None:
+    """Reject array, struct and map keys before Snowflake does.
+
+    A key that is or contains a map is invalid in Spark too, so it gets Spark's
+    error. Spark allows array and struct keys, but a Snowflake MAP key must be
+    VARCHAR or NUMBER with scale 0; without this check those fail only when the
+    query runs, with a 002040 "Unsupported data type 'MAP with key type ...'".
+    Scalar keys Snowflake rejects (FLOAT, BOOLEAN, ...) are not checked here.
+    """
+    if not isinstance(key_type, (ArrayType, StructType, MapType)):
+        return
+    type_sql = _map_key_type_sql(key_type)
+    if _contains_map_type(key_type):
+        exception = AnalysisException(
+            f'[DATATYPE_MISMATCH.INVALID_MAP_KEY_TYPE] Cannot resolve "{spark_function_name}" '
+            f'due to data type mismatch: The key of map cannot be/contain "{type_sql}".'
+        )
+        attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+        raise exception
+    exception = UnsupportedOperationException(
+        f"{spark_function_name}: map key type {type_sql} is not supported. "
+        "Snowflake MAP keys must be VARCHAR or NUMBER with scale 0. "
+        "Workaround: convert the key to a string first, for example with "
+        "to_json(key), or array_join(key, ',') for an array of strings."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
+    raise exception
+
+
 def _is_nan_value(value) -> bool:
     try:
         return math.isnan(float(value))
     except (TypeError, ValueError, OverflowError):
         return False
+
+
+def _is_finite_non_integer(value: object) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return math.isfinite(number) and not number.is_integer()
 
 
 def _does_number_overflow(value, type_) -> bool:
@@ -378,6 +492,163 @@ def _validate_numeric_args(
 def unwrap_literal(exp: expressions_proto.Expression):
     """Workaround for Snowpark functions generating invalid SQL when used with fn.lit (SNOW-1871954)"""
     return get_literal_field_and_name(exp.literal)[0]
+
+
+# SNOW-4222751: a port of Spark 3.5 JsonPathParser
+# (sql/catalyst/.../expressions/jsonExpressions.scala:57-104). Its string literals
+# and regexes skip leading Java whitespace (RegexParsers); the single characters
+# '$', '.', '[', ']' and '*' do not.
+_SPARK_JSON_PATH_SPACE = re.compile(r"[ \t\n\x0b\f\r]*")
+_SPARK_JSON_PATH_DOT_NAME = re.compile(r"[^.\[]+")
+_SPARK_JSON_PATH_BRACKET_NAME = re.compile(r"[^'?]+")
+_SPARK_JSON_PATH_INDEX = re.compile(r"[0-9]+")
+# GET_PATH raises 001852 above this index. Spark finds no element there. Above
+# Long.MAX_VALUE Spark's parser throws NumberFormatException; this returns NULL.
+_GET_PATH_MAX_INDEX = 2**31 - 1
+
+# ("key", name, written_with_dot) | ("index", n, False)
+# | ("wildcard", None, False) for .* or ['*'] | ("array_wildcard", None, False) for [*]
+_SparkJsonPathStep = tuple[str, str | int | None, bool]
+
+
+def _spark_json_path_literal(path: str, pos: int, literal: str) -> int | None:
+    start = _SPARK_JSON_PATH_SPACE.match(path, pos).end()
+    return start + len(literal) if path.startswith(literal, start) else None
+
+
+def _spark_json_path_regex(
+    path: str, pos: int, pattern: re.Pattern
+) -> tuple[str, int] | None:
+    match = pattern.match(path, _SPARK_JSON_PATH_SPACE.match(path, pos).end())
+    return (match.group(), match.end()) if match else None
+
+
+def _parse_spark_json_path_node(
+    path: str, pos: int
+) -> tuple[_SparkJsonPathStep, int] | None:
+    # node = wildcard | named | subscript, tried in that order.
+    for literal in (".*", "['*']"):
+        end = _spark_json_path_literal(path, pos, literal)
+        if end is not None:
+            return ("wildcard", None, False), end
+    if path.startswith(".", pos):
+        name = _spark_json_path_regex(path, pos + 1, _SPARK_JSON_PATH_DOT_NAME)
+        if name is not None:
+            return ("key", name[0], True), name[1]
+    start = _spark_json_path_literal(path, pos, "['")
+    if start is not None:
+        name = _spark_json_path_regex(path, start, _SPARK_JSON_PATH_BRACKET_NAME)
+        if name is not None:
+            end = _spark_json_path_literal(path, name[1], "']")
+            if end is not None:
+                return ("key", name[0], False), end
+    if path.startswith("[", pos):
+        if path.startswith("*]", pos + 1):
+            return ("array_wildcard", None, False), pos + 3
+        index = _spark_json_path_regex(path, pos + 1, _SPARK_JSON_PATH_INDEX)
+        if index is not None and path.startswith("]", index[1]):
+            return ("index", int(index[0]), False), index[1] + 1
+    return None
+
+
+def parse_spark_json_path(path: str) -> list[_SparkJsonPathStep] | None:
+    """Parse a get_json_object path as Spark does. None means Spark returns NULL."""
+    if not path.startswith("$"):
+        return None
+    steps: list[_SparkJsonPathStep] = []
+    pos = 1
+    while (node := _parse_spark_json_path_node(path, pos)) is not None:
+        step, pos = node
+        steps.append(step)
+    if _SPARK_JSON_PATH_SPACE.match(path, pos).end() != len(path):
+        return None
+    return steps
+
+
+def _has_dot_digit_segment(path: str) -> bool:
+    """Whether a path Spark rejects has a ``.<digit>`` segment outside brackets."""
+    pos = 1
+    while pos < len(path):
+        if path[pos] == "[":
+            close = "']" if path.startswith("['", pos) else "]"
+            end = path.find(close, pos + len(close))
+            # An unclosed bracket fails Spark's parse too; keep scanning past it.
+            pos = pos + 1 if end < 0 else end + len(close)
+        elif path[pos] == ".":
+            pos = _SPARK_JSON_PATH_SPACE.match(path, pos + 1).end()
+            if pos < len(path) and path[pos].isdigit():
+                return True
+        else:
+            pos += 1
+    return False
+
+
+def _get_path_from_spark_json_path(steps: list[_SparkJsonPathStep]) -> str | None:
+    parts = []
+    for kind, value, _ in steps:
+        if kind == "index":
+            if value > _GET_PATH_MAX_INDEX:
+                return None
+            parts.append(f"[{value}]")
+        else:
+            # GET_PATH reads \\ as one backslash and '' as one quote.
+            parts.append("['" + value.replace("\\", "\\\\").replace("'", "''") + "']")
+    return "".join(parts)
+
+
+def translate_get_json_object_path(
+    spark_path: str, *, dot_digit_is_key: bool
+) -> str | None:
+    """Map a Spark get_json_object path onto a Snowflake GET_PATH path.
+
+    Returns None when the expression should be a NULL literal. A path of ``$``
+    becomes ``""``, which is not None.
+
+    Spark 3.5.3 parses ``.1`` as object key ``1``, not an array index, and GET_PATH
+    rejects an unquoted segment that starts with a digit (001840). So a path with a
+    dot segment that starts with a digit is parsed with Spark's grammar and rebuilt
+    with every key quoted. If Spark rejects it, the result is NULL, as in Spark.
+    A ``[*]`` in such a path keeps the old result, because GET_PATH cannot express
+    it and Spark returns data there. Other paths are passed through as before.
+    ``dot_digit_is_key`` false restores the old NULL for ``$.<digits>``.
+    """
+    path = spark_path
+    dollar_dot = False
+    if path.startswith("$."):
+        path = path[2:]
+        dollar_dot = True
+    elif path.startswith("$["):
+        path = path[1:]
+    elif path == "$":
+        path = ""
+
+    legacy = path
+    if dollar_dot and path and path[0].isdigit() and re.match(r"^(\d+)($|\.|\[)", path):
+        legacy = None
+    if not dot_digit_is_key:
+        return legacy
+
+    steps = parse_spark_json_path(spark_path)
+    if steps is None:
+        if spark_path.startswith("$") and _has_dot_digit_segment(spark_path):
+            return None
+        return path
+    if not any(
+        kind == "key" and dotted and value[:1].isdigit()
+        for kind, value, dotted in steps
+    ):
+        return path
+    kinds = {kind for kind, _, _ in steps}
+    if "wildcard" in kinds:
+        # Spark's evaluatePath matches .* / ['*'] only on a FIELD_NAME token, which
+        # that step never sees (jsonExpressions.scala:330), so the result is NULL.
+        return None
+    if "array_wildcard" in kinds:
+        # Spark returns the matched elements; GET_PATH has no [*]. Keep the old
+        # result (NULL for $.<digits>[*], else GET_PATH's error) rather than a
+        # wrong NULL.
+        return legacy
+    return _get_path_from_spark_json_path(steps)
 
 
 def _element_at_array_nullable(
@@ -465,6 +736,553 @@ def _resolve_foldable_string_expression(
     return value
 
 
+def _untyped_interval_total_microseconds(values: dict) -> int | None:
+    """Microseconds in a make_interval constant. None when it has a year-month field."""
+    if any(field in values for field in ("YEAR", "QUARTER", "MONTH")):
+        return None
+
+    def _part(name: str) -> int:
+        value = values.get(name)
+        return 0 if value is None else int(value)
+
+    return (
+        _part("WEEK") * 7 * 86_400_000_000
+        + _part("DAY") * 86_400_000_000
+        + _part("HOUR") * 3_600_000_000
+        + _part("MINUTE") * 60_000_000
+        + _part("SECOND") * 1_000_000
+        + _part("MILLISECOND") * 1_000
+        + _part("MICROSECOND")
+        + _part("NANOSECOND") // 1_000
+    )
+
+
+def _format_day_time_interval_literal(total_us: int) -> str:
+    sign = "-" if total_us < 0 else ""
+    remaining = abs(total_us)
+    days, remaining = divmod(remaining, 86_400_000_000)
+    hours, remaining = divmod(remaining, 3_600_000_000)
+    minutes, remaining = divmod(remaining, 60_000_000)
+    seconds, microseconds = divmod(remaining, 1_000_000)
+    time_part = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    if microseconds:
+        time_part += f".{microseconds:06d}"
+    return f"INTERVAL '{sign}{days} {time_part}' DAY TO SECOND"
+
+
+def _comparable_day_time_operand(col: Column) -> Column:
+    """Rewrite an untyped day-time literal so it can be compared.
+
+    SNOW-3656742: timestamp subtraction is INTERVAL DAY TO SECOND.
+    ``CAST(<untyped INTERVAL> AS INTERVAL DAY TO SECOND)`` is rejected
+    (001007). Emitting that typed form for every literal is also wrong:
+    Snowflake then adds it as physical seconds, so ``timestamp + 1 day``
+    moves an hour across a DST transition. Spark adds the day on the local
+    calendar (DateTimeUtils.timestampAddDayTime). The literal stays untyped
+    for addition, and comparison builds a typed constant from its parts.
+    """
+    expr = col._expression
+    if not isinstance(expr, Interval):
+        return col
+    total_us = _untyped_interval_total_microseconds(expr.values_dict)
+    if total_us is None:
+        return col
+    return snowpark_fn.sql_expr(_format_day_time_interval_literal(total_us))
+
+
+_ISO_DATE_LITERAL_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+_ISO_TIMESTAMP_LITERAL_RE = re.compile(
+    r"(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?)?"
+)
+_RENDERED_TIMESTAMP_LITERAL_RE = re.compile(
+    r"(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.(\d{0,5}[1-9]))?"
+)
+
+
+def _is_iso_datetime_literal(value: str, target: DataType, rendered: bool) -> bool:
+    """Whether ``value`` is a well-formed ISO date or timestamp for ``target``.
+
+    ``rendered=False`` accepts the ISO forms that Snowflake's implicit cast
+    parses the same way as Spark's ``Cast``. ``rendered=True`` accepts only the
+    exact text ``CAST(<target> AS STRING)`` produces in Spark: no ``T``
+    separator, no time on a date, and no trailing zeros in the fraction.
+    """
+    if isinstance(target, DateType):
+        pattern = _ISO_DATE_LITERAL_RE
+    elif rendered:
+        pattern = _RENDERED_TIMESTAMP_LITERAL_RE
+    else:
+        pattern = _ISO_TIMESTAMP_LITERAL_RE
+    match = pattern.fullmatch(value)
+    if match is None:
+        return False
+    year, month, day, *time_parts = match.groups()
+    try:
+        datetime.date(int(year), int(month), int(day))
+        if time_parts and time_parts[0] is not None:
+            hour, minute, second = time_parts[:3]
+            datetime.time(int(hour), int(minute), int(second))
+    except ValueError:
+        return False
+    return True
+
+
+def _datetime_sql_type_name(target: DataType) -> str:
+    if isinstance(target, DateType):
+        return "DATE"
+    if isinstance(target, TimestampType) and target.tz == TimestampTimeZone.NTZ:
+        return "TIMESTAMP_NTZ"
+    return "TIMESTAMP"
+
+
+# Spark trims with UTF8String.trimAll (whitespace and ISO control bytes). The
+# characters that occur in practice, such as CSV's trailing \r, are covered.
+_SPARK_TRIM_CHARS_SQL = "' \\t\\n\\r\\f\\x0b'"
+_ISO_DATE_PREFIX_PATTERN = r"^\d{4}-\d{2}-\d{2}([ T].*)?$"
+_SPARK_DATE_PATTERN = r"^\+?(\d{4})(-(\d{1,2})(-(\d{1,2})([ T].*)?)?)?$"
+# Canonical ISO text that TRY_TO_TIMESTAMP's AUTO format reads as Spark does,
+# 'T' and a trailing 'Z' included; TRY_TO_TIMESTAMP_NTZ ignores the 'Z'.
+_ISO_TIMESTAMP_PATTERN = r"^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z?)?$"
+# Zone ids Spark's getZoneId resolves to UTC.
+_UTC_ZONE_IDS = "Z|UTC|GMT|UT|GMT0|UCT|Universal|Zulu|Greenwich"
+# The zone ids DateTimeUtils.getZoneId accepts that TZH:TZM can express: the
+# UTC ids, or an offset of at most 18:00 written +h, +hh, +h:m[m], +hh:m[m] or
+# +hhmm, optionally after UTC/GMT/UT (Spark pads '+h:mm' and '+hh:m').
+_SPARK_ZONE_OFFSET_PATTERN = (
+    rf"{_UTC_ZONE_IDS}|(UTC|GMT|UT)?[+-]"
+    r"((\d|0\d|1[0-7])(:[0-5]?\d)?|(0\d|1[0-7])[0-5]\d|18(:?00|:0)?)"
+)
+# Zone ids Spark resolves with ZoneId.of(id, SHORT_IDS) that TZH:TZM cannot
+# express: a region id under one of JDK 17's tzdb areas, a tzdb id without a
+# slash, a SHORT_IDS key, or an offset with seconds (+hh:mm:ss, +hhmmss, at
+# most 18:00:00). Java ids are case-sensitive, and so is REGEXP_LIKE. A
+# misspelt city under a real area also matches; Spark rejects it.
+_JAVA_ZONE_ID_PATTERN = (
+    r"(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Brazil|Canada"
+    r"|Chile|Etc|Europe|Indian|Mexico|Pacific|SystemV|US)/[A-Za-z0-9_+-]+"
+    r"(/[A-Za-z0-9_+-]+)?"
+    r"|CET|CST6CDT|Cuba|EET|EST5EDT|Egypt|Eire|GB|GB-Eire|Hongkong|Iceland|Iran"
+    r"|Israel|Jamaica|Japan|Kwajalein|Libya|MET|MST7MDT|NZ|NZ-CHAT|Navajo|PRC"
+    r"|PST8PDT|Poland|Portugal|ROK|Singapore|Turkey|W-SU|WET"
+    r"|ACT|AET|AGT|ART|AST|BET|BST|CAT|CNT|CST|CTT|EAT|ECT|EST|HST|IET|IST|JST"
+    r"|MIT|MST|NET|NST|PLT|PNT|PRT|PST|SST|VST"
+    r"|(UTC|GMT|UT)?[+-]((\d|0\d|1[0-7]):[0-5]\d:[0-5]\d|(0\d|1[0-7])[0-5]\d[0-5]\d"
+    r"|18:00:00|180000)"
+)
+
+
+def _spark_timestamp_pattern(zone: str) -> str:
+    """DateTimeUtils.parseTimestampString's grammar with ``zone`` as the zone.
+
+    [+]yyyy-[m]m-[d]d[( |T)h[h][:m[m][:s[s][.fraction][zone]]]]: a zone only
+    follows the seconds.
+    """
+    return (
+        r"^\+?\d{4}-\d{1,2}-\d{1,2}([ T]\d{1,2}(:\d{1,2}(:\d{1,2}(\.\d*)?"
+        rf"(\s*({zone}))?)?)?)?$"
+    )
+
+
+_SPARK_TIMESTAMP_PATTERN = _spark_timestamp_pattern(_SPARK_ZONE_OFFSET_PATTERN)
+# TIMESTAMP_NTZ: Spark validates a region or short zone id, then ignores it.
+_SPARK_NTZ_TIMESTAMP_PATTERN = _spark_timestamp_pattern(
+    rf"{_SPARK_ZONE_OFFSET_PATTERN}|{_JAVA_ZONE_ID_PATTERN}"
+)
+# A time on the current date: 'T' and an hour, or h[h]:m[m], then [:s[s][.f]].
+_SPARK_TIME_ONLY_PATTERN = (
+    r"^(T\d{1,2}(:\d{1,2}(:\d{1,2}(\.\d*)?)?)?|\d{1,2}:\d{1,2}(:\d{1,2}(\.\d*)?)?)$"
+)
+# TIMESTAMP_LTZ text Spark accepts but TZH:TZM cannot carry: a date-time with
+# a Java zone id, or a time-only string with any zone (Spark takes the current
+# date in that zone). The clock is range-checked so a bad local time stays
+# invalid, and the date is checked with TRY_TO_DATE. A date-time with a valid
+# offset never gets here: the _SPARK_TIMESTAMP_PATTERN branch parses it.
+_UNSUPPORTED_ZONE_TIMESTAMP_PATTERN = (
+    r"^(\+?\d{4}-\d{1,2}-\d{1,2}[ T]|T)?([01]?\d|2[0-3]):[0-5]?\d:[0-5]?\d(\.\d*)?"
+    rf"\s*({_SPARK_ZONE_OFFSET_PATTERN}|{_JAVA_ZONE_ID_PATTERN})$"
+)
+# Years Spark accepts but Snowflake cannot store: 5+ digits or a sign.
+_UNREPRESENTABLE_DATE_PATTERN = (
+    r"^([+-]\d{4,7}|\d{5,7})(-\d{1,2}(-\d{1,2}([ T].*)?)?)?$"
+)
+# REGEXP_LIKE anchors the whole string, so every alternative spans it.
+_UNREPRESENTABLE_TIMESTAMP_PATTERN = (
+    r"^(-?\d{4,6}|\+?\d{5,6}|(-\d{4,6}|\+?\d{5,6})-.*)$"
+)
+_LOCAL_TIMESTAMP_FORMAT = "YYYY-MM-DD HH24:MI:SS.FF6"
+# Rewrites a _SPARK_TIMESTAMP_PATTERN match into _LOCAL_TIMESTAMP_FORMAT text,
+# one REGEXP_REPLACE per step so the SQL grows linearly. '#' marks a padding
+# zero; two passes pad adjacent one-digit fields ('9:5:3').
+_SPARK_LOCAL_TIMESTAMP_REWRITES = (
+    (r"^\+", ""),
+    (r"^(\d{4}-\d{1,2}-\d{1,2})T", r"\1 "),
+    # [\s\S], not '.': a newline before the zone is whitespace in Spark.
+    (r"^(\d{4}-\d{1,2}-\d{1,2}( [0-9:.]+)?)[\s\S]*$", r"\1"),
+    (r"\.(\d{0,6})\d*$", r".\1"),
+    (r"([- :])(\d)([- :.]|$)", r"\1#\2\3"),
+    (r"([- :])(\d)([- :.]|$)", r"\1#\2\3"),
+    (r"^([^ ]+)$", r"\1 00"),
+    (r"^([^ ]+ [#0-9]+)$", r"\1:00"),
+    (r"^([^ ]+ [#0-9]+:[#0-9]+)$", r"\1:00"),
+    (r"^([^.]+)$", r"\1."),
+)
+# The zone of a _SPARK_TIMESTAMP_PATTERN match: the text after the time digits.
+_SPARK_TIMESTAMP_ZONE_PATTERN = r"^[^ T]+[ T][0-9:.]+\s*([^0-9:. ].*)$"
+# Rewrites a zone matched by _SPARK_ZONE_OFFSET_PATTERN into TZH:TZM text.
+_SPARK_ZONE_OFFSET_REWRITES = (
+    (rf"^({_UTC_ZONE_IDS})$", "+00:00"),
+    (r"^(UTC|GMT|UT)", ""),
+    (r"^([+-])(\d{2})(\d{2})$", r"\1\2:\3"),
+    (r"^([+-])(\d)(:|$)", r"\1#\2\3"),
+    (r"^([+-][#0-9]+)$", r"\1:00"),
+    (r":(\d)$", r":#\1"),
+)
+
+
+def _rewrite(text: Column, rewrites: tuple[tuple[str, str], ...]) -> Column:
+    for pattern, replacement in rewrites:
+        text = snowpark_fn.function("regexp_replace")(
+            text, snowpark_fn.lit(pattern), snowpark_fn.lit(replacement)
+        )
+    return snowpark_fn.replace(text, snowpark_fn.lit("#"), snowpark_fn.lit("0"))
+
+
+def _parse_spark_timestamp_text(
+    text: Column, try_fn: str, can_have_zone: bool = True
+) -> Column:
+    """Parse text matching ``_SPARK_TIMESTAMP_PATTERN`` with an explicit format.
+
+    TRY_TO_TIMESTAMP's AUTO format does not read one-digit time fields or a
+    zone written as ``UTC+8`` or ``+0800``, so the fields are padded into
+    ``YYYY-MM-DD HH24:MI:SS.FF6`` and the zone into ``TZH:TZM``.
+    TIMESTAMP_NTZ ignores the zone, as Spark's stringToTimestampWithoutTimeZone
+    does; the pattern already limits a zone to the offsets Spark accepts.
+    """
+    local = snowpark_fn.rpad(
+        _rewrite(text, _SPARK_LOCAL_TIMESTAMP_REWRITES),
+        snowpark_fn.lit(len("YYYY-MM-DD HH:MI:SS.FFFFFF")),
+        snowpark_fn.lit("0"),
+    )
+    local_format = snowpark_fn.lit(_LOCAL_TIMESTAMP_FORMAT)
+    if try_fn == "try_to_timestamp_ntz" or not can_have_zone:
+        return snowpark_fn.function(try_fn)(local, local_format)
+    zone = snowpark_fn.function("regexp_substr")(
+        text,
+        snowpark_fn.lit(_SPARK_TIMESTAMP_ZONE_PATTERN),
+        snowpark_fn.lit(1),
+        snowpark_fn.lit(1),
+        snowpark_fn.lit("e"),
+        snowpark_fn.lit(1),
+    )
+    no_zone = snowpark_fn.coalesce(zone, snowpark_fn.lit("")) == snowpark_fn.lit("")
+    return snowpark_fn.function(try_fn)(
+        snowpark_fn.concat(
+            local,
+            snowpark_fn.iff(
+                no_zone,
+                snowpark_fn.lit(""),
+                snowpark_fn.concat(
+                    snowpark_fn.lit(" "), _rewrite(zone, _SPARK_ZONE_OFFSET_REWRITES)
+                ),
+            ),
+        ),
+        snowpark_fn.iff(
+            no_zone,
+            local_format,
+            snowpark_fn.lit(_LOCAL_TIMESTAMP_FORMAT + " TZH:TZM"),
+        ),
+    )
+
+
+def _spark_parse_string_to_datetime(
+    string_col: Column, target: DataType, ansi_enabled: bool
+) -> Column:
+    """Parse a string like Spark's ``Cast`` to date/timestamp, in one CASE.
+
+    The year/epoch handling is adapted from #5404 (Ben Kogan). Snowflake's
+    TRY_TO_DATE / TRY_TO_TIMESTAMP read integer-like strings as epoch seconds
+    and accept formats Spark rejects, so the input is classified first:
+
+    - DATE follows stringToDate, ``[+]yyyy[-[m]m[-[d]d[( |T)anything]]]``. The
+      date part is parsed with an explicit format, so ``'2017-12-11T'`` and
+      ``'2017-12-11 garbage'`` are dates, as in Spark.
+    - TIMESTAMP: canonical ISO text (``T`` and ``Z`` included) goes to
+      TRY_TO_TIMESTAMP first. Other stringToTimestamp forms (one-digit fields,
+      an offset zone; for TIMESTAMP_NTZ also a Java zone id, which it ignores)
+      are padded for an explicit format, then come a bare 4-digit year,
+      ``yyyy-[m]m`` and, except for TIMESTAMP_NTZ, a time on the current date.
+    - Years Spark accepts but Snowflake cannot store are NULL in both modes,
+      and so, for TIMESTAMP_LTZ, are valid local times with a zone TZH:TZM
+      cannot express (region ids, offsets with seconds, a zoned time-only).
+    - Everything else, including other integer-like strings, is invalid.
+
+    Invalid input is NULL with ANSI off. With ANSI on it raises
+    CAST_INVALID_INPUT from the single ELSE branch: a branch only matches when
+    its parse succeeds, so the classifier and the raise are emitted once.
+    """
+    to_date = isinstance(target, DateType)
+    if to_date:
+        try_fn = "try_to_date"
+    elif isinstance(target, TimestampType) and target.tz == TimestampTimeZone.NTZ:
+        try_fn = "try_to_timestamp_ntz"
+    else:
+        try_fn = "try_to_timestamp"
+
+    trimmed = snowpark_fn.trim(string_col, snowpark_fn.sql_expr(_SPARK_TRIM_CHARS_SQL))
+
+    def matches(pattern: str) -> Column:
+        return snowpark_fn.function("regexp_like")(trimmed, snowpark_fn.lit(pattern))
+
+    def parse(*args: Column) -> Column:
+        return snowpark_fn.function(try_fn)(*args)
+
+    if to_date:
+
+        def date_group(group: int) -> Column:
+            return snowpark_fn.function("regexp_substr")(
+                trimmed,
+                snowpark_fn.lit(_SPARK_DATE_PATTERN),
+                snowpark_fn.lit(1),
+                snowpark_fn.lit(1),
+                snowpark_fn.lit("e"),
+                snowpark_fn.lit(group),
+            )
+
+        def month_or_day(group: int) -> Column:
+            return snowpark_fn.lpad(
+                snowpark_fn.coalesce(
+                    snowpark_fn.function("nullif")(
+                        date_group(group), snowpark_fn.lit("")
+                    ),
+                    snowpark_fn.lit("1"),
+                ),
+                snowpark_fn.lit(2),
+                snowpark_fn.lit("0"),
+            )
+
+        yyyy_mm_dd = snowpark_fn.lit("YYYY-MM-DD")
+        normalized = snowpark_fn.concat(
+            date_group(1),
+            snowpark_fn.lit("-"),
+            month_or_day(3),
+            snowpark_fn.lit("-"),
+            month_or_day(5),
+        )
+        branches = [
+            (
+                matches(_ISO_DATE_PREFIX_PATTERN),
+                parse(snowpark_fn.substring(trimmed, 1, 10), yyyy_mm_dd),
+            ),
+            (matches(_SPARK_DATE_PATTERN), parse(normalized, yyyy_mm_dd)),
+        ]
+        null_in_both_modes = matches(_UNREPRESENTABLE_DATE_PATTERN)
+    else:
+        to_ntz = try_fn == "try_to_timestamp_ntz"
+        without_plus = snowpark_fn.ltrim(trimmed, snowpark_fn.lit("+"))
+        time_on_today = snowpark_fn.concat(
+            snowpark_fn.function("to_char")(
+                snowpark_fn.function("current_date")(), snowpark_fn.lit("YYYY-MM-DD")
+            ),
+            snowpark_fn.lit(" "),
+            snowpark_fn.ltrim(trimmed, snowpark_fn.lit("T")),
+        )
+        branches = [
+            (matches(_ISO_TIMESTAMP_PATTERN), parse(trimmed)),
+            (
+                matches(
+                    _SPARK_NTZ_TIMESTAMP_PATTERN if to_ntz else _SPARK_TIMESTAMP_PATTERN
+                ),
+                _parse_spark_timestamp_text(trimmed, try_fn),
+            ),
+            (
+                matches(r"^\+?\d{4}$"),
+                parse(without_plus, snowpark_fn.lit("YYYY")),
+            ),
+            (
+                matches(r"^\+?\d{4}-\d{1,2}$"),
+                parse(without_plus, snowpark_fn.lit("YYYY-MM")),
+            ),
+        ]
+        if to_ntz:
+            # A time without a date is NULL for TIMESTAMP_NTZ in Spark.
+            null_in_both_modes = matches(_UNREPRESENTABLE_TIMESTAMP_PATTERN)
+        else:
+            branches.append(
+                (
+                    matches(_SPARK_TIME_ONLY_PATTERN),
+                    _parse_spark_timestamp_text(
+                        time_on_today, try_fn, can_have_zone=False
+                    ),
+                )
+            )
+            # TIMESTAMP_LTZ needs the zone's rules, and Snowflake has no
+            # non-raising conversion for a named zone: NULL in both modes, but
+            # only when the local date and time are valid.
+            date_part = snowpark_fn.function("regexp_substr")(
+                trimmed,
+                snowpark_fn.lit(r"^\+?(\d{4}-\d{1,2}-\d{1,2})"),
+                snowpark_fn.lit(1),
+                snowpark_fn.lit(1),
+                snowpark_fn.lit("e"),
+                snowpark_fn.lit(1),
+            )
+            null_in_both_modes = reduce(
+                operator.or_,
+                [
+                    matches(_UNREPRESENTABLE_TIMESTAMP_PATTERN),
+                    matches(_UNSUPPORTED_ZONE_TIMESTAMP_PATTERN)
+                    & (
+                        date_part.is_null()
+                        | snowpark_fn.function("try_to_date")(
+                            date_part, snowpark_fn.lit("YYYY-MM-DD")
+                        ).is_not_null()
+                    ),
+                ],
+            )
+
+    result = None
+    for condition, value in branches:
+        if ansi_enabled:
+            condition = condition & value.is_not_null()
+        result = (snowpark_fn if result is None else result).when(condition, value)
+    result = result.when(null_in_both_modes, snowpark_fn.lit(None))
+    if not ansi_enabled:
+        return result.otherwise(snowpark_fn.lit(None))
+
+    # CONCAT is NULL for a NULL input, so a NULL string never raises.
+    return result.otherwise(
+        _raise_error_helper(target, DateTimeException)(
+            snowpark_fn.lit("[CAST_INVALID_INPUT] The value '"),
+            string_col,
+            snowpark_fn.lit(
+                f'\' of the type "STRING" cannot be cast to "{_datetime_sql_type_name(target)}"'
+                " because it is malformed. Correct the value as per the syntax, or"
+                " change its target type. Use `try_cast` to tolerate malformed input"
+                ' and return NULL instead. If necessary set "spark.sql.ansi.enabled"'
+                ' to "false" to bypass this error.'
+            ),
+        )
+    )
+
+
+def _string_to_datetime_for_comparison(string_col: Column, target: DataType) -> Column:
+    """Coerce the string side of a string/datetime comparison to ``target``.
+
+    Spark's PromoteStrings casts the string, not the datetime, in both ANSI
+    modes. Snowflake's own implicit cast raised 100035/100040 on text such as
+    ``'NULL'``. With ANSI off Spark's cast gives NULL, so the comparison is NULL
+    and a join on it does not match. With ANSI on it raises CAST_INVALID_INPUT
+    (SparkDateTimeException).
+
+    A NULL or ISO literal keeps the plain string so the SQL, and partition
+    pruning on the datetime column, is unchanged.
+    """
+    expression = getattr(string_col, "_expression", None)
+    if isinstance(expression, Literal) and (
+        expression.value is None
+        or (
+            isinstance(expression.value, str)
+            and _is_iso_datetime_literal(expression.value, target, rendered=False)
+        )
+    ):
+        return string_col
+    return _spark_parse_string_to_datetime(
+        string_col, target, global_config.spark_sql_ansi_enabled
+    )
+
+
+def _datetime_to_spark_string(col: Column, typ: DataType) -> Column:
+    if isinstance(typ, DateType):
+        return snowpark_fn.to_char(col, "YYYY-MM-DD")
+    if isinstance(typ, TimestampType) and typ.tz == TimestampTimeZone.TZ:
+        # Spark has no zoned timestamp: render the instant in the session zone.
+        col = col.cast(TimestampType(TimestampTimeZone.LTZ))
+    return timestamp_to_spark_string(col)
+
+
+def _in_as_equalities(value: Column, elements: list[Column]) -> Column:
+    """``value IN (elements)``, as an OR of equalities when ``in_`` rejects them.
+
+    Snowpark's ``in_`` takes only literals and plain columns. SQL defines IN as
+    the OR of equalities, NULL handling included.
+    """
+    try:
+        return _column_in_list(value, elements)
+    except TypeError:
+        return reduce(operator.or_, (value == element for element in elements))
+
+
+def _string_datetime_in(
+    args: list[TypedColumn],
+) -> Column | None:
+    """Spark-typed ``IN`` over a mix of strings and dates/timestamps.
+
+    Returns None when the operands are not that mix. Otherwise:
+
+    - ANSI off: InConversion widens STRING with a datetime to STRING
+      (``stringPromotion``), so the datetimes are rendered as Spark strings and
+      compared as text. ``'NULL' IN (ts)`` is false, not an error.
+    - ANSI on: the wider type is the datetime, so each string is cast to it and
+      an invalid string raises CAST_INVALID_INPUT.
+    """
+    types = [arg.typ for arg in args]
+    if not all(
+        isinstance(t, (StringType, DateType, TimestampType, NullType)) for t in types
+    ):
+        return None
+    datetime_types = [t for t in types if isinstance(t, (DateType, TimestampType))]
+    if not datetime_types or not any(isinstance(t, StringType) for t in types):
+        return None
+
+    value, *elements = args
+
+    if global_config.spark_sql_ansi_enabled:
+        timestamps = [t for t in datetime_types if isinstance(t, TimestampType)]
+        target = next(
+            (t for t in timestamps if t.tz != TimestampTimeZone.NTZ),
+            timestamps[0] if timestamps else DateType(),
+        )
+
+        def coerce(arg: TypedColumn) -> Column:
+            if isinstance(arg.typ, StringType):
+                return _string_to_datetime_for_comparison(arg.col, target)
+            return arg.col
+
+        return _in_as_equalities(coerce(value), [coerce(e) for e in elements])
+
+    def is_literal(arg: TypedColumn) -> bool:
+        return isinstance(getattr(arg.col, "_expression", None), Literal)
+
+    if isinstance(value.typ, (DateType, TimestampType)) and all(
+        isinstance(element.typ, (StringType, NullType)) and is_literal(element)
+        for element in elements
+    ):
+        # Common ``date_col.isin('2024-01-01', ...)`` shape. A literal in the
+        # form Spark renders the datetime as matches exactly the value it names,
+        # so it stays a string and Snowflake can prune on the column. Any other
+        # literal can never equal the rendered text, so it is dropped.
+        matchable = [
+            element.col
+            for element in elements
+            if element.col._expression.value is None
+            or _is_iso_datetime_literal(
+                str(element.col._expression.value), value.typ, rendered=True
+            )
+        ]
+        if matchable:
+            return value.col.in_(matchable)
+        return snowpark_fn.when(value.col.is_null(), snowpark_fn.lit(None)).otherwise(
+            snowpark_fn.lit(False)
+        )
+
+    def as_string(arg: TypedColumn) -> Column:
+        if isinstance(arg.typ, (DateType, TimestampType)):
+            return _datetime_to_spark_string(arg.col, arg.typ)
+        return arg.col
+
+    return _in_as_equalities(as_string(value), [as_string(e) for e in elements])
+
+
 def _coerce_for_comparison(
     left: TypedColumn, right: TypedColumn
 ) -> tuple[Column, Column, bool]:
@@ -474,6 +1292,15 @@ def _coerce_for_comparison(
     and any forced nullability introduced by the implicit coercion cast.
     """
     arg_nullable = _binary_nullable([left, right])
+
+    if isinstance(left.typ, DayTimeIntervalType) and isinstance(
+        right.typ, DayTimeIntervalType
+    ):
+        return (
+            _comparable_day_time_operand(left.col),
+            _comparable_day_time_operand(right.col),
+            arg_nullable,
+        )
 
     if left.typ == right.typ:
         return left.col, right.col, arg_nullable
@@ -531,8 +1358,12 @@ def _coerce_for_comparison(
             right_col = snowpark_fn.to_varchar(right_col, "UTF-8")
             right_target = StringType()
         case (DateType(), StringType()):
+            if is_spark_string_datetime_comparison_enabled():
+                right_col = _string_to_datetime_for_comparison(right_col, DateType())
             right_target = DateType()
         case (StringType(), TimestampType()):
+            if is_spark_string_datetime_comparison_enabled():
+                left_col = _string_to_datetime_for_comparison(left_col, right.typ)
             left_target = TimestampType()
         case (ByteType(), DecimalType()):
             left_target = right_target = wider_decimal_type(
@@ -1090,6 +1921,333 @@ def _extract_inline_regex_flags(
     return snowpark_fn.lit(remaining), sf_flags or None
 
 
+# Snowflake 001047 rejects an IN list with more than 50 non-constant values
+# (SNOW-4222752). Integer literals are emitted as casts (`0 :: INT`) and do
+# not count; bare literals such as NULL do not count either. OR of chunks
+# matches one IN, including NOT(isin): a match is true, and a NULL probe or
+# an unmatched NULL in any chunk stays NULL. Fifty or fewer non-constants
+# stay a single IN.
+_SNOWFLAKE_IN_LIST_NON_CONSTANT_LIMIT = 50
+
+
+def _is_sql_constant_expression(expr: object) -> bool:
+    seen = expr
+    while isinstance(seen, (Cast, Alias)):
+        seen = seen.child
+    return isinstance(seen, Literal)
+
+
+def _is_sql_constant_column(col: Column) -> bool:
+    return _is_sql_constant_expression(getattr(col, "_expression", None))
+
+
+def _chunk_in_list_values(
+    values: list[Column],
+    limit: int = _SNOWFLAKE_IN_LIST_NON_CONSTANT_LIMIT,
+) -> list[list[Column]]:
+    """Split an IN list so each chunk has at most `limit` non-constants.
+
+    A list that is already within the limit is returned unchanged, as one
+    chunk, including the empty list.
+    """
+    non_constant = sum(not _is_sql_constant_column(value) for value in values)
+    if non_constant <= limit:
+        return [values]
+    chunks: list[list[Column]] = []
+    current: list[Column] = []
+    count = 0
+    for value in values:
+        is_constant = _is_sql_constant_column(value)
+        if not is_constant and count == limit:
+            chunks.append(current)
+            current = []
+            count = 0
+        current.append(value)
+        if not is_constant:
+            count += 1
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _column_in_list(left: Column, values: list[Column]) -> Column:
+    chunks = _chunk_in_list_values(values)
+    result = left.in_(chunks[0])
+    for chunk in chunks[1:]:
+        result = result | left.in_(chunk)
+    return result
+
+
+def _literal_string_map(
+    option_expr: expressions_proto.Expression,
+) -> dict[str, str] | None:
+    """Fold ``map('k', 'v', ...)`` of string literals. None if any entry is not a literal."""
+    if option_expr.WhichOneof("expr_type") != "unresolved_function":
+        return None
+    fn = option_expr.unresolved_function
+    if fn.function_name.lower() not in ("map", "create_map"):
+        return None
+    args = list(fn.arguments)
+    if len(args) % 2 != 0:
+        return None
+    options: dict[str, str] = {}
+    for i in range(0, len(args), 2):
+        key_expr, val_expr = args[i], args[i + 1]
+        if (
+            key_expr.WhichOneof("expr_type") != "literal"
+            or val_expr.WhichOneof("expr_type") != "literal"
+        ):
+            return None
+        key = unwrap_literal(key_expr)
+        value = unwrap_literal(val_expr)
+        if not isinstance(key, str) or not isinstance(value, str):
+            return None
+        options[key] = value
+    return options
+
+
+def _to_json_ignore_null_fields(exp: expressions_proto.Expression) -> bool:
+    """Whether ``to_json`` should omit null struct fields.
+
+    Spark's default is true. A literal options map entry ``ignoreNullFields``
+    overrides it (case-insensitive key; value follows ``Boolean.parseBoolean``,
+    true only for ``true`` ignoring case). ``spark.sql.jsonGenerator.ignoreNullFields``
+    is not forwarded into expression mapping, so a missing option stays true.
+    A non-literal options map also stays true.
+    """
+    if len(exp.unresolved_function.arguments) < 2:
+        return True
+    options = _literal_string_map(exp.unresolved_function.arguments[1])
+    if not options:
+        return True
+    for key, value in options.items():
+        if key.lower() == "ignorenullfields":
+            return value.lower() == "true"
+    return True
+
+
+def _unwrap_alias_expr(
+    expr: expressions_proto.Expression,
+) -> expressions_proto.Expression:
+    while expr.WhichOneof("expr_type") == "alias":
+        expr = expr.alias.expr
+    return expr
+
+
+def _struct_constructor_value_exprs(
+    expr: expressions_proto.Expression | None,
+) -> list[expressions_proto.Expression] | None:
+    """Field-value expressions of a ``struct`` / ``named_struct`` call.
+
+    ``None`` when ``expr`` is not one of those calls (a column, for example).
+    ``struct(*)`` is also ``None``; that path keeps field extraction.
+    """
+    if expr is None:
+        return None
+    expr = _unwrap_alias_expr(expr)
+    if expr.WhichOneof("expr_type") != "unresolved_function":
+        return None
+    fn = expr.unresolved_function
+    name = fn.function_name.lower()
+    if name == "struct":
+        if (
+            len(fn.arguments) == 1
+            and fn.arguments[0].WhichOneof("expr_type") == "unresolved_star"
+        ):
+            return None
+        return list(fn.arguments)
+    if name == "named_struct":
+        args = list(fn.arguments)
+        if len(args) % 2 != 0:
+            return None
+        return args[1::2]
+    return None
+
+
+def _is_plain_column_reference(expr: expressions_proto.Expression | None) -> bool:
+    """True for a column attribute, including one wrapped in an alias.
+
+    ``to_json`` of any other struct expression (``from_json``, a UDF, a cast)
+    stays on ``TO_JSON(TO_VARIANT(...))``. Field-by-field JSON would repeat
+    that expression once per field.
+    """
+    if expr is None:
+        return False
+    expr = _unwrap_alias_expr(expr)
+    return expr.WhichOneof("expr_type") == "unresolved_attribute"
+
+
+def _to_json_struct_in_schema_order(
+    col: Column,
+    struct_type: StructType,
+    ignore_null_fields: bool,
+    field_exprs: list[expressions_proto.Expression] | None = None,
+    column_mapping: ColumnNameMap | None = None,
+    typer: ExpressionTyper | None = None,
+) -> Column:
+    """JSON object text for a struct, fields in schema order.
+
+    Non-struct values use ``TO_JSON(TO_VARIANT(field))``, the same spelling the
+    legacy whole-value path uses. Array fields use ``to_json_array_column`` when
+    ``snowpark.connect.toJson.nullArrayElement`` is on, so a NULL element is
+    written as ``null`` as in a top-level array. Nested structs are built the
+    same way so their fields stay in schema order. A null field makes its piece SQL NULL;
+    ``ARRAY_CONSTRUCT_COMPACT`` drops those pieces when ``ignore_null_fields``
+    is true. ``ARRAY_TO_STRING`` concatenates the pieces with commas and does
+    not add quotes. A null struct returns SQL NULL; a struct whose fields are
+    all null returns ``{}``.
+
+    When the struct is a ``struct``/``named_struct`` call, each field is read
+    from that call's argument. Snowflake's structured-OBJECT cast turns a null
+    nested struct into a non-null object, so ``GET`` on the constructed value
+    is not SQL NULL and would emit ``{}`` for a field Spark omits. A
+    constructor is not SQL NULL, so that path returns the object text without
+    an ``IS NULL`` wrapper. A nested constructor is not mapped either; its
+    fields are read from its own arguments.
+    """
+    # Imported here: map_expression imports this module.
+    from snowflake.snowpark_connect.expression.map_expression import map_expression
+
+    use_constructor_values = field_exprs is not None and len(field_exprs) == len(
+        struct_type.fields
+    )
+    pieces: list[Column] = []
+    for index, field in enumerate(struct_type.fields):
+        child_expr = None
+        nested_exprs = None
+        if use_constructor_values:
+            assert field_exprs is not None
+            child_expr = _unwrap_alias_expr(field_exprs[index])
+            if isinstance(field.datatype, StructType):
+                nested_exprs = _struct_constructor_value_exprs(child_expr)
+        child_is_constructor = (
+            isinstance(field.datatype, StructType)
+            and nested_exprs is not None
+            and len(nested_exprs) == len(field.datatype.fields)
+        )
+        if child_is_constructor:
+            # The nested call reads constructor arguments and does not need
+            # this mapped struct, which would only feed a null check.
+            value = _to_json_struct_in_schema_order(
+                col,
+                field.datatype,
+                ignore_null_fields,
+                field_exprs=nested_exprs,
+                column_mapping=column_mapping,
+                typer=typer,
+            )
+        else:
+            if use_constructor_values:
+                _, typed = map_expression(child_expr, column_mapping, typer)
+                field_col = typed.col
+            else:
+                field_col = col[field.name]
+            if isinstance(field.datatype, StructType):
+                value = _to_json_struct_in_schema_order(
+                    field_col,
+                    field.datatype,
+                    ignore_null_fields,
+                    column_mapping=column_mapping,
+                    typer=typer,
+                )
+            elif (
+                isinstance(field.datatype, ArrayType)
+                and is_to_json_null_array_element_enabled()
+            ):
+                value = to_json_array_column(field_col, field.datatype)
+            else:
+                value = snowpark_fn.to_json(snowpark_fn.to_variant(field_col))
+        if not ignore_null_fields:
+            value = snowpark_fn.coalesce(value, snowpark_fn.lit("null"))
+        # json.dumps includes the surrounding quotes and JSON-escapes the name.
+        key = json.dumps(field.name, ensure_ascii=False)
+        pieces.append(snowpark_fn.concat(snowpark_fn.lit(key + ":"), value))
+    if pieces:
+        body = snowpark_fn.array_to_string(
+            snowpark_fn.array_construct_compact(*pieces),
+            snowpark_fn.lit(","),
+        )
+    else:
+        body = snowpark_fn.lit("")
+    json_text = snowpark_fn.concat(
+        snowpark_fn.lit("{"),
+        body,
+        snowpark_fn.lit("}"),
+    )
+    if use_constructor_values:
+        return json_text
+    return snowpark_fn.iff(
+        col.is_null(), snowpark_fn.lit(None).cast(StringType()), json_text
+    )
+
+
+def _timestamp_to_concat_string(col: Column, typ: DataType) -> Column:
+    """Stringify a timestamp argument the way Spark's implicit cast does.
+
+    Snowflake's own ``CAST(timestamp AS VARCHAR)`` keeps trailing fractional
+    zeros and a zone offset (``2024-01-02 03:04:05.000 Z``). Spark prints the
+    session wall clock and drops a zero fraction and the zone (SNOW-3657394).
+    This is the formatter SCOS already uses for an explicit Spark
+    ``cast(ts AS string)``. A TIMESTAMP_TZ value is first converted to LTZ so
+    the session zone, not the stored offset, sets the wall clock, as in Spark.
+    """
+    if not isinstance(typ, TimestampType):
+        return col
+    if typ.tz == TimestampTimeZone.TZ:
+        col = col.cast(TimestampType(TimestampTimeZone.LTZ))
+    return timestamp_to_spark_string(col)
+
+
+def _timestamp_arg_as_spark_string(col: Column, typed_arg: TypedColumn) -> Column:
+    """Spark timestamp text when the flag is on and ``typed_arg`` is a timestamp.
+
+    Other types, and every type when the flag is off, pass through unchanged.
+    The flag is checked first so the off path never resolves the type.
+    """
+    if not is_implicit_timestamp_to_spark_string_enabled():
+        return col
+    typ = typed_arg.typ
+    if isinstance(typ, TimestampType):
+        return _timestamp_to_concat_string(col, typ)
+    return col
+
+
+def _timestamp_array_to_concat_strings(
+    col: Column,
+    typ: DataType,
+    lambda_bodies: dict[TimestampTimeZone, str] | None = None,
+) -> Column:
+    """Stringify each element of an ``array<timestamp>`` for ``concat_ws``.
+
+    Other values pass through unchanged. Elements of a semi-structured array are
+    VARIANT, which ``TO_VARCHAR`` cannot format, so each element is cast to the
+    concrete timestamp type first. NULL elements stay NULL so ``concat_ws``
+    still skips them.
+
+    The lambda body depends only on the element zone (NTZ or LTZ). A caller
+    with several array arguments can pass one ``lambda_bodies`` dict so each
+    zone is analyzed once. Keep the dict local to that one call: the SQL comes
+    from the active session's analyzer.
+    """
+    if not (isinstance(typ, ArrayType) and isinstance(typ.element_type, TimestampType)):
+        return _timestamp_to_concat_string(col, typ)
+    tz = (
+        TimestampTimeZone.NTZ
+        if typ.element_type.tz == TimestampTimeZone.NTZ
+        else TimestampTimeZone.LTZ
+    )
+    if lambda_bodies is None:
+        lambda_bodies = {}
+    if tz not in lambda_bodies:
+        element = snowpark_fn.sql_expr("x").cast(TimestampType(tz))
+        lambda_bodies[tz] = Session.get_active_session()._analyzer.analyze(
+            timestamp_to_spark_string(element)._expression, defaultdict()
+        )
+    return snowpark_fn.function("transform")(
+        col, snowpark_fn.sql_expr(f"x -> ({lambda_bodies[tz]})")
+    )
+
+
 def map_unresolved_function(
     exp: expressions_proto.Expression,
     column_mapping: ColumnNameMap,
@@ -1366,8 +2524,8 @@ def map_unresolved_function(
             result_exp = udf.invoke(
                 snowpark_typed_args, column_mapping, get_or_create_snowpark_session()
             )
-        case func_name if (
-            get_is_evaluating_sql() and cache.udtfs.has(func_name.lower())
+        case func_name if get_is_evaluating_sql() and cache.udtfs.has(
+            func_name.lower()
         ):
             udtf, spark_col_names = cache.udtfs.get(func_name.lower())
             result_exp = snowpark_fn.call_table_function(
@@ -1535,9 +2693,9 @@ def map_unresolved_function(
                         spark_function_name = (
                             f"({snowpark_arg_names[0]} * {snowpark_arg_names[1]})"
                         )
-                case (
-                    (_NumericType() as t, NullType())
-                    | (NullType(), _NumericType() as t)
+                case (_NumericType() as t, NullType()) | (
+                    NullType(),
+                    _NumericType() as t,
                 ):
                     result_type = t
                     result_exp = snowpark_fn.lit(None)
@@ -1793,9 +2951,11 @@ def map_unresolved_function(
                     )
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
-                case (t1, t2) | (t2, t1) if isinstance(
-                    t1, _AnsiIntervalType
-                ) and isinstance(t2, _AnsiIntervalType) and type(t1) == type(t2):
+                case (t1, t2) | (t2, t1) if (
+                    isinstance(t1, _AnsiIntervalType)
+                    and isinstance(t2, _AnsiIntervalType)
+                    and type(t1) == type(t2)
+                ):
                     # Both operands are the same interval type
                     add_intv_dt = type(t1)(
                         min(t1.start_field, t2.start_field),
@@ -2012,6 +3172,27 @@ def map_unresolved_function(
                         raise AnalysisException(
                             f'[DATATYPE_MISMATCH.UNEXPECTED_INPUT_TYPE] Cannot resolve "{spark_function_name}" due to data type mismatch: Parameter 2 requires the ("INTERVAL") type for timestamp operations, however "{snowpark_arg_names[1]}" has the type "{snowpark_typed_args[1].typ}".',
                         )
+                case (TimestampType() | DateType(), TimestampType()) | (
+                    TimestampType(),
+                    DateType(),
+                ):
+                    # SNOW-3656742: timestamp - timestamp is a day-time interval.
+                    # Snowflake lowers timestamp subtraction to
+                    # DATE_DIFFTIMESTAMPTOINTERVAL, already INTERVAL DAY TO SECOND.
+                    # Casting that result to TIMESTAMP_LTZ is rejected (001007).
+                    # Spark's SubtractTimestamps subtracts session-local wall
+                    # clocks, including a date operand cast to the other side's
+                    # type. datediff on TIMESTAMP_LTZ is the physical instant
+                    # and is an hour off across a DST gap.
+                    sub_tt_dt = DayTimeIntervalType(
+                        DayTimeIntervalType.DAY, DayTimeIntervalType.SECOND
+                    )
+                    result_type = FieldType(sub_tt_dt, sub_bn)
+                    result_exp = _session_wall_clock(
+                        snowpark_typed_args[0], snowpark_typed_args[1].typ
+                    ) - _session_wall_clock(
+                        snowpark_typed_args[1], snowpark_typed_args[0].typ
+                    )
                 case (StringType(), DateType()):
                     sub_sd_dt = DayTimeIntervalType(
                         DayTimeIntervalType.DAY, DayTimeIntervalType.DAY
@@ -2959,7 +4140,16 @@ def map_unresolved_function(
                 lambda: [FieldType(result_arr_type, bn)],
             )
         case "array_join":
-            match snowpark_args:
+            join_args = list(snowpark_args)
+            if is_implicit_timestamp_to_spark_string_enabled() and snowpark_typed_args:
+                join_type = snowpark_typed_args[0].typ
+                if isinstance(join_type, ArrayType) and isinstance(
+                    join_type.element_type, TimestampType
+                ):
+                    join_args[0] = _timestamp_array_to_concat_strings(
+                        join_args[0], join_type
+                    )
+            match join_args:
                 case [data, delimiter]:
                     data = snowpark_fn.cast(data, VariantType())
                     data = snowpark_fn.function("filter")(
@@ -3315,54 +4505,70 @@ def map_unresolved_function(
         case "avg" | "mean":
             spark_function_name = f"avg({snowpark_arg_names[0]})"
             input_type = snowpark_typed_args[0].typ
-            if isinstance(input_type, DecimalType):
-                result_type = _bounded_decimal(
-                    input_type.precision + 4, input_type.scale + 4
+            if isinstance(input_type, _AnsiIntervalType):
+                result_exp = _aggregate_ansi_interval(
+                    snowpark_args[0], input_type, snowpark_fn.avg
                 )
             else:
-                result_type = DoubleType()
-
-            avg_arg = snowpark_args[0]
-            if isinstance(input_type, StringType):
-                # SNOW-3585745: Spark coerces string inputs to double; a strict
-                # CAST here fails with 100038 on non-numeric data even in
-                # non-ANSI mode. Use TRY_CAST (NULL on bad input) to match Spark.
-                avg_arg = _coerce_string_input_to_double(
-                    avg_arg,
-                    spark_sql_ansi_enabled,
-                    aggregate_string_coercion_enabled,
-                )
-            avg_exp = snowpark_fn.avg(avg_arg)
-            if (
-                isinstance(input_type, DecimalType)
-                and result_type.precision - result_type.scale
-                < input_type.precision - input_type.scale
-            ):
-                if is_window_enabled():
-                    avg_input = snowpark_args[0]
-                    rt = result_type
-                    ansi = spark_sql_ansi_enabled
-
-                    def _build_window_avg(window):
-                        raw_avg = snowpark_fn.sum(avg_input).over(
-                            window
-                        ) / snowpark_fn.count(avg_input).over(window)
-                        return _cast_with_decimal_overflow_check(raw_avg, rt, ansi)
-
-                    result_exp = TypedColumnWithDeferredWindowBuilder(
-                        avg_exp,
-                        lambda: [FieldType(result_type, nullable=True)],
-                        _build_window_avg,
+                if isinstance(input_type, DecimalType):
+                    result_type = _bounded_decimal(
+                        input_type.precision + 4, input_type.scale + 4
                     )
                 else:
-                    result_exp = TypedColumn(
-                        _cast_with_decimal_overflow_check(
-                            avg_exp, result_type, spark_sql_ansi_enabled
-                        ),
-                        lambda: [FieldType(result_type, nullable=True)],
+                    result_type = DoubleType()
+
+                avg_arg = snowpark_args[0]
+                if isinstance(input_type, StringType):
+                    # SNOW-3585745: Spark coerces string inputs to double; a strict
+                    # CAST here fails with 100038 on non-numeric data even in
+                    # non-ANSI mode. Use TRY_CAST (NULL on bad input) to match Spark.
+                    avg_arg = _coerce_string_input_to_double(
+                        avg_arg,
+                        spark_sql_ansi_enabled,
+                        aggregate_string_coercion_enabled,
                     )
-            else:
-                result_exp = _resolve_aggregate_exp(avg_exp, result_type, nullable=True)
+                elif (
+                    isinstance(input_type, _IntegralType)
+                    and is_floating_point_spark_rounding_enabled()
+                ):
+                    # SNOW-4193976: AVG(NUMBER) has a fixed result scale (6 aggregated,
+                    # 3 over a window); Spark averages integral input as double.
+                    # snowpark.connect.floatingPoint.sparkRounding defaults false, so
+                    # an unset flag keeps snowpark_fn.avg(avg_arg) with no double cast.
+                    avg_arg = snowpark_fn.cast(avg_arg, DoubleType())
+                avg_exp = snowpark_fn.avg(avg_arg)
+                if (
+                    isinstance(input_type, DecimalType)
+                    and result_type.precision - result_type.scale
+                    < input_type.precision - input_type.scale
+                ):
+                    if is_window_enabled():
+                        avg_input = snowpark_args[0]
+                        rt = result_type
+                        ansi = spark_sql_ansi_enabled
+
+                        def _build_window_avg(window):
+                            raw_avg = snowpark_fn.sum(avg_input).over(
+                                window
+                            ) / snowpark_fn.count(avg_input).over(window)
+                            return _cast_with_decimal_overflow_check(raw_avg, rt, ansi)
+
+                        result_exp = TypedColumnWithDeferredWindowBuilder(
+                            avg_exp,
+                            lambda: [FieldType(result_type, nullable=True)],
+                            _build_window_avg,
+                        )
+                    else:
+                        result_exp = TypedColumn(
+                            _cast_with_decimal_overflow_check(
+                                avg_exp, result_type, spark_sql_ansi_enabled
+                            ),
+                            lambda: [FieldType(result_type, nullable=True)],
+                        )
+                else:
+                    result_exp = _resolve_aggregate_exp(
+                        avg_exp, result_type, nullable=True
+                    )
         case "base64":
             # Validate that input is StringType or BinaryType
             input_type = snowpark_typed_args[0].typ
@@ -3507,7 +4713,10 @@ def map_unresolved_function(
             )
         case "bit_length":
             bit_length_function = snowpark_fn.function("bit_length")
-            result_exp = bit_length_function(snowpark_args[0])
+            bit_arg = _timestamp_arg_as_spark_string(
+                snowpark_args[0], snowpark_typed_args[0]
+            )
+            result_exp = bit_length_function(bit_arg)
             result_type = FieldType(IntegerType(), _unary_nullable(snowpark_typed_args))
         case "bit_or":
             bit_or_agg_function = snowpark_fn.function("BITOR_AGG")
@@ -3728,10 +4937,16 @@ def map_unresolved_function(
                         result_exp,
                         lambda: [FieldType(return_type, nullable=True)],
                     )
+                case FloatType() | DoubleType() if (
+                    isinstance(scale, int)
+                    and is_floating_point_spark_rounding_enabled()
+                ):
+                    result_type = snowpark_typed_args[0].typ
+                    result_exp = TypedColumn(
+                        spark_round_fractional(snowpark_args[0], scale, half_even=True),
+                        lambda: [FieldType(result_type, nullable=True)],
+                    )
                 case _:
-                    # TODO: Snowflake's bround only supports decimal, not floating point types.
-                    # If fixing this in Snowflake takes some time, we should change to use a UDF here for float.
-                    # For now, this is just an approximation by casting to Decimal and casting back.
                     scale_for_decimal = 0 if scale < 0 else min(scale + 2, 38)
                     result_type = snowpark_typed_args[0].typ
                     result_exp = snowpark_fn.cast(
@@ -3960,11 +5175,42 @@ def map_unresolved_function(
                     )
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
-                result_type = _find_common_type(
-                    arg_types,
-                    func_name=function_name,
-                    widen_to_string=True,
-                )
+                spark_ts_text = is_implicit_timestamp_to_spark_string_enabled()
+                try:
+                    result_type = _find_common_type(
+                        arg_types,
+                        func_name=function_name,
+                        widen_to_string=True,
+                    )
+                except AnalysisException:
+                    # Spark ConcatCoercion casts every non-binary child to
+                    # string, so concat(ts, 1) is legal. _find_common_type
+                    # widens only when one side is already a string. Float and
+                    # double stay an error: CAST AS STRING drops Spark's ".0"
+                    # and "E" forms, so the text would be wrong.
+                    if (
+                        spark_ts_text
+                        and any(isinstance(t, TimestampType) for t in arg_types)
+                        and all(
+                            isinstance(
+                                t,
+                                (
+                                    TimestampType,
+                                    StringType,
+                                    NullType,
+                                    BooleanType,
+                                    DateType,
+                                    BinaryType,
+                                    _IntegralType,
+                                    DecimalType,
+                                ),
+                            )
+                            for t in arg_types
+                        )
+                    ):
+                        result_type = StringType()
+                    else:
+                        raise
                 if isinstance(result_type, StringType):
                     snowpark_args = []
                     for arg in snowpark_typed_args:
@@ -3979,6 +5225,10 @@ def map_unresolved_function(
                                         snowpark_fn.lit("utf-8"),
                                     )
                                 )
+                            case TimestampType() if spark_ts_text:
+                                snowpark_args.append(
+                                    _timestamp_to_concat_string(arg.col, arg.typ)
+                                )
                             case _:
                                 snowpark_args.append(
                                     snowpark_fn.cast(arg.col, StringType())
@@ -3987,6 +5237,13 @@ def map_unresolved_function(
                     result_type, ArrayType
                 ):
                     result_type = StringType()
+                    if spark_ts_text:
+                        # Two timestamps (no string sibling) stay TimestampType
+                        # until this fallback. Stringify before CONCAT.
+                        snowpark_args = [
+                            _timestamp_to_concat_string(arg.col, arg.typ)
+                            for arg in snowpark_typed_args
+                        ]
 
                 if len(snowpark_args) == 1:
                     result_exp = TypedColumn(
@@ -4029,9 +5286,19 @@ def map_unresolved_function(
                     )
         case "concat_ws":
             delimiter = unwrap_literal(exp.unresolved_function.arguments[0])
-            result_exp = snowpark_fn._concat_ws_ignore_nulls(
-                delimiter, *snowpark_args[1:]
+            # _concat_ws_ignore_nulls casts each value to an array, so a
+            # timestamp would be stringified by Snowflake CAST (millis + zone).
+            # Array arguments share one analyzed lambda body per zone.
+            lambda_bodies: dict[TimestampTimeZone, str] = {}
+            parts = (
+                [
+                    _timestamp_array_to_concat_strings(arg.col, arg.typ, lambda_bodies)
+                    for arg in snowpark_typed_args[1:]
+                ]
+                if is_implicit_timestamp_to_spark_string_enabled()
+                else snowpark_args[1:]
             )
+            result_exp = snowpark_fn._concat_ws_ignore_nulls(delimiter, *parts)
             result_exp = TypedColumn(
                 result_exp,
                 lambda: [FieldType(StringType(), _unary_nullable(snowpark_typed_args))],
@@ -4148,18 +5415,17 @@ def map_unresolved_function(
                     "count(", "count(DISTINCT ", 1
                 )
             else:
+                count_arg = exp.unresolved_function.arguments[0]
+                # df["*"] is a source-scoped star. Spark count() of that star
+                # is count(1), same as count(*). A qualifier star is not.
                 is_plain_star = (
-                    exp.unresolved_function.arguments[0].HasField("expression_string")
-                    and exp.unresolved_function.arguments[
-                        0
-                    ].expression_string.expression
-                    == "*"
+                    count_arg.HasField("expression_string")
+                    and count_arg.expression_string.expression == "*"
                 ) or (
-                    exp.unresolved_function.arguments[0].HasField("unresolved_star")
+                    count_arg.HasField("unresolved_star")
                     and (
-                        not exp.unresolved_function.arguments[
-                            0
-                        ].unresolved_star.HasField("unparsed_target")
+                        not count_arg.unresolved_star.HasField("unparsed_target")
+                        or dataframe_star_plan_id(count_arg) is not None
                     )
                 )
                 if is_plain_star:
@@ -5178,19 +6444,13 @@ def map_unresolved_function(
 
                 # According to PySpark docs, ignore_nulls can be a Column - but it doesn't make sense and doesn't work.
                 # So assume it's a literal.
-                args = exp.unresolved_function.arguments
-                ignore_nulls = unwrap_literal(args[1]) if len(args) > 1 else False
-
-                # Since first() is non-deterministic and just returns "some value" from the group,
-                # ANY_VALUE is the perfect match for this behavior
-                if ignore_nulls:
-                    # TODO(SNOW-1955766): When ignoring nulls, we need to completely exclude null values from aggregation
-                    # Since Snowflake's ANY_VALUE doesn't support ignore_nulls parameter yet (SNOW-1955766),
-                    # we fall back to MIN() which naturally ignores nulls and gives us "some value" from the group
-                    # This is semantically equivalent to first(..., ignore_nulls=True) for non-deterministic behavior
-                    result_exp = snowpark_fn.min(snowpark_args[0])
-                else:
-                    result_exp = snowpark_fn.any_value(snowpark_args[0])
+                note_pivot_first_last()
+                result_exp = _resolve_aggregate_first_last(
+                    exp,
+                    snowpark_typed_args[0],
+                    snowpark_fn.min,
+                    snowpark_fn.min_by,
+                )
 
                 spark_function_name = f"{function_name}({snowpark_arg_names[0]})"
             else:
@@ -5425,29 +6685,112 @@ def map_unresolved_function(
                     ).otherwise(formatted_with_zeros)
 
             if isinstance(col_type, (FloatType, DoubleType)):
-                result_exp = snowpark_fn.when(
-                    snowpark_fn.equal_nan(snowpark_args[0]),
-                    snowpark_fn.lit("NaN"),
-                ).otherwise(result_exp)
+                if is_floating_point_spark_rounding_enabled():
+                    raw = snowpark_args[0]
+                    # SNOW-4193976: DECIMAL(38, 18) holds less than 1e20. Larger
+                    # values are formatted from their 16 significant TME digits,
+                    # which matches Spark whenever Double.toString needs no more
+                    # digits. TO_NUMBER (not TRY_TO_NUMBER) so |x| >= 1e38, which
+                    # overflows NUMBER(38, 0), raises instead of becoming NULL.
+                    large_number = snowpark_fn.function("to_number")(
+                        snowpark_fn.to_char(raw, "TME"),
+                        snowpark_fn.lit(38),
+                        snowpark_fn.lit(0),
+                    )
+                    large_formatted = snowpark_fn.concat(
+                        snowpark_fn.ltrim(
+                            snowpark_fn.to_varchar(large_number, NUMBER_FORMAT_DIGITS)
+                        ),
+                        snowpark_fn.iff(
+                            scale > 0,
+                            snowpark_fn.concat(
+                                snowpark_fn.lit("."),
+                                snowpark_fn.repeat(snowpark_fn.lit("0"), scale),
+                            ),
+                            snowpark_fn.lit(""),
+                        ),
+                    )
+                    # Java's DecimalFormat keeps the sign of a negative value that
+                    # rounds to zero ("-0.00").
+                    signed_result = snowpark_fn.iff(
+                        snowpark_fn.startswith(
+                            raw.cast(StringType()), snowpark_fn.lit("-")
+                        )
+                        & ~snowpark_fn.startswith(result_exp, snowpark_fn.lit("-")),
+                        snowpark_fn.concat(snowpark_fn.lit("-"), result_exp),
+                        result_exp,
+                    )
+                    result_exp = (
+                        snowpark_fn.when(
+                            snowpark_fn.equal_nan(raw),
+                            snowpark_fn.lit("NaN"),
+                        )
+                        .when(raw == snowpark_fn.lit(INFINITY), snowpark_fn.lit("∞"))
+                        .when(raw == snowpark_fn.lit(-INFINITY), snowpark_fn.lit("-∞"))
+                        .when(
+                            snowpark_fn.abs(raw) >= snowpark_fn.lit(1e38),
+                            large_formatted,
+                        )
+                        .when(
+                            snowpark_fn.abs(raw) >= snowpark_fn.lit(1e20),
+                            snowpark_fn.when(scale >= 0, large_formatted).otherwise(
+                                result_exp
+                            ),
+                        )
+                        .otherwise(signed_result)
+                    )
+                else:
+                    result_exp = snowpark_fn.when(
+                        snowpark_fn.equal_nan(snowpark_args[0]),
+                        snowpark_fn.lit("NaN"),
+                    ).otherwise(result_exp)
 
             result_type = StringType()
         case "format_string" | "printf":
+            fmt_args = snowpark_args[1:]
+            if is_format_string_spark_compatible_enabled():
+                format_fn = cached_udf(
+                    make_spark_format_string(),
+                    input_types=[StringType(), ArrayType(), StringType()],
+                    return_type=StringType(),
+                    force_inline_code=True,
+                )
+                kinds = argument_kinds(snowpark_typed_args[1:])
+                result_exp = format_fn(
+                    snowpark_args[0],
+                    snowpark_fn.array_construct(
+                        *(
+                            format_string_argument(arg, kind)
+                            for arg, kind in zip(fmt_args, kinds.split(","))
+                        )
+                    ),
+                    snowpark_fn.lit(kinds),
+                )
+            else:
 
-            @cached_udf(
-                input_types=[StringType(), ArrayType()],
-                return_type=StringType(),
-            )
-            def _format_string(fmt: str, args: list) -> Optional[str]:
-                mapped_args = map(lambda x: "null" if x is None else x, args)
+                @cached_udf(
+                    input_types=[StringType(), ArrayType()],
+                    return_type=StringType(),
+                )
+                def _format_string(fmt: str, args: list) -> Optional[str]:
+                    mapped_args = map(lambda x: "null" if x is None else x, args)
 
-                try:
-                    return fmt % tuple(mapped_args)
-                except TypeError:
-                    return None
+                    try:
+                        return fmt % tuple(mapped_args)
+                    except TypeError:
+                        return None
 
-            result_exp = _format_string(
-                snowpark_args[0], snowpark_fn.array_construct(*snowpark_args[1:])
-            )
+                # SNOW-4193976: the legacy Python formatter gets Java toString
+                # text for a float/double consumed by %s when that flag is on.
+                # The spark-compatible UDF above formats doubles itself.
+                fmt_args = format_string_floating_arguments(
+                    snowpark_args[0],
+                    fmt_args,
+                    [arg.typ for arg in snowpark_typed_args[1:]],
+                )
+                result_exp = _format_string(
+                    snowpark_args[0], snowpark_fn.array_construct(*fmt_args)
+                )
             result_type = FieldType(StringType(), _unary_nullable(snowpark_typed_args))
         case "from_csv":
             snowpark_args = [
@@ -5905,28 +7248,20 @@ def map_unresolved_function(
             if not json_path:
                 result_exp = snowpark_fn.lit(None)
             else:
-                path_start_with_dollar_dot = False
-                # Snowflake JSON paths do not start with '$.', which is required in Spark
-                if json_path.startswith("$."):
-                    json_path = json_path[2:]
-                    path_start_with_dollar_dot = True
-                elif json_path.startswith("$["):
-                    # Special case: $[d] (bracket notation at root level)
-                    # Example: $[0] from ["a","b","c"] should return "a"
-                    json_path = json_path[1:]  # Remove just the $, keep the [
-                elif json_path == "$":
-                    json_path = ""
-
-                # Spark behavior: $.0 (dot notation with digit) returns NULL
-                # But $[0] (bracket notation) should work for array access
-                if path_start_with_dollar_dot and json_path and json_path[0].isdigit():
-                    match = re.match(r"^(\d+)($|\.|\[)", json_path)
-                    if match:
-                        result_exp = snowpark_fn.lit(None)
-                    else:
-                        result_exp = _extract_json_path(json_str, json_path)
+                # SNOW-4222751: $.1 is object key "1". A path with a dot key that
+                # starts with a digit is parsed with Spark's grammar and rebuilt
+                # with every key quoted; unquoted, GET_PATH raises 001840. Flag
+                # false restores the old NULL literal.
+                translated = translate_get_json_object_path(
+                    json_path,
+                    dot_digit_is_key=get_boolean_session_config_param(
+                        GET_JSON_OBJECT_DOT_DIGIT_IS_KEY_CONFIG
+                    ),
+                )
+                if translated is None:
+                    result_exp = snowpark_fn.lit(None)
                 else:
-                    result_exp = _extract_json_path(json_str, json_path)
+                    result_exp = _extract_json_path(json_str, translated)
             result_type = StringType()
             result_exp = TypedColumn(
                 result_exp, lambda: [FieldType(result_type, nullable=True)]
@@ -6441,6 +7776,9 @@ def map_unresolved_function(
             _validate_arity([2, 3])
             ilike = snowpark_fn.builtin("ilike")
             ilike_args = list(snowpark_args)
+            ilike_args[0] = _timestamp_arg_as_spark_string(
+                ilike_args[0], snowpark_typed_args[0]
+            )
             if len(ilike_args) == 3:
                 ilike_args[1] = _validate_like_pattern_at_plan_or_runtime(
                     exp.unresolved_function.arguments[1],
@@ -6514,23 +7852,34 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            try:
-                result_exp = snowpark_args[0].in_(snowpark_args[1:])
+            string_datetime_in = (
+                _string_datetime_in(snowpark_typed_args)
+                if is_spark_string_datetime_in_enabled()
+                else None
+            )
+            if string_datetime_in is not None:
+                result_exp = string_datetime_in
                 nullable = _any_arg_nullable(snowpark_typed_args)
-            except TypeError:
-                left_col = snowpark_typed_args[0]
-                left_coerced, right_coerced, nullable = _coerce_for_comparison(
-                    left_col, snowpark_typed_args[1]
-                )
-                result_exp = left_coerced == right_coerced
-                for right_col in snowpark_typed_args[2:]:
-                    (
-                        left_coerced,
-                        right_coerced,
-                        force_nullable,
-                    ) = _coerce_for_comparison(left_col, right_col)
-                    nullable = nullable or force_nullable
-                    result_exp = result_exp | (left_coerced == right_coerced)
+            else:
+                try:
+                    result_exp = _column_in_list(
+                        snowpark_args[0], list(snowpark_args[1:])
+                    )
+                    nullable = _any_arg_nullable(snowpark_typed_args)
+                except TypeError:
+                    left_col = snowpark_typed_args[0]
+                    left_coerced, right_coerced, nullable = _coerce_for_comparison(
+                        left_col, snowpark_typed_args[1]
+                    )
+                    result_exp = left_coerced == right_coerced
+                    for right_col in snowpark_typed_args[2:]:
+                        (
+                            left_coerced,
+                            right_coerced,
+                            force_nullable,
+                        ) = _coerce_for_comparison(left_col, right_col)
+                        nullable = nullable or force_nullable
+                        result_exp = result_exp | (left_coerced == right_coerced)
 
             result_type = FieldType(BooleanType(), nullable=nullable)
         case "initcap":
@@ -6562,11 +7911,13 @@ def map_unresolved_function(
                 # TimestampType includes LTZ/NTZ variants; only top-level UDTF
                 # outputs need Python temporal objects. Nested arrays/maps/structs
                 # are returned unchanged to preserve existing structured output.
-                "timestamp"
-                if isinstance(f.datatype, TimestampType)
-                else "date"
-                if isinstance(f.datatype, DateType)
-                else None
+                (
+                    "timestamp"
+                    if isinstance(f.datatype, TimestampType)
+                    else "date"
+                    if isinstance(f.datatype, DateType)
+                    else None
+                )
                 for f in input_type.element_type.fields
             ]
 
@@ -6980,19 +8331,13 @@ def map_unresolved_function(
 
                 # According to PySpark docs, ignore_nulls can be a Column - but it doesn't make sense and doesn't work.
                 # So assume it's a literal.
-                args = exp.unresolved_function.arguments
-                ignore_nulls = unwrap_literal(args[1]) if len(args) > 1 else False
-
-                # Since last() is non-deterministic and just returns "some value" from the group,
-                # ANY_VALUE is the perfect match for this behavior
-                if ignore_nulls:
-                    # TODO(SNOW-1955766): When ignoring nulls, we need to completely exclude null values from aggregation
-                    # Since Snowflake's ANY_VALUE doesn't support ignore_nulls parameter yet (SNOW-1955766),
-                    # we fall back to MAX() which naturally ignores nulls and gives us "some value" from the group
-                    # This is semantically equivalent to last(..., ignore_nulls=True) for non-deterministic behavior
-                    result_exp = snowpark_fn.max(snowpark_args[0])
-                else:
-                    result_exp = snowpark_fn.any_value(snowpark_args[0])
+                note_pivot_first_last()
+                result_exp = _resolve_aggregate_first_last(
+                    exp,
+                    snowpark_typed_args[0],
+                    snowpark_fn.max,
+                    snowpark_fn.max_by,
+                )
                 spark_function_name = f"{function_name}({snowpark_arg_names[0]})"
             else:
                 # WINDOW CONTEXT: DETERMINISTIC BEHAVIOR
@@ -7087,7 +8432,10 @@ def map_unresolved_function(
                 spark_function_name = (
                     f"{exp.unresolved_function.function_name}({arg_value})"
                 )
-            result_exp = snowpark_fn.length(snowpark_args[0])
+            length_arg = _timestamp_arg_as_spark_string(
+                snowpark_args[0], snowpark_typed_args[0]
+            )
+            result_exp = snowpark_fn.length(length_arg)
             result_type = FieldType(IntegerType(), _unary_nullable(snowpark_typed_args))
         case "levenshtein":
             match snowpark_args:
@@ -7128,6 +8476,9 @@ def map_unresolved_function(
             result_exp = snowpark_fn.cast(result_exp, result_type.datatype)
         case "like":
             like_args = list(snowpark_args)
+            like_args[0] = _timestamp_arg_as_spark_string(
+                like_args[0], snowpark_typed_args[0]
+            )
             if len(like_args) == 3:
                 like_args[1] = _validate_like_pattern_at_plan_or_runtime(
                     exp.unresolved_function.arguments[1],
@@ -7258,6 +8609,8 @@ def map_unresolved_function(
                 args_names = f"{snowpark_arg_names[0]}, {snowpark_arg_names[1]}, X'00'"
 
             spark_function_name = f"{function_name}({args_names})"
+
+            first_arg = _timestamp_arg_as_spark_string(first_arg, first_typed_arg)
 
             if not spark_sql_ansi_enabled and (
                 len(snowpark_args) < 2
@@ -7454,6 +8807,7 @@ def map_unresolved_function(
                 )
                 raise exception
             else:
+                _check_map_key_type(key_type, spark_function_name)
                 value_type = value_type if value_type else NullType()
 
                 def _guarded_key(
@@ -7710,6 +9064,7 @@ def map_unresolved_function(
                 )
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
+            _check_map_key_type(keys_type.element_type, spark_function_name)
             key_type = keys_type.element_type if keys_type.structured else VariantType()
             value_type = (
                 values_type.element_type if values_type.structured else VariantType()
@@ -7833,9 +9188,9 @@ def map_unresolved_function(
                     key_type = entry_type.fields[0].datatype
                     value_type = entry_type.fields[1].datatype
                     [key_field, value_field] = entry_type.names
-                case _ if isinstance(entry_type, StructType) and len(
-                    entry_type.fields
-                ) >= 2:
+                case _ if (
+                    isinstance(entry_type, StructType) and len(entry_type.fields) >= 2
+                ):
                     # Handle unstructured StructType with explicit field names (e.g., from arrays_zip)
                     key_type = entry_type.fields[0].datatype
                     value_type = entry_type.fields[1].datatype
@@ -7846,6 +9201,8 @@ def map_unresolved_function(
                     )
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
+
+            _check_map_key_type(key_type, spark_function_name)
 
             last_win_dedup = global_config.spark_sql_mapKeyDedupPolicy == "LAST_WIN"
 
@@ -8159,7 +9516,10 @@ def map_unresolved_function(
             expanded_typed_args: list[TypedColumn] = []
 
             for arg in exp.unresolved_function.arguments:
-                if arg.unresolved_star.HasField("unparsed_target"):
+                if (
+                    arg.unresolved_star.HasField("unparsed_target")
+                    and dataframe_star_plan_id(arg) is None
+                ):
                     (
                         star_names,
                         expanded_star_args_list,
@@ -8400,12 +9760,14 @@ def map_unresolved_function(
             result_type = _find_common_type([arg.typ for arg in snowpark_typed_args])
             result_exp = snowpark_fn.nvl(
                 *[
-                    _coerce_null_typed_expr(
-                        col, snowpark_typed_args[i].typ, result_type
+                    (
+                        _coerce_null_typed_expr(
+                            col, snowpark_typed_args[i].typ, result_type
+                        )
+                        if isinstance(snowpark_typed_args[i].typ, NullType)
+                        or _is_null_typed_container(snowpark_typed_args[i].typ)
+                        else col.cast(result_type)
                     )
-                    if isinstance(snowpark_typed_args[i].typ, NullType)
-                    or _is_null_typed_container(snowpark_typed_args[i].typ)
-                    else col.cast(result_type)
                     for i, col in enumerate(snowpark_args)
                 ]
             )
@@ -8418,12 +9780,14 @@ def map_unresolved_function(
                 "nvl2",
                 snowpark_args[0],
                 *[
-                    _coerce_null_typed_expr(
-                        col, snowpark_typed_args[i + 1].typ, result_type
+                    (
+                        _coerce_null_typed_expr(
+                            col, snowpark_typed_args[i + 1].typ, result_type
+                        )
+                        if isinstance(snowpark_typed_args[i + 1].typ, NullType)
+                        or _is_null_typed_container(snowpark_typed_args[i + 1].typ)
+                        else col.cast(result_type)
                     )
-                    if isinstance(snowpark_typed_args[i + 1].typ, NullType)
-                    or _is_null_typed_container(snowpark_typed_args[i + 1].typ)
-                    else col.cast(result_type)
                     for i, col in enumerate(snowpark_args[1:])
                 ],
             )
@@ -8434,7 +9798,10 @@ def map_unresolved_function(
                 )
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
-            result_exp = snowpark_fn.octet_length(snowpark_args[0])
+            octet_arg = _timestamp_arg_as_spark_string(
+                snowpark_args[0], snowpark_typed_args[0]
+            )
+            result_exp = snowpark_fn.octet_length(octet_arg)
             if isinstance(snowpark_typed_args[0].typ, _FractionalType):
                 # All decimal types have to have 3 characters at a minimum.
                 result_exp = snowpark_fn.when(
@@ -8883,18 +10250,25 @@ def map_unresolved_function(
             input_type = snowpark_typed_args[0].typ
             is_nullable = function_name == "posexplode_outer"
             if isinstance(input_type, ArrayType):
-                # Snowflake FLATTEN skips SQL NULL array elements (represented as `undefined`).
-                # Normalize each element into VARIANT and map SQL NULL -> JSON null so
-                # posexplode keeps positional null rows like Spark.
-                analyzer = session._analyzer
-                arg_sql = analyzer.analyze(snowpark_args[0]._expression, defaultdict())
-                normalized_array = snowpark_fn.sql_expr(
-                    f"transform({arg_sql}, x -> iff(x is null, parse_json('null'), to_variant(x)))"
-                )
+                # See posexplode_flatten for when the TRANSFORM rebuild is skipped.
+                if is_nss_posexplode_without_transform_enabled() and (
+                    is_nss_value_path(
+                        exp.unresolved_function.arguments[0], column_mapping
+                    )
+                ):
+                    flatten_input = snowpark_args[0]
+                else:
+                    analyzer = session._analyzer
+                    arg_sql = analyzer.analyze(
+                        snowpark_args[0]._expression, defaultdict()
+                    )
+                    flatten_input = snowpark_fn.sql_expr(
+                        null_preserving_flatten_input_sql(arg_sql)
+                    )
                 # use call_table_function so we avoid passing in the MODE argument
                 result_exp = snowpark_fn.call_table_function(
                     "flatten",
-                    input=normalized_array,
+                    input=flatten_input,
                     outer=snowpark_fn.lit(is_nullable),
                 )
                 # Semi-structured Snowflake ARRAYs have no element type
@@ -9009,16 +10383,48 @@ def map_unresolved_function(
             # but throws on a NaN exponent; only guard the exponent.
             # Skip the guard when the exponent is a non-NaN numeric literal —
             # it can never be NaN, so the CASE WHEN is dead code.
-            exp_lit = snowpark_args[1]._expression
-            if isinstance(exp_lit, Literal) and not (_is_nan_value(exp_lit.value)):
-                result_exp = snowpark_fn.pow(snowpark_args[0], snowpark_args[1])
+            # SNOW-4193976: POWER() also throws on a negative base with a
+            # non-integer exponent, where Java's Math.pow returns NaN (or
+            # +Infinity/0.0 for a -Infinity base). That rewrite is behind
+            # snowpark.connect.floatingPoint.sparkRounding (default false).
+            base, exponent = snowpark_args
+            native_pow = snowpark_fn.pow(base, exponent)
+            exp_lit = exponent._expression
+            if is_floating_point_spark_rounding_enabled():
+                negative_base_result = snowpark_fn.iff(
+                    base == snowpark_fn.lit(-INFINITY),
+                    snowpark_fn.iff(
+                        exponent > 0, snowpark_fn.lit(INFINITY), snowpark_fn.lit(0.0)
+                    ),
+                    snowpark_fn.lit(NAN),
+                )
+                if isinstance(exp_lit, Literal) and not (_is_nan_value(exp_lit.value)):
+                    if exp_lit.value is not None and _is_finite_non_integer(
+                        exp_lit.value
+                    ):
+                        result_exp = snowpark_fn.iff(
+                            base < 0, negative_base_result, native_pow
+                        )
+                    else:
+                        result_exp = native_pow
+                else:
+                    result_exp = snowpark_fn.when(
+                        snowpark_fn.equal_nan(snowpark_fn.cast(exponent, FloatType())),
+                        NAN,
+                    )
+                    if not isinstance(snowpark_typed_args[1].typ, _IntegralType):
+                        result_exp = result_exp.when(
+                            (base < 0) & (exponent != snowpark_fn.floor(exponent)),
+                            negative_base_result,
+                        )
+                    result_exp = result_exp.otherwise(native_pow)
+            elif isinstance(exp_lit, Literal) and not (_is_nan_value(exp_lit.value)):
+                result_exp = native_pow
             else:
                 result_exp = snowpark_fn.when(
-                    snowpark_fn.equal_nan(
-                        snowpark_fn.cast(snowpark_args[1], FloatType())
-                    ),
+                    snowpark_fn.equal_nan(snowpark_fn.cast(exponent, FloatType())),
                     NAN,
-                ).otherwise(snowpark_fn.pow(snowpark_args[0], snowpark_args[1]))
+                ).otherwise(native_pow)
             result_type = FieldType(
                 DoubleType(),
                 _binary_nullable(snowpark_typed_args, [DoubleType(), DoubleType()]),
@@ -9391,7 +10797,7 @@ def map_unresolved_function(
             # tracked in SNOW-4209648.
             _warn_lazy_quantifier_unfixed(snowpark_args[1], "regexp_replace")
             spark_function_name = spark_function_name[:-1] + ", 1)"
-            result_exp = snowpark_fn.regexp_replace(*snowpark_args)
+            result_exp = _regexp_replace_with_java_replacement(snowpark_args)
             result_type = FieldType(
                 StringType(), nullable=_any_arg_nullable(snowpark_typed_args)
             )
@@ -9567,7 +10973,9 @@ def map_unresolved_function(
             # We also handle:
             # - the case where the pattern is an empty string, which Spark treats as .*
             # - the case where the pattern uses embedded flag expressions (such as '(?i)', which Spark treats as case-insensitive)
-            text = snowpark_args[0]
+            text = _timestamp_arg_as_spark_string(
+                snowpark_args[0], snowpark_typed_args[0]
+            )
             pattern = snowpark_args[1]
 
             if _rlike_use_java_pattern(pattern):
@@ -9701,6 +11109,21 @@ def map_unresolved_function(
                     snowpark_args[1],
                 )
                 target_scale = unwrap_literal(exp.unresolved_function.arguments[1]) or 0
+            if (
+                is_floating_point_spark_rounding_enabled()
+                and isinstance(snowpark_typed_args[0].typ, (FloatType, DoubleType))
+                and (
+                    len(snowpark_args) == 1
+                    or (
+                        exp.unresolved_function.arguments[1].WhichOneof("expr_type")
+                        == "literal"
+                        and isinstance(target_scale, int)
+                    )
+                )
+            ):
+                result_exp = spark_round_fractional(
+                    snowpark_args[0], target_scale, half_even=False
+                )
             if isinstance(snowpark_typed_args[0].typ, DecimalType):
                 first_arg = exp.unresolved_function.arguments[0]
                 # I derived these formulas by looking at Spark's output.
@@ -10480,58 +11903,79 @@ def map_unresolved_function(
             result_type = FieldType(dt, nullable=False)
         case "split":
             result_type = ArrayType(StringType())
+            # PR 5774 BCR, off by default: java.util.regex semantics for split.
+            split_java_regex = is_split_java_regex_semantics_enabled()
 
-            @cached_udf(
-                input_types=[StringType(), StringType(), IntegerType()],
-                return_type=result_type,
-            )
-            def _split(
-                input: Optional[str], pattern: Optional[str], limit: Optional[int]
-            ) -> Optional[list[str]]:
-                if input is None or pattern is None:
-                    return None
+            if split_java_regex:
+                _java_split = _make_java_split()
 
-                import re
+                # Not named _split: cached_udf keys on the function name, so the
+                # two bodies must never share a cached UDF in one session.
+                @cached_udf(
+                    input_types=[StringType(), StringType(), IntegerType()],
+                    return_type=result_type,
+                )
+                def _split_java(
+                    input: Optional[str], pattern: Optional[str], limit: Optional[int]
+                ) -> Optional[list[str]]:
+                    return _java_split(input, pattern, limit)
 
-                try:
-                    compiled_pattern = re.compile(pattern)
-                except re.error:
-                    raise ValueError(
-                        f"[snowpark_connect::invalid_input] Failed to split string, provided pattern: {pattern} is invalid"
-                    )
+                split_udf = _split_java
+            else:
 
-                if limit == 1:
-                    return [input]
+                @cached_udf(
+                    input_types=[StringType(), StringType(), IntegerType()],
+                    return_type=result_type,
+                )
+                def _split(
+                    input: Optional[str], pattern: Optional[str], limit: Optional[int]
+                ) -> Optional[list[str]]:
+                    if input is None or pattern is None:
+                        return None
 
-                if not input:
-                    return [""]
+                    import re
 
-                # A default of -1 is passed in PySpark, but RE needs it to be 0 to provide all splits.
-                # In PySpark, the limit also indicates the max size of the resulting array, but in RE
-                # the remainder is returned as another element.
-                maxsplit = limit - 1 if limit > 0 else 0
-
-                if len(pattern) == 0:
-                    return list(input) if limit <= 0 else list(input)[:limit]
-
-                match pattern:
-                    case "|":
-                        split_result = compiled_pattern.split(input, 0)
-                        input_limit = limit + 1 if limit > 0 else len(split_result)
-                        return (
-                            split_result
-                            if input_limit == 0
-                            else split_result[1:input_limit]
+                    try:
+                        compiled_pattern = re.compile(pattern)
+                    except re.error:
+                        raise ValueError(
+                            f"[snowpark_connect::invalid_input] Failed to split string, provided pattern: {pattern} is invalid"
                         )
-                    case "$":
-                        return [input, ""] if maxsplit >= 0 else [input]
-                    case "^":
+
+                    if limit == 1:
                         return [input]
-                    case _:
-                        return compiled_pattern.split(input, maxsplit)
+
+                    if not input:
+                        return [""]
+
+                    # A default of -1 is passed in PySpark, but RE needs it to be 0 to provide all splits.
+                    # In PySpark, the limit also indicates the max size of the resulting array, but in RE
+                    # the remainder is returned as another element.
+                    maxsplit = limit - 1 if limit > 0 else 0
+
+                    if len(pattern) == 0:
+                        return list(input) if limit <= 0 else list(input)[:limit]
+
+                    match pattern:
+                        case "|":
+                            split_result = compiled_pattern.split(input, 0)
+                            input_limit = limit + 1 if limit > 0 else len(split_result)
+                            return (
+                                split_result
+                                if input_limit == 0
+                                else split_result[1:input_limit]
+                            )
+                        case "$":
+                            return [input, ""] if maxsplit >= 0 else [input]
+                        case "^":
+                            return [input]
+                        case _:
+                            return compiled_pattern.split(input, maxsplit)
+
+                split_udf = _split
 
             def split_string(str_: Column, pattern: Column, limit: Column):
-                native_split = _split(str_, pattern, limit)
+                native_split = split_udf(str_, pattern, limit)
                 # When pattern is a literal and doesn't contain any regex special characters
                 # And when limit is less than or equal to 0
                 # Native Snowflake Split function is used to optimise performance
@@ -10550,12 +11994,29 @@ def map_unresolved_function(
                         and limit._expression.value is not None
                         and limit._expression.value <= 0
                     )
+                    # A literal limit > 0 always takes the UDF: skip the dead CASE WHEN (2 <= 0).
+                    if (
+                        split_java_regex
+                        and isinstance(limit._expression, Literal)
+                        and isinstance(limit._expression.value, int)
+                        and limit._expression.value > 0
+                    ):
+                        return native_split
 
                     # Optimization: treat escaped regex that resolves to a pure literal delimiter
-                    # - Single char: "\\."
-                    # - Multi char: e.g., "\\.505\\."
-                    if re.fullmatch(r"(?:\\.)+", pattern_value):
+                    # - Single char: "\\." or "\\t" (tab)
+                    # - Multi char: e.g., "\\.\\|" (every char escaped; "\\.505\\." has bare
+                    #   digits, so it is not matched here and takes the regex UDF)
+                    # "\\s", "\\d", "\\w" ... are regex classes, not literals: they take the UDF.
+                    # Flag off (pre-PR 5774): any all-escaped pattern is unescaped, so
+                    # "\\s" splits on the letter "s" and "\\t" on "t".
+                    if split_java_regex:
+                        literal_delim = _split_escaped_literal_delimiter(pattern_value)
+                    elif re.fullmatch(r"(?:\\.)+", pattern_value):
                         literal_delim = re.sub(r"\\(.)", r"\1", pattern_value)
+                    else:
+                        literal_delim = None
+                    if literal_delim is not None:
                         if limit_is_known_nonpositive:
                             return snowpark_fn.split(
                                 str_, snowpark_fn.lit(literal_delim)
@@ -10785,9 +12246,11 @@ def map_unresolved_function(
 
                 pairs = re.split(pair_delim, s) if pair_delim else list(s)
                 kv_pairs = [
-                    re.split(kv_delim, pair, maxsplit=1)
-                    if kv_delim
-                    else (list(pair) or [""])
+                    (
+                        re.split(kv_delim, pair, maxsplit=1)
+                        if kv_delim
+                        else (list(pair) or [""])
+                    )
                     for pair in pairs
                 ]
 
@@ -10862,7 +12325,7 @@ def map_unresolved_function(
                 and exp.unresolved_function.arguments[0].WhichOneof("expr_type")
                 == "unresolved_star"
             ):
-                (_, result_exp) = map_unresolved_star_as_single_column(
+                _, result_exp = map_unresolved_star_as_single_column(
                     exp.unresolved_function.arguments[0], column_mapping, typer
                 )
             else:
@@ -11023,32 +12486,35 @@ def map_unresolved_function(
                 sum_fn = snowpark_fn.sum_distinct
 
             arg = snowpark_args[0]
-            if isinstance(input_type, StringType):
-                arg = _coerce_string_input_to_double(
-                    arg, spark_sql_ansi_enabled, aggregate_string_coercion_enabled
-                )
-
-            if isinstance(input_type, DecimalType):
-                result_type = _bounded_decimal(
-                    input_type.precision + 10, input_type.scale
-                )
-            elif isinstance(input_type, _IntegralType):
-                result_type = LongType()
+            if isinstance(input_type, _AnsiIntervalType):
+                result_exp = _aggregate_ansi_interval(arg, input_type, sum_fn)
             else:
-                result_type = DoubleType()
+                if isinstance(input_type, StringType):
+                    arg = _coerce_string_input_to_double(
+                        arg, spark_sql_ansi_enabled, aggregate_string_coercion_enabled
+                    )
 
-            if isinstance(input_type, _IntegralType) and not is_window_enabled():
-                raw_sum = sum_fn(arg)
-                wrapped_sum = apply_arithmetic_overflow_with_ansi_check(
-                    raw_sum, result_type, spark_sql_ansi_enabled, "add"
-                )
-                ft = FieldType(result_type, True)
-                result_exp = TypedColumn(wrapped_sum, lambda f=ft: [f])
-            else:
-                result_exp = _resolve_aggregate_exp(
-                    sum_fn(arg),
-                    result_type,
-                )
+                if isinstance(input_type, DecimalType):
+                    result_type = _bounded_decimal(
+                        input_type.precision + 10, input_type.scale
+                    )
+                elif isinstance(input_type, _IntegralType):
+                    result_type = LongType()
+                else:
+                    result_type = DoubleType()
+
+                if isinstance(input_type, _IntegralType) and not is_window_enabled():
+                    raw_sum = sum_fn(arg)
+                    wrapped_sum = apply_arithmetic_overflow_with_ansi_check(
+                        raw_sum, result_type, spark_sql_ansi_enabled, "add"
+                    )
+                    ft = FieldType(result_type, True)
+                    result_exp = TypedColumn(wrapped_sum, lambda f=ft: [f])
+                else:
+                    result_exp = _resolve_aggregate_exp(
+                        sum_fn(arg),
+                        result_type,
+                    )
         case "tan":
             spark_function_name = f"TAN({snowpark_arg_names[0]})"
             result_exp = snowpark_fn.tan(snowpark_args[0])
@@ -11560,7 +13026,9 @@ def map_unresolved_function(
                                 ),
                             )
                     else:
-                        result_exp = snowpark_fn.builtin(function_name)(*snowpark_args)
+                        result_exp = snowpark_fn.builtin(function_name)(
+                            normalize_iso_t_separator(snowpark_args[0])
+                        )
                 case NullType():
                     result_exp = snowpark_fn.lit(None)
                 case _:
@@ -11587,7 +13055,38 @@ def map_unresolved_function(
                     )
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
-            result_exp = snowpark_fn.to_json(snowpark_fn.to_variant(snowpark_args[0]))
+            input_type = snowpark_typed_args[0].typ if snowpark_typed_args else None
+            input_expr = (
+                exp.unresolved_function.arguments[0]
+                if exp.unresolved_function.arguments
+                else None
+            )
+            field_exprs = _struct_constructor_value_exprs(input_expr)
+            # Arrays of structs stay on TO_JSON(TO_VARIANT), so SNOW-3632779
+            # stays open. Expressions that are not a struct() call or a plain
+            # column also stay there: repeating them once per field bloats SQL.
+            if (
+                is_to_json_spark_compatible_struct_enabled()
+                and isinstance(input_type, StructType)
+                and (field_exprs is not None or _is_plain_column_reference(input_expr))
+            ):
+                result_exp = _to_json_struct_in_schema_order(
+                    snowpark_args[0],
+                    input_type,
+                    _to_json_ignore_null_fields(exp),
+                    field_exprs=field_exprs,
+                    column_mapping=column_mapping,
+                    typer=typer,
+                )
+            elif (
+                isinstance(input_type, ArrayType)
+                and is_to_json_null_array_element_enabled()
+            ):
+                result_exp = to_json_array_column(snowpark_args[0], input_type)
+            else:
+                result_exp = snowpark_fn.to_json(
+                    snowpark_fn.to_variant(snowpark_args[0])
+                )
             result_type = StringType()
             result_exp = TypedColumn(
                 result_exp,
@@ -11617,6 +13116,7 @@ def map_unresolved_function(
             )
             if not spark_sql_ansi_enabled:
                 function_name = "try_to_timestamp"
+            parsed_as_ntz = False
             match (snowpark_typed_args, exp.unresolved_function.arguments):
                 case ([e], _) if isinstance(e.typ, _NumericType):
                     if get_timestamp_type() == TimestampType(
@@ -11659,6 +13159,13 @@ def map_unresolved_function(
                     # type error); to_timestamp accepts them and never fails for these
                     # types, matching Spark (a non-string arg is reinterpreted directly).
                     result_exp = snowpark_fn.to_timestamp(e.col)
+                case ([e], _) if isinstance(e.typ, StringType):
+                    result_exp, parsed_as_ntz = parse_timestamp_string(
+                        e.col,
+                        ntz=get_timestamp_type().tzinfo
+                        == snowpark.types.TimestampTimeZone.NTZ,
+                        ansi=spark_sql_ansi_enabled,
+                    )
                 case ([e], _):
                     result_exp = snowpark_fn.function(function_name)(e.col)
                 case ([e, _], _) if type(e.typ) in (DateType, TimestampType):
@@ -11701,7 +13208,11 @@ def map_unresolved_function(
                     )
                     raise exception
             result_type = get_timestamp_type()
-            result_exp = _cast_to_ts_type(result_exp, result_type)
+            # Only the string arm sets parsed_as_ntz, and then result_exp is
+            # already TIMESTAMP_NTZ == result_type. _cast_to_ts_type expects an
+            # LTZ input; on NTZ its CONVERT_TIMEZONE moves DST-gap wall clocks.
+            if not parsed_as_ntz:
+                result_exp = _cast_to_ts_type(result_exp, result_type)
 
         case "to_timestamp_ltz":
             match (snowpark_typed_args, exp.unresolved_function.arguments):
@@ -11714,7 +13225,8 @@ def map_unresolved_function(
                         snowpark_fn.lit(6),
                     )
                 case ([e], _):
-                    result_exp = snowpark_fn.builtin("to_timestamp_ltz")(e.col)
+                    src = _normalize_if_string(e)
+                    result_exp = snowpark_fn.builtin("to_timestamp_ltz")(src)
                 case ([e, _], _) if type(e.typ) in (DateType, TimestampType):
                     result_exp = snowpark_fn.builtin("to_timestamp_ltz")(e.col)
                 case ([e, _], [_, fmt]):
@@ -11772,7 +13284,8 @@ def map_unresolved_function(
                     else:
                         result_exp = null_ntz
                 case ([e], _):
-                    result_exp = snowpark_fn.builtin("to_timestamp_ntz")(e.col)
+                    src = _normalize_if_string(e)
+                    result_exp = snowpark_fn.builtin("to_timestamp_ntz")(src)
                 case ([e, _], _) if isinstance(e.typ, DateType):
                     result_exp = snowpark_fn.convert_timezone(
                         snowpark_fn.lit("UTC"),
@@ -12144,11 +13657,19 @@ def map_unresolved_function(
             # additional checking.
 
             match (snowpark_typed_args[0].typ):
+                case t if isinstance(t, _AnsiIntervalType):
+                    result_exp = _aggregate_ansi_interval(
+                        snowpark_args[0], t, snowpark_fn.avg
+                    )
                 case DecimalType():
                     result_exp, result_type = _try_sum_helper(
                         snowpark_typed_args[0].typ,
                         snowpark_args[0],
                         calculating_avg=True,
+                    )
+                    result_exp = TypedColumn(
+                        result_exp,
+                        lambda: [FieldType(result_type, nullable=True)],
                     )
                 case _IntegralType():
                     # Cannot call try_cast on Number type, however, Double can always hold Number type, therefore we can just call cast.
@@ -12157,6 +13678,10 @@ def map_unresolved_function(
                     cleaned = snowpark_fn.cast(snowpark_args[0], DoubleType())
                     result_exp, result_type = _try_sum_helper(
                         DoubleType(), cleaned, calculating_avg=True
+                    )
+                    result_exp = TypedColumn(
+                        result_exp,
+                        lambda: [FieldType(result_type, nullable=True)],
                     )
                 case _:
                     # For the column sum to be non null, there must be > 0 non null rows in the input column. Since we only want to count the
@@ -12175,10 +13700,10 @@ def map_unresolved_function(
                     result_exp, result_type = _try_sum_helper(
                         DoubleType(), cleaned, calculating_avg=True
                     )
-            result_exp = TypedColumn(
-                result_exp,
-                lambda: [FieldType(result_type, nullable=True)],
-            )
+                    result_exp = TypedColumn(
+                        result_exp,
+                        lambda: [FieldType(result_type, nullable=True)],
+                    )
         case "try_divide":
             # Handle interval division with overflow detection
             match (snowpark_typed_args[0].typ, snowpark_typed_args[1].typ):
@@ -12556,7 +14081,11 @@ def map_unresolved_function(
             # We avoid these errors explicitly for StringType and VariantType columns by checking the column type and preemptively calling try_cast to a
             # numeric type. Non numerics will be returned as NULL, which is consistent with Spark's behavior as well. For Integral and Decimal types, overflow
             # will be handled manually via UDAF. For Float and Double (which are synonymous), overflow goes to 'inf'/-'inf' which matches Spark's behavior.
-            if (
+            if isinstance(snowpark_typed_args[0].typ, _AnsiIntervalType):
+                result_exp = _aggregate_ansi_interval(
+                    snowpark_args[0], snowpark_typed_args[0].typ, snowpark_fn.sum
+                )
+            elif (
                 spark_sql_ansi_enabled
                 and not isinstance(snowpark_typed_args[0].typ, DecimalType)
                 and not isinstance(snowpark_typed_args[0].typ, _IntegralType)
@@ -12566,14 +14095,18 @@ def map_unresolved_function(
                 # remain DecimalType. Therefore, we can safely go the alternative path in the DecimalType case.
                 casted = snowpark_fn.cast(snowpark_args[0], DoubleType())
                 result_exp, result_type = _try_sum_helper(DoubleType(), casted)
+                result_exp = TypedColumn(
+                    result_exp,
+                    lambda: [FieldType(result_type, nullable=True)],
+                )
             else:
                 result_exp, result_type = _try_sum_helper(
                     snowpark_typed_args[0].typ, snowpark_args[0]
                 )
-            result_exp = TypedColumn(
-                result_exp,
-                lambda: [FieldType(result_type, nullable=True)],
-            )
+                result_exp = TypedColumn(
+                    result_exp,
+                    lambda: [FieldType(result_type, nullable=True)],
+                )
         case "try_subtract":
             # Handle interval arithmetic with overflow detection
             match (snowpark_typed_args[0].typ, snowpark_typed_args[1].typ):
@@ -12741,6 +14274,7 @@ def map_unresolved_function(
                 exp.unresolved_function.arguments[0].WhichOneof("expr_type")
                 == "literal"
             )
+            parsed_as_ntz = False
             # special case for literal null input
             # snowflake does not support cast(try_to_timestamp(null) as TIMESTAMP_LTZ)
             # if the input is a literal NULL, we just return null and don't attempt to
@@ -12774,6 +14308,13 @@ def map_unresolved_function(
                                 snowpark_fn.cast(e.col * 1_000_000, LongType()),
                                 snowpark_fn.lit(6),
                             )
+                    case ([e], _) if isinstance(e.typ, StringType):
+                        result_exp, parsed_as_ntz = parse_timestamp_string(
+                            e.col,
+                            ntz=get_timestamp_type().tzinfo
+                            == snowpark.types.TimestampTimeZone.NTZ,
+                            ansi=False,
+                        )
                     case ([e], _):
                         result_exp = snowpark_fn.builtin("try_to_timestamp")(e.col)
                     case ([e, _], [_, fmt]):
@@ -12797,7 +14338,9 @@ def map_unresolved_function(
                         raise exception
 
             result_type = get_timestamp_type()
-            result_exp = _cast_to_ts_type(result_exp, result_type)
+            # See to_timestamp: an NTZ string parse is already result_type.
+            if not parsed_as_ntz:
+                result_exp = _cast_to_ts_type(result_exp, result_type)
             result_exp = TypedColumn(
                 result_exp,
                 lambda: [FieldType(result_type, nullable=True)],
@@ -12959,7 +14502,10 @@ def map_unresolved_function(
             result_exp = snowpark_fn.cast(snowpark_args[0], raw_type)
             result_type = FieldType(raw_type, _unary_nullable(snowpark_typed_args))
         case "upper" | "ucase":
-            result_exp = snowpark_fn.upper(snowpark_args[0])
+            upper_arg = _timestamp_arg_as_spark_string(
+                snowpark_args[0], snowpark_typed_args[0]
+            )
+            result_exp = snowpark_fn.upper(upper_arg)
             result_type = FieldType(StringType(), _unary_nullable(snowpark_typed_args))
         case "url_decode":
 
@@ -13176,7 +14722,7 @@ def map_unresolved_function(
                 lambda: [FieldType(result_type, nullable=True)],
             )
         case "window":
-            (window_duration, start_time) = _extract_window_args(exp)
+            window_duration, start_time = _extract_window_args(exp)
             spark_function_name = "window"
             result_exp = snowpark_fn.window(
                 snowpark_args[0], window_duration, start_time=start_time
@@ -13476,6 +15022,97 @@ def map_unresolved_function(
                 lambda: [FieldType(result_type, nullable=True)],
             )
 
+        # ── Iceberg system.* partition transform functions ──────────────
+        # These arrive from Spark SQL extensions as UnresolvedFunction with
+        # the dotted namespace "system.<transform>".  The partition DDL path
+        # (iceberg_partition_utils.py) already handles these for
+        # PARTITIONED BY; the cases below handle the *expression* path so
+        # they work in WHERE / DELETE / UPDATE / MERGE clauses.
+        # Spec: https://iceberg.apache.org/spec/#partition-transforms
+
+        case "system.days":
+            _validate_arity(1)
+            result_exp = snowpark_fn.cast(
+                snowpark_fn.date_trunc("DAY", snowpark_args[0]),
+                DateType(),
+            )
+            result_type = DateType()
+
+        case "system.years":
+            _validate_arity(1)
+            epoch_date = snowpark_fn.lit("1970-01-01").cast(DateType())
+            result_exp = snowpark_fn.datediff("year", epoch_date, snowpark_args[0])
+            result_type = IntegerType()
+
+        case "system.months":
+            _validate_arity(1)
+            epoch_date = snowpark_fn.lit("1970-01-01").cast(DateType())
+            result_exp = snowpark_fn.datediff("month", epoch_date, snowpark_args[0])
+            result_type = IntegerType()
+
+        case "system.hours":
+            _validate_arity(1)
+            epoch_ntz = snowpark_fn.lit("1970-01-01 00:00:00").cast(
+                TimestampType(TimestampTimeZone.NTZ)
+            )
+            result_exp = snowpark_fn.datediff("hour", epoch_ntz, snowpark_args[0])
+            result_type = IntegerType()
+
+        case "system.bucket":
+            _validate_arity(2)
+            num_buckets = snowpark_args[0]
+            col_val = snowpark_args[1]
+            # Map Snowpark type to Iceberg type string for the platform function.
+            arg_type = snowpark_typed_args[1].typ
+            if isinstance(arg_type, (IntegerType, ShortType, ByteType)):
+                iceberg_type_str = "int"
+            elif isinstance(arg_type, LongType):
+                iceberg_type_str = "long"
+            elif isinstance(arg_type, StringType):
+                iceberg_type_str = "string"
+            elif isinstance(arg_type, DateType):
+                iceberg_type_str = "date"
+            elif isinstance(arg_type, TimestampType):
+                iceberg_type_str = "timestamptz"
+            elif isinstance(arg_type, DecimalType):
+                iceberg_type_str = "decimal"
+            elif isinstance(arg_type, BinaryType):
+                iceberg_type_str = "binary"
+            else:
+                exception = SnowparkConnectNotImplementedError(
+                    f"system.bucket: unsupported type {arg_type}"
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+            # Arg order: Spark is (N, col), platform function is (value, type, N).
+            result_exp = snowpark_fn.builtin("SYSTEM$ICEBERG_BUCKET_TRANSFORM")(
+                col_val, snowpark_fn.lit(iceberg_type_str), num_buckets
+            )
+            result_type = IntegerType()
+
+        case "system.truncate":
+            _validate_arity(2)
+            width = snowpark_args[0]
+            col_val = snowpark_args[1]
+            arg_type = snowpark_typed_args[1].typ
+            if isinstance(arg_type, StringType):
+                result_exp = snowpark_fn.substring(col_val, snowpark_fn.lit(1), width)
+                result_type = StringType()
+            else:
+                # Integer truncation via floor division. Known limitations:
+                # - Decimal: Iceberg spec truncates the unscaled integer, not
+                #   the scaled value. This path gives wrong results for decimal.
+                # - Binary: should be a byte-prefix (like string), not numeric.
+                # Neither type appears in M3 scenarios; tracked for follow-up.
+                result_exp = (
+                    snowpark_fn.floor(
+                        snowpark_fn.cast(col_val, DoubleType())
+                        / snowpark_fn.cast(width, DoubleType())
+                    )
+                    * width
+                )
+                result_type = arg_type
+
         case other:
             # TODO: Add more here as we come across them.
             # Unfortunately the scope of function names are not documented in
@@ -13636,7 +15273,7 @@ def _timestamp_with_overflow_guard(
 
 
 def _equivalent_decimal(typ: DataType) -> DecimalType:
-    (precision, scale) = _get_type_precision_from_datatype(typ)
+    precision, scale = _get_type_precision_from_datatype(typ)
     return DecimalType(precision, scale)
 
 
@@ -13847,9 +15484,11 @@ def _find_common_type(
                     fields = [
                         StructField(
                             f.name,
-                            _common(f.datatype, fields2_by_name[f.name].datatype)
-                            if f.name in fields2_by_name
-                            else f.datatype,
+                            (
+                                _common(f.datatype, fields2_by_name[f.name].datatype)
+                                if f.name in fields2_by_name
+                                else f.datatype
+                            ),
                             nullable=nullable,
                             _is_column=False,
                         )
@@ -14102,7 +15741,7 @@ def _resolve_function_with_lambda(
                         _randomize_lambda_args_names(item, suffix)
 
     first_arg = exp.unresolved_function.arguments[0]
-    ([arg1_name], arg1_tc) = map_expression(first_arg, column_mapping, typer)
+    [arg1_name], arg1_tc = map_expression(first_arg, column_mapping, typer)
     function_name = exp.unresolved_function.function_name
     result_type = None
     match function_name:
@@ -14110,8 +15749,8 @@ def _resolve_function_with_lambda(
             arr_el_typ = _get_arr_el_type(arg1_tc)
             init_exp = exp.unresolved_function.arguments[1]
             merge_lambda_fn_exp = exp.unresolved_function.arguments[2]
-            ([arg2_name], arg2_tc) = map_expression(init_exp, column_mapping, typer)
-            ([arg3_name], arg3_tc) = _resolve_lambda(
+            [arg2_name], arg2_tc = map_expression(init_exp, column_mapping, typer)
+            [arg3_name], arg3_tc = _resolve_lambda(
                 merge_lambda_fn_exp, [arg2_tc.typ, arr_el_typ]
             )
 
@@ -14132,7 +15771,7 @@ def _resolve_function_with_lambda(
                             for a in merge_lambda_fn_exp.lambda_function.arguments
                         ]
                         analyzer = Session.get_active_session()._analyzer
-                        (_, body_tc) = _resolve_lambda(
+                        _, body_tc = _resolve_lambda(
                             merge_lambda_fn_exp,
                             [arg2_tc.typ, arr_el_typ],
                             resolve_only_body=True,
@@ -14196,7 +15835,7 @@ def _resolve_function_with_lambda(
                     )
                 case [_, _, _, finish_lambda_fn_exp]:
                     type_of_merge_lamda_body = arg3_tc.typ
-                    ([arg4_name], arg4_tc) = _resolve_lambda(
+                    [arg4_name], arg4_tc = _resolve_lambda(
                         finish_lambda_fn_exp, [type_of_merge_lamda_body]
                     )
                     result_exp = snowpark_fn.array_construct(
@@ -14230,7 +15869,7 @@ def _resolve_function_with_lambda(
             lambda_exp = exp.unresolved_function.arguments[1]
             arr_el_typ = _get_arr_el_type(arg1_tc)
             _randomize_lambda_args_names(lambda_exp)
-            ([lambda_body_name], fn_body) = _resolve_lambda(
+            [lambda_body_name], fn_body = _resolve_lambda(
                 lambda_exp, [arr_el_typ], resolve_only_body=True
             )
             l_arg = lambda_exp.lambda_function.arguments[0].name_parts[0]
@@ -14249,7 +15888,7 @@ def _resolve_function_with_lambda(
         case "filter":
             lambda_exp = exp.unresolved_function.arguments[1]
             arr_el_typ = _get_arr_el_type(arg1_tc)
-            ([arg2_name], arg2_tc) = _resolve_lambda(lambda_exp, [arr_el_typ])
+            [arg2_name], arg2_tc = _resolve_lambda(lambda_exp, [arr_el_typ])
 
             snowpark_arg_names = [arg1_name, arg2_name]
             result_exp = snowpark_fn.function("filter")(arg1_tc.col, arg2_tc.col)
@@ -14257,7 +15896,7 @@ def _resolve_function_with_lambda(
         case "forall":
             lambda_exp = exp.unresolved_function.arguments[1]
             arr_el_typ = _get_arr_el_type(arg1_tc)
-            ([arg2_name], arg2_tc) = _resolve_lambda(lambda_exp, [arr_el_typ])
+            [arg2_name], arg2_tc = _resolve_lambda(lambda_exp, [arr_el_typ])
             result_exp = snowpark_fn.function("transform")(arg1_tc.col, arg2_tc.col)
             result_exp = snowpark_fn.function("reduce")(
                 result_exp,
@@ -14281,7 +15920,7 @@ def _resolve_function_with_lambda(
             # Rather than traversing the entire lambda AST, we use string manipulation on the query.
             # We randomize lambda argument names to minimize the risk of accidental replacements in the query.
             _randomize_lambda_args_names(lambda_exp)
-            ([lambda_body_name], fn_body) = _resolve_lambda(
+            [lambda_body_name], fn_body = _resolve_lambda(
                 lambda_exp,
                 [key_type, val_type],
                 resolve_only_body=True,
@@ -14325,7 +15964,7 @@ def _resolve_function_with_lambda(
             ]
         case "map_zip_with":
 
-            ([arg2_name], arg2_tc) = map_expression(
+            [arg2_name], arg2_tc = map_expression(
                 exp.unresolved_function.arguments[1], column_mapping, typer
             )
 
@@ -14337,7 +15976,7 @@ def _resolve_function_with_lambda(
             # Rather than traversing the entire lambda AST, we use string manipulation on the query.
             # We randomize lambda argument names to minimize the risk of accidental replacements in the query.
             _randomize_lambda_args_names(lambda_exp)
-            ([lambda_body_name], fn_body) = _resolve_lambda(
+            [lambda_body_name], fn_body = _resolve_lambda(
                 lambda_exp,
                 [key1_type, val1_type, val2_type],
                 resolve_only_body=True,
@@ -14418,7 +16057,7 @@ def _resolve_function_with_lambda(
             arr_el_typ = _get_arr_el_type(arg1_tc)
             match lambda_exp.lambda_function.arguments:
                 case [_]:
-                    ([arg2_name], arg2_tc) = _resolve_lambda(lambda_exp, [arr_el_typ])
+                    [arg2_name], arg2_tc = _resolve_lambda(lambda_exp, [arr_el_typ])
                     snowpark_arg_names = [arg1_name, arg2_name]
                     result_exp = snowpark_fn.function("transform")(
                         arg1_tc.col, arg2_tc.col
@@ -14441,7 +16080,7 @@ def _resolve_function_with_lambda(
                     # Rather than traversing the entire lambda AST, we use string manipulation on the query.
                     # We randomize lambda argument names to minimize the risk of accidental replacements in the query.
                     _randomize_lambda_args_names(lambda_exp)
-                    ([lambda_body_name], fn_body) = _resolve_lambda(
+                    [lambda_body_name], fn_body = _resolve_lambda(
                         lambda_exp,
                         [arr_el_typ, LongType()],
                         resolve_only_body=True,
@@ -14479,7 +16118,7 @@ def _resolve_function_with_lambda(
 
             lambda_exp = exp.unresolved_function.arguments[1]
             _randomize_lambda_args_names(lambda_exp)
-            ([lambda_body_name], fn_body) = _resolve_lambda(
+            [lambda_body_name], fn_body = _resolve_lambda(
                 lambda_exp,
                 [key_type, val_type],
                 resolve_only_body=True,
@@ -14523,7 +16162,7 @@ def _resolve_function_with_lambda(
 
             lambda_exp = exp.unresolved_function.arguments[1]
             _randomize_lambda_args_names(lambda_exp)
-            ([lambda_body_name], fn_body) = _resolve_lambda(
+            [lambda_body_name], fn_body = _resolve_lambda(
                 lambda_exp,
                 [key_type, val_type],
                 resolve_only_body=True,
@@ -14575,7 +16214,7 @@ def _resolve_function_with_lambda(
              - Apply `transform` function to transform the zipped array using that lambda
             """
             arr2 = exp.unresolved_function.arguments[1]
-            ([arg2_name], arg2_tc) = map_expression(arr2, column_mapping, typer)
+            [arg2_name], arg2_tc = map_expression(arr2, column_mapping, typer)
 
             # Cast to semi-structured arrays before zipping — structured arrays
             # cause "Typed object schema mismatch" with get(x, '$1') accessors.
@@ -14589,7 +16228,7 @@ def _resolve_function_with_lambda(
             orig_arg1 = lambda_exp.lambda_function.arguments[0].name_parts[0]
             orig_arg2 = lambda_exp.lambda_function.arguments[1].name_parts[0]
             _randomize_lambda_args_names(lambda_exp)
-            ([lambda_body_name], fn_body) = _resolve_lambda(
+            [lambda_body_name], fn_body = _resolve_lambda(
                 lambda_exp,
                 [arg1_tc.typ.element_type, arg2_tc.typ.element_type],
                 resolve_only_body=True,
@@ -14662,6 +16301,100 @@ def _resolve_function_with_lambda(
     else:
         tc = result_exp
     return [spark_function_name], tc
+
+
+def _user_ignores_nulls(exp: expressions_proto.Expression) -> bool:
+    """Caller's ignorenulls flag. Outside pivot, True still maps to MIN/MAX."""
+    args = exp.unresolved_function.arguments
+    return bool(unwrap_literal(args[1])) if len(args) > 1 else False
+
+
+def _pivot_forces_ignore_nulls() -> bool:
+    return pivot_aggregate_forces_first_last_ignore_nulls(
+        in_pivot=pivot_rewrites_first_last(),
+        flag_enabled=is_pivot_first_last_ignore_nulls_enabled(),
+        force_all=pivot_forces_all_first_last(),
+    )
+
+
+def _pivot_picks_cell_row() -> bool:
+    return pivot_rewrites_first_last() and is_pivot_first_last_ignore_nulls_enabled()
+
+
+# Snowflake MIN/MAX reject these (error 002016).
+_MIN_MAX_REJECTED_TYPES = (ArrayType, MapType, StructType, VariantType)
+
+
+def _pivot_skipping_nulls(
+    scalar_function: Callable[[Column], Column],
+    by_function: Callable[[Column, Column], Column],
+    typed_col: TypedColumn,
+) -> Column:
+    """Pivot first/last that ignore nulls, as Spark's ResolvePivot rewrite does.
+
+    Returns some non-null value of the cell, or NULL when every value is NULL.
+    Which one is unspecified; Spark's first/last are order-dependent too.
+    MIN/MAX evaluate the value once. For ARRAY, MAP, OBJECT and VARIANT, which
+    MIN/MAX reject, MIN_BY/MAX_BY skip rows whose key is NULL instead; that
+    key repeats the value expression.
+    """
+    col = typed_col.col
+    try:
+        min_max_rejects = isinstance(typed_col.typ, _MIN_MAX_REJECTED_TYPES)
+    except Exception as exc:  # noqa: BLE001
+        # TypedColumn.field_type raises AssertionError when the resolver
+        # returns None or not one type. The resolver itself can raise too
+        # (SnowparkClientException from a DESCRIBE, and others). An unknown
+        # type uses MIN_BY: MIN/MAX reject ARRAY, MAP, OBJECT and VARIANT
+        # with 002016, so narrowing this would turn inference failures into
+        # query errors or a dropped fallback.
+        logger.debug("Pivot first/last value type not inferred: %s", exc)
+        min_max_rejects = True
+    if not min_max_rejects:
+        return scalar_function(col)
+    key = snowpark_fn.iff(col.is_null(), snowpark_fn.lit(None), snowpark_fn.lit(0))
+    return by_function(col, key)
+
+
+def _pivot_cell_row(
+    by_function: Callable[[Column, Column], Column],
+    col: Column,
+) -> Column:
+    """Pivot first/last for PivotFirst result types: the value of some row of the cell.
+
+    Spark aggregates these per (group, pivot value) cell and keeps nulls, so
+    the value can be NULL only when the cell has a NULL row. The pivot wraps
+    both arguments in CASE WHEN <cell>, so the key is NULL outside the cell
+    and MIN_BY/MAX_BY skip those rows. ANY_VALUE would pick any row of the
+    group and return NULL for a row of another pivot value.
+    """
+    return by_function(col, snowpark_fn.lit(0))
+
+
+def _resolve_aggregate_first_last(
+    exp: expressions_proto.Expression,
+    typed_col: TypedColumn,
+    scalar_function: Callable[[Column], Column],
+    by_function: Callable[[Column, Column], Column],
+) -> Column:
+    """first/last as an aggregate, outside a window.
+
+    PivotFirst result types keep the caller's ignorenulls. That flag defaults
+    to false and picks a row of the cell, so a NULL row can win. Setting it
+    true uses MIN/MAX, which skip nulls. Any result type outside PivotFirst
+    rewrites every first/last to ignore nulls, whether or not the caller set
+    the flag.
+    """
+    if _pivot_forces_ignore_nulls():
+        return _pivot_skipping_nulls(scalar_function, by_function, typed_col)
+    if _user_ignores_nulls(exp):
+        # TODO(SNOW-1955766): ANY_VALUE has no ignore_nulls parameter, so an
+        # explicit ignorenulls uses MIN/MAX. They skip nulls and return some
+        # value of the group.
+        return scalar_function(typed_col.col)
+    if _pivot_picks_cell_row():
+        return _pivot_cell_row(by_function, typed_col.col)
+    return snowpark_fn.any_value(typed_col.col)
 
 
 def _resolve_first_value(exp, snowpark_args):
@@ -15014,6 +16747,43 @@ def _try_to_cast(function_name: str, execute_if_true: Column, *arguments) -> Col
     return snowpark_fn.when(combined_conditions, execute_if_true).otherwise(
         snowpark_fn.lit(None)
     )
+
+
+def _aggregate_ansi_interval(
+    arg: Column, input_type: DataType, agg_fn: Callable
+) -> TypedColumn:
+    """SUM/AVG ANSI intervals via epoch numeric aggregation, then restore.
+
+    Snowflake cannot CAST an INTERVAL to FLOAT (001007) and has no native
+    SUM(interval). Convert to epoch microseconds/months, aggregate, then
+    reconstruct so Spark clients still see an interval result type.
+
+    When used inside a window (``is_window_enabled()``), restore after
+    ``agg(...).over(w)`` via :class:`TypedColumnWithDeferredWindowBuilder` so
+    ``OVER`` attaches to the aggregate, not the outer interval cast.
+    """
+    numeric = temporal_to_epoch_col(arg, input_type)
+
+    def _restore(aggregated: Column) -> Column:
+        # AVG of integer months can be fractional; Spark year-month values are
+        # whole months (same rounding as _cast_numeric_to_year_month_interval).
+        if isinstance(input_type, YearMonthIntervalType):
+            aggregated = snowpark_fn.round(aggregated, 0).cast(LongType())
+        return epoch_to_temporal_col(aggregated, input_type)
+
+    restored = _restore(agg_fn(numeric))
+    ft = FieldType(input_type, nullable=True)
+    if is_window_enabled():
+
+        def _build_window(window: snowpark.window.WindowSpec) -> Column:
+            return _restore(agg_fn(numeric).over(window))
+
+        return TypedColumnWithDeferredWindowBuilder(
+            restored,
+            lambda f=ft: [f],
+            _build_window,
+        )
+    return TypedColumn(restored, lambda f=ft: [f])
 
 
 def _try_sum_helper(
@@ -15595,9 +17365,13 @@ def _try_arithmetic_helper(
                     )
                     attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                     raise exception
-        case (DecimalType(), _IntegralType()) | (_IntegralType(), DecimalType()) | (
-            DecimalType(),
-            DecimalType(),
+        case (
+            (DecimalType(), _IntegralType())
+            | (_IntegralType(), DecimalType())
+            | (
+                DecimalType(),
+                DecimalType(),
+            )
         ):
             result_type, overflow_possible = _get_add_sub_result_type(
                 operand_left,
@@ -15810,28 +17584,45 @@ def _get_spark_function_name(
                 return f"{date_param_name1} {operation_op} {snowpark_arg_names[1]}"
             else:
                 return f"{operation_func}(cast({date_param_name1} as date), cast({snowpark_arg_names[1]} as double))"
-        case (DateType(), DayTimeIntervalType()) | (
-            DateType(),
-            YearMonthIntervalType(),
-        ) | (TimestampType(), DayTimeIntervalType()) | (
-            TimestampType(),
-            YearMonthIntervalType(),
+        case (
+            (DateType(), DayTimeIntervalType())
+            | (
+                DateType(),
+                YearMonthIntervalType(),
+            )
+            | (TimestampType(), DayTimeIntervalType())
+            | (
+                TimestampType(),
+                YearMonthIntervalType(),
+            )
         ):
             date_param_name1 = _get_literal_param_name(exp, 0, snowpark_arg_names[0])
             return f"{date_param_name1} {operation_op} {snowpark_arg_names[1]}"
-        case (DayTimeIntervalType(), DateType()) | (
-            YearMonthIntervalType(),
-            DateType(),
-        ) | (DayTimeIntervalType(), TimestampType()) | (
-            YearMonthIntervalType(),
-            TimestampType(),
+        case (
+            (DayTimeIntervalType(), DateType())
+            | (
+                YearMonthIntervalType(),
+                DateType(),
+            )
+            | (DayTimeIntervalType(), TimestampType())
+            | (
+                YearMonthIntervalType(),
+                TimestampType(),
+            )
         ):
             date_param_name2 = _get_literal_param_name(exp, 1, snowpark_arg_names[1])
             if function_name == "+":
                 return f"{date_param_name2} {operation_op} {snowpark_arg_names[0]}"
             else:
                 return default_spark_function_name
-        case (NullType(), DateType()) if function_name == "-":
+        case (
+            (NullType(), DateType())
+            | (TimestampType(), DateType())
+            | (
+                DateType(),
+                TimestampType(),
+            )
+        ) if (function_name == "-"):
             return default_spark_function_name
         case (DateType() as dt, _) | (_, DateType() as dt):
             date_param_index = 0 if dt == col1.typ else 1
@@ -15855,6 +17646,18 @@ def _get_literal_param_name(exp, arg_index: int, default_param_name: str):
     return date_param_name
 
 
+def _normalize_if_string(e: TypedColumn) -> Column:
+    """Rewrite an ISO ``T`` separator only when the argument is a string.
+
+    Other types are returned unchanged. ``to_timestamp_ltz`` and
+    ``to_timestamp_ntz`` share this so the string check stays one path.
+    """
+    src = e.col
+    if isinstance(e.typ, StringType):
+        src = normalize_iso_t_separator(e.col)
+    return src
+
+
 def _cast_to_ts_type(result_exp: Column, ts_type: TimestampType) -> Column:
     """Cast result_exp to ts_type.
 
@@ -15868,6 +17671,130 @@ def _cast_to_ts_type(result_exp: Column, ts_type: TimestampType) -> Column:
             snowpark_fn.lit(global_config.spark_sql_session_timeZone), result_exp
         ).cast(ts_type)
     return snowpark_fn.cast(result_exp, ts_type)
+
+
+def _regexp_replace_with_java_replacement(
+    snowpark_args: list[snowpark.Column],
+) -> snowpark.Column:
+    """Snowflake REGEXP_REPLACE with Spark's (java.util.regex) replacement syntax.
+
+    Spark reads ``$N`` / ``${name}`` as group references and ``\\c`` as the literal
+    ``c``; Snowflake reads ``\\N`` as a group reference and ``$`` literally. Passing the
+    replacement through unchanged silently returns a literal "$1" for Spark code (see
+    ``regexp_replacement.py`` for the measured grammar of both engines).
+
+    Only a literal replacement is translated, and only when
+    ``snowpark.connect.regexpReplace.sparkReplacementSyntax`` is true. That flag
+    defaults to false, so ``\\N`` stays a Snowflake group reference. A column
+    replacement is passed through unchanged (with a warning when the flag is on):
+    translating it per row would need a parser in SQL, and its values keep today's
+    Snowflake semantics. This is the Snowflake-native path only; any
+    java.util.regex route for regexp_replace must use the untranslated replacement.
+    """
+    from snowflake.snowpark_connect.config import (
+        is_regexp_replace_spark_replacement_syntax_enabled,
+    )
+    from snowflake.snowpark_connect.expression.regexp_replacement import (
+        java_pattern_groups,
+        translate_java_replacement,
+    )
+
+    replacement = snowpark_args[2]._expression if len(snowpark_args) > 2 else None
+    if replacement is not None and not isinstance(replacement, Literal):
+        if is_regexp_replace_spark_replacement_syntax_enabled():
+            logger.warning(
+                "regexp_replace: the replacement is not a literal, so Spark's $N / "
+                "${name} / backslash syntax in its values is not translated; they are "
+                "read with Snowflake syntax (\\N is a group reference, $ is literal)."
+            )
+        return snowpark_fn.regexp_replace(*snowpark_args)
+    if (
+        not isinstance(replacement, Literal)
+        or not isinstance(replacement.value, str)
+        or ("$" not in replacement.value and "\\" not in replacement.value)
+        or not is_regexp_replace_spark_replacement_syntax_enabled()
+    ):
+        return snowpark_fn.regexp_replace(*snowpark_args)
+
+    subject, pattern = snowpark_args[0], snowpark_args[1]
+    groups = None
+    if isinstance(pattern._expression, Literal) and isinstance(
+        pattern._expression.value, str
+    ):
+        groups = java_pattern_groups(pattern._expression.value)
+    group_count, group_names = groups if groups is not None else (None, None)
+    translation = translate_java_replacement(
+        replacement.value, group_count, group_names
+    )
+    if translation.error is None and (
+        groups is not None or not translation.uses_backslash
+    ):
+        return snowpark_fn.regexp_replace(
+            subject,
+            pattern,
+            snowpark_fn.lit(translation.snowflake_replacement),
+            *snowpark_args[3:],
+        )
+
+    # Spark only searches when position == 1 or position <= length; past the end it
+    # returns the subject even though Snowflake still finds an empty match there.
+    position = snowpark_args[3] if len(snowpark_args) > 3 else snowpark_fn.lit(1)
+    row_matches = ((position == 1) | (position <= snowpark_fn.length(subject))) & (
+        snowpark_fn.call_function("regexp_count", subject, pattern, position) > 0
+    )
+    # Rows without a match (and NULLs) come back unchanged, with no backslash in the
+    # replacement, which Snowflake needs when the pattern has > 9 groups.
+    unchanged = snowpark_fn.regexp_replace(
+        subject, pattern, snowpark_fn.lit(""), position
+    )
+    if translation.error is None:
+        # A non-literal pattern with more than 9 groups makes Snowflake fail the whole
+        # query on a backslash in the replacement, so only rows that match use it.
+        return snowpark_fn.when(
+            row_matches,
+            snowpark_fn.regexp_replace(
+                subject,
+                pattern,
+                snowpark_fn.lit(translation.snowflake_replacement),
+                position,
+            ),
+        ).otherwise(unchanged)
+
+    # java.util.regex raises from appendReplacement, i.e. only for rows that match.
+    raise_fn = _raise_error_helper(StringType(), IllegalArgumentException)
+    return snowpark_fn.when(
+        row_matches, raise_fn(snowpark_fn.lit(translation.error))
+    ).otherwise(unchanged)
+
+
+def _session_wall_clock(arg: TypedColumn, other_type: DataType) -> Column:
+    """Return a timestamp subtraction operand as its session-local TIMESTAMP_NTZ.
+
+    SNOW-3656742: Spark's SubtractTimestamps subtracts session-local wall clocks.
+    A date operand is cast to the other side's type first. Against an LTZ or TZ
+    side that is the start of the day in the session zone, which is 01:00 on a
+    day that skips local midnight, so the date goes through TIMESTAMP_LTZ.
+
+    A plain CAST(TIMESTAMP_TZ AS TIMESTAMP_NTZ) keeps the value's own offset,
+    so LTZ and TZ values go through _cast_to_ts_type instead.
+
+    Spark timestamps hold microseconds; a Snowflake TIMESTAMP(9) value is
+    truncated to match.
+    """
+    ntz = TimestampType(TimestampTimeZone.NTZ)
+    if isinstance(arg.typ, DateType):
+        if (
+            isinstance(other_type, TimestampType)
+            and other_type.tz == TimestampTimeZone.NTZ
+        ):
+            return arg.col.cast(ntz)
+        ltz = TimestampType(TimestampTimeZone.LTZ)
+        return _cast_to_ts_type(arg.col.cast(ltz), ntz)
+    if isinstance(arg.typ, TimestampType) and arg.typ.tz == TimestampTimeZone.NTZ:
+        wall_clock = arg.col
+    else:
+        wall_clock = _cast_to_ts_type(arg.col, ntz)
+    return snowpark_fn.date_trunc("microsecond", wall_clock)
 
 
 def _raise_error_helper(return_type: DataType, error_class=None):
@@ -16342,6 +18269,238 @@ def _validate_like_pattern_at_plan_or_runtime(
             _validate_literal_like_escape_pattern(pattern_value, escape_value)
             return pattern_col
     return _validate_expression_like_escape_pattern(value_col, pattern_col, escape_col)
+
+
+# Java regex escapes that denote exactly one character, so they are literal delimiters too.
+_SPLIT_JAVA_CONTROL_ESCAPES = {
+    "t": "\t",
+    "n": "\n",
+    "r": "\r",
+    "f": "\f",
+    "a": "\x07",
+    "e": "\x1b",
+}
+
+
+def _split_escaped_literal_delimiter(pattern: str) -> Optional[str]:
+    """Return the literal delimiter for a split pattern made only of escaped characters.
+
+    ``\\.`` -> ``.`` and ``\\.\\|`` -> ``.|`` can use Snowflake's native SPLIT, and so can
+    the single-character escapes ``\\t``, ``\\n``, ``\\r``, ``\\f``, ``\\a``, ``\\e``. Any
+    other backslash before an ASCII letter or digit is a regex construct in Java (``\\s``,
+    ``\\d``, ``\\w``, ``\\b``, ``\\1`` ...), not an escaped literal, so those return None and
+    must go through the Java-semantics regex UDF (``_make_java_split``). Otherwise ``\\s`` would split on the letter "s".
+    """
+    if not re.fullmatch(r"(?:\\.)+", pattern, re.DOTALL):
+        return None
+    delimiter = []
+    for escaped in pattern[1::2]:
+        if escaped.isascii() and escaped.isalnum():
+            if escaped not in _SPLIT_JAVA_CONTROL_ESCAPES:
+                return None
+            escaped = _SPLIT_JAVA_CONTROL_ESCAPES[escaped]
+        delimiter.append(escaped)
+    return "".join(delimiter)
+
+
+def _make_java_split():
+    """Return ``java_split(input, pattern, limit)``: Spark 3.5 ``split`` semantics in Python.
+
+    Spark splits with ``java.util.regex`` via ``UTF8String.split``; Python ``re`` differs in
+    ways that silently change results, so the pattern is translated before compiling and the
+    split loop follows ``java.util.regex.Pattern.split`` rather than ``re.split``:
+
+    - Java ``.``, ``$`` and ``\\Z`` stop at any Java line terminator, not just ``\\n``.
+    - ``\\s \\d \\w`` (and negations, ``(?i)``) are ASCII-only in Java: compile with ``re.ASCII``.
+      ``\\b``/``\\B`` stay Unicode-aware, as in JDK 17: ``(?u:\\b)``.
+    - ``\\h \\H \\v \\V \\R \\e \\cX \\x{..} \\z \\Z \\Q..\\E``, ``\\0`` octal, ``(?<name>..)`` and ``\\k<name>`` are
+      spelled differently (or are errors) in Python.
+    - A backreference to a group that is not closed yet compiles in Java and never matches;
+      Python raises, so it becomes ``(?!)``. ``\\1`` is emitted as ``(?:\\1)`` so a following
+      digit stays a literal, as in Java.
+    - Java never emits a leading "" for a zero-width match at index 0 and does not return
+      captured groups; ``re.split`` does both.
+    - Spark maps limit 0 to -1 (trailing empty strings are kept), and an empty pattern splits
+      into characters, truncated to a positive limit (even 1) with no remainder.
+
+    A factory, not a module-level function: the returned function is nested, so cloudpickle
+    ships it by value inside the UDF (snowpark_connect is not importable in the UDF sandbox),
+    and its translation cache persists across rows.
+    """
+    horizontal = " \\t\\xa0\\u1680\\u180e\\u2000-\\u200a\\u202f\\u205f\\u3000"
+    vertical = "\\n\\x0b\\f\\r\\x85\\u2028\\u2029"
+    # Java line terminators: \r\n is one, so $ and \Z never match between its \r and \n.
+    at_end = "(?!(?<=\\r)\\n)(?=(?:\\r\\n|[\\n\\r\\x85\\u2028\\u2029])?\\Z)"
+    not_line_end = "[^\\n\\r\\x85\\u2028\\u2029]"
+    octal = "01234567"
+    digits = "0123456789"
+    compiled_cache = {}
+
+    def translate(pattern):
+        import re
+
+        out = []
+        i, n = 0, len(pattern)
+        class_depth = 0
+        group_count = 0
+        open_groups = []  # group number, or None for a non-capturing group
+        closed_groups = set()
+        # Inline flags anywhere switch . and $ back to Python's meaning (close enough there).
+        flags = "".join(
+            f.split("-")[0] for f in re.findall(r"\(\?([a-zA-Z-]*)[:)]", pattern)
+        )
+        java_dot = "s" not in flags and "d" not in flags
+        java_dollar = "m" not in flags and "d" not in flags
+        while i < n:
+            c = pattern[i]
+            if c == "\\" and i + 1 < n:
+                e = pattern[i + 1]
+                i += 2
+                if e == "Q":
+                    end = pattern.find("\\E", i)
+                    end = n if end < 0 else end
+                    out.append(re.escape(pattern[i:end]))
+                    i = end + 2
+                elif e == "0":
+                    # Java octal: \0n, \0nn, \0mnn (m <= 3); a bare \0 is an error.
+                    j = i
+                    while (
+                        j < n
+                        and pattern[j] in octal
+                        and j - i < (3 if pattern[i] in "0123" else 2)
+                    ):
+                        j += 1
+                    if j == i:
+                        raise re.error("Illegal octal escape sequence")
+                    out.append("\\x%02x" % int(pattern[i:j], 8))
+                    i = j
+                elif e == "e":
+                    out.append("\\x1b")
+                elif e == "c" and i < n:
+                    out.append("\\x%02x" % (ord(pattern[i]) ^ 64))
+                    i += 1
+                elif e == "x" and pattern.startswith("{", i):
+                    end = pattern.find("}", i)
+                    if end < 0:
+                        raise re.error("Unclosed hexadecimal escape sequence")
+                    out.append("\\U%08x" % int(pattern[i + 1 : end], 16))
+                    i = end + 1
+                elif e == "h":
+                    out.append(horizontal if class_depth else "[" + horizontal + "]")
+                elif e == "v":
+                    out.append(vertical if class_depth else "[" + vertical + "]")
+                elif class_depth:
+                    out.append("\\" + e)
+                elif e in "bB":
+                    out.append("(?u:\\" + e + ")")
+                elif e == "H":
+                    out.append("[^" + horizontal + "]")
+                elif e == "V":
+                    out.append("[^" + vertical + "]")
+                elif e == "R":
+                    out.append("(?:\\r\\n|[" + vertical + "])")
+                elif e == "z":
+                    out.append("\\Z")
+                elif e == "Z":
+                    out.append(at_end)
+                elif e in digits:
+                    # Java takes one digit, then more while the number stays a group opened
+                    # so far.
+                    num = int(e)
+                    while (
+                        i < n
+                        and pattern[i] in digits
+                        and num * 10 + int(pattern[i]) <= group_count
+                    ):
+                        num = num * 10 + int(pattern[i])
+                        i += 1
+                    out.append("(?:\\%d)" % num if num in closed_groups else "(?!)")
+                elif e == "k" and pattern.startswith("<", i):
+                    end = pattern.find(">", i)
+                    if end < 0:
+                        raise re.error("named capturing group is missing trailing '>'")
+                    out.append("(?P=" + pattern[i + 1 : end] + ")")
+                    i = end + 1
+                else:
+                    out.append("\\" + e)
+                continue
+            if c == "." and not class_depth and java_dot:
+                out.append(not_line_end)
+                i += 1
+                continue
+            if c == "$" and not class_depth and java_dollar:
+                out.append(at_end)
+                i += 1
+                continue
+            if c == "[":
+                class_depth += 1
+            elif c == "]" and class_depth:
+                class_depth -= 1
+            elif c == "(" and not class_depth:
+                if not pattern.startswith("?", i + 1):
+                    group_count += 1
+                    open_groups.append(group_count)
+                elif (
+                    pattern.startswith("?<", i + 1)
+                    and pattern[i + 3 : i + 4] not in "=!"
+                ):
+                    group_count += 1
+                    open_groups.append(group_count)
+                    out.append("(?P<")
+                    i += 3
+                    continue
+                else:
+                    open_groups.append(None)
+            elif c == ")" and not class_depth and open_groups:
+                num = open_groups.pop()
+                if num is not None:
+                    closed_groups.add(num)
+            out.append(c)
+            i += 1
+        return "".join(out)
+
+    def java_split(input, pattern, limit):
+        import re
+
+        if input is None or pattern is None:
+            return None
+        compiled = compiled_cache.get(pattern)
+        if compiled is None:
+            try:
+                compiled = re.compile(translate(pattern), re.ASCII)
+            except (re.error, ValueError, OverflowError):
+                raise ValueError(
+                    f"[snowpark_connect::invalid_input] Failed to split string, provided pattern: {pattern} is invalid"
+                )
+            compiled_cache[pattern] = compiled
+        if not input:
+            return [input]
+        if not pattern:
+            # UTF8String.split special-cases the empty pattern: one character per slot, no
+            # trailing "", and a positive limit truncates (even limit 1).
+            return list(input) if limit <= 0 else list(input)[:limit]
+        if limit == 1:
+            return [input]
+        # java.util.regex.Pattern.split, with Spark's limit 0 -> -1.
+        result = []
+        index = 0
+        for m in compiled.finditer(input):
+            if limit <= 0 or len(result) < limit - 1:
+                if index == 0 and m.start() == 0 and m.end() == 0:
+                    continue
+                result.append(input[index : m.start()])
+                index = m.end()
+            elif len(result) == limit - 1:
+                result.append(input[index:])
+                index = m.end()
+                break
+        if index == 0:
+            return [input]
+        if limit <= 0 or len(result) < limit:
+            result.append(input[index:])
+        return result
+
+    return java_split
 
 
 def _trim_helper(value: Column, trim_value: Column, trim_type: Column) -> Column:

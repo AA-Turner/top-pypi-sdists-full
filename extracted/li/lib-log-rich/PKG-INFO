@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_log_rich
-Version: 6.5.6
+Version: 6.5.7
 Summary: Rich-powered logging runtime with contextual metadata, multi-sink fan-out, and ring-buffer dumps
 Project-URL: Homepage, https://github.com/bitranox/lib_log_rich
 Project-URL: Repository, https://github.com/bitranox/lib_log_rich.git
@@ -31,6 +31,7 @@ Requires-Dist: rich>=15.0.0
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
+Requires-Dist: certifi>=2026.10.19; extra == 'dev'
 Requires-Dist: click>=8.5.0; extra == 'dev'
 Requires-Dist: hatchling>=1.32.4; extra == 'dev'
 Requires-Dist: httpx2>=2.13.1; extra == 'dev'

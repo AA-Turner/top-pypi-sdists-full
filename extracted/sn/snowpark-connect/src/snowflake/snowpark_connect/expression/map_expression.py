@@ -14,7 +14,10 @@ from snowflake import snowpark
 from snowflake.snowpark import Session
 from snowflake.snowpark._internal.analyzer.expression import UnresolvedAttribute
 from snowflake.snowpark.types import TimestampTimeZone, TimestampType
-from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
+from snowflake.snowpark_connect.column_name_handler import (
+    ColumnNameMap,
+    JoinColumnNameMap,
+)
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -82,6 +85,24 @@ def extract_alias_from_resolved_name(resolved_name: str) -> str | None:
     if quoted.startswith("`") and quoted.endswith("`"):
         return quoted[1:-1].replace("``", "`")
     return quoted
+
+
+def _order_by_name_is_shared(column_mapping: ColumnNameMap, col_name: str) -> bool:
+    """True when ORDER BY reuse must compare expressions: several outputs share a name.
+
+    A JoinColumnNameMap only delegates lookups to its two sides and has no
+    output columns or sort-resolution state of its own, so it keeps the
+    name-based reuse below.
+    """
+    from snowflake.snowpark_connect.config import (
+        is_spark_duplicate_column_resolution_enabled,
+    )
+
+    return (
+        is_spark_duplicate_column_resolution_enabled()
+        and not isinstance(column_mapping, JoinColumnNameMap)
+        and column_mapping.several_columns_named(col_name)
+    )
 
 
 def map_alias(
@@ -202,6 +223,12 @@ def map_expression(
             # this is a hack until we would have an interval type supported in snowflake, for now
             # this will use the interval expression instead of literal expression to solve this usecase.
             if isinstance(lit_value, datetime.timedelta):
+                # Keep this an untyped interval constant. A typed
+                # INTERVAL DAY TO SECOND adds as physical seconds, so
+                # timestamp + 1 day moves an hour across a DST transition.
+                # Spark adds the day on the local calendar. Comparison with
+                # a timestamp difference rewrites this constant; see
+                # _comparable_day_time_operand. SNOW-3656742.
                 return [lit_name], TypedColumn(
                     snowpark_fn.make_interval(
                         days=lit_value.days,
@@ -340,9 +367,21 @@ def map_expression(
                             and ")" in col_name
                         ):
                             # This looks like it might be an expression
-                            snowpark_col_name = column_mapping.get_snowpark_column_name_from_spark_column_name(
-                                col_name
-                            )
+                            if _order_by_name_is_shared(column_mapping, col_name):
+                                # Several outputs carry this name. Reuse one
+                                # only if it computes this expression
+                                # (SNOW-4222753); otherwise compute it.
+                                snowpark_col_name = (
+                                    column_mapping.column_computing_expression(
+                                        col_name, exp
+                                    )
+                                )
+                                if snowpark_col_name is None:
+                                    continue
+                            else:
+                                snowpark_col_name = column_mapping.get_snowpark_column_name_from_spark_column_name(
+                                    col_name
+                                )
                             if snowpark_col_name:
                                 # Optimization applied - reusing already computed column
                                 return [col_name], TypedColumn(

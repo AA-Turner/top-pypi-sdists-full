@@ -148,6 +148,7 @@ __all__ = (
     "RecordingConfigurationTypeDef",
     "RedundantIngestCredentialTypeDef",
     "ResponseMetadataTypeDef",
+    "RevokeConnectionTokenRequestTypeDef",
     "S3DestinationConfigurationOutputTypeDef",
     "S3DestinationConfigurationTypeDef",
     "S3DestinationConfigurationUnionTypeDef",
@@ -501,6 +502,9 @@ class ListStorageConfigurationsRequestTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+class RevokeConnectionTokenRequestTypeDef(TypedDict):
+    tokenId: str
 
 class StageEndpointsTypeDef(TypedDict):
     events: NotRequired[str]

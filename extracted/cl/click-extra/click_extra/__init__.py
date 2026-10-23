@@ -13,7 +13,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Expose package-wide elements."""
+"""Expose package-wide elements.
+
+Importing this package is the startup cost of every CLI built on it, so the
+dependencies a code path may never need (wcwidth, PyYAML, wcmatch, deepmerge,
+extra-platforms, most of boltons) are imported where they are used, and
+`tests/test_commands.py` checks that a hello-world `--help` loads none of them.
+
+```{todo}
+Drop `CLOUP_METADATA_PROBE_VERSION` from `tests/test_commands.py` once this
+package's cloup floor is above `4.0.0`. That release is the last to import
+`importlib.metadata` at module scope, which
+[janluke/cloup#242](https://github.com/janluke/cloup/pull/242) removes. The
+startup ballast list then names `importlib.metadata` and `email`
+unconditionally.
+```
+"""
 
 from __future__ import annotations
 
@@ -257,13 +272,12 @@ from .rst_to_myst import (
     convert_rst_files_in_directory,
 )
 from .spinner import (  # type: ignore[no-redef]
-    SPINNERS,
     OperationTrail,
     ProgressOption,
     Spinner,
-    SpinnerPreset,
     progressbar,
 )
+from .spinner_presets import SPINNERS, SpinnerPreset
 
 # `Style` shadows the `cloup.Style` bound by the star import above with
 # click-extra's enhanced subclass; relative imports always follow the cloup
@@ -314,6 +328,7 @@ from .types import (
     ChoiceSource,
     Duration,
     EnumChoice,
+    LazyChoice,
     MultiChoice,
     parse_duration,
     parse_friendly_duration,
@@ -390,6 +405,7 @@ __all__ = [
     "HelpTheme",
     "IntRange",
     "JobsOption",
+    "LazyChoice",
     "LazyGroup",
     "LazySubcommand",
     "LogLevel",
@@ -651,13 +667,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.4.1"
+__version__ = "9.5.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "51e1203c647eb776d96932a09af33843adbe162c"
+__git_tag_sha__ = "c7c6e61ac3ac226f053db854688e97edcce0d540"
 
 
 _LAZY_TEST_TOOLING = {

@@ -175,6 +175,9 @@ FAST_CRAWL_KNOBS: dict[str, object] = {
     "crawl.item_lease_seconds": 600,
     # Not a crawl.* key, but CrawlKnobs.load_for asks for it, and a resolver answers every key asked.
     "respect_robots": False,
+    # The app-shell test's knobs ride the same one-call-per-run resolution; their mirrors.
+    "audit.js_shell_word_limit": 20,
+    "audit.js_shell_root_text_words": 3,
 }
 
 

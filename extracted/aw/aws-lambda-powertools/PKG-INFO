@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aws_lambda_powertools
-Version: 3.36.0
+Version: 3.37.0
 Summary: Powertools for AWS Lambda (Python) is a developer toolkit to implement Serverless best practices and increase developer velocity.
 Project-URL: Repository, https://github.com/aws-powertools/powertools-lambda-python
 Project-URL: Documentation, https://docs.powertools.aws.dev/lambda/python/

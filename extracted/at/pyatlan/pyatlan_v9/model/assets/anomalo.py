@@ -18,7 +18,15 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
+from .anomalo_related import RelatedAnomalo, RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
     _ASSET_REL_FIELDS,
@@ -45,14 +53,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .anomalo_related import RelatedAnomalo, RelatedAnomaloCheck
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -557,6 +557,7 @@ def _anomalo_to_nested(anomalo: Anomalo) -> AnomaloNested:
         is_incomplete=anomalo.is_incomplete,
         provenance_type=anomalo.provenance_type,
         home_id=anomalo.home_id,
+        delete_handler=anomalo.delete_handler,
         depth=anomalo.depth,
         immediate_upstream=anomalo.immediate_upstream,
         immediate_downstream=anomalo.immediate_downstream,
@@ -601,6 +602,7 @@ def _anomalo_from_nested(nested: AnomaloNested) -> Anomalo:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

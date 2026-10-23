@@ -15,10 +15,13 @@ here is the base URL, so treat it as a secret.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 import httpx
+
+if TYPE_CHECKING:
+    from plato.cli.vault.mail_models import MailboxCreate
 
 ENV_VAR = "PLATO_VAULT_URL"
 
@@ -83,6 +86,11 @@ class PartialCreate(VaultConsoleError):
     409: finish it with `edit` instead."""
 
     exit_code = 5
+
+
+class MailWriteOutcomeUnknown(ConsoleUnreachable):
+    """The mailbox POST was sent but no answer came back: the item may be written.
+    A re-run is safe, because the console write replaces the item."""
 
 
 def resolve_base_url(override: str | None = None) -> str:
@@ -229,6 +237,23 @@ class VaultConsoleClient:
     def restore_login(self, login_key: str, account: str) -> dict:
         """POST .../restore - clear the archive."""
         return self._request("POST", f"{_pair_path(login_key, account)}/restore")
+
+    def list_mailboxes(self) -> dict:
+        """GET /api/logins/mailboxes - ``{mailboxes: {account_slug: address}}``. Addresses only."""
+        return self._request("GET", "/api/logins/mailboxes")
+
+    def add_mailbox(self, body: MailboxCreate) -> dict:
+        """POST /api/logins/mailboxes - writes the ``mail-<account>`` item (creates or replaces it).
+        The body holds the app password: it is revealed only here, sent, never logged."""
+        try:
+            return self._request("POST", "/api/logins/mailboxes", json=body.wire())
+        except ConsoleUnreachable as e:
+            cause = e.__cause__
+            if isinstance(cause, httpx.HTTPError) and not isinstance(cause, (httpx.ConnectError, httpx.ConnectTimeout)):
+                raise MailWriteOutcomeUnknown(
+                    f"{e} - the item MAY have been written: run `plato vault mail show {body.account}`"
+                ) from e
+            raise
 
     def get_bake_live(self, login_key: str, account: str) -> dict:
         """GET /api/logins/{login_key}/{account}/bake-live - watch links for an in-flight bake."""

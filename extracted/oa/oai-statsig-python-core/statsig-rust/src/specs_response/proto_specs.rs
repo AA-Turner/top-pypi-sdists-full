@@ -159,6 +159,7 @@ impl SpecsFieldChecksums {
 pub(crate) struct ProtobufHydrationContext<'a> {
     pub(crate) hydrator: &'a RemoteConfigValueHydrator,
     pub(crate) source_url: &'a str,
+    pub(crate) sync_trigger: Option<crate::specs_adapter::SpecsSyncTrigger>,
     pub(crate) mmap_project_id: MmapProjectId,
     pub(crate) capture_hydrated_data_store_bytes: bool,
     pub(crate) preserve_session_update_mode: bool,
@@ -402,7 +403,7 @@ pub(crate) async fn prepare_protobuf_store_update(
 ) -> Result<HydratedProtobufStoreUpdate, StatsigErr> {
     let mut hydration = context
         .hydrator
-        .begin_protobuf_hydration(context.source_url);
+        .begin_protobuf_hydration_with_trigger(context.source_url, context.sync_trigger);
     let started_at = Instant::now();
     let result = deserialize_protobuf_for_store_with_hydration_inner(
         ops_stats,
@@ -553,6 +554,9 @@ async fn deserialize_protobuf_for_store_with_hydration_inner(
                         parser_context.parser.handle_top_level(env)
                     })?;
                 if accepted {
+                    parser_context
+                        .hydration
+                        .set_response_type(parser_context.parser.is_delta());
                     parser_context.next_verified_values = if parser_context.parser.is_delta() {
                         current_verified_values.clone()
                     } else {

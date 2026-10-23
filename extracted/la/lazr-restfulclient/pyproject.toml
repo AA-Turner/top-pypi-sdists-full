@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lazr.restfulclient"
-version = "4.0.0"
+version = "4.1.0"
 description = "A programmable client library that takes advantage of the commonalities among lazr.restful web services."
 readme = "README.rst"
 requires-python = ">=3.8"

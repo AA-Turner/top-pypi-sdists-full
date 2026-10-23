@@ -1800,6 +1800,7 @@ class RightExpressionTypeDef(TypedDict):
 
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorId: NotRequired[str]
+    evaluationDimensionName: NotRequired[str]
     statistics: NotRequired[EvaluatorStatisticsTypeDef]
     totalEvaluated: NotRequired[int]
     totalFailed: NotRequired[int]
@@ -2231,6 +2232,7 @@ class EvaluationResultContentTypeDef(TypedDict):
     evaluatorId: str
     evaluatorName: str
     context: ContextTypeDef
+    evaluationDimensionName: NotRequired[str]
     explanation: NotRequired[str]
     value: NotRequired[float]
     label: NotRequired[str]

@@ -1009,7 +1009,6 @@ def map_read_json(
         # DATA_SCHEMA — no per-schema decoder UDTF.
         from snowflake.snowpark_connect.nss.nss_scan_options import (
             _nss_column_name,
-            cache_if_corrupt_record_present,
             filter_reader_options,
             raise_if_locations_unsupported,
             snowpark_types_from_columns,
@@ -1052,12 +1051,9 @@ def map_read_json(
             _nss_column_name(c.name, i) for i, c in enumerate(nss_columns)
         ]
         # See map_read_csv: session.sql() is lazy, so a LOCATIONS rejection surfaces at the
-        # first materialization — the describe behind df.columns, or cache_result. Wrapping it
-        # is what covers the explicit-schema read, which skips inference entirely.
+        # first materialization — the describe behind df.columns. Wrapping it is what covers
+        # the explicit-schema read, which skips inference entirely.
         try:
-            df = cache_if_corrupt_record_present(
-                df, corrupt_record_column_name, nss_columns
-            )
             renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
                 df, rel.common.plan_id
             )
@@ -1077,7 +1073,7 @@ def map_read_json(
         # no pre-existing temp table here, so allowing materialization would add a
         # full table write that the NSS path never used to perform. The COPY branch
         # avoids the flag for the same memoization reason.
-        return DataFrameContainer.create_with_column_mapping(
+        container = DataFrameContainer.create_with_column_mapping(
             dataframe=renamed_df,
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
@@ -1085,7 +1081,16 @@ def map_read_json(
             # Snowflake columns (SNOW-3891973).
             snowpark_column_types=snowpark_types_from_columns(nss_columns),
             column_is_internal=([True] if nss_empty_schema else None),
-        ).without_materialization()
+        ).materialize_on_request_only()
+        # Served straight from the scan, so the NSS null-element encoding that
+        # posexplode's no-TRANSFORM path needs is intact (SNOW-4261008). Always true here
+        # now that a corrupt-record read is no longer swapped for a cached table
+        # (SNOW-4231637); an explicit cache() strips the tag when it materializes.
+        if not nss_empty_schema:
+            container.column_map.nss_data_snowpark_columns = frozenset(
+                snowpark_column_names
+            )
+        return container
     # ── End NSS branch ────────────────────────────────────────────────────────
 
     else:
@@ -1185,7 +1190,7 @@ def map_read_json(
             # ``can_be_cached=False`` would short-circuit df_cache_map
             # entirely and cause every downstream access on the same plan_id
             # to re-execute the COPY INTO.
-            container = container.without_materialization()
+            container = container.already_materialized()
         return container
 
 

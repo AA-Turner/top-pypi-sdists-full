@@ -1115,7 +1115,12 @@ async def run_step_agent(
             # inert in production — it opened the scope and then bypassed it.
             ambient = get_app_context()
             await _announce_step_request(ambient)
-            return await agent_runner(agent_id, request, ambient)
+            # A workflow step is one-shot by construction: nothing continues its
+            # conversation, so only a tool loop reads its rolling cache mark.
+            from matrx_ai.config.cache_plan import one_shot_call
+
+            with one_shot_call():
+                return await agent_runner(agent_id, request, ambient)
     finally:
         clear_app_context(token)
 

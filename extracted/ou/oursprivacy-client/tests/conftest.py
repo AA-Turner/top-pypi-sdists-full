@@ -6,11 +6,10 @@ import os
 import logging
 from typing import TYPE_CHECKING, Iterator, AsyncIterator
 
-import httpx
 import pytest
 from pytest_asyncio import is_async_test
 
-from ours_privacy import OursPrivacy, AsyncOursPrivacy, DefaultAioHttpClient
+from ours_privacy import OursPrivacy, AsyncOursPrivacy, DefaultAioHttpClient, httpx
 from ours_privacy._utils import is_dict
 
 if TYPE_CHECKING:

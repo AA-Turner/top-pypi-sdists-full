@@ -7,7 +7,7 @@ import click
 from click.core import ParameterSource
 
 from schemathesis.checks import load_all_checks
-from schemathesis.cli.commands._options import apply_report_options, build_filter_set
+from schemathesis.cli.commands._options import apply_project_options, apply_report_options, build_filter_set
 from schemathesis.cli.commands.run.filters import with_filters
 from schemathesis.cli.constants import COLOR_OPTIONS_INVALID_USAGE_MESSAGE
 from schemathesis.cli.core import ensure_color, resolve_color
@@ -79,7 +79,6 @@ from schemathesis.config import (
     ProjectConfig,
     SchemathesisConfig,
     SchemathesisWarning,
-    WarningsConfig,
 )
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.metrics import MetricFunction
@@ -92,7 +91,7 @@ LIKELY_MILLISECONDS = 1000
 OBJECT_LEVEL_AUTHORIZATION_GUIDE = "https://schemathesis.readthedocs.io/en/stable/guides/object-level-authorization/"
 
 
-@click.argument(*LOCATION.args, **LOCATION.kwargs)  # type: ignore[untyped-decorator]
+@click.argument(*LOCATION.args, **LOCATION.kwargs)
 @group("Options")
 @grouped_option(*BASE_URL.args, **BASE_URL.kwargs)
 @grouped_option(*ORIGIN.args, **ORIGIN.kwargs)
@@ -181,7 +180,7 @@ OBJECT_LEVEL_AUTHORIZATION_GUIDE = "https://schemathesis.readthedocs.io/en/stabl
 @group("Global options")
 @grouped_option(*NO_COLOR.args, **NO_COLOR.kwargs)
 @grouped_option(*FORCE_COLOR.args, **FORCE_COLOR.kwargs)
-@click.pass_context  # type: ignore[untyped-decorator]
+@click.pass_context
 def run(
     ctx: click.Context,
     *,
@@ -271,28 +270,7 @@ def run(
     config.output.truncation.update(enabled=output_truncate)
     apply_report_options(config.reports, ctx.params)
     # Other CLI options work as an override for all defined projects
-    config.projects.override.update(
-        base_url=base_url,
-        baseline=baseline,
-        origin=origin,
-        headers=headers or None,
-        basic_auth=auth,
-        wfc_auth=auth_wfc,
-        wfc_user=auth_wfc_user,
-        workers=workers,
-        continue_on_failure=continue_on_failure,
-        rate_limit=rate_limit,
-        max_redirects=max_redirects,
-        request_timeout=request_timeout,
-        request_retries=request_retries,
-        tls_verify=request_tls_verify,
-        request_cert=request_cert,
-        request_cert_key=request_cert_key,
-        proxy=request_proxy,
-        warnings=WarningsConfig.from_value([w.value for w in warnings] if isinstance(warnings, list) else warnings)
-        if warnings is not None
-        else None,
-    )
+    apply_project_options(config.projects.override, ctx.params, baseline=baseline, origin=origin)
     if (baseline_update or baseline_prune) and config.projects.get_default().baseline is None:
         flag = "--baseline-update" if baseline_update else "--baseline-prune"
         raise click.UsageError(

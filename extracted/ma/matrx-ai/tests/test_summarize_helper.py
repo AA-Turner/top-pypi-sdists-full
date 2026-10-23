@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from matrx_ai.testing.holders import install_named_runner
 
 from matrx_ai.tools.implementations import _summarize_helper
 
@@ -16,7 +17,7 @@ async def test_summarize_content_runs_declared_variables_through_its_mandate(mon
         captured.update(kwargs)
         return SimpleNamespace(success=True, output="summary", usage_history=["usage"])
 
-    monkeypatch.setattr(_summarize_helper, "run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
 
     output, usage = await _summarize_helper.summarize_content(
         "x" * 100_001,
@@ -39,7 +40,7 @@ async def test_summarize_content_preserves_result_failure_contract(monkeypatch):
     async def fake_run_mandated(*args, **kwargs):
         return SimpleNamespace(success=False, error="provider down", usage_history=["usage"])
 
-    monkeypatch.setattr(_summarize_helper, "run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
 
     output, usage = await _summarize_helper.summarize_content("content", "instructions", None)
 
@@ -52,7 +53,7 @@ async def test_summarize_content_never_raises(monkeypatch):
     async def fake_run_mandated(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(_summarize_helper, "run_mandated", fake_run_mandated)
+    install_named_runner(monkeypatch, fake_run_mandated)
 
     output, usage = await _summarize_helper.summarize_content("content", "instructions", None)
 

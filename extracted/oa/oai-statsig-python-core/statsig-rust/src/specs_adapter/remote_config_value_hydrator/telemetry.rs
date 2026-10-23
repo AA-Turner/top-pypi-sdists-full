@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
+use crate::specs_adapter::SpecsSyncTrigger;
 use crate::{StatsigErr, log_d};
 
 use super::errors::{HydrationFailureReason, HydrationTimeoutStep, hydration_error};
@@ -63,19 +64,83 @@ impl HydrationOutcome {
 /// legacy count also includes probe failures, so it cannot be this denominator.
 pub(super) struct HydrationResult<'a> {
     hydrator: &'a RemoteConfigValueHydrator,
+    sync_trigger: Option<SpecsSyncTrigger>,
+    response_type: &'static str,
     saw_remote_metadata: bool,
     finished: bool,
     download_failure: Option<HydrationFailureReason>,
 }
 
 impl<'a> HydrationResult<'a> {
+    #[cfg(test)]
     pub(super) fn new(hydrator: &'a RemoteConfigValueHydrator) -> Self {
+        Self::new_with_trigger(hydrator, None)
+    }
+
+    pub(super) fn new_with_trigger(
+        hydrator: &'a RemoteConfigValueHydrator,
+        sync_trigger: Option<SpecsSyncTrigger>,
+    ) -> Self {
         Self {
             hydrator,
+            sync_trigger,
+            response_type: "unknown",
             saw_remote_metadata: false,
             finished: false,
             download_failure: None,
         }
+    }
+
+    pub(super) fn set_response_type(&mut self, is_delta: bool) {
+        self.response_type = if is_delta {
+            "delta_update"
+        } else {
+            "full_snapshot"
+        };
+    }
+
+    fn cohort_tags(&self) -> HashMap<String, String> {
+        let trigger = match self.sync_trigger {
+            Some(SpecsSyncTrigger::Initial) => "http_adapter_start",
+            Some(SpecsSyncTrigger::Background) => "background_sync",
+            Some(SpecsSyncTrigger::Manual) => "explicit_fetch",
+            None => "unknown",
+        };
+        HashMap::from([
+            ("config_sync_trigger".into(), trigger.into()),
+            ("config_payload_type".into(), self.response_type.into()),
+        ])
+    }
+
+    pub(super) fn log_hydration_success(&self, reference_count: usize, total_bytes: u64) {
+        self.hydrator.log_metric(
+            MetricType::Dist,
+            HYDRATION_BYTES_METRIC,
+            total_bytes as f64,
+            Some(self.cohort_tags()),
+        );
+        log_d!(
+            TAG,
+            "Hydrated {} remote dynamic config values ({} bytes)",
+            reference_count,
+            total_bytes
+        );
+    }
+
+    pub(super) fn log_hydration_outcome(&self, started_at: Instant, outcome: HydrationOutcome) {
+        let tags = || {
+            let mut tags = self.cohort_tags();
+            tags.insert("outcome".into(), outcome.as_str().into());
+            Some(tags)
+        };
+        self.hydrator
+            .log_metric(MetricType::Increment, HYDRATION_COUNT_METRIC, 1.0, tags());
+        self.hydrator.log_metric(
+            MetricType::Dist,
+            HYDRATION_LATENCY_METRIC,
+            started_at.elapsed().as_secs_f64() * 1000.0,
+            tags(),
+        );
     }
 
     pub(super) fn mark_remote_metadata(&mut self) {
@@ -116,14 +181,14 @@ impl<'a> HydrationResult<'a> {
         if !self.saw_remote_metadata {
             return;
         }
+        let mut tags = self.cohort_tags();
+        tags.insert("outcome".to_string(), outcome.to_string());
+        tags.insert("failure_reason".to_string(), failure_reason.to_string());
         self.hydrator.log_metric(
             MetricType::Increment,
             HYDRATION_RESULT_METRIC,
             1.0,
-            Some(HashMap::from([
-                ("outcome".to_string(), outcome.to_string()),
-                ("failure_reason".to_string(), failure_reason.to_string()),
-            ])),
+            Some(tags),
         );
     }
 }
@@ -167,37 +232,6 @@ impl RemoteConfigValueHydrator {
         )
     }
 
-    pub(super) fn log_hydration_success(&self, reference_count: usize, total_bytes: u64) {
-        self.log_metric(
-            MetricType::Dist,
-            HYDRATION_BYTES_METRIC,
-            total_bytes as f64,
-            None,
-        );
-        log_d!(
-            TAG,
-            "Hydrated {} remote dynamic config values ({} bytes)",
-            reference_count,
-            total_bytes
-        );
-    }
-
-    pub(super) fn log_hydration_outcome(&self, started_at: Instant, outcome: HydrationOutcome) {
-        let tags = || {
-            Some(HashMap::from([(
-                "outcome".to_string(),
-                outcome.as_str().to_string(),
-            )]))
-        };
-        self.log_metric(MetricType::Increment, HYDRATION_COUNT_METRIC, 1.0, tags());
-        self.log_metric(
-            MetricType::Dist,
-            HYDRATION_LATENCY_METRIC,
-            started_at.elapsed().as_secs_f64() * 1000.0,
-            tags(),
-        );
-    }
-
     fn log_metric(
         &self,
         metric_type: MetricType,
@@ -213,3 +247,7 @@ impl RemoteConfigValueHydrator {
         ));
     }
 }
+
+#[cfg(test)]
+#[path = "../__tests__/hydration_telemetry_context_tests.rs"]
+mod tests;

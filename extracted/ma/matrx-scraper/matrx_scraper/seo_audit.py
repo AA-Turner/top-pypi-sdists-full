@@ -43,8 +43,10 @@ Standalone — does not import from matrx-connect, matrx-orm, or aidream.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
+from contextvars import ContextVar, Token
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -54,13 +56,28 @@ from urllib.parse import parse_qsl, urljoin, urlparse, urlsplit
 from pydantic import BaseModel, Field, JsonValue
 from selectolax.parser import HTMLParser
 
-from matrx_scraper.audit_metrics import evaluate_indexability
+from matrx_scraper.app_shell import (
+    NON_VISIBLE_TAGS,
+    JS_SHELL_ROOT_TEXT_WORDS_DEFAULT,
+    JS_SHELL_ROOT_TEXT_WORDS_KNOB,
+    JS_SHELL_WORD_LIMIT_DEFAULT,
+    JS_SHELL_WORD_LIMIT_KNOB,
+    app_shell_signals,
+    is_js_shell,
+)
+from matrx_scraper.audit_metrics import canonical_is_self, evaluate_indexability
+from matrx_scraper.challenge_census import (
+    SHORT_PAGE_CHARS,
+    challenge_text_reason,
+    detect_challenge_reasons,
+)
 from matrx_scraper.media_embed import video_embed_provider
 from matrx_scraper.meta_metrics import (
     calculate_meta_description_metrics,
     calculate_meta_title_metrics,
 )
 from matrx_scraper.parser.hashing import compute_text_fingerprint
+from matrx_scraper.parser.knobs import KnobScope, parser_knob, scoped_parser_knobs
 from matrx_scraper.structured_data import extract_structured_payload
 
 
@@ -152,6 +169,17 @@ class SeoAuditResult:
     viewport: str | None = None
     # Raw `<meta http-equiv="refresh">` content ("5; url=https://…").
     meta_refresh: str | None = None
+    # App-shell markup facts (`app_shell.app_shell_signals`): an app mount point
+    # and a script a browser would run. Persisted as `snapshot.extracted.app_shell`;
+    # deliberately NOT in `to_dict` (the matrx-extend parity fixture's shape).
+    app_root: bool = False
+    executable_script: bool = False
+    app_shell_words: int | None = None
+    root_text_words: int | None = None
+    bot_wall: bool = False
+    # Distinct same-site pages linked onward (no `#`, no self links). Not in
+    # `to_dict` (the matrx-extend parity shape).
+    onward_internal_links: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -282,6 +310,25 @@ def _image_region(node: Any) -> str:
     return "content"
 
 
+def is_same_site_host(host: str, base_host: str) -> bool:
+    """`www.<domain>` and the apex are the same site, in both directions — the
+    crawler's own scope rule (`crawler._is_same_host`) uses this too."""
+    host = (host or "").lower()
+    base_host = (base_host or "").lower()
+    if not host or not base_host:
+        return False
+    return host == base_host or host.removeprefix("www.") == base_host.removeprefix("www.")
+
+
+def _without_fragment(url: str) -> str:
+    """The URL with no `#fragment` and no trailing slash, for "is it this page?"."""
+    base = url.split("#", 1)[0]
+    parts = urlsplit(base)
+    path = parts.path.rstrip("/") or "/"
+    query = f"?{parts.query}" if parts.query else ""
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}{path}{query}"
+
+
 def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
     body = tree.body
 
@@ -380,6 +427,11 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
     external = 0
     links: list[LinkItem] = []
     seen_targets: set[str] = set()
+    # Distinct pages of this SITE a reader can go on to: www/apex-equivalent
+    # hosts count, `#…` jumps and links back to this very page do not. What
+    # `dead_end_page` reads (`links_summary.onward_internal`).
+    page_key = _without_fragment(base_url)
+    onward_targets: set[str] = set()
     for a in tree.css("a[href]"):
         href = a.attributes.get("href")
         if not href:
@@ -391,6 +443,12 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
             continue
         if not host or not u.startswith(("http://", "https://")):
             continue
+        if (
+            not href.strip().startswith("#")
+            and is_same_site_host(host, base_host)
+            and _without_fragment(u) != page_key
+        ):
+            onward_targets.add(_without_fragment(u))
         if host == base_host:
             link_type = "internal"
             internal += 1
@@ -479,7 +537,19 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
             if item.get("src") == featured_url:
                 item["featured"] = True
 
-    # Word/sentence counts on visible text
+    # The app-shell markup facts read <script> tags, so they are taken BEFORE the
+    # non-visible elements are dropped below. A shell-shaped page is checked against
+    # the fetcher's own bot-wall classifier (a challenge page mounts into #root too).
+    shell = app_shell_signals(tree)
+    if shell.app_root and shell.executable_script and is_bot_wall(soup=tree, title=title):
+        shell = dataclasses.replace(shell, bot_wall=True)
+
+    # Word/sentence counts on visible text. <script>, <style> and <template> text
+    # is never shown to a reader (a Next.js page's `__NEXT_DATA__` JSON read as
+    # hundreds of words of prose), so it is dropped first. Every extraction above
+    # is done; nothing after this point reads those elements.
+    tree.strip_tags(list(NON_VISIBLE_TAGS))
+    body = tree.body
     text = ""
     if body:
         text = (body.text(deep=True, separator=" ") or "").strip()
@@ -529,6 +599,12 @@ def _audit_tree(tree: HTMLParser, base_url: str) -> SeoAuditResult:
         page_identity=page_identity,
         viewport=viewport,
         meta_refresh=meta_refresh,
+        app_root=shell.app_root,
+        executable_script=shell.executable_script,
+        app_shell_words=shell.visible_words,
+        root_text_words=shell.root_text_words,
+        bot_wall=shell.bot_wall,
+        onward_internal_links=len(onward_targets),
     )
 
 
@@ -1796,6 +1872,30 @@ class PageEvidence:
     schema_types: list[str] | None = None
     image_count: int | None = None
     images_missing_alt: int | None = None
+    # `<a href>` links on the page (`snapshot.links_summary.total`), and the
+    # distinct same-site pages it links ONWARD to (`.onward_internal`: www/apex
+    # equivalent, no `#` jumps, no self links). `None` = never captured.
+    link_count: int | None = None
+    internal_link_count: int | None = None
+    # App-shell markup facts (`snapshot.extracted.app_shell`): an app mount point
+    # and an executable script. `None` = the snapshot predates the capture, so
+    # `is_js_shell` is unknown and `content_needs_rendering` answers n_a.
+    app_root: bool | None = None
+    executable_script: bool | None = None
+    # Body words outside <script>/<style>/<template> (`app_shell.visible_words`),
+    # measured only on a page carrying both shell markup signals. `word_count`
+    # counts script text, so the shell test reads this when it exists.
+    app_shell_words: int | None = None
+    # Server-rendered words inside the app root (`app_shell.root_text_words`);
+    # real text there is evidence against a shell. `None` = not measured.
+    root_text_words: int | None = None
+    # A bot wall / interstitial in app-shell markup (`app_shell.bot_wall`). Never a
+    # shell; the sweep treats it as a blocked fetch. `None` = not measured.
+    bot_wall: bool | None = None
+    # The crawl KEPT this page although the read judge called it a soft 404
+    # (`extracted.kept_from_failed_read.kind == "soft_404"`): only
+    # `soft_404_detection` judges it; every other check answers n_a.
+    kept_soft_404: bool = False
     # Per-<img> inventory in DOM order — `web.snapshot.images.items`, capped at
     # IMAGE_INVENTORY_LIMIT while `image_count` stays the true total. Empty with
     # a non-zero `image_count` means the snapshot predates the inventory, which
@@ -2075,6 +2175,13 @@ def evidence_from_audit(
         schema_types=list(audit.schema_types),
         image_count=audit.images_total,
         images_missing_alt=audit.images_missing_alt,
+        link_count=audit.link_count,
+        internal_link_count=audit.onward_internal_links,
+        app_root=audit.app_root,
+        executable_script=audit.executable_script,
+        app_shell_words=audit.app_shell_words,
+        root_text_words=audit.root_text_words,
+        bot_wall=audit.bot_wall,
         image_items=list(audit.image_inventory),
         http_status=http_status,
         redirect_chain=list(redirect_chain or []),
@@ -2469,6 +2576,302 @@ def _noindex_not_applicable(ev: PageEvidence, what: str) -> CheckOutcome | None:
             "meant to rank.",
         )
     return None
+
+
+#: The shell test's knobs and their mirrors (feature ``knowledge.scraper``).
+JS_SHELL_KNOB_MIRRORS: dict[str, int] = {
+    JS_SHELL_WORD_LIMIT_KNOB: JS_SHELL_WORD_LIMIT_DEFAULT,
+    JS_SHELL_ROOT_TEXT_WORDS_KNOB: JS_SHELL_ROOT_TEXT_WORDS_DEFAULT,
+}
+#: The values resolved FOR the organization whose work is running (a crawl or an
+#: analysis run sets it once, `use_js_shell_knobs`); unset = the platform value.
+_JS_SHELL_KNOBS: ContextVar[dict[str, Any] | None] = ContextVar("js_shell_knobs", default=None)
+
+
+async def resolve_js_shell_knobs(scope: KnobScope | None) -> dict[str, Any]:
+    """The shell knobs for one organization / person / site, in one host call."""
+    return await scoped_parser_knobs(dict(JS_SHELL_KNOB_MIRRORS), scope)
+
+
+def use_js_shell_knobs(values: dict[str, Any] | None) -> Token:
+    """Make ``values`` the shell knobs for the current context (reset with the token)."""
+    return _JS_SHELL_KNOBS.set(values)
+
+
+def reset_js_shell_knobs(token: Token) -> None:
+    _JS_SHELL_KNOBS.reset(token)
+
+
+def _js_shell_knob(key: str) -> int:
+    mirror = JS_SHELL_KNOB_MIRRORS[key]
+    scoped = _JS_SHELL_KNOBS.get()
+    raw = scoped.get(key, mirror) if scoped is not None else parser_knob(key, mirror)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return mirror
+
+
+def js_shell_word_limit() -> int:
+    """``knowledge.scraper.audit.js_shell_word_limit`` for the running organization
+    (mirror ``JS_SHELL_WORD_LIMIT_DEFAULT``)."""
+    return _js_shell_knob(JS_SHELL_WORD_LIMIT_KNOB)
+
+
+def js_shell_root_text_words() -> int:
+    """``knowledge.scraper.audit.js_shell_root_text_words`` for the running organization."""
+    return _js_shell_knob(JS_SHELL_ROOT_TEXT_WORDS_KNOB)
+
+
+def page_is_js_shell(ev: PageEvidence, *, word_limit: int | None = None) -> bool | None:
+    """The ``is_js_shell`` page fact: an unrendered JavaScript app frame, not a page.
+
+    App root + executable script + fewer than the knob's words + no headings, no
+    links, no images (``app_shell.is_js_shell``). ``None`` when the capture never
+    recorded one of those signals (a snapshot older than the app-shell capture).
+    """
+    status = ev.http_status
+    if status is not None and not 200 <= status < 300:
+        return False  # a 503 maintenance page, an error page: a real answer, not an app frame
+    return is_js_shell(
+        bot_wall=ev.bot_wall,
+        app_root=ev.app_root,
+        executable_script=ev.executable_script,
+        word_count=ev.app_shell_words if ev.app_shell_words is not None else ev.word_count,
+        heading_count=len(ev.headings) if ev.headings is not None else None,
+        link_count=ev.link_count,
+        image_count=ev.image_count,
+        word_limit=js_shell_word_limit() if word_limit is None else word_limit,
+        root_text_words=ev.root_text_words,
+        root_text_limit=js_shell_root_text_words(),
+    )
+
+
+def html_is_js_shell(html: str, url: str) -> bool:
+    """Whether raw fetched HTML is an unrendered app shell — the crawler's question
+    when the content-sanity gate finds almost no text (keep the page, do not fail it)."""
+    if not html:
+        return False
+    return bool(page_is_js_shell(evidence_from_audit(audit_html(html, url))))
+
+
+#: Content-gate failures a crawled 2xx page is KEPT through when its HTML is an
+#: unrendered app shell — the frame has no text until JavaScript runs, and the
+#: judge may say so outright (`js_shell`, a visible "please enable JavaScript").
+SHELL_KEEP_FAILURE_REASONS = frozenset({"empty_content", "low_text_content", "js_shell"})
+#: The judge's soft-404 verdict: a 200 page that SAYS it does not exist. A crawl
+#: keeps it so `soft_404_detection` (and thin content) can judge it.
+SOFT_404_KEEP_FAILURE_REASONS = frozenset({"not_found"})
+#: What a kept page is marked with (`snapshot.extracted.kept_from_failed_read.kind`).
+KEPT_JS_SHELL = "js_shell"
+KEPT_SOFT_404 = "soft_404"
+
+
+def _visible_body_text(soup: Any) -> str:
+    """The body's text without <script>/<style>/<template> content, without mutating."""
+    body = soup.body if soup is not None else None
+    if body is None:
+        return ""
+    text = body.text(deep=True, separator=" ") or ""
+    for node in body.css(", ".join(NON_VISIBLE_TAGS)):
+        hidden = node.text(deep=True, separator=" ") or ""
+        if hidden:
+            text = text.replace(hidden, " ", 1)
+    return " ".join(text.split())
+
+
+def is_bot_wall(*, html: str | None = None, soup: Any = None, title: str | None = None) -> bool:
+    """The fetcher's ONE bot-wall classifier (`challenge_census.detect_challenge_reasons` +
+    `challenge_text_reason`) — never a second copy of its markers.
+
+    Only a SHORT page can be the wall itself: the census's title markers match at any
+    length ("Cloudflare Workers tutorial", "Security check-up for small business"), so a
+    page with more visible text than `SHORT_PAGE_CHARS` is never asked. The real visible
+    text is passed on, so `challenge_text_reason`'s own length guard applies too.
+    """
+    if soup is None and html:
+        soup = HTMLParser(html)
+    text = _visible_body_text(soup)
+    if len(text) > SHORT_PAGE_CHARS:
+        return False
+    # A body-level challenge signal (a challenge widget or script, a known wall
+    # phrase) decides. A title marker alone ("Cloudflare Workers pricing", "One more
+    # step to finish your order", "Access Denied - The Band") counts only when the
+    # body shows NOTHING — an empty frame wearing a challenge title.
+    if detect_challenge_reasons(soup=soup, title=None):
+        return True
+    if challenge_text_reason(title=None, text=text) is not None:
+        return True
+    return not text and challenge_text_reason(title=title, text="") is not None
+
+
+def keepable_failed_read(
+    *,
+    failure_reason: str | None,
+    status: int | None,
+    html: str | None,
+    url: str,
+    title: str | None = None,
+) -> str | None:
+    """Whether a crawl should KEEP a page the content gate failed, and as what.
+
+    `KEPT_JS_SHELL` for an app shell, `KEPT_SOFT_404` for a soft 404, else `None`
+    (the page fails as before). Never for a non-2xx answer, an empty body, or a bot
+    wall — a challenge page wrapped in an app root is still a wall.
+    """
+    if not failure_reason or not html or status is None or not 200 <= int(status) < 300:
+        return None
+    if is_bot_wall(html=html, title=title):
+        return None
+    if failure_reason in SOFT_404_KEEP_FAILURE_REASONS:
+        return KEPT_SOFT_404
+    if failure_reason in SHELL_KEEP_FAILURE_REASONS and html_is_js_shell(html, url):
+        return KEPT_JS_SHELL
+    return None
+
+
+#: The reasoning every content check gives on an app shell. A fact, not a waiting
+#: state: the one action lives on ``content_needs_rendering``'s finding.
+JS_SHELL_NOT_APPLICABLE_REASON = (
+    "This page draws its content with JavaScript after it loads, and this crawl read it "
+    "without running that JavaScript, so there is no content to judge here. See the "
+    "\"content needs rendering\" finding for how to crawl it rendered."
+)
+
+
+def _bot_wall_outcome(ev: PageEvidence) -> CheckOutcome | None:
+    """A bot wall that reached a snapshot gets the EXISTING blocked-page answer."""
+    if not ev.bot_wall:
+        return None
+    return _blocked_fetch_outcome(
+        dataclasses.replace(ev, fetch_blocked_reason=ev.fetch_blocked_reason or "cloudflare_block")
+    )
+
+
+def js_shell_not_applicable(ev: PageEvidence) -> CheckOutcome | None:
+    """``n_a`` for a content check on an app shell — never a false thin/H1/alt finding.
+    A bot wall in shell markup answers with the blocked-page reason instead."""
+    wall = _bot_wall_outcome(ev)
+    if wall:
+        return wall
+    if page_is_js_shell(ev):
+        return CheckOutcome("n_a", None, JS_SHELL_NOT_APPLICABLE_REASON)
+    return None
+
+
+#: What every check except `soft_404_detection` answers on a kept soft 404: one
+#: cause, one finding.
+KEPT_SOFT_404_REASON = (
+    "This page is a soft 404 — it answers as a working page but says it does not exist — "
+    "so it is judged only by the soft-404 check."
+)
+
+
+def kept_soft_404_not_applicable(ev: PageEvidence) -> CheckOutcome | None:
+    if getattr(ev, "kept_soft_404", False):
+        return CheckOutcome("n_a", None, KEPT_SOFT_404_REASON)
+    return None
+
+
+def _unless_js_shell(
+    check: Callable[[PageEvidence], CheckOutcome],
+) -> Callable[[PageEvidence], CheckOutcome]:
+    """Wrap a CONTENT check so an app shell answers ``n_a`` instead of a false finding."""
+
+    def guarded(ev: PageEvidence) -> CheckOutcome:
+        return js_shell_not_applicable(ev) or check(ev)
+
+    guarded.__name__ = check.__name__
+    guarded.__doc__ = check.__doc__
+    guarded.__wrapped__ = check  # type: ignore[attr-defined]
+    return guarded
+
+
+def _is_indexable_2xx(ev: PageEvidence) -> bool:
+    status = ev.http_status
+    return (
+        status is not None
+        and 200 <= status < 300
+        and ev.noindex is False
+        and ev.canonical_matches is not False
+    )
+
+
+def _shell_words(ev: PageEvidence) -> int:
+    words = ev.app_shell_words if ev.app_shell_words is not None else ev.word_count
+    return int(words or 0)
+
+
+def check_content_needs_rendering(ev: PageEvidence) -> CheckOutcome:
+    """An app shell: the crawl saw an empty frame, so it audited nothing.
+
+    One finding per shell page that says so and names the fix (crawl rendered),
+    instead of thin-content, missing-H1 and duplicate findings about a frame.
+    """
+    status = ev.http_status
+    if status is not None and not 200 <= status < 300:
+        return CheckOutcome(
+            "n_a", None, f"This URL answers with HTTP {status}, so it has no page content to render."
+        )
+    wall = _bot_wall_outcome(ev)
+    if wall:
+        return wall
+    shell = page_is_js_shell(ev)
+    if shell is None:
+        return CheckOutcome(
+            "n_a",
+            None,
+            "We haven't recorded whether this page is drawn by JavaScript yet.",
+            remediation=RECAPTURE_PAGE,
+        )
+    if not shell:
+        return CheckOutcome("pass", 100, "The page's content is in the HTML we fetched.")
+    return CheckOutcome(
+        "fail",
+        20,
+        f"The HTML we fetched is an empty app frame ({_shell_words(ev)} words, no headings, "
+        "links or images) that JavaScript fills in after it loads. This crawl read it without "
+        "running JavaScript, so its content was not audited. Turn on rendered crawling: in "
+        "this site's settings set Render mode to \"Browser always\", then crawl again.",
+        issue_count=1,
+    )
+
+
+def check_dead_end_page(ev: PageEvidence) -> CheckOutcome:
+    """An indexable page with no internal links out — visitors and crawlers stop here."""
+    status = ev.http_status
+    if status is not None and not 200 <= status < 300:
+        return CheckOutcome(
+            "n_a", None, f"This URL answers with HTTP {status}, so it is not a page people land on."
+        )
+    if ev.internal_link_count is None or ev.noindex is None or status is None:
+        return CheckOutcome(
+            "n_a",
+            None,
+            "We haven't recorded this page's links yet.",
+            remediation=RECAPTURE_PAGE,
+        )
+    shell = js_shell_not_applicable(ev)
+    if shell:
+        return shell
+    if not _is_indexable_2xx(ev):
+        return CheckOutcome(
+            "n_a",
+            None,
+            "This page is noindexed or names another page as its canonical, so it is not "
+            "meant to be a page people arrive on from search.",
+        )
+    if ev.internal_link_count > 0:
+        return CheckOutcome(
+            "pass", 100, f"{ev.internal_link_count} internal link(s) lead on from this page."
+        )
+    return CheckOutcome(
+        "warn",
+        70,
+        "This page has no links to any other page on the site — a visitor who lands here "
+        "from search has nowhere to go next, and crawlers stop here.",
+        issue_count=1,
+    )
 
 
 def check_thin_content(ev: PageEvidence) -> CheckOutcome:
@@ -3280,8 +3683,31 @@ def check_canonical_presence(ev: PageEvidence) -> CheckOutcome:
     return CheckOutcome("pass", 100, f"rel=canonical present: {canonical[:160]}")
 
 
+def _canonical_redirect_hop(ev: PageEvidence, canonical: str) -> str | None:
+    """The redirecting chain URL (start or middle — anything but the final) the canonical names, if it names one."""
+    hops = _chain_urls(ev)
+    # Every URL in the chain but the last redirected — the start URL included.
+    redirected = hops[:-1] if len(hops) > 1 else []
+    for hop in redirected:
+        if canonical_is_self(canonical, hop) and not canonical_is_self(canonical, ev.url):
+            return hop
+    return None
+
+
 def check_canonical_conflicts(ev: PageEvidence) -> CheckOutcome:
     canonical = ev.canonical_url
+    if canonical and ev.canonical_matches is not True:
+        hop = _canonical_redirect_hop(ev, canonical)
+        if hop:
+            # `canonical_conflicts.score_contract`: "Canonical target redirects (chain)" = 30.
+            return CheckOutcome(
+                "fail",
+                30,
+                f"Canonical points to a redirect ({hop[:160]}), which sends visitors on to "
+                "this page — name the page's final address in the canonical instead.",
+                issue_count=1,
+                evidence={"canonical_url": canonical, "redirects_to": ev.url},
+            )
     if not canonical or not canonical.startswith(("http://", "https://")):
         return CheckOutcome(
             "n_a",
@@ -5332,12 +5758,12 @@ PAGE_CHECKS: dict[str, Callable[[PageEvidence], CheckOutcome]] = {
     "title_length": check_title_length,
     "meta_description_presence": check_meta_description_presence,
     "meta_description_length": check_meta_description_length,
-    "h1_presence": check_h1_presence,
-    "heading_hierarchy": check_heading_hierarchy,
-    "thin_content": check_thin_content,
-    "content_depth": check_content_depth,
-    "text_html_ratio": check_text_html_ratio,
-    "image_alt_presence": check_image_alt_presence,
+    "h1_presence": _unless_js_shell(check_h1_presence),
+    "heading_hierarchy": _unless_js_shell(check_heading_hierarchy),
+    "thin_content": _unless_js_shell(check_thin_content),
+    "content_depth": _unless_js_shell(check_content_depth),
+    "text_html_ratio": _unless_js_shell(check_text_html_ratio),
+    "image_alt_presence": _unless_js_shell(check_image_alt_presence),
     "image_dimension_attrs": check_image_dimension_attrs,
     "image_lazy_loading": check_image_lazy_loading,
     "image_modern_format": check_image_modern_format,
@@ -5356,7 +5782,9 @@ PAGE_CHECKS: dict[str, Callable[[PageEvidence], CheckOutcome]] = {
     "redirect_chain": check_redirect_chain,
     "redirect_loop": check_redirect_loop,
     "temporary_redirect_usage": check_temporary_redirect_usage,
-    "soft_404_detection": check_soft_404_detection,
+    "soft_404_detection": _unless_js_shell(check_soft_404_detection),
+    "content_needs_rendering": check_content_needs_rendering,
+    "dead_end_page": check_dead_end_page,
     "pagination_markup": check_pagination_markup,
     "mixed_content": check_mixed_content,
     "https_enforcement": check_https_enforcement,
@@ -5369,6 +5797,25 @@ PAGE_CHECKS: dict[str, Callable[[PageEvidence], CheckOutcome]] = {
     "cwv_cls": check_cwv_cls,
     "asset_delivery": check_asset_delivery,
     "caching_policy": check_caching_policy,
+}
+
+
+def _unless_kept_soft_404(
+    check: Callable[[PageEvidence], CheckOutcome],
+) -> Callable[[PageEvidence], CheckOutcome]:
+    def guarded(ev: PageEvidence) -> CheckOutcome:
+        return kept_soft_404_not_applicable(ev) or check(ev)
+
+    guarded.__name__ = getattr(check, "__name__", "check")
+    guarded.__doc__ = check.__doc__
+    guarded.__wrapped__ = getattr(check, "__wrapped__", check)  # type: ignore[attr-defined]
+    return guarded
+
+
+#: Every check but the soft-404 one stands aside on a kept soft 404.
+PAGE_CHECKS = {
+    key: check if key == "soft_404_detection" else _unless_kept_soft_404(check)
+    for key, check in PAGE_CHECKS.items()
 }
 
 

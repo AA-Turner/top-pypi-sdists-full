@@ -1,6 +1,6 @@
 [project]
 name = "imfp"
-version = "2.1.0"
+version = "2.1.1"
 description = "Python package for downloading economic data from the International Monetary Fund SDMX 3.0 API, following econdataverse conventions."
 authors = [
     {name = "Christopher C. Smith", email = "christopher.smith@promptlytechnologies.com"}
@@ -150,3 +150,6 @@ dev = [
     "ruff>=0.16.1",
     "ty>=0.0.69",
 ]
+
+[tool.uv]
+constraint-dependencies = ["certifi>=2026.10.19"]

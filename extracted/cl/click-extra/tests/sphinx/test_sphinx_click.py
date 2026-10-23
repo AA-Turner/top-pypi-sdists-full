@@ -17,17 +17,21 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sys
+from logging.handlers import BufferingHandler
 from pathlib import Path
 from textwrap import dedent
 
 import click
 import pytest
+from boltons.strutils import strip_ansi
 from docutils import nodes
 from pygments.styles import get_style_by_name
 
+from click_extra import verbosity_option
 from click_extra.screenshot_presets import (
     CAPTURE_BACKGROUND,
     LIGHT_CAPTURE_BACKGROUND,
@@ -37,11 +41,11 @@ from click_extra.snippet import DEFAULT_SYNTAX_STYLES
 from click_extra.sphinx.click import (
     SCREENSHOT_MARKER_END,
     SCREENSHOT_MARKER_START,
+    ClickDirective,
     ClickRunner,
     _code_fence,
     _rewrite_screenshot_regions,
     _screenshot_background,
-    _screenshot_columns,
     _screenshot_opacity,
     program_from_command_line,
 )
@@ -52,6 +56,7 @@ from .conftest import (
     DirectiveTestCase,
     FormatType,
     format_params,
+    plain_whitespace,
     unescape_quotes,
 )
 
@@ -506,7 +511,9 @@ def test_directive_functionality(sphinx_app_for_format, test_case):
 
     # Assert all expected fragments are present.
     for fragment in test_case.html_matches:
-        assert unescape_quotes(fragment) in unescape_quotes(html_output)
+        assert plain_whitespace(unescape_quotes(fragment)) in plain_whitespace(
+            unescape_quotes(html_output)
+        )
 
 
 def test_directive_option_format(sphinx_app_rst):
@@ -577,7 +584,9 @@ def test_directive_option_language_override(sphinx_app):
         + '<span class="k">SELECT</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="k">FROM</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;Joe&#39;</span><span class="p">;</span>\n'
         + "</pre></div>\n"
     )
-    assert unescape_quotes(expected) in unescape_quotes(html_output)
+    assert plain_whitespace(unescape_quotes(expected)) in plain_whitespace(
+        unescape_quotes(html_output)
+    )
 
 
 def test_sphinx_directive_state_persistence(sphinx_app):
@@ -1029,7 +1038,7 @@ def test_generated_block_is_attributed_to_the_directive_body(
     than the document.
 
     The last two cases pin the ``content_offset`` inflation
-    ``click_extra.sphinx.click.MYST_CONTENT_OFFSET_INFLATED_MAX`` documents,
+    ``click_extra.sphinx._base.MYST_CONTENT_OFFSET_INFLATED_MAX`` documents,
     which only fires on a directive carrying both an option block and a body
     ending in blank lines.
     """
@@ -1149,6 +1158,96 @@ def test_clickrunner_forces_color(monkeypatch):
     # ...and the build environment is restored afterwards.
     assert os.environ.get("FORCE_COLOR") is None
     assert os.environ["NO_COLOR"] == "1"
+
+
+def test_clickrunner_sets_the_handlers_of_the_build_aside():
+    """``ClickRunner`` takes the handlers it found on the root logger off it while
+    a documented command runs, then puts them back.
+
+    A build shares its process with Sphinx, its extensions and its theme. A
+    handler one of them gave the root logger would print each record of the
+    command a second time, which the shell of a reader never does.
+    """
+    root = logging.getLogger()
+    build_handler = BufferingHandler(capacity=10)
+    document_handler = BufferingHandler(capacity=10)
+    seen = []
+
+    @click.command()
+    @verbosity_option
+    def forecast():
+        seen.extend(root.handlers)
+        logging.getLogger("almanac").warning("Frost tonight.")
+
+    root.addHandler(build_handler)
+    try:
+        runner = ClickRunner()
+        # A handler the code of a document attaches is not one of the build.
+        root.addHandler(document_handler)
+
+        result = runner.invoke(forecast, [])
+
+        assert result.exit_code == 0
+        assert strip_ansi(result.stderr) == "warning: Frost tonight.\n"
+        assert build_handler not in seen
+        assert not build_handler.buffer
+        assert document_handler in seen
+        assert [r.getMessage() for r in document_handler.buffer] == ["Frost tonight."]
+        # The build gets its handler back.
+        assert build_handler in root.handlers
+    finally:
+        root.removeHandler(build_handler)
+        root.removeHandler(document_handler)
+
+
+@pytest.mark.parametrize(
+    ("document_level", "expected"),
+    (
+        # The level of the build gives way to the default one of Python.
+        pytest.param(None, logging.WARNING, id="level-of-the-build"),
+        # A level the code of a document set is not one of the build.
+        pytest.param(logging.DEBUG, logging.DEBUG, id="level-of-the-document"),
+    ),
+)
+def test_clickrunner_sets_the_level_of_the_build_aside(document_level, expected):
+    """``ClickRunner`` gives the root logger the default level while a documented
+    command runs, where the build left another one, then gives that one back.
+
+    A command leaves the root logger at the level it found. The level of the
+    build would so let through what a command logs before its verbosity options
+    apply, which the shell of a reader never prints.
+    """
+    root = logging.getLogger()
+    saved_level = root.level
+    seen = []
+
+    def note(ctx, param, value):
+        seen.append(root.level)
+
+    # An eager option typed on the command line is processed before the eager
+    # options left out of it, the verbosity one included.
+    @click.command()
+    @click.option(
+        "--note", is_flag=True, is_eager=True, expose_value=False, callback=note
+    )
+    @verbosity_option
+    def forecast():
+        pass
+
+    root.setLevel(logging.INFO)
+    try:
+        runner = ClickRunner()
+        if document_level is not None:
+            root.setLevel(document_level)
+        level = root.level
+
+        result = runner.invoke(forecast, ["--note"])
+
+        assert result.exit_code == 0
+        assert seen == [expected]
+        assert root.level == level
+    finally:
+        root.setLevel(saved_level)
 
 
 @pytest.mark.parametrize(
@@ -1930,9 +2029,13 @@ def test_click_run_screenshot_columns_auto(sphinx_app_myst):
 
 @pytest.mark.parametrize("value", ("beige", "0", "-3", "12"))
 def test_click_run_screenshot_columns_rejects_an_unusable_width(value):
-    """A width narrower than the floor, or no width at all, is a build error."""
+    """A width narrower than the floor, or no width at all, is a build error.
+
+    The option reads through the parser the capture commands share, so the two
+    reject the same widths with the same words.
+    """
     with pytest.raises(ValueError):
-        _screenshot_columns(value)
+        ClickDirective.option_spec["screenshot-columns"](value)
 
 
 def test_click_run_screenshot_frame_options(sphinx_app_myst):

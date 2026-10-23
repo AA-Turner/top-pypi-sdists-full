@@ -245,6 +245,17 @@ def configure(
 
             set_mandate_resolver(ServerMandateSource(server_url, get_jwt))
 
+        # ...and gets the CLIENT mandate runner (runner plan 25 step 6): package code reaches mandates only
+        # through ``get_mandate_runner()`` (the labeler, memory, the judges, the summarize/research tools).
+        # Held calls resolve through the resolver above and send on the client; a typed NamedAgent run goes
+        # to the server's mandate door. A host that installed its own runner wins — never overwritten.
+        from matrx_ai import mandates as _mandates
+
+        if _mandates._MANDATE_RUNNER is None:
+            from matrx_ai.client_host.mandate_runner import ServerMandateRunner
+
+            _mandates.set_mandate_runner(ServerMandateRunner(server_url, get_jwt))
+
     # Wire a host-injected durable VFS backend (e.g. aidream's code_files-backed
     # store) into the self-contained ``vfs`` package. That package imports
     # nothing from ``matrx_ai`` and exposes only a plain ``set_backend`` setter,

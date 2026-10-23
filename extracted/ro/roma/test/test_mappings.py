@@ -2,10 +2,11 @@
 # Copyright (c) 2020 NAVER Corp.
 # 3-Clause BSD License.
 import unittest
+import unittest.mock
 import torch
 import roma
 import numpy as np
-from test.utils import is_close
+from test.utils import is_close, torch_version
 
 device = torch.device(0) if torch.cuda.is_available() else torch.device("cpu")
 
@@ -208,6 +209,57 @@ class TestMappings(unittest.TestCase):
                 torch.sum(roma.special_procrustes(Mg, method=method)).backward()
                 self.assertTrue(torch.all(torch.isfinite(Mg.grad)))
 
+    def test_special_procrustes_unitquat(self):
+        torch.manual_seed(666)
+        for dtype in (torch.float32, torch.float64):
+            M = torch.randn((5, 7, 3, 3), dtype=dtype, device=device)
+            q = roma.special_procrustes_unitquat(M)
+            self.assertEqual(q.shape, (5, 7, 4))
+            self.assertEqual(q.dtype, dtype)
+            # Same rotation as the matrix variant, which builds it from the same quaternion.
+            self.assertTrue(is_close(roma.unitquat_to_rotmat(q), roma.special_procrustes(M, method="horn")))
+            with self.assertRaises(ValueError):
+                roma.special_procrustes_unitquat(torch.randn((10, 4, 4), dtype=dtype, device=device))
+        # Damped derivatives, through a sign-invariant function of the quaternion.
+        M = torch.randn((10, 3, 3), dtype=torch.float64, device=device, requires_grad=True)
+        self.assertTrue(
+            torch.autograd.gradcheck(lambda M: roma.unitquat_to_rotmat(roma.special_procrustes_unitquat(M)), (M,))
+        )
+
+    def test_special_procrustes_unitquat_without_float64(self):
+        # On devices without float64 support (MPS), the SVD-based method is used instead of Horn's closed form.
+        torch.manual_seed(666)
+        M = torch.randn((5, 7, 3, 3), device=device)
+        q_horn = roma.special_procrustes_unitquat(M)
+        with unittest.mock.patch("roma.mappings._supports_float64", return_value=False):
+            q = roma.special_procrustes_unitquat(M)
+            Mg = M.clone().requires_grad_()
+            torch.sum(roma.unitquat_to_rotmat(roma.special_procrustes_unitquat(Mg))).backward()
+        self.assertEqual(q.shape, (5, 7, 4))
+        self.assertEqual(q.dtype, torch.float32)
+        self.assertTrue(is_close(roma.unitquat_to_rotmat(q), roma.unitquat_to_rotmat(q_horn)))
+        self.assertTrue(torch.all(torch.isfinite(Mg.grad)))
+
+    def test_special_procrustes_unitquat_autocast(self):
+        r"""
+        Under autocast, the quaternion is computed as for the input cast to float32 without autocast (as for special_procrustes).
+        """
+        torch.manual_seed(666)
+        autocast_dtype = torch.bfloat16 if device.type == "cpu" else torch.float16
+        M = torch.randn((100, 3, 3), device=device).to(autocast_dtype)
+        grad_q = torch.randn((100, 4), device=device)
+        M32 = M.float().requires_grad_()
+        q32 = roma.special_procrustes_unitquat(M32)
+        q32.backward(grad_q)
+        Mr = M.clone().requires_grad_()
+        with torch.autocast(device_type=device.type, dtype=autocast_dtype):
+            q = roma.special_procrustes_unitquat(Mr)
+        q.backward(grad_q)
+        self.assertEqual(q.dtype, torch.float32)
+        self.assertTrue(torch.equal(q, q32))
+        self.assertEqual(Mr.grad.dtype, autocast_dtype)
+        self.assertTrue(torch.equal(Mr.grad, M32.grad.to(autocast_dtype)))
+
     def test_procrustes_autocast(self):
         r"""
         Under autocast, both methods behave as if applied to the input cast to float32 without autocast:
@@ -278,7 +330,7 @@ class TestMappings(unittest.TestCase):
             xbis = roma.unitquat_to_rotvec(q)
             qbis = roma.rotvec_to_unitquat(xbis)
             # Ensure cyclic consistency of the mappings
-            self.assertTrue(torch.all(torch.min(torch.norm(qbis - q, dim=-1), torch.norm(qbis + q, dim=-1)) < 1e-6))
+            self.assertTrue(torch.all(roma.unitquat_geodesic_distance(qbis, q) < 2e-6))
             xter = roma.unitquat_to_rotvec(qbis)
             self.assertTrue(is_close(xbis, xter))
 
@@ -312,9 +364,7 @@ class TestMappings(unittest.TestCase):
                 # Ensure cyclic consistency of the mappings in any case
                 for x in xp, xm, xpn, xmn:
                     qbis = roma.rotvec_to_unitquat(x)
-                    self.assertTrue(
-                        torch.all(torch.min(torch.norm(qbis - q, dim=-1), torch.norm(qbis + q, dim=-1)) < 5e-6)
-                    )
+                    self.assertTrue(torch.all(roma.unitquat_geodesic_distance(qbis, q) < 1e-5))
 
     def test_rotvec_rotmat(self):
         torch.manual_seed(666)
@@ -343,7 +393,44 @@ class TestMappings(unittest.TestCase):
             self.assertTrue(roma.is_rotation_matrix(R, 1e-5))
             # Backward
             qbis = roma.rotmat_to_unitquat(R)
-            self.assertTrue(torch.all(torch.min(torch.norm(qbis - q, dim=-1), torch.norm(qbis + q, dim=-1)) < 1e-6))
+            self.assertTrue(torch.all(roma.unitquat_geodesic_distance(qbis, q) < 2e-6))
+
+    def _rotmats_all_branches(self, dtype):
+        r"""
+        Rotation matrices covering every branch of rotmat_to_unitquat: quaternions whose largest component (in absolute value)
+        is each of X, Y, Z and W, with both signs.
+        """
+        q = torch.randn((4, 2, 25, 4), dtype=dtype, device=device) * 0.1
+        for i in range(4):
+            q[i, 0, :, i] = 1.0
+            q[i, 1, :, i] = -1.0
+        q = roma.quat_normalize(q.reshape(-1, 4))
+        return roma.unitquat_to_rotmat(q), q
+
+    def test_rotmat_to_unitquat_branches(self):
+        for dtype in (torch.float32, torch.float64):
+            R, q = self._rotmats_all_branches(dtype)
+            qbis = roma.rotmat_to_unitquat(R)
+            self.assertTrue(torch.all(roma.unitquat_geodesic_distance(qbis, q) < 2e-6))
+        # Derivatives, for matrices far from the switches between branches.
+        R = R[::10].clone().requires_grad_()
+        self.assertTrue(torch.autograd.gradcheck(roma.rotmat_to_unitquat, (R,)))
+
+    @unittest.skipIf(
+        torch_version < (2, 4),
+        "torch.compile is not properly supported in PyTorch < 2.4",
+    )
+    def test_rotmat_to_unitquat_torch_compile_fullgraph(self):
+        R, _ = self._rotmats_all_branches(torch.float64)
+        grad_q = torch.randn(R.shape[:-2] + (4,), dtype=R.dtype, device=device)
+        results = []
+        for f in (roma.rotmat_to_unitquat, torch.compile(roma.rotmat_to_unitquat, backend="aot_eager", fullgraph=True)):
+            Rr = R.clone().requires_grad_()
+            q = f(Rr)
+            q.backward(grad_q)
+            results.append((q, Rr.grad))
+        self.assertTrue(torch.allclose(results[0][0], results[1][0], atol=1e-12))
+        self.assertTrue(torch.allclose(results[0][1], results[1][1], atol=1e-12))
 
     def test_symmatrix_to_unitquat(self):
         torch.manual_seed(668)

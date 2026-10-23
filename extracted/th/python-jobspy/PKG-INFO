@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-jobspy
-Version: 1.4.0
+Version: 1.4.1
 Summary: JobSpy: job scraper for LinkedIn, Indeed, Glassdoor, ZipRecruiter, Bayt, Naukri, BDJobs & HelloWork
 License-Expression: MIT
 License-File: LICENSE
@@ -109,18 +109,16 @@ zip_recruiter  Software Developer                TEKsystems        Phoenix, AZ, 
 The package installs a `jobspy` command whose options mirror the `scrape_jobs()` parameters below; `jobspy -h` lists them, the output fields and exit codes.
 
 ```
+uv tool install python-jobspy
+
 jobspy "software engineer" --site indeed,linkedin --location Chicago -n 20
 jobspy nurse --site indeed,linkedin --hours-old 24 -o jobs.jsonl
 jobspy "data analyst" --remote --fields title,company,job_url
 ```
 
-Each job is one line of JSON on stdout; errors and warnings go to stderr. `--proxies` takes a proxy, a comma list or a file with one per line.
-
 ## MCP server
 
-`mcp-jobspy` is an MCP server with two tools: `search_jobs` returns a preview of each job, `get_job_details` the full records of chosen ones. It installs with `pip install "python-jobspy[mcp]"` or runs through `uvx` as below.
-
-For proxies, give them to the agent, or set `HTTPS_PROXY` in the server's `env`.
+[`mcp-jobspy`](https://pypi.org/project/mcp-jobspy/) is an MCP server that runs with `uvx mcp-jobspy@latest`. See [mcp/README.md](https://github.com/speedyapply/JobSpy/blob/main/mcp/README.md) for setup, tools and proxies.
 
 **Standard config** works for most clients:
 
@@ -129,7 +127,7 @@ For proxies, give them to the agent, or set `HTTPS_PROXY` in the server's `env`.
   "mcpServers": {
     "jobspy": {
       "command": "uvx",
-      "args": ["--from", "python-jobspy[mcp]", "mcp-jobspy"]
+      "args": ["mcp-jobspy@latest"]
     }
   }
 }
@@ -349,6 +347,4 @@ JobPost
 ```
 
 A column is empty when the job board doesn't provide it.
-
-<!-- mcp-name: io.github.speedyapply/jobspy -->
 

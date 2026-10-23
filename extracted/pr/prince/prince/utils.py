@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import functools
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
 import altair as alt
+import narwhals.stable.v2 as nw
 import numpy as np
 import pandas as pd
 from sklearn.utils import validation
@@ -25,14 +27,35 @@ def check_is_fitted(method: Callable[P, R]) -> Callable[P, R]:
 def check_is_dataframe_input(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        X = args[1]  # Assuming the first argument is 'self' or an instance
-        if not isinstance(X, pd.DataFrame):
+        X = args[1] if len(args) > 1 else kwargs["X"]
+        frame = as_pandas_dataframe(X)
+        if frame is None:
             raise ValueError(
-                f"The X argument must be a pandas DataFrame, but got {type(X).__name__}"
+                f"The X argument must be a supported DataFrame, but got {type(X).__name__}"
             )
+        if len(args) > 1:
+            args = (*args[:1], frame, *args[2:])
+        else:
+            kwargs["X"] = frame
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def as_narwhals_dataframe(X):
+    """Return an eager Narwhals DataFrame for a supported native DataFrame."""
+    frame = nw.from_native(X, eager_only=True, pass_through=True)
+    return frame if isinstance(frame, nw.DataFrame) else None
+
+
+def as_pandas_dataframe(X):
+    """Convert a supported eager DataFrame to pandas without requiring PyArrow."""
+    if isinstance(X, pd.DataFrame):
+        return X
+    frame = as_narwhals_dataframe(X)
+    if frame is None:
+        return None
+    return pd.DataFrame({column: frame.get_column(column).to_numpy() for column in frame.columns})
 
 
 def make_labels_and_names(X):
@@ -50,12 +73,23 @@ def make_labels_and_names(X):
     return row_label, row_names, col_label, col_names
 
 
-class EigenvaluesMixin:
-    # These attributes are populated by the concrete estimator subclasses (e.g. PCA, CA),
-    # not by the mixin itself. Declared here (without assignment) so the type checker can
-    # resolve them; runtime behavior is unchanged.
-    eigenvalues_: np.ndarray
-    total_inertia_: float
+class EigenvaluesMixin(ABC):
+    @property
+    @abstractmethod
+    def eigenvalues_(self) -> np.ndarray:
+        """Return the eigenvalues supplied by the concrete estimator."""
+
+    @property
+    def total_inertia_(self) -> float:
+        """Return the total inertia stored by the concrete estimator."""
+        try:
+            return self._total_inertia
+        except AttributeError as error:
+            raise AttributeError("total_inertia_ is not available before fitting") from error
+
+    @total_inertia_.setter
+    def total_inertia_(self, value: float) -> None:
+        self._total_inertia = value
 
     @property
     @check_is_fitted

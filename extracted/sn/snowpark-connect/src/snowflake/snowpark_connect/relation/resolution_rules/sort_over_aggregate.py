@@ -26,8 +26,8 @@ from __future__ import annotations
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
-from snowflake.snowpark.column import Column
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.typed_column import TypedColumn
 
 
 class _ResolveSortOverAggregate:
@@ -64,9 +64,11 @@ class _ResolveSortOverAggregate:
             aggregated_column_map=input_container.column_map,
         )
 
-        def resolve_child(child: expressions_proto.Expression) -> Column:
-            _, typed_column = hybrid_map.resolve_expression(child)
-            return typed_column.col
+        def resolve_child(
+            child: expressions_proto.Expression,
+        ) -> tuple[str, TypedColumn]:
+            names, typed_column = hybrid_map.resolve_expression(child)
+            return (names[0] if names else ""), typed_column
 
         return build_sorted_container(sort, input_container, resolve_child)
 

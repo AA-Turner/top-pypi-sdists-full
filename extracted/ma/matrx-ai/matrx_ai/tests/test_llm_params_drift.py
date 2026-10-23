@@ -30,8 +30,12 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     "runtime_offering_id",
     # Provider-loop cache identity, derived by send_boundary._set_prompt_cache_key.
     "prompt_cache_key",
+    # Which cache marks a send writes, stamped by send_boundary._set_prompt_cache_marks.
+    "prompt_cache_marks",
     # Resolver-owned live-holder provenance; prevents persistence re-freezing structure.
     "responder_mandate_key",
+    # The resolver's held-prompt state on a mandate-held turn (agents/live_structure.py).
+    "held_prompt",
     # Host-resolved ElevenLabs dictionary locators (aidream/services/dictionary/locators.py)
     "pronunciation_dictionary_locators",
     # Skill-injection bookkeeping — the tool ids the skill-merge pipeline injected

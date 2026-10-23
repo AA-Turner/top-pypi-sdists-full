@@ -15,10 +15,20 @@ This module provides:
 from __future__ import annotations
 
 import re
-from json import loads, JSONDecodeError
+from json import JSONDecodeError, loads
 from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
+
+from pyatlan.errors import ErrorCode
+from pyatlan_v9.model.contract import DataContractSpec
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -34,6 +44,7 @@ from .asset import (
 )
 from .asset_related import RelatedAsset
 from .context_related import RelatedContextRepository
+from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
@@ -48,17 +59,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan.errors import ErrorCode
-from pyatlan_v9.model.contract import DataContractSpec
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .data_contract_related import RelatedDataContract
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -695,6 +695,7 @@ def _data_contract_to_nested(data_contract: DataContract) -> DataContractNested:
         is_incomplete=data_contract.is_incomplete,
         provenance_type=data_contract.provenance_type,
         home_id=data_contract.home_id,
+        delete_handler=data_contract.delete_handler,
         depth=data_contract.depth,
         immediate_upstream=data_contract.immediate_upstream,
         immediate_downstream=data_contract.immediate_downstream,
@@ -743,6 +744,7 @@ def _data_contract_from_nested(nested: DataContractNested) -> DataContract:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

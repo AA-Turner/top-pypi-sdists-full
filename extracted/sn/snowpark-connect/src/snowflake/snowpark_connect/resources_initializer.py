@@ -10,6 +10,7 @@ from snowflake.snowpark_connect.client.error_utils import attach_custom_error_co
 from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.utils.internal_query import collect_without_telemetry
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import telemetry
@@ -230,32 +231,37 @@ def initialize_resources() -> None:
         ("Snowflake Connection Warm Up", warm_up_sf_connection),  # Takes about 1s
     ]
 
-    for name, resource_func in resources:
-        resource_start = time.time()
-        try:
-            resource_func()
-            logger.debug(f"Initialized {name} in {time.time() - resource_start:.2f}s")
-        except Exception as e:
-            # Session-closed errors are benign: they happen when the run finishes
-            # before warm-up completes. Neither log nor fail on them.
-            if "because the session has been closed" in str(e):
-                continue
-
-            # A poisoned SQLConf$/parser static initializer breaks every later
-            # spark.sql() for the life of this JVM (SNOW-3585779). This primary
-            # error is only ever surfaced here (never in per-request telemetry),
-            # so log the *full* traceback - including the JVM caused-by chain -
-            # and send the same trace to telemetry, then fail fast instead of
-            # serving a permanently broken process.
-            if name in _CRITICAL_RESOURCES:
-                tb = traceback.format_exc()
-                logger.error(
-                    "Failed to initialize critical resource %s: %s\n%s", name, e, tb
+    # Every statement this loop issues is startup plumbing, so tag the whole
+    # loop rather than individual steps.
+    with scos_internal_query_tag():
+        for name, resource_func in resources:
+            resource_start = time.time()
+            try:
+                resource_func()
+                logger.debug(
+                    f"Initialized {name} in {time.time() - resource_start:.2f}s"
                 )
-                telemetry.send_startup_init_failure_telemetry(name, e, tb)
-                raise
-            else:
-                logger.error(f"Failed to initialize {name}: {e}")
+            except Exception as e:
+                # Session-closed errors are benign: they happen when the run finishes
+                # before warm-up completes. Neither log nor fail on them.
+                if "because the session has been closed" in str(e):
+                    continue
+
+                # A poisoned SQLConf$/parser static initializer breaks every later
+                # spark.sql() for the life of this JVM (SNOW-3585779). This primary
+                # error is only ever surfaced here (never in per-request telemetry),
+                # so log the *full* traceback - including the JVM caused-by chain -
+                # and send the same trace to telemetry, then fail fast instead of
+                # serving a permanently broken process.
+                if name in _CRITICAL_RESOURCES:
+                    tb = traceback.format_exc()
+                    logger.error(
+                        "Failed to initialize critical resource %s: %s\n%s", name, e, tb
+                    )
+                    telemetry.send_startup_init_failure_telemetry(name, e, tb)
+                    raise
+                else:
+                    logger.error(f"Failed to initialize {name}: {e}")
 
     logger.info(f"All resources initialized in {time.time() - start_time:.2f}s")
 

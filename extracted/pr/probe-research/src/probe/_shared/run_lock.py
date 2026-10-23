@@ -349,17 +349,20 @@ def _flock_is_held(path: Path) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def any_live() -> bool:
+def any_live(directory: Path | None = None) -> bool:
     """True when a run may be in flight. FAILS CLOSED.
 
     Every uncertainty resolves to True: an unreadable directory, an unexpected
     error, a malformed lease, or a platform with no fcntl at all. The only False
     is a directory we read successfully in which nothing was held or unexpired.
+
+    `directory`: another state folder's runs (the Probe service looks in every
+    registered session's, plan D13); default this process's `runs_dir()`.
     """
     if os.environ.get(OVERRIDE_ENV) == "1":
         return False
     try:
-        directory = runs_dir()
+        directory = runs_dir() if directory is None else directory
         if not directory.is_dir():
             return False  # never any runs here: the one confident False
         if _fcntl() is None:

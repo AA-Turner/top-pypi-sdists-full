@@ -11,11 +11,7 @@ import pytest
 
 import pandas.util._test_decorators as td
 
-from pandas import (
-    NA,
-    DataFrame,
-    Index,
-)
+import pandas as pd
 import pandas._testing as tm
 
 from pandas.io.common import get_handle
@@ -58,7 +54,7 @@ from pandas.io.xml import read_xml
 
 @pytest.fixture
 def geom_df():
-    return DataFrame(
+    return pd.DataFrame(
         {
             "shape": ["square", "circle", "triangle"],
             "degrees": [360, 360, 180],
@@ -69,7 +65,7 @@ def geom_df():
 
 @pytest.fixture
 def planet_df():
-    return DataFrame(
+    return pd.DataFrame(
         {
             "planet": [
                 "Mercury",
@@ -320,7 +316,7 @@ def test_index_false_with_offset_input_index(parser, typ, geom_df):
 </data>"""
     offset_index = [typ(i) for i in range(10, 13)]
     offset_geom_df = geom_df.copy()
-    offset_geom_df.index = Index(offset_index)
+    offset_geom_df.index = pd.Index(offset_index)
     output = offset_geom_df.to_xml(index=False, parser=parser)
     output = equalize_decl(output)
 
@@ -1019,6 +1015,25 @@ def test_stylesheet_io(xsl_row_field_output, mode, geom_df):
     assert output == xsl_expected
 
 
+def test_stylesheet_external_entity_not_resolved(geom_df, tmp_path):
+    lxml_etree = pytest.importorskip("lxml.etree")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("secret", encoding="utf-8")
+    xsl = f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xsl:stylesheet [
+    <!ENTITY xxe SYSTEM "{secret.as_uri()}">
+]>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+    <xsl:template match="/">
+        <data>&xxe;</data>
+    </xsl:template>
+</xsl:stylesheet>"""
+
+    with pytest.raises(lxml_etree.XMLSyntaxError, match="Entity 'xxe' not defined"):
+        geom_df.to_xml(stylesheet=StringIO(xsl))
+
+
 def test_stylesheet_buffered_reader(xsl_row_field_output, mode, geom_df):
     pytest.importorskip("lxml")
     with open(
@@ -1329,7 +1344,7 @@ def test_ea_dtypes(any_numeric_ea_dtype, parser):
     <a/>
   </row>
 </data>"""
-    df = DataFrame({"a": [NA]}).astype(any_numeric_ea_dtype)
+    df = pd.DataFrame({"a": [pd.NA]}).astype(any_numeric_ea_dtype)
     result = df.to_xml(parser=parser)
     assert equalize_decl(result).strip() == expected
 

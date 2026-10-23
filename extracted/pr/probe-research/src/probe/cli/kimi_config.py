@@ -45,6 +45,7 @@ import urllib.request
 from pathlib import Path
 
 from probe.cli import claude_cli
+from probe.sdk.durable import write_text_atomic
 
 HARNESS_ID = "kimi_code"
 #: The plugins Probe ships to Kimi (the same three folders as everywhere).
@@ -364,11 +365,9 @@ def write_mcp_bearer(root: Path, token: str | None) -> bool:
     if updated == server:
         return False
     manifest["mcpServers"][MCP_SERVER_KEY] = updated
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write(json.dumps(manifest, indent=2) + "\n")
-    os.replace(tmp, path)
+    # A unique temp created 0600 and exclusively: it holds the token before the
+    # replace, and a fixed name could already be taken (or be a link).
+    write_text_atomic(path, json.dumps(manifest, indent=2) + "\n", mode=0o600)
     os.chmod(path, 0o600)
     return True
 

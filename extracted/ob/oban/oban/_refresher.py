@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import telemetry
 from ._looper import Looper
@@ -13,6 +13,20 @@ if TYPE_CHECKING:
     from ._leader import Leader
     from ._producer import Producer
     from ._query import Query
+
+
+def build_refresher(
+    config: dict[str, Any],
+    *,
+    leader: Leader,
+    producers: dict[str, Producer],
+    query: Query,
+) -> Looper:
+    """Build the refresher described by an Oban ``refresher`` config.
+
+    The default for the ``refresher.build`` extension.
+    """
+    return Refresher(leader=leader, producers=producers, query=query, **config)
 
 
 class Refresher(Looper):
@@ -73,14 +87,22 @@ class Refresher(Looper):
 
     async def _refresh(self) -> None:
         with telemetry.span("oban.refresher.refresh", {}) as context:
-            uuids = [producer._uuid for producer in self._producers.values()]
+            producers = list(self._producers.values())
 
-            if uuids:
+            if producers:
+                uuids = [producer._uuid for producer in producers]
                 refreshed = await self._query.refresh_producers(uuids)
             else:
-                refreshed = 0
+                refreshed = []
 
-            context.add({"refreshed_count": refreshed})
+            missing = [prod for prod in producers if prod._uuid not in refreshed]
+
+            for producer in missing:
+                await producer.restore()
+
+            context.add(
+                {"refreshed_count": len(refreshed), "restored_count": len(missing)}
+            )
 
     async def _cleanup(self) -> None:
         if not self._leader.is_leader:

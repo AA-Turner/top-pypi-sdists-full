@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -47,13 +54,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .unstructured_related import (
     RelatedUnstructuredContainer,
     RelatedUnstructuredFolder,
@@ -688,6 +688,7 @@ def _unstructured_folder_to_nested(
         is_incomplete=unstructured_folder.is_incomplete,
         provenance_type=unstructured_folder.provenance_type,
         home_id=unstructured_folder.home_id,
+        delete_handler=unstructured_folder.delete_handler,
         depth=unstructured_folder.depth,
         immediate_upstream=unstructured_folder.immediate_upstream,
         immediate_downstream=unstructured_folder.immediate_downstream,
@@ -738,6 +739,7 @@ def _unstructured_folder_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

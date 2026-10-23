@@ -76,7 +76,12 @@ class KNeighborsTimeSeriesMixin(TimeSeriesMixin):
         elif self._ts_metric == "ctw":
             X_ = _cdist_ctw(X, other_X, **metric_params)
         elif self._ts_metric == "softdtw":
-            X_ = _cdist_soft_dtw(X, other_X, **metric_params)
+            X_ = _cdist_soft_dtw(
+                X,
+                other_X,
+                n_jobs=self.n_jobs,
+                **metric_params
+            )
         elif self._ts_metric == "sax":
             X = self._sax_preprocess(X, **metric_params)
             X_ = _cdist_sax(
@@ -84,7 +89,8 @@ class KNeighborsTimeSeriesMixin(TimeSeriesMixin):
                 self._sax.breakpoints_avg_,
                 self._sax._X_fit_dims_[1],
                 other_X,
-                n_jobs=self.n_jobs)
+                n_jobs=self.n_jobs
+            )
         elif self._ts_metric == "frechet":
             X_ = _cdist_frechet(
                 X,
@@ -160,15 +166,17 @@ class KNeighborsTimeSeriesMixin(TimeSeriesMixin):
         # Code similar to sklearn (sklearn/neighbors/base.py), to make sure
         # that TimeSeriesKNeighbor~(metric='euclidean') has the same results as
         # feeding a distance matrix to sklearn.KNeighbors~(metric='euclidean')
-        kbin = min(n_neighbors - 1, full_dist_matrix.shape[1] - 1)
+        kbin = min(n_neighbors - 1 + int(self_neighbors),
+                   full_dist_matrix.shape[1] - 1)
         # argpartition will make sure the first `kbin` entries are the
         # `kbin` smallest ones (but in arbitrary order) --> complexity: O(n)
         ind = numpy.argpartition(full_dist_matrix, kbin, axis=1)
 
         if self_neighbors:
-            ind = ind[:, 1:]
-        if n_neighbors > full_dist_matrix.shape[1]:
-            n_neighbors = full_dist_matrix.shape[1]
+            keep = ind != numpy.arange(ind.shape[0])[:, None]
+            ind = ind[keep].reshape(ind.shape[0], -1)
+        if n_neighbors > ind.shape[1]:
+            n_neighbors = ind.shape[1]
         ind = ind[:, :n_neighbors]
 
         n_ts = X.shape[0]
@@ -393,7 +401,13 @@ class KNeighborsTimeSeries(KNeighborsTimeSeriesMixin,
             elif self._ts_metric == "ctw":
                 X_ = _cdist_ctw(X, self._ts_fit, **metric_params)
             elif self._ts_metric == "softdtw":
-                X_ = _cdist_soft_dtw(X, self._ts_fit, **metric_params)
+                X_ = _cdist_soft_dtw(
+                    X,
+                    self._ts_fit,
+                    n_jobs=self.n_jobs,
+                    verbose=self.verbose,
+                    **metric_params
+                )
             elif self._ts_metric == "frechet":
                 X_ = _cdist_frechet(
                     X,

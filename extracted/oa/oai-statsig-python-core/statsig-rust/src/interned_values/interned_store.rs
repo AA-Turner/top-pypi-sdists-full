@@ -558,6 +558,7 @@ impl InternedStore {
                 ProtobufHydrationContext {
                     hydrator: adapter.remote_config_value_hydrator(),
                     source_url: &source_url,
+                    sync_trigger: Some(SpecsSyncTrigger::Manual),
                     mmap_project_id: MmapProjectId::for_sdk_key(sdk_key),
                     capture_hydrated_data_store_bytes: false,
                     preserve_session_update_mode: false,
@@ -582,7 +583,9 @@ impl InternedStore {
         } else {
             // JSON hydration can rewrite the response in place before the
             // synchronous mmap parser consumes it.
-            adapter.hydrate_network_response(&mut response).await?;
+            adapter
+                .hydrate_network_response(&mut response, SpecsSyncTrigger::Manual)
+                .await?;
             let graph_guard = acquire_mmap_graph_write_lock().await;
             write_mmap_artifacts(
                 &graph_guard,

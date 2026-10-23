@@ -267,6 +267,9 @@ class CheckResult(_Strict):
     truncated: bool = False
     redacted: bool = False
     locator: dict[str, JsonValue] | None = None
+    #: a structural failure (the answer is not the declared output): the verdict is ``fail_format``
+    #: decided by code, and the judge is never paid for it
+    format_failure: bool = False
 
 
 class JudgeDecision(_Strict):

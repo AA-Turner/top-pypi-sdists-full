@@ -2,9 +2,11 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import os
 import typing
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
+from pyspark.errors.exceptions.base import AnalysisException
 
 from snowflake import snowpark
 from snowflake.snowpark.types import (
@@ -15,6 +17,7 @@ from snowflake.snowpark.types import (
     StructField,
     StructType,
 )
+from snowflake.snowpark_connect.config import is_text_spark_glob_semantics_enabled
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -26,6 +29,10 @@ from snowflake.snowpark_connect.relation.read.path_anchoring import (
     PathClassification,
     consume_recursive_file_lookup,
     filter_list_paths_for_non_recursive_read,
+    glob_stage_relative_scan_prefix,
+    is_spark_data_file_basename,
+    listed_path_glob_base_partition_names,
+    listed_path_glob_matches_parent_dir,
     listed_path_matches_glob_suffix,
 )
 from snowflake.snowpark_connect.relation.read.source_resolution import (
@@ -43,6 +50,35 @@ from snowflake.snowpark_connect.utils.io_utils import (
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
+
+
+def _has_base_path_option(options: typing.Mapping[str, str]) -> bool:
+    return any(key.lower() == "basepath" for key in options)
+
+
+def _only_non_data_files(
+    candidate_paths: list[str], classification: PathClassification | None
+) -> bool:
+    """True when the read found files, but Spark would read none of them as data.
+
+    Spark returns an empty ``value`` frame for a glob whose matches are all
+    hidden (``.x``, ``_x``, ``*._COPYING_``) and for an exact hidden file.
+    A directory read is not covered: a stage directory path without a
+    trailing ``/`` can select nothing while holding data files.
+    """
+    if classification is None:
+        return False
+    if classification.kind == "glob":
+        named = candidate_paths
+    elif classification.kind == "file" and classification.basename:
+        named = [
+            fp
+            for fp in candidate_paths
+            if os.path.basename(fp.rstrip("/")) == classification.basename
+        ]
+    else:
+        return False
+    return bool(named) and not any(is_spark_data_file_basename(fp) for fp in named)
 
 
 def _coerce_partition_value(value: str, datatype: DataType) -> str | int | float:
@@ -88,28 +124,119 @@ def read_text(
         unquoted_path = path
     stage_name = unquoted_path.split("/")[0]
 
-    partition_columns, partition_types = discover_partition_columns_if_recursive(
-        session, path, "text", skip_partition_discovery=skip_partition_discovery
-    )
+    spark_glob_semantics = is_text_spark_glob_semantics_enabled()
+    if not spark_glob_semantics:
+        # snowpark.connect.text.sparkGlobSemantics off: the read before
+        # SNOW-4222758. Partition columns come from the scan prefix, and a
+        # glob is depth-filtered below like a directory.
+        stage_rel_scan = None
+        partition_columns, partition_types = discover_partition_columns_if_recursive(
+            session, path, "text", skip_partition_discovery=skip_partition_discovery
+        )
 
-    if (
-        path_classification is not None
-        and path_classification.kind == "glob"
-        and clean_source_path is not None
-        and path_classification.regex is not None
-    ):
-        files_paths = [
-            fp
-            for fp in files_paths
-            if listed_path_matches_glob_suffix(
-                fp, clean_source_path, path_classification.regex
+        if (
+            path_classification is not None
+            and path_classification.kind == "glob"
+            and clean_source_path is not None
+            and path_classification.regex is not None
+        ):
+            # Invariant for this glob; parse it once, not per listed file.
+            # Kept out of stage_rel_scan, which stays None for
+            # filter_list_paths_for_non_recursive_read on this path.
+            off_rel_scan = (
+                glob_stage_relative_scan_prefix(clean_source_path)
+                if files_paths
+                else None
             )
-        ]
+            files_paths = [
+                fp
+                for fp in files_paths
+                if listed_path_matches_glob_suffix(
+                    fp,
+                    clean_source_path,
+                    path_classification.regex,
+                    stage_rel_scan=off_rel_scan,
+                )
+            ]
+    else:
+        glob_regex = (
+            path_classification.regex
+            if path_classification is not None and path_classification.kind == "glob"
+            else None
+        )
+        glob_path = clean_source_path if glob_regex is not None else None
+        # Invariant for this glob. An empty listing never calls the matchers,
+        # so skip the parse there and keep the previous control flow.
+        stage_rel_scan = (
+            glob_stage_relative_scan_prefix(glob_path)
+            if glob_path is not None and glob_regex is not None and files_paths
+            else None
+        )
 
+        # Spark roots partition inference at a matched file's parent and at a
+        # matched directory itself (PartitioningAwareFileIndex.basePaths,
+        # SNOW-4222758), so a glob whose matches are files has no partition
+        # columns. A glob that names a directory keeps the scan-prefix
+        # discovery, limited to the k=v segments below that directory. ``**``
+        # compiles to ``.*`` and matches every ancestor; the shallowest is the
+        # base, so ``part5/**`` over ``k=1/a.txt`` or ``k=1/sub/a.txt`` stays
+        # ``[value]``, and ``part3/**`` still infers ``k`` below ``t``. SCOS
+        # does not implement basePath; with it set, keep the scan-prefix
+        # discovery the read used before.
+        base_partition_names: set[str] = set()
+        if glob_path is not None and glob_regex is not None:
+            for fp in files_paths:
+                base_partition_names.update(
+                    name.upper()
+                    for name in listed_path_glob_base_partition_names(
+                        fp, glob_path, glob_regex, stage_rel_scan=stage_rel_scan
+                    )
+                )
+        has_base_path = _has_base_path_option(options)
+        if glob_path is not None and not base_partition_names and not has_base_path:
+            partition_columns: list[str] = []
+            partition_types: dict[str, DataType] = {}
+        else:
+            (
+                partition_columns,
+                partition_types,
+            ) = discover_partition_columns_if_recursive(
+                session, path, "text", skip_partition_discovery=skip_partition_discovery
+            )
+            if glob_path is not None and not has_base_path:
+                partition_columns = [
+                    name
+                    for name in partition_columns
+                    if name.upper() in base_partition_names
+                ]
+
+        if glob_path is not None and glob_regex is not None:
+            listed_paths = files_paths
+            files_paths = [
+                fp
+                for fp in listed_paths
+                if listed_path_matches_glob_suffix(
+                    fp, glob_path, glob_regex, stage_rel_scan=stage_rel_scan
+                )
+            ]
+            if not files_paths and not any(
+                listed_path_glob_matches_parent_dir(
+                    fp, glob_path, glob_regex, stage_rel_scan=stage_rel_scan
+                )
+                for fp in listed_paths
+            ):
+                exception = AnalysisException(
+                    f"[PATH_NOT_FOUND] Path does not exist: {glob_path}."
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+                raise exception
+
+    candidate_paths = files_paths
     if not recursive:
         files_paths = filter_list_paths_for_non_recursive_read(
             files_paths,
             list_filter_path if list_filter_path is not None else unquoted_path,
+            stage_rel_scan=stage_rel_scan,
         )
     # Handle both camelCase (lineSep) and lowercase (linesep) option names
     line_sep = options.get("lineSep") or options.get("linesep") or "\n"
@@ -150,6 +277,14 @@ def read_text(
         for part_col in partition_columns:
             fields.append(StructField(part_col, partition_types[part_col], True))
         return session.createDataFrame(result, schema=StructType(fields))
+    if (
+        spark_glob_semantics
+        and not result
+        and (files_paths or _only_non_data_files(candidate_paths, path_classification))
+    ):
+        return session.createDataFrame(
+            [], schema=StructType([StructField(column_name, StringType(), True)])
+        )
     return session.createDataFrame(result, [column_name])
 
 

@@ -276,7 +276,7 @@ def test_version_probe_matches_executes_versionNECd_regex():
     # regex needs \D after the digit run), and Options.getEngine must read 2.
     assert probe.startswith("NEC2") and not probe[4].isdigit(), probe
     assert OPTIONS_ENGINE_PIECE.match(probe).group(1) == "2", probe
-    assert probe.startswith("NEC2momwire.")
+    assert probe.startswith("NEC2 momwire-nec2c [sb] ")
 
 
 @pytest.mark.integration
@@ -5031,14 +5031,16 @@ _SG_DECK = (
 @pytest.mark.integration
 def test_filename_suffix_selects_the_basis():
     """A copy named momwire-nec2c-<basis> IS that engine: the banner stamps
-    the suffix and the -version probe line stays byte-identical (SimNEC's
-    Execute must see the same probe whatever selected the physics)."""
-    from momwire.portal import PROBE_VERSION
+    the suffix, and the -version line names that launcher (momwire#1606: the
+    line carries the launcher's own name, so a caller can tell the copies
+    apart; ``--basis`` and the environment never change it)."""
+    from momwire.portal._portal import probe_version
 
     rc, out, _ = _run_main(
         ["-version"], prog="/opt/simnec/momwire-nec2c-sinusoidal-galerkin"
     )
-    assert rc == 0 and out == f"{PROBE_VERSION}\n"
+    assert rc == 0 and out == f"{probe_version('sinusoidal-galerkin')}\n"
+    assert out.startswith("NEC2 momwire-nec2c-sinusoidal-galerkin ")
     rc, out, _ = _run_main(
         [],
         deck=_SG_DECK,

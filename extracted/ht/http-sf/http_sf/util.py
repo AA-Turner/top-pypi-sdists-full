@@ -1,74 +1,84 @@
 import base64
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from string import ascii_lowercase, ascii_uppercase, digits
-from typing import Any
+from typing import Any, Union
 
-from .errors import StructuredFieldError
 from .state import ParserState
 from .types import DisplayString, JsonDict, StructuredType, Token
 
 SPACE = ord(b" ")
 HTTP_OWS = set(b" \t")
+EPOCH = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+
+def datetime_from_timestamp(value: Union[int, float]) -> datetime:
+    """
+    Convert seconds since the Unix epoch to an aware UTC datetime.
+
+    Unlike datetime.fromtimestamp, this doesn't go through the C library, so
+    it behaves the same on every platform (including for negative values).
+    Raises OverflowError outside the range of datetime (and for infinity), and
+    ValueError for NaN. Other types (e.g., Decimal) raise TypeError.
+    """
+    return EPOCH + timedelta(seconds=value)
 
 
 def discard_ows(state: ParserState) -> None:
     "Consume space characters at the beginning of data."
-    while state.has_data() and state.data[state.cursor] == SPACE:
+    data_len = len(state.data)
+    while state.cursor < data_len and state.data[state.cursor] == SPACE:
         state.cursor += 1
 
 
 def discard_http_ows(state: ParserState) -> None:
     "Consume space or HTAB characters at the beginning of data."
-    while state.has_data() and state.data[state.cursor] in HTTP_OWS:
+    data_len = len(state.data)
+    while state.cursor < data_len and state.data[state.cursor] in HTTP_OWS:
         state.cursor += 1
 
 
 KEY_START_CHARS = set((ascii_lowercase + "*").encode("ascii"))
 KEY_CHARS = set((ascii_lowercase + digits + "_-*.").encode("ascii"))
 UPPER_CHARS = set((ascii_uppercase).encode("ascii"))
+KEY_RE = re.compile(b"[" + re.escape(bytes(sorted(KEY_CHARS))) + b"]*")
+KEY_COMPAT_RE = re.compile(  # KEY_CHARS, plus uppercase
+    b"[" + re.escape(bytes(sorted(KEY_CHARS | UPPER_CHARS))) + b"]*"
+)
 COMPAT = False
 
 
 def parse_key(state: ParserState) -> str:
-    if not state.has_data() or state.data[state.cursor] not in KEY_START_CHARS:
-        if not state.has_data() or not (
+    data_len = len(state.data)
+    if state.cursor >= data_len or state.data[state.cursor] not in KEY_START_CHARS:
+        if state.cursor >= data_len or not (
             COMPAT and state.data[state.cursor] in UPPER_CHARS
         ):
             if re.match(b"^[ \t;,]*$", state.data[state.cursor :]):
-                raise StructuredFieldError(
-                    "Trailing delimiter",
-                    position=state.cursor,
-                    offending_char=(
-                        state.data[state.cursor] if state.has_data() else None
-                    ),
-                )
-            if state.has_data() and state.data[state.cursor] in UPPER_CHARS:
-                raise StructuredFieldError(
-                    "Key cannot begin with an uppercase character",
-                    position=state.cursor,
-                    offending_char=(
-                        state.data[state.cursor] if state.has_data() else None
-                    ),
-                )
-            raise StructuredFieldError(
-                "Key does not begin with lcalpha or *",
-                position=state.cursor,
-                offending_char=state.data[state.cursor] if state.has_data() else None,
-            )
+                state.fail("Trailing delimiter")
+            if state.cursor < data_len and state.data[state.cursor] in UPPER_CHARS:
+                state.fail("Key cannot begin with an uppercase character")
+            state.fail("Key does not begin with lcalpha or *")
     start_cursor = state.cursor
     state.cursor += 1
-    while state.has_data():
-        if state.data[state.cursor] not in KEY_CHARS:
-            if not (COMPAT and state.data[state.cursor] in UPPER_CHARS):
-                return state.data[start_cursor : state.cursor].decode("ascii").lower()
-        state.cursor += 1
+    key_re = KEY_COMPAT_RE if COMPAT else KEY_RE
+    match = key_re.match(state.data, state.cursor)
+    assert match  # can't fail; the pattern accepts zero characters
+    state.cursor = match.end()
     return state.data[start_cursor : state.cursor].decode("ascii").lower()
 
 
 def ser_key(key: str) -> str:
+    # Reject non-str keys before any content checks. For a str subclass, use the
+    # underlying value, ignoring __str__/__format__/__iter__ overrides (e.g.,
+    # on a str Enum). Plain str skips both; type(), not __class__, because a
+    # subclass can't override it.
+    if type(key) is not str:  # pylint: disable=unidiomatic-typecheck
+        if not isinstance(key, str):
+            raise TypeError(f"Key must be a str, not {type(key).__name__}")
+        key = str.__str__(key)
     if len(key) == 0:
         raise ValueError("Zero length key")
     if not all(ord(char) in KEY_CHARS for char in key):
@@ -82,7 +92,7 @@ def to_json(structure: StructuredType, **args: Any) -> str:
     return json.dumps(structure, default=json_dump, **args)
 
 
-def from_json(instr: str) -> StructuredType:
+def from_json(instr: str) -> list[JsonDict]:
     raw_suite = json.loads(instr, parse_float=Decimal, object_hook=json_load)
     suite = []
     for test in raw_suite:
@@ -116,8 +126,8 @@ def json_load(inobj: JsonDict) -> Any:
         return base64.b32decode(inobj["value"])
     if objtype == "date":
         try:
-            return datetime.fromtimestamp(inobj["value"], tz=timezone.utc)
-        except (ValueError, OSError):
+            return datetime_from_timestamp(inobj["value"])
+        except (ValueError, OverflowError):
             return int(inobj["value"])
     if objtype == "displaystring":
         return DisplayString(inobj["value"])

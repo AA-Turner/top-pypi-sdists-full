@@ -19,6 +19,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -35,6 +43,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .databricks_related import RelatedDatabricksNotebook
 from .dbt_related import (
     RelatedDbtModel,
     RelatedDbtSeed,
@@ -58,14 +67,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .databricks_related import RelatedDatabricksNotebook
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -479,6 +480,43 @@ class DatabricksNotebook(Asset):
         if self.guid is not UNSET:
             return RelatedDatabricksNotebook(guid=self.guid)
         return RelatedDatabricksNotebook(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        connection_qualified_name: str,
+        workspace_id: str,
+        notebook_path: str,
+        name: str | None = None,
+    ) -> "DatabricksNotebook":
+        validate_required_fields(
+            ["connection_qualified_name", "workspace_id", "notebook_path"],
+            [connection_qualified_name, workspace_id, notebook_path],
+        )
+        name = name or notebook_path.split("/")[-1]
+        validate_required_fields(["name"], [name])
+        fields = connection_qualified_name.split("/")
+        connector_name = fields[1] if len(fields) > 1 else None
+        return cls(
+            name=name,
+            # The path is kept verbatim, so "/Users/..." yields "{workspace_id}//Users/...",
+            # matching the qualifiedName atlan-databricks-app emits.
+            qualified_name=f"{connection_qualified_name}/{workspace_id}/{notebook_path}",
+            connection_qualified_name=connection_qualified_name,
+            connector_name=connector_name,
+            databricks_notebook_path=notebook_path,
+            databricks_notebook_workspace_id=workspace_id,
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DatabricksNotebook":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DatabricksNotebook":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1004,6 +1042,7 @@ def _databricks_notebook_to_nested(
         is_incomplete=databricks_notebook.is_incomplete,
         provenance_type=databricks_notebook.provenance_type,
         home_id=databricks_notebook.home_id,
+        delete_handler=databricks_notebook.delete_handler,
         depth=databricks_notebook.depth,
         immediate_upstream=databricks_notebook.immediate_upstream,
         immediate_downstream=databricks_notebook.immediate_downstream,
@@ -1054,6 +1093,7 @@ def _databricks_notebook_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

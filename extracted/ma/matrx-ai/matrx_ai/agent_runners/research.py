@@ -9,7 +9,7 @@ from matrx_ai.agents.executor import AgentRunResult
 from matrx_ai.agents.named import NamedAgent
 from matrx_ai.agents.source_tracking import stamp_source_context
 from matrx_ai.config import TokenUsage
-from matrx_ai.mandates import run_mandated
+from matrx_ai.mandates import Offer, RunOptions, carried_principal, get_mandate_runner
 from matrx_ai.tools.models import ToolContext
 
 
@@ -98,21 +98,28 @@ async def scrape_research_condenser_agent_1(
     ctx: ToolContext,
 ) -> AgentResult:
     _stamp_web_research_source()
-    run = await run_mandated(
-        ResearchCondenser1Agent,
-        inputs=_CondenserInputs(
-            instructions=instructions,
-            scraped_content=scraped_content,
-            queries=queries,
-            search_results=search_results,
-        ),
-        offered=_condenser_offered(scraped_content, ctx),
-        # NESTED-AGENT STREAM LEAK: the condensers run inside the
-        # research_web TOOL while the calling agent streams to a user, so
-        # unmuted their condensed text pours onto the caller's user-facing
-        # NDJSON stream. The condensed output still returns via AgentRunResult.
-        suppress_stream=True,
-    )
+    run = (
+        await get_mandate_runner().run(
+            ResearchCondenser1Agent.mandate_key,
+            Offer.from_inputs(
+                ResearchCondenser1Agent,
+                inputs=_CondenserInputs(
+                    instructions=instructions,
+                    scraped_content=scraped_content,
+                    queries=queries,
+                    search_results=search_results,
+                ),
+                offered=_condenser_offered(scraped_content, ctx),
+                # NESTED-AGENT STREAM LEAK: the condensers run inside the
+                # research_web TOOL while the calling agent streams to a user, so
+                # unmuted their condensed text pours onto the caller's user-facing
+                # NDJSON stream. The condensed output still returns via AgentRunResult.
+                suppress_stream=True,
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="named_agent"),
+        )
+    ).raw
     return _to_agent_result(run, "research_condenser_1")
 
 
@@ -124,19 +131,26 @@ async def scrape_research_condenser_agent_2(
     ctx: ToolContext,
 ) -> AgentResult:
     _stamp_web_research_source()
-    run = await run_mandated(
-        ResearchCondenser2Agent,
-        inputs=_CondenserInputs(
-            instructions=instructions,
-            scraped_content=scraped_content,
-            queries=queries,
-            search_results=search_results,
-        ),
-        offered=_condenser_offered(scraped_content, ctx),
-        # NESTED-AGENT STREAM LEAK: the condensers run inside the
-        # research_web TOOL while the calling agent streams to a user, so
-        # unmuted their condensed text pours onto the caller's user-facing
-        # NDJSON stream. The condensed output still returns via AgentRunResult.
-        suppress_stream=True,
-    )
+    run = (
+        await get_mandate_runner().run(
+            ResearchCondenser2Agent.mandate_key,
+            Offer.from_inputs(
+                ResearchCondenser2Agent,
+                inputs=_CondenserInputs(
+                    instructions=instructions,
+                    scraped_content=scraped_content,
+                    queries=queries,
+                    search_results=search_results,
+                ),
+                offered=_condenser_offered(scraped_content, ctx),
+                # NESTED-AGENT STREAM LEAK: the condensers run inside the
+                # research_web TOOL while the calling agent streams to a user, so
+                # unmuted their condensed text pours onto the caller's user-facing
+                # NDJSON stream. The condensed output still returns via AgentRunResult.
+                suppress_stream=True,
+            ),
+            who=carried_principal(),
+            opts=RunOptions(door="named_agent"),
+        )
+    ).raw
     return _to_agent_result(run, "research_condenser_2")

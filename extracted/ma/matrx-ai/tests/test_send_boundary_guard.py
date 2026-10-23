@@ -98,6 +98,15 @@ SEAMS: tuple[Seam, ...] = (
         remedy="Only the send boundary stamps prompt_cache_key onto a config.",
     ),
     Seam(
+        name="prompt_cache_marks assignment",
+        pattern=r"\.prompt_cache_marks\s*=(?!=)",
+        allowed=(CONTROLLER,),
+        remedy=(
+            "Which cache marks a send writes is decided once, by "
+            "send_boundary._set_prompt_cache_marks (config/cache_plan.py)."
+        ),
+    ),
+    Seam(
         name="system-prompt date pin",
         pattern=r"\.date_anchor\s*=(?!=)|\b_pin_system_date\s*\(",
         allowed=(CONTROLLER,),

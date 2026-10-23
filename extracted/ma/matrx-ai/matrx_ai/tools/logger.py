@@ -172,7 +172,12 @@ def _should_persist_tool_call() -> bool:
     if ctx is None:
         return True
     if not getattr(ctx, "store", True):
-        return False
+        # A CONFIDENTIAL (sealed) run keeps its tool-call STRUCTURE rows (name,
+        # status, duration, cost) for its own conversation; the write funnel
+        # empties arguments/output/preview/events/file_path/error text.
+        from matrx_ai.persistence.sealed import writes_sealed_structure
+
+        return writes_sealed_structure(ctx)
     # A run with no conversation (a screen calling a tool through the screen-run
     # door) has no chat.tool_call row to write: the row's conversation_id is NOT
     # NULL with a foreign key. Its record is the runtime execution, and its

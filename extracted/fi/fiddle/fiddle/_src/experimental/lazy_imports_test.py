@@ -39,7 +39,7 @@ class SampleSumClass:
     return a + b
 
 
-class LazyImportsInspectTest(absltest.TestCase, unittest.TestCase):
+class LazyImportsInspectTest(absltest.TestCase, unittest.TestCase):  # pyrefly: ignore[inconsistent-inheritance]
 
   def assert_module(self, m: lazy_imports.ProxyObject, name: str) -> None:
     self.assertIsInstance(m, lazy_imports.ProxyObject)
@@ -58,24 +58,22 @@ class LazyImportsInspectTest(absltest.TestCase, unittest.TestCase):
     # TODO(b/291129675): Add tests for `kw_only=False`` after supporting args.
     with lazy_imports.lazy_imports(kw_only=True):
       # pylint: disable=g-import-not-at-top,g-multiple-import
-      # pytype: disable=import-error
-      import a0
-      import a1.b.c
-      import a2.b.c as c00
-      import a2.b.c as c01  # Importing object twice is the same instance
-      from a2.b import c as c02
+      import a0  # pyrefly: ignore[missing-import]
+      import a1.b.c  # pyrefly: ignore[missing-import]
+      import a2.b.c as c00  # pyrefly: ignore[missing-import]
+      import a2.b.c as c01  # Importing object twice is the same instance  # pyrefly: ignore[missing-import]
+      from a2.b import c as c02  # pyrefly: ignore[missing-import]
 
-      from a3 import c2, c3
-      from a3.b.c import c4
-      # pytype: enable=import-error
+      from a3 import c2, c3  # pyrefly: ignore[missing-import]
+      from a3.b.c import c4  # pyrefly: ignore[missing-import]
       # pylint: enable=g-import-not-at-top,g-multiple-import
 
     with self.subTest('qualname'):
-      self.assert_module(a0, 'a0')
-      self.assert_module(a1.b.c, 'a1.b.c')
+      self.assert_module(a0, 'a0')  # pyrefly: ignore[bad-argument-type]
+      self.assert_module(a1.b.c, 'a1.b.c')  # pyrefly: ignore[bad-argument-type]
       self.assert_module(a1.non_module.c, 'a1:non_module.c')
-      self.assert_module(c00, 'a2.b.c')
-      self.assert_module(c01, 'a2.b.c')
+      self.assert_module(c00, 'a2.b.c')  # pyrefly: ignore[bad-argument-type]
+      self.assert_module(c01, 'a2.b.c')  # pyrefly: ignore[bad-argument-type]
       self.assert_module(c02, 'a2.b.c')
       self.assert_module(c02.non_module.c, 'a2.b.c:non_module.c')
       self.assert_module(c2, 'a3.c2')
@@ -89,36 +87,36 @@ class LazyImportsInspectTest(absltest.TestCase, unittest.TestCase):
       self.assertIs(c02, c00)
 
     with self.subTest('inspect_signature'):
-      self.assert_signature(a0, kw_only=True)
-      self.assert_signature(a1.b.c, kw_only=True)
-      self.assert_signature(c00, kw_only=True)
-      self.assert_signature(c01, kw_only=True)
-      self.assert_signature(c02, kw_only=True)
+      self.assert_signature(a0, kw_only=True)  # pyrefly: ignore[bad-argument-type]
+      self.assert_signature(a1.b.c, kw_only=True)  # pyrefly: ignore[bad-argument-type]
+      self.assert_signature(c00, kw_only=True)  # pyrefly: ignore[bad-argument-type]
+      self.assert_signature(c01, kw_only=True)  # pyrefly: ignore[bad-argument-type]
+      self.assert_signature(c02, kw_only=True)  # pyrefly: ignore[bad-argument-type]
 
     with self.subTest('inspect_getmodule'):
       self.assertEqual(
-          inspect.getmodule(a0).__name__,
+          inspect.getmodule(a0).__name__,  # pyrefly: ignore[missing-attribute]
           'fiddle._src.experimental.lazy_imports',
       )
       self.assertEqual(
-          inspect.getmodule(a1.b.c).__name__,
+          inspect.getmodule(a1.b.c).__name__,  # pyrefly: ignore[missing-attribute]
           'fiddle._src.experimental.lazy_imports',
       )
       self.assertEqual(
-          inspect.getmodule(c00).__name__,
+          inspect.getmodule(c00).__name__,  # pyrefly: ignore[missing-attribute]
           'fiddle._src.experimental.lazy_imports',
       )
       self.assertEqual(
-          inspect.getmodule(c01).__name__,
+          inspect.getmodule(c01).__name__,  # pyrefly: ignore[missing-attribute]
           'fiddle._src.experimental.lazy_imports',
       )
       self.assertEqual(
-          inspect.getmodule(c02).__name__,
+          inspect.getmodule(c02).__name__,  # pyrefly: ignore[missing-attribute]
           'fiddle._src.experimental.lazy_imports',
       )
 
 
-class BuildLazyImportsTest(absltest.TestCase, unittest.TestCase):
+class BuildLazyImportsTest(absltest.TestCase, unittest.TestCase):  # pyrefly: ignore[inconsistent-inheritance]
 
   def test_import_as(self):
     with lazy_imports.lazy_imports(kw_only=True):
@@ -137,7 +135,7 @@ class BuildLazyImportsTest(absltest.TestCase, unittest.TestCase):
 
   def test_wrong_imports_raise_errors(self):
     with lazy_imports.lazy_imports(kw_only=True):
-      from fiddle._src.experimental import not_exist_file  # pylint: disable=g-import-not-at-top # pytype: disable=import-error
+      from fiddle._src.experimental import not_exist_file  # pylint: disable=g-import-not-at-top  # pyrefly: ignore[missing-module-attribute]
 
     cfg = config_lib.Config(not_exist_file.DummyClass, x=2, y=3)
     with self.assertRaises(ModuleNotFoundError):
@@ -181,7 +179,7 @@ class BuildLazyImportsTest(absltest.TestCase, unittest.TestCase):
     obj = building.build(cfg)
     # Note that the lazy imported module is not loaded at build time but delayed
     # until call time when working with fdl.Partial.
-    self.assertIsInstance(obj.func, lazy_imports.ProxyObject)  # pytype: disable=attribute-error
+    self.assertIsInstance(obj.func, lazy_imports.ProxyObject)
     self.assertEqual(obj(x=5), 128)
 
   def test_positional_args(self):
@@ -196,7 +194,7 @@ class BuildLazyImportsTest(absltest.TestCase, unittest.TestCase):
       from fiddle._src.experimental import lazy_imports_test_example  # pylint: disable=g-import-not-at-top
     cfg = partial.Partial(lazy_imports_test_example.my_function, 5)
     obj = building.build(cfg)
-    self.assertIsInstance(obj.func, lazy_imports.ProxyObject)  # pytype: disable=attribute-error
+    self.assertIsInstance(obj.func, lazy_imports.ProxyObject)
     self.assertEqual(obj(2), 130)
 
   def test_kw_only_check(self):
@@ -206,7 +204,7 @@ class BuildLazyImportsTest(absltest.TestCase, unittest.TestCase):
       _ = config_lib.Config(lazy_imports_test_example.MyDataClass, 1, 2)
 
 
-class SerializationTest(absltest.TestCase, unittest.TestCase):
+class SerializationTest(absltest.TestCase, unittest.TestCase):  # pyrefly: ignore[inconsistent-inheritance]
 
   def test_regular_import(self):
     from fiddle._src.experimental import lazy_imports_test_example  # pylint: disable=g-import-not-at-top

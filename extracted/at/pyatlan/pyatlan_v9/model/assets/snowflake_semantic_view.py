@@ -20,6 +20,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -57,6 +64,10 @@ from .semantic_related import (
     RelatedSemanticEntity,
     RelatedSemanticMeasure,
 )
+from .snowflake_related import (
+    RelatedSnowflakeSemanticLogicalTable,
+    RelatedSnowflakeSemanticView,
+)
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
 from .sql_insight_related import (
@@ -64,17 +75,6 @@ from .sql_insight_related import (
     RelatedSqlInsightJoin,
 )
 from .sql_related import RelatedSchema
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .snowflake_related import (
-    RelatedSnowflakeSemanticLogicalTable,
-    RelatedSnowflakeSemanticView,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -481,14 +481,6 @@ class SnowflakeSemanticView(Asset):
         if for_creation:
             if self.connection_qualified_name is UNSET:
                 errors.append("connection_qualified_name is required for creation")
-            if self.schema_name is UNSET:
-                errors.append("schema_name is required for creation")
-            if self.schema_qualified_name is UNSET:
-                errors.append("schema_qualified_name is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"SnowflakeSemanticView validation failed: {errors}")
 
@@ -1058,6 +1050,7 @@ def _snowflake_semantic_view_to_nested(
         is_incomplete=snowflake_semantic_view.is_incomplete,
         provenance_type=snowflake_semantic_view.provenance_type,
         home_id=snowflake_semantic_view.home_id,
+        delete_handler=snowflake_semantic_view.delete_handler,
         depth=snowflake_semantic_view.depth,
         immediate_upstream=snowflake_semantic_view.immediate_upstream,
         immediate_downstream=snowflake_semantic_view.immediate_downstream,
@@ -1108,6 +1101,7 @@ def _snowflake_semantic_view_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

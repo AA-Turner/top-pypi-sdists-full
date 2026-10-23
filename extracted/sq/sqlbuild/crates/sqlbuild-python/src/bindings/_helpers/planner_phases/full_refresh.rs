@@ -1,6 +1,7 @@
 //! Per-model full-refresh resolution and full-rebuild refusals.
 
 use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::project_reads;
 use crate::bindings::_helpers::model_config::typed_config::{config_value, model_values};
 use crate::bindings::_helpers::planner_phases::constants::FULL_REFRESH_DISABLED_REBUILD_CODE;
 use crate::bindings::_helpers::planner_phases::objects::{frozenset, planner_error, strings};
@@ -18,8 +19,6 @@ fn configured_full_refresh<'py>(model: &Bound<'py, PyAny>) -> PyResult<Bound<'py
 }
 
 /// dbt-compatible nullable model full-refresh semantics.
-#[pyfunction]
-#[pyo3(signature = (*, model, cli_full_refresh))]
 pub(crate) fn resolve_model_full_refresh(
     model: &Bound<'_, PyAny>,
     cli_full_refresh: bool,
@@ -32,14 +31,12 @@ pub(crate) fn resolve_model_full_refresh(
 }
 
 /// Names of models effectively full refreshed for this invocation.
-#[pyfunction]
-#[pyo3(signature = (*, project, cli_full_refresh))]
 pub(crate) fn effectively_full_refreshed_model_names<'py>(
     project: &Bound<'py, PyAny>,
     cli_full_refresh: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
     let mut names: Vec<_> = Vec::new();
-    for model in native_field(project, "models")?.try_iter()? {
+    for model in project_reads::models(project)?.try_iter()? {
         let model = model?;
         if resolve_model_full_refresh(&model, cli_full_refresh)? {
             names.push(model_reads::name_object(&model)?);

@@ -15,9 +15,21 @@ use crate::{OverrideAdapter, SecondaryExposure, StatsigErr};
 
 const MAX_RECURSIVE_DEPTH: u16 = 300;
 
-// (gate_name, (bool_value, rule_id, secondary_exposures))
-type NestedGateMemo =
-    AHashMap<InternedString, (bool, Option<InternedString>, Vec<SecondaryExposure>)>;
+#[derive(Clone, Copy)]
+pub(crate) struct NestedGateSamplingMetadata {
+    pub sampling_rate: Option<u64>,
+    pub forward_all_exposures: Option<bool>,
+}
+
+pub struct NestedGateMemoEntry {
+    pub(crate) bool_value: bool,
+    pub(crate) rule_id: Option<InternedString>,
+    pub(crate) secondary_exposures: Vec<SecondaryExposure>,
+    pub(crate) sampling_metadata: Option<NestedGateSamplingMetadata>,
+    pub(crate) has_seen_analytical_gates: Option<bool>,
+}
+
+type NestedGateMemo = AHashMap<InternedString, NestedGateMemoEntry>;
 
 pub(crate) struct NestedExperimentExposure {
     pub(crate) experiment_name: InternedString,
@@ -40,6 +52,7 @@ pub struct EvaluatorContext<'a> {
     pub app_id: Option<&'a DynamicValue>,
     pub override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
     pub nested_gate_memo: NestedGateMemo,
+    pub(crate) sampling_metadata_revision: u64,
     pub should_user_third_party_parser: bool,
     pub(crate) capture_nested_experiment_exposures: bool,
     pub(crate) nested_experiment_exposures: Vec<NestedExperimentExposure>,
@@ -70,6 +83,7 @@ impl<'a> EvaluatorContext<'a> {
             override_adapter,
             nested_count: 0,
             nested_gate_memo: AHashMap::new(),
+            sampling_metadata_revision: 0,
             should_user_third_party_parser,
             capture_nested_experiment_exposures,
             nested_experiment_exposures: Vec::new(),
@@ -80,6 +94,7 @@ impl<'a> EvaluatorContext<'a> {
     pub fn reset_result(&mut self) {
         self.nested_count = 0;
         self.result.clear_for_reuse();
+        self.sampling_metadata_revision = self.sampling_metadata_revision.wrapping_add(1);
     }
 
     pub fn finalize_evaluation(&mut self, spec: &Spec, rule: Option<&Rule>) {
@@ -94,8 +109,7 @@ impl<'a> EvaluatorContext<'a> {
         sampling_rate: Option<u64>,
         forward_all_exposures: Option<bool>,
     ) {
-        self.result.sampling_rate = sampling_rate;
-        self.result.forward_all_exposures = forward_all_exposures;
+        self.set_sampling_metadata(sampling_rate, forward_all_exposures);
 
         if self.nested_count > 0 {
             self.nested_count -= 1;
@@ -111,6 +125,16 @@ impl<'a> EvaluatorContext<'a> {
         }
 
         self.result.undelegated_secondary_exposures = Some(self.result.secondary_exposures.clone());
+    }
+
+    pub(crate) fn set_sampling_metadata(
+        &mut self,
+        sampling_rate: Option<u64>,
+        forward_all_exposures: Option<bool>,
+    ) {
+        self.result.sampling_rate = sampling_rate;
+        self.result.forward_all_exposures = forward_all_exposures;
+        self.sampling_metadata_revision = self.sampling_metadata_revision.wrapping_add(1);
     }
 
     pub fn prep_for_nested_evaluation(&mut self) -> Result<(), StatsigErr> {

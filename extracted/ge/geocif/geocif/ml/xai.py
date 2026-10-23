@@ -210,6 +210,11 @@ def explain(df_train, df_test, **kwargs):
             f"{bg_year_range[0]}..{bg_year_range[1]} "
             f"({len(X_train_bg)} of {len(X_train_feat)} rows)"
         )
+    # What E[f(X)] (the waterfall's base value) averages over, stored with the
+    # SHAP rows so a reader of the DB (viz/shap_explained.py) can say it.
+    bg_years = (f"{bg_year_range[0]}-{bg_year_range[1]}"
+                if bg_year_range != (None, None) else "all")
+    bg_rows = None
 
     shapiq_used = False
     if _is_tabpfn_family(model_name):
@@ -233,6 +238,7 @@ def explain(df_train, df_test, **kwargs):
             shap_values = shap_compat_train
             shap_values_test = shap_compat_test
             shapiq_used = True
+            bg_rows = len(bg_sample)
 
             # Q2: pairwise interactions (k-SII order=2) on the test set
             region_name_for_files = (
@@ -276,6 +282,9 @@ def explain(df_train, df_test, **kwargs):
             bg_pos = np.flatnonzero(X_train_feat.index.isin(X_train_bg.index))
             bg_c = X_tr_c.iloc[bg_pos] if len(bg_pos) else X_tr_c
             background = shap.sample(bg_c, min(slow.get("background", 50), len(bg_c)), random_state=0)
+            bg_rows = len(background)
+            if not len(bg_pos):
+                bg_years = "all"
             explainer = shap.PermutationExplainer(
                 lambda A: np.asarray(predict_fn(decode(A)), dtype=float), background
             )
@@ -325,6 +334,7 @@ def explain(df_train, df_test, **kwargs):
             X_train_num_bg = X_train_bg.select_dtypes(include=[np.number])
             n_bg = min(50, len(X_train_num_bg))
             background = shap.sample(X_train_num_bg, n_bg, random_state=0)
+            bg_rows = len(background)
             explainer = shap.PermutationExplainer(model.predict, background)
             n_features_num = X_train_num.shape[1]
             max_evals = max(500, 2 * n_features_num + 1)
@@ -338,6 +348,9 @@ def explain(df_train, df_test, **kwargs):
             explainer = shap.TreeExplainer(model)
             shap_values = explainer(X_train_feat)
             shap_values_test = explainer(X_test_feat)
+            # Path-dependent TreeExplainer: E[f(X)] is over the model's own
+            # training rows, not the last-5-years slice.
+            bg_rows, bg_years = len(X_train_feat), "all"
 
     ############################
     # SHAP beeswarm plot
@@ -370,10 +383,12 @@ def explain(df_train, df_test, **kwargs):
             continue
 
         plt.title(f"Region: {region_name}\n{forecast_season}")
-        plt.tight_layout()
-
+        # No tight_layout here: shap decides whether each bar's number fits
+        # inside the bar while drawing, so shrinking the axes afterwards cut
+        # the numbers of narrow bars off. A tight bounding box at save time
+        # trims the margins without resizing anything.
         fname = f"waterfall_{region_name}_{crop}_{forecast_season}.png"
-        plt.savefig(out_dir / fname, dpi=250)
+        plt.savefig(out_dir / fname, dpi=250, bbox_inches="tight")
         plt.close()
 
     ############################
@@ -383,14 +398,20 @@ def explain(df_train, df_test, **kwargs):
         _store_shap_to_db(
             db_path, shap_values_test, df_test, features,
             country, crop, model_name, forecast_season,
+            background=(bg_rows, bg_years),
         )
 
 
 def _store_shap_to_db(
     db_path, shap_values, df_test, features,
     country, crop, model_name, forecast_season,
+    background=None,
 ):
-    """Store SHAP values and feature importance to the SQLite database."""
+    """Store SHAP values and feature importance to the SQLite database.
+
+    ``background`` is (rows, years) of the sample the base value averages over,
+    stored as ``Background Rows`` / ``Background Years`` when known.
+    """
     # ── shap_values table: one row per test observation ──
     shap_cols = {f"SHAP_{feat}": shap_values.values[:, i]
                  for i, feat in enumerate(features)}
@@ -406,6 +427,9 @@ def _store_shap_to_db(
     df_shap["Model"] = model_name
     df_shap["Forecast Season"] = str(forecast_season)
     df_shap["Base Value"] = shap_values.base_values
+    if background is not None and background[0] is not None:
+        df_shap["Background Rows"] = int(background[0])
+        df_shap["Background Years"] = str(background[1])
 
     if "Region" in df_test.columns:
         df_shap["Region"] = df_test["Region"].values

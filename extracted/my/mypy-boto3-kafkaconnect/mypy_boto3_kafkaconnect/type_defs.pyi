@@ -105,6 +105,8 @@ __all__ = (
     "LogDeliveryDescriptionTypeDef",
     "LogDeliveryTypeDef",
     "PaginatorConfigTypeDef",
+    "PauseConnectorRequestTypeDef",
+    "PauseConnectorResponseTypeDef",
     "PluginDescriptionTypeDef",
     "PluginTypeDef",
     "ProvisionedCapacityDescriptionTypeDef",
@@ -113,6 +115,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RestartConnectorRequestTypeDef",
     "RestartConnectorResponseTypeDef",
+    "ResumeConnectorRequestTypeDef",
+    "ResumeConnectorResponseTypeDef",
     "S3LocationDescriptionTypeDef",
     "S3LocationTypeDef",
     "S3LogDeliveryDescriptionTypeDef",
@@ -325,9 +329,15 @@ class ListWorkerConfigurationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     namePrefix: NotRequired[str]
 
+class PauseConnectorRequestTypeDef(TypedDict):
+    connectorArn: str
+
 class RestartConnectorRequestTypeDef(TypedDict):
     connectorArn: str
     onlyFailedTasks: NotRequired[bool]
+
+class ResumeConnectorRequestTypeDef(TypedDict):
+    connectorArn: str
 
 class S3LogDeliveryDescriptionTypeDef(TypedDict):
     bucket: NotRequired[str]
@@ -416,7 +426,17 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class PauseConnectorResponseTypeDef(TypedDict):
+    connectorArn: str
+    connectorOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class RestartConnectorResponseTypeDef(TypedDict):
+    connectorArn: str
+    connectorOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ResumeConnectorResponseTypeDef(TypedDict):
     connectorArn: str
     connectorOperationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -542,6 +562,7 @@ class UpdateConnectorRequestTypeDef(TypedDict):
     currentVersion: str
     capacity: NotRequired[CapacityUpdateTypeDef]
     connectorConfiguration: NotRequired[Mapping[str, str]]
+    skipHealthValidation: NotRequired[bool]
 
 class CustomPluginSummaryTypeDef(TypedDict):
     creationTime: NotRequired[datetime]

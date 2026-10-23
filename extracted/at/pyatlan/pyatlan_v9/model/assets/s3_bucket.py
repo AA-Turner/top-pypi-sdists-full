@@ -19,6 +19,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,18 +52,10 @@ from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
+from .s3_related import RelatedS3Bucket, RelatedS3Object, RelatedS3Prefix
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid
-
-from .s3_related import RelatedS3Bucket, RelatedS3Object, RelatedS3Prefix
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -765,6 +765,7 @@ def _s3_bucket_to_nested(s3_bucket: S3Bucket) -> S3BucketNested:
         is_incomplete=s3_bucket.is_incomplete,
         provenance_type=s3_bucket.provenance_type,
         home_id=s3_bucket.home_id,
+        delete_handler=s3_bucket.delete_handler,
         depth=s3_bucket.depth,
         immediate_upstream=s3_bucket.immediate_upstream,
         immediate_downstream=s3_bucket.immediate_downstream,
@@ -811,6 +812,7 @@ def _s3_bucket_from_nested(nested: S3BucketNested) -> S3Bucket:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

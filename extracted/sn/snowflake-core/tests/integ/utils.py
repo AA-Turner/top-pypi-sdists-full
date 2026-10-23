@@ -11,14 +11,12 @@ from contextlib import contextmanager
 
 import typing_extensions
 
-import snowflake.connector
-
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor
 from snowflake.core._utils import temporary_paramstyle
 from snowflake.core.exceptions import NotFoundError
 
-from ..utils import is_prod_or_preprod, random_string
+from ..utils import random_string
 
 
 if typing.TYPE_CHECKING:
@@ -111,7 +109,7 @@ def get_task_history(
     connection: SnowflakeConnection = session
 
     scheduled_time_range_start = kwargs.pop(
-        "scheduled_time_range_start", datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(hours=1)
+        "scheduled_time_range_start", datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(hours=1)
     )
     clauses = list[str]()
     bind_param_values = []
@@ -195,14 +193,6 @@ def should_disable_setup_for_spcs(config):
 
 def should_disable_setup_for_credentials(config):
     return config.get("should_disable_setup_for_credentials", "") == "true"
-
-
-def get_snowflake_version(cursor):
-    return cursor.execute("SELECT CURRENT_VERSION()").fetchone()[0].strip()
-
-
-def get_snowflake_region(cursor):
-    return cursor.execute("SELECT CURRENT_REGION()").fetchone()[0].strip()
 
 
 def connection_keys():
@@ -291,21 +281,6 @@ def upload_given_files_to_stage(cursor, stage_url, files):
         raise Exception(f"Error uploading files to the stage:\n {e.with_traceback(None)}") from e
 
 
-def execute_notebook(cursor, notebook_name, stage_full_path, warehouse_name, notebook_file_name) -> bool:
-    try:
-        cursor.execute(
-            f"CREATE OR REPLACE NOTEBOOK {notebook_name} "
-            f"FROM '@{stage_full_path}' "
-            f"MAIN_FILE = '{notebook_file_name}' QUERY_WAREHOUSE = {warehouse_name}"
-        )
-        cursor.execute(f"ALTER NOTEBOOK {notebook_name} ADD LIVE VERSION FROM LAST")
-        cursor.execute(f"EXECUTE NOTEBOOK {notebook_name}()")
-        return False
-    except Exception as e:
-        print(f"Error creating and executing the notebook file {notebook_file_name}:\n {e.with_traceback(None)}")
-        return True
-
-
 def setup_spcs(target_account_name=None, executing_account_cursor=None, instance_families_to_create=None):
     if instance_families_to_create is None:
         instance_families_to_create = ["FAKE"]
@@ -351,34 +326,3 @@ def setup_credentials(cursor):
     cursor.execute(add_cred_to_pool_cmd["AWS"])
     cursor.execute(add_cred_to_pool_cmd["AZURE"])
     cursor.execute(add_cred_to_pool_cmd["GOOGLE"])
-
-
-def setup_account_for_notebook(cursor, config):
-    # if it's a prod or a preprod account there shouldn't be requirement to do this setup
-    if is_prod_or_preprod(get_snowflake_version(cursor), get_snowflake_region(cursor)):
-        return
-
-    sf_connection_parameters = connection_config(connection_name="sf_account", error_if_not_exists=False)
-
-    if config["account"] != "snowflake" and sf_connection_parameters is None:
-        raise Exception("Account is not snowflake or prod and sf_account connection parameters are not provided")
-
-    if config["account"] == "snowflake":
-        setup_spcs(executing_account_cursor=cursor, instance_families_to_create=["CPU_X64_XS", "FAKE"])
-        cursor.execute("ALTER ACCOUNT SET FEATURE_NOTEBOOKS_NON_INTERACTIVE_EXECUTION = 'ENABLED';")
-        setup_credentials(cursor)
-    else:
-        _keys = connection_keys()
-        with snowflake.connector.connect(
-            **{k: sf_connection_parameters[k] for k in _keys if k in sf_connection_parameters}
-        ) as sf_conn:
-            target_account_name = config["account"]
-            setup_spcs(
-                executing_account_cursor=sf_conn.cursor(),
-                target_account_name=target_account_name,
-                instance_families_to_create=["CPU_X64_XS", "FAKE"],
-            )
-            sf_conn.cursor().execute(
-                f"ALTER ACCOUNT {target_account_name} SET FEATURE_NOTEBOOKS_NON_INTERACTIVE_EXECUTION = 'ENABLED';"
-            )
-            setup_credentials(sf_conn.cursor())

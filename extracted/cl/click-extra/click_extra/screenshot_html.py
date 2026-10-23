@@ -26,14 +26,13 @@ so the two documents look like the same terminal.
 
 from __future__ import annotations
 
+from functools import partial
 from html import escape
 
-from .screenshot_presets import (
-    CAPTURE_FONT_STACK,
-    CAPTURE_FOREGROUND,
-    CaptureBackground,
-    resolve_palette,
-)
+from click._utils import UNSET
+
+from ._deprecated import warn_deprecated_argument
+from .screenshot_presets import CAPTURE_FONT_STACK, CaptureBackground, resolve_palette
 from .screenshot_svg import (
     DEFAULT_BORDER_WIDTH,
     DEFAULT_RADIUS,
@@ -45,13 +44,28 @@ from .screenshot_svg import (
     WATERMARK_INSET,
     WATERMARK_SIZE,
     WATERMARK_URL,
-    credit_segments,
+    credit_markup,
 )
 from .styling import ansi_to_html
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from click._utils import T_UNSET
+
     from .screenshot_presets import TerminalPalette, TerminalPreset, WindowButtons
+
+
+def _credit_link(url: str, name: str) -> str:
+    """Wrap the credit line's package name in an HTML link.
+
+    The anchor inherits the credit's own gray rather than taking the page's link
+    color, which would make the mark the loudest thing in a capture whose point
+    is the terminal above it.
+    """
+    return (
+        f'<a href="{escape(url)}" style="color: inherit">'
+        f"{escape(name, quote=False)}</a>"
+    )
 
 
 def render_html(
@@ -69,11 +83,11 @@ def render_html(
     shadow: str = NO_PAINT,
     margin: int = 0,
     padding: int = 0,
-    buttons: WindowButtons | None = None,
-    buttons_color: str = CAPTURE_FOREGROUND,
+    buttons: WindowButtons | T_UNSET | None = UNSET,
+    buttons_color: str | T_UNSET = UNSET,
     font_stack: str = CAPTURE_FONT_STACK,
-    titlebar: str = NO_PAINT,
-    collapse_titlebar: bool = False,
+    titlebar: str | T_UNSET = UNSET,
+    collapse_titlebar: bool | T_UNSET = UNSET,
     opacity: float = OPAQUE,
     watermark: str = "",
     watermark_color: str = WATERMARK_INK,
@@ -118,11 +132,12 @@ def render_html(
         {func}`~click_extra.screenshot_svg.render_svg`.
     :param margin: pixels left around the block, on all four sides.
     :param padding: pixels added inside the block, on top of its own.
-    :param buttons: ignored. HTML reflows with the page embedding it, so it
-        carries the text and its colors, not a window drawn around them.
-    :param buttons_color: ignored, see `buttons`.
-    :param titlebar: ignored, see `buttons`.
-    :param collapse_titlebar: ignored, see `buttons`.
+    :param buttons: deprecated, and ignored. HTML reflows with the page embedding
+        it, so it carries the text and its colors, not a window drawn around
+        them. Passing it warns, and stops working in `10.0.0`.
+    :param buttons_color: deprecated, see `buttons`.
+    :param titlebar: deprecated, see `buttons`.
+    :param collapse_titlebar: deprecated, see `buttons`.
     :param opacity: how solid the block's background is, from
         {data}`~click_extra.screenshot_svg.OPAQUE` down to `0.0`, where the page shows
         straight through the text.
@@ -132,6 +147,16 @@ def render_html(
     :param watermark_url: where the package name points. Empty links nothing.
     :return: the rendered markup.
     """
+    for name, value in (
+        ("buttons", buttons),
+        ("buttons_color", buttons_color),
+        ("titlebar", titlebar),
+        ("collapse_titlebar", collapse_titlebar),
+    ):
+        if value is not UNSET:
+            warn_deprecated_argument(
+                "render_html", name, "render_svg() to draw a window"
+            )
     if palette is None:
         palette = resolve_palette(preset, background)
     chrome, ink = palette.background, palette.foreground
@@ -158,18 +183,12 @@ def render_html(
         f'overflow-x: auto">{ansi_to_html(escape(text, quote=False))}</pre>'
     )
     if watermark:
-        credit = escape(watermark, quote=False)
-        segments = credit_segments(watermark) if watermark_url else None
-        if segments:
-            before, name, after = segments
-            # The anchor inherits the credit's own gray rather than taking the
-            # page's link color, which would make the mark the loudest thing in
-            # a capture whose point is the terminal above it.
-            credit = (
-                f"{escape(before, quote=False)}"
-                f'<a href="{escape(watermark_url)}" style="color: inherit">'
-                f"{escape(name, quote=False)}</a>{escape(after, quote=False)}"
-            )
+        credit = credit_markup(
+            watermark,
+            watermark_url,
+            _credit_link,
+            escape=partial(escape, quote=False),
+        )
         body += (
             f'\n<div style="margin: 0 {margin}px {margin}px; text-align: right; '
             f"color: {watermark_color}; font-family: {font_stack}; "

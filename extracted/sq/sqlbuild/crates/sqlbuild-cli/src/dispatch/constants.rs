@@ -205,7 +205,7 @@ pub(crate) const FRESHNESS_ROUTE: Route = routed(
     REQUEST_KEYWORD_SHAPE,
 );
 
-const TEST_FIELDS: [Field; 13] = [
+const TEST_FIELDS: [Field; 15] = [
     PROJECT_DIR,
     NO_SQL_VALIDATION,
     NO_COLOR,
@@ -219,6 +219,8 @@ const TEST_FIELDS: [Field; 13] = [
     attr("case_name", "case"),
     same("inspect"),
     same("test_timeout"),
+    same("since"),
+    same("explain"),
 ];
 const TEST_ARGUMENTS: [Field; 1] = [request(class("TestCommandRequest"), &TEST_FIELDS)];
 pub(crate) const TEST_ROUTE: Route = routed(
@@ -484,7 +486,7 @@ pub(crate) const DEBUG_ROUTE: Route = routed(
     },
 );
 
-const JANITOR_FIELDS: [Field; 8] = [
+const JANITOR_FIELDS: [Field; 10] = [
     PROJECT_DIR,
     NO_COLOR,
     same("auto_approve"),
@@ -496,6 +498,8 @@ const JANITOR_FIELDS: [Field; 8] = [
     ),
     SELECTED_TARGET,
     same("as_target"),
+    same("verbose"),
+    JSON_OUTPUT,
 ];
 const JANITOR_ARGUMENTS: [Field; 1] = [request(class("JanitorCommandRequest"), &JANITOR_FIELDS)];
 pub(crate) const JANITOR_ROUTE: Route = routed(
@@ -715,7 +719,7 @@ const SCENARIO_COMMON: [Field; 7] = [
     EXCLUDE,
     attr("retain", "scenario_retain"),
 ];
-const SCENARIO_TEST_FIELDS: [Field; 16] = [
+const SCENARIO_TEST_FIELDS: [Field; 18] = [
     SCENARIO_COMMON[0],
     SCENARIO_COMMON[1],
     SCENARIO_COMMON[2],
@@ -732,6 +736,8 @@ const SCENARIO_TEST_FIELDS: [Field; 16] = [
     JSON_OUTPUT,
     JSON_OUTPUT_PATH,
     same("scenario_timeout"),
+    same("since"),
+    same("explain"),
 ];
 const SCENARIO_TEST_ARGUMENTS: [Field; 1] = [request(
     class("ScenarioTestCommandRequest"),

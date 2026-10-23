@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional, Union
 from snowflake.connector import SnowflakeConnection
 
 from ._common import TokenType
+from ._http_requests import _validate_tls_settings
 from ._internal.root_configuration import RootConfiguration
 from ._root import Root
 from ._utils import fix_hostname as _fix_hostname
@@ -67,6 +68,7 @@ class RESTRoot(Root):
         self._restConnection: Optional[RESTConnection] = None
         if isinstance(connection, RESTConnection):
             # DO NOT call super.__init__() as it expects either SnowflakeConnection or Session
+            _validate_tls_settings()
             self._restConnection = connection
             logger.info("New root object was created for %r", connection)
             self._refresh_parameters()

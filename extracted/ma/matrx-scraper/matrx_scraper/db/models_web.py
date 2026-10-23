@@ -907,9 +907,9 @@ class TempBrandFirmographic(MatrxEntity):
     funding = TextField()
     google_place_id = TextField()
     knowledge_graph_id = TextField()
-    organization_id = UUIDField(null=False)
-    created_by = UUIDField()
-    updated_by = UUIDField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
@@ -1275,7 +1275,7 @@ class EndpointFamilySweepState(MatrxEntity):
     _is_versioned = False
     _has_soft_delete = False
     _is_org_scoped = False
-    _rls_variant = "component"
+    _rls_variant = "system"
 
 class Finding(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -1833,9 +1833,9 @@ class TempBrandPresence(MatrxEntity):
     location_id = ForeignKey(to_model=BusinessLocation, to_column='id', to_schema='web', )
     source_fact_id = ForeignKey(to_model=BusinessFact, to_column='id', to_schema='web', )
     source_item_id = ForeignKey(to_model=DiscoveredItem, to_column='id', to_schema='web', )
-    organization_id = UUIDField(null=False)
-    created_by = UUIDField()
-    updated_by = UUIDField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()
@@ -1887,9 +1887,9 @@ class TempBrandRecognition(MatrxEntity):
     url = TextField()
     source_fact_id = ForeignKey(to_model=BusinessFact, to_column='id', to_schema='web', )
     source_item_id = ForeignKey(to_model=DiscoveredItem, to_column='id', to_schema='web', )
-    organization_id = UUIDField(null=False)
-    created_by = UUIDField()
-    updated_by = UUIDField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     deleted_at = DateTimeField()

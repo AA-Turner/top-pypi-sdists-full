@@ -24,16 +24,16 @@ from __future__ import annotations
 
 import os
 import re
-from configparser import RawConfigParser
 from contextlib import contextmanager
 
 import click
 from boltons.iterutils import flatten_iter
-from extra_platforms import is_windows
+
+from ._utils import IS_WINDOWS
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Generator, Iterable, Mapping
     from typing import Any
 
     TEnvVarID = str | None
@@ -59,7 +59,20 @@ def parse_envvar_flag(value: str) -> bool:
     Callers handle presence themselves: pass the value only when the variable
     is set, an unset variable being no vote at all.
     """
+    # Deferred import: keeps configparser off the startup path of every CLI.
+    from configparser import RawConfigParser
+
     return RawConfigParser.BOOLEAN_STATES.get(value.lower(), True)
+
+
+def normalize_envvar_id(envvar_id: str) -> str:
+    """Spell an environment variable name the way the running platform reads it.
+
+    Windows looks variables up case-insensitively, and the standard library
+    upper-cases every name it stores: see {func}`merge_envvar_ids`. Every other
+    platform keeps the name as given.
+    """
+    return envvar_id.upper() if IS_WINDOWS else envvar_id
 
 
 def merge_envvar_ids(*envvar_ids: TEnvVarID | TNestedEnvVarIDs) -> tuple[str, ...]:
@@ -77,15 +90,12 @@ def merge_envvar_ids(*envvar_ids: TEnvVarID | TNestedEnvVarIDs) -> tuple[str, ..
     Returns a tuple of strings. The result is ready to be used as the `envvar`
     parameter for Click's options or arguments.
     """
-    ids = []
-    for envvar in flatten_iter(envvar_ids):
-        if envvar:
-            if is_windows():
-                envvar = envvar.upper()
-            # Deduplicate names.
-            if envvar not in ids:
-                ids.append(envvar)
-    return tuple(ids)
+    # A dict keeps the first occurrence of each name, in order.
+    return tuple(
+        dict.fromkeys(
+            normalize_envvar_id(envvar) for envvar in flatten_iter(envvar_ids) if envvar
+        )
+    )
 
 
 def clean_envvar_id(envvar_id: str) -> str:
@@ -146,7 +156,7 @@ def param_envvar_ids(
 def temporary_env(
     set_vars: Mapping[str, str] | None = None,
     unset_vars: Iterable[str] = (),
-) -> Iterator[None]:
+) -> Generator[None, None, None]:
     """Apply environment variable changes for the block's duration, then restore.
 
     *set_vars* are written into {data}`os.environ` and *unset_vars* removed. On

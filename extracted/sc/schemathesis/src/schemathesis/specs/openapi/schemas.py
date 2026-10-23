@@ -26,11 +26,9 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.jsonschema import Bundler
 from schemathesis.core.jsonschema.bundler import BundleCache
-from schemathesis.core.jsonschema.patterns import update_quantifier
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
-from schemathesis.core.spec import CoverageCapabilities
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.transforms import jsonify_python_specific_types
 from schemathesis.core.transport import (
@@ -42,7 +40,14 @@ from schemathesis.core.transport import (
 from schemathesis.engine.link_calibration import LinkCalibrationState
 from schemathesis.generation.case import Case
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
-from schemathesis.generation.meta import ComponentInfo
+from schemathesis.generation.meta import (
+    CONTENT_TYPE_PROBES,
+    CaseMetadata,
+    ComponentInfo,
+    CoverageScenario,
+    TestPhase,
+    coverage_scenario,
+)
 from schemathesis.resources import ExtraDataSource, ResourcePool
 from schemathesis.specs.openapi import adapter
 from schemathesis.specs.openapi.adapter.parameters import RequestBodySchemaCache
@@ -65,7 +70,7 @@ from .examples import get_strategies_from_examples
 from .operations import SCHEMA_PARSING_ERRORS, OperationLoader, RawSchemaVersion
 from .serialization import _build_urlencoded_serializer
 from .stateful import collect_transitions, create_state_machine
-from .utils import PathTemplate, coerce_wire_string, compile_path_template, parameter_types, parse_spec_version
+from .utils import PathTemplate, compile_path_template, parse_spec_version, read_from_wire
 from .validation import validate_documented_response
 
 if TYPE_CHECKING:
@@ -103,6 +108,24 @@ _V3_1 = version.parse("3.1")
 _V3_2 = version.parse("3.2")
 
 
+def _validation_value(meta: CaseMetadata, location: ParameterLocation, value: object, current_hash: int) -> object:
+    raw = meta.raw_containers.get(location)
+    # When the container still equals its generated form, validate the typed
+    # snapshot, as coverage stringifies query/path values for the wire and the
+    # validation schema is expressed in the typed form.
+    if current_hash == meta._initial_hashes.get(location) and raw is not None:
+        return raw
+    if isinstance(value, Mapping) and isinstance(raw, Mapping):
+        # A key still equal to its generated wire form validates against the typed snapshot;
+        # a key a hook overwrote (or one auth/overrides added) validates against its live value.
+        original = meta._initial_containers.get(location, {})
+        return {
+            key: raw[key] if key in raw and key in original and original[key] == current else current
+            for key, current in value.items()
+        }
+    return value
+
+
 @dataclass(eq=False, repr=False)
 class OpenApiSchema(BaseSchema):
     adapter: SpecificationAdapter = None  # type: ignore[assignment]
@@ -128,7 +151,7 @@ class OpenApiSchema(BaseSchema):
         self.raw_schema_version = RawSchemaVersion()
         self._operation_lookup = OperationLookup(self, HTTP_METHODS_SCHEMA)
         self._operations = OperationLoader(self)
-        # Path-level dedup of undeclared-method coverage probes for callers that pass no run-scoped set.
+        # Path-level dedup of undeclared-method coverage probes for callers that pass no run-scoped session.
         self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
         # Per-operation security overlays populated by runtime auth inference. Empty when the server
         # never enforces auth on a declared-public operation; otherwise generations consult this
@@ -244,13 +267,6 @@ class OpenApiSchema(BaseSchema):
         return self.analysis.extra_data_source
 
     @override
-    def get_coverage_capabilities(self) -> CoverageCapabilities:
-        return CoverageCapabilities(
-            update_pattern=update_quantifier,
-            validator_cls=self.adapter.jsonschema_validator_cls,
-        )
-
-    @override
     def record_runtime_observations(
         self,
         *,
@@ -281,7 +297,6 @@ class OpenApiSchema(BaseSchema):
         generation_config: GenerationConfig,
         extra_data_source: ResourcePool | None = None,
         error_feedback: ErrorFeedbackStore | None = None,
-        unexpected_methods_seen: set[tuple[str, str]] | None = None,
         session: GenerationSession | None = None,
     ) -> Iterator[Case]:
         from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
@@ -294,8 +309,8 @@ class OpenApiSchema(BaseSchema):
             unexpected_methods=phases_config.coverage.unexpected_methods,
             generation_config=generation_config,
             extra_data_source=extra_data_source,
-            unexpected_methods_seen=unexpected_methods_seen
-            if unexpected_methods_seen is not None
+            unexpected_methods_seen=session.unexpected_methods_seen
+            if session is not None
             else self.coverage_unexpected_methods_seen,
             error_feedback=error_feedback,
             session=session,
@@ -314,39 +329,30 @@ class OpenApiSchema(BaseSchema):
                 # Header names are case-insensitive, and undeclared headers like auth never make the input invalid.
                 declared = {parameter.name.lower(): parameter.name for parameter in case.operation.headers}
                 value = {declared[name.lower()]: item for name, item in value.items() if name.lower() in declared}
-            raw = meta.raw_containers.get(location)
-            # When the container still equals its generated form, validate the typed
-            # snapshot — coverage stringifies query/path values for the wire and the
-            # validation schema is expressed in the typed form.
-            if current_hash == meta._initial_hashes.get(location) and raw is not None:
-                validation_value = raw
-            elif isinstance(value, Mapping) and isinstance(raw, Mapping):
-                # A key still equal to its generated wire form validates against the typed snapshot;
-                # a key a hook overwrote (or one auth/overrides added) validates against its live value.
-                original = meta._initial_containers.get(location, {})
-                validation_value = {
-                    key: raw[key] if key in raw and key in original and original[key] == current else current
-                    for key, current in value.items()
-                }
-            else:
-                validation_value = value
+            validation_value = _validation_value(meta, location, value, current_hash)
             is_valid: bool | None
-            try:
-                is_valid = case._validate_component(location, validation_value, validator_cls)
-                if not is_valid and location != ParameterLocation.BODY and isinstance(validation_value, Mapping):
-                    # Parameters travel as text, so `"5"` written for an integer parameter reaches the server as `5`.
-                    is_valid = case._validate_component(
-                        location, _as_read_from_wire(case.operation, location, validation_value), validator_cls
-                    )
-            except jsonschema_rs.ValidationError:
-                # A schema its own draft rejects cannot judge the value, so the generation-time mode stands.
+            if location == ParameterLocation.HEADER and coverage_scenario(case) in CONTENT_TYPE_PROBES:
+                # A Content-Type probe is negative through its media type, which no header parameter declares,
+                # so the headers cannot judge it and the generation-time mode stands.
                 is_valid = None
+            else:
+                try:
+                    is_valid = case._validate_component(location, validation_value, validator_cls)
+                    if not is_valid and location != ParameterLocation.BODY and isinstance(validation_value, Mapping):
+                        # Parameters travel as text, so `"5"` written for an integer parameter reaches the server as `5`.
+                        is_valid = case._validate_component(
+                            location, read_from_wire(case.operation, location, validation_value), validator_cls
+                        )
+                except jsonschema_rs.ValidationError:
+                    # A schema its own draft rejects cannot judge the value, so the generation-time mode stands.
+                    is_valid = None
             if location in meta.components and is_valid is not None:
                 new_mode = GenerationMode.POSITIVE if is_valid else GenerationMode.NEGATIVE
                 meta.components[location] = ComponentInfo(mode=new_mode)
             meta.update_validated_hash(location, current_hash)
             meta.clear_dirty(location)
-        if meta.components:
+        # The undeclared method is the violation itself, so no container edit makes the request valid.
+        if meta.components and coverage_scenario(case) != CoverageScenario.UNSPECIFIED_HTTP_METHOD:
             if all(info.mode.is_positive for info in meta.components.values()):
                 meta.generation.mode = GenerationMode.POSITIVE
             else:
@@ -489,14 +495,6 @@ class OpenApiSchema(BaseSchema):
         formats.register_string_format(
             HEADER_FORMAT, header_values(exclude_characters=DEFAULT_HEADER_EXCLUDE_CHARACTERS + "\x00")
         )
-
-    @override
-    def get_custom_format_strategies(
-        self, generation_config: GenerationConfig, mode: GenerationMode
-    ) -> dict[str, SearchStrategy]:
-        from schemathesis.specs.openapi._hypothesis import _build_custom_formats
-
-        return _build_custom_formats(generation_config, mode)
 
     def __repr__(self) -> str:
         info = self.raw_schema["info"]
@@ -686,7 +684,14 @@ class OpenApiSchema(BaseSchema):
         auth_storage: AuthStorage | None = None,
         generation_mode: GenerationMode = GenerationMode.POSITIVE,
         feedback: FeedbackSources = NO_FEEDBACK,
-        **kwargs: Any,
+        *,
+        path_parameters: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
+        cookies: dict[str, Any] | None = None,
+        query: dict[str, Any] | None = None,
+        body: Any = NOT_SET,
+        media_type: str | None = None,
+        phase: TestPhase = TestPhase.FUZZING,
     ) -> SearchStrategy[Case]:
         return openapi_cases(
             operation=operation,
@@ -694,7 +699,13 @@ class OpenApiSchema(BaseSchema):
             auth_storage=auth_storage,
             generation_mode=generation_mode,
             feedback=feedback,
-            **kwargs,
+            path_parameters=path_parameters,
+            headers=headers,
+            cookies=cookies,
+            query=query,
+            body=body,
+            media_type=media_type,
+            phase=phase,
         )
 
     @override
@@ -732,12 +743,12 @@ class OpenApiSchema(BaseSchema):
         body = case.body
         if not isinstance(body, dict) or case.media_type is None or not media_types.is_form_urlencoded(case.media_type):
             return body
-        for alternative in case.operation.body:
-            if alternative.media_type == case.media_type:
-                # Each property is serialized like a query parameter, following the media type's `encoding`
-                serialize = _build_urlencoded_serializer(alternative.definition)
-                return jsonify_python_specific_types(serialize(dict(body)))
-        return body
+        alternative = case.operation.get_body_for_media_type(case.media_type)
+        if alternative is None:
+            return body
+        # Each property is serialized like a query parameter, following the media type's `encoding`
+        serialize = _build_urlencoded_serializer(alternative.definition)
+        return jsonify_python_specific_types(serialize(dict(body)))
 
     @override
     def _case_media_type(self, operation: APIOperation, body: Body, media_type: str | None) -> str | None:
@@ -755,20 +766,6 @@ class OpenApiSchema(BaseSchema):
     ) -> bool | None:
         __tracebackhide__ = True
         return validate_documented_response(self, operation, response, case)
-
-
-def _as_read_from_wire(operation: APIOperation, location: ParameterLocation, value: Mapping) -> dict[str, Any]:
-    """Parameter values as a server parses them from text, e.g. `"5"` for an integer parameter as `5`."""
-    container = operation.get_parameter_set(location)
-    parsed = dict(value)
-    for name, item in value.items():
-        parameter = container.get(name)
-        if parameter is None or not isinstance(item, str):
-            continue
-        coerced = coerce_wire_string(item, parameter_types(parameter.validation_schema))
-        if coerced is not None:
-            parsed[name] = coerced
-    return parsed
 
 
 @dataclass

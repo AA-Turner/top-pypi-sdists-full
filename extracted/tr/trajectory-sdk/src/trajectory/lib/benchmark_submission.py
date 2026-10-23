@@ -6,6 +6,8 @@ import base64
 import hashlib
 import json
 import sqlite3
+import stat
+import sys
 import tempfile
 import time
 from collections import deque
@@ -18,13 +20,16 @@ from uuid import uuid4
 
 import httpx2
 
+if sys.platform != "win32":
+  import resource
+
 from trajectory import Client
 from trajectory._exceptions import APIConnectionError, APIStatusError, UnprocessableEntityError
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
 from trajectory.lib.benchmark_progress import _SubmissionProgress
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
-from trajectory.lib.upload_pool import BENCHMARK_UPLOAD_CONCURRENCY, RetryBudget, UploadPool
+from trajectory.lib.upload_pool import RetryBudget, UploadPool
 from trajectory.types.benchmark_ingestion_upload_urls import BenchmarkIngestionUploadUrls
 
 MAX_PART_BYTES = 4 * 1024 * 1024
@@ -41,6 +46,10 @@ MAX_ALLOCATION_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024
 MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024
 MAX_RUNTIME_CONTEXT_FILES = 4096
 MAX_PENDING_HASHES = 64
+# Small uploads are bound by round trips; 128 cut a 10-runner load test's median upload ~15%.
+BENCHMARK_UPLOAD_CONCURRENCY = 128
+# Open files kept free for the API client, the submission database and stdio.
+_RESERVED_OPEN_FILES = 64
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
 # Allocations and uploads retry past the client's default so they outlast minutes of signing
@@ -259,6 +268,7 @@ class SubmissionUpload:
       reporter.set_stage("accepted")
       return BenchmarkOperation(client, operation_id)
     reporter.set_stage("uploading")
+    concurrency = self._get_upload_concurrency()
     client_context = (
       nullcontext(http_client)
       if http_client is not None
@@ -267,8 +277,8 @@ class SubmissionUpload:
         follow_redirects=True,
         # HTTPX keeps only 20 idle connections by default, so workers would reconnect after pauses.
         limits=httpx2.Limits(
-          max_connections=BENCHMARK_UPLOAD_CONCURRENCY,
-          max_keepalive_connections=BENCHMARK_UPLOAD_CONCURRENCY,
+          max_connections=concurrency,
+          max_keepalive_connections=concurrency,
         ),
       )
     )
@@ -281,7 +291,7 @@ class SubmissionUpload:
         upload_client,
         timeout=upload_timeout,
         max_retries=upload_max_retries,
-        max_concurrency=BENCHMARK_UPLOAD_CONCURRENCY,
+        max_concurrency=concurrency,
         progress=reporter,
         parse_retry_after=client._parse_retry_after,
       ) as pool:
@@ -397,15 +407,31 @@ class SubmissionUpload:
       raise ValueError(f"Runtime context for {context_path!r}: " + ". ".join(problems))
 
   @staticmethod
+  def _get_upload_concurrency() -> int:
+    """Each upload holds a socket and its source file, so stay under the soft open-file limit."""
+    if sys.platform != "win32":
+      soft_limit, _ = resource.getrlimit(resource.RLIMIT_NOFILE)
+      if soft_limit != resource.RLIM_INFINITY:
+        return max(1, min(BENCHMARK_UPLOAD_CONCURRENCY, (soft_limit - _RESERVED_OPEN_FILES) // 2))
+    return BENCHMARK_UPLOAD_CONCURRENCY
+
+  @staticmethod
   def _declared_file(source: str, declaration: dict[str, Any], mtime_ns: int | None) -> UploadFile:
     path = declaration["path"]
     try:
-      file = UploadFile(
-        path, Path(source), declaration["content_type"], expected_md5=declaration["md5"]
+      source_stat = Path(source).stat()
+      if not stat.S_ISREG(source_stat.st_mode):
+        raise ValueError(f"Upload source {source} is not a file")
+      file = UploadFile._from_checked_source(
+        Path(source),
+        path=path,
+        size_bytes=source_stat.st_size,
+        content_type=declaration["content_type"],
+        expected_md5=declaration["md5"],
       )
       if file.size_bytes != declaration["size_bytes"]:
         raise file._source_changed_error("size")
-      if mtime_ns is not None and Path(source).stat().st_mtime_ns != mtime_ns:
+      if mtime_ns is not None and source_stat.st_mtime_ns != mtime_ns:
         raise file._source_changed_error("modification time")
     except (OSError, ValueError) as error:
       raise FileUploadError(

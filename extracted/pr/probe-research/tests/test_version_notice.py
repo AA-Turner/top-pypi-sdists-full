@@ -495,8 +495,10 @@ def test_a_write_to_a_non_run_path_touches_nothing(isolate):
 
 @pytest.fixture
 def deferred_spawns(monkeypatch):
-    """Record the argv of a detached spawn instead of performing it."""
+    """Record the argv of a detached spawn instead of performing it: the fallback
+    path, taken where the Probe service cannot run (not POSIX, or it cannot import)."""
     calls: list[list[str]] = []
+    monkeypatch.setattr(cli_main, "_service_owns_updates", lambda: False)
     monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: calls.append(argv))
     return calls
 
@@ -819,6 +821,7 @@ def test_pis_session_start_updates_now_without_waiting_for_pi(monkeypatch):
     of pi session starts, 2026-10-07), then pi's own package (pi agents
     running around the clock, 2026-10-15)."""
     spawned = {}
+    monkeypatch.setattr(cli_main, "_service_owns_updates", lambda: False)  # the fallback path
     monkeypatch.setattr(
         cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env)
     )

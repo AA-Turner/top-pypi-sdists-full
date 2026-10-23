@@ -19,6 +19,13 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -29,6 +36,10 @@ from .asset import (
     AssetRelationshipAttributes,
     _extract_asset_attrs,
     _populate_asset_attrs,
+)
+from .business_policy_related import (
+    RelatedBusinessPolicy,
+    RelatedBusinessPolicyException,
 )
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
@@ -42,17 +53,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .business_policy_related import (
-    RelatedBusinessPolicy,
-    RelatedBusinessPolicyException,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -587,6 +587,7 @@ def _business_policy_to_nested(business_policy: BusinessPolicy) -> BusinessPolic
         is_incomplete=business_policy.is_incomplete,
         provenance_type=business_policy.provenance_type,
         home_id=business_policy.home_id,
+        delete_handler=business_policy.delete_handler,
         depth=business_policy.depth,
         immediate_upstream=business_policy.immediate_upstream,
         immediate_downstream=business_policy.immediate_downstream,
@@ -635,6 +636,7 @@ def _business_policy_from_nested(nested: BusinessPolicyNested) -> BusinessPolicy
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

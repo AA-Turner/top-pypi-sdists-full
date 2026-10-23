@@ -7,6 +7,7 @@ from pydantic import AfterValidator, AliasChoices, BaseModel, Field, NonNegative
 from ..base import Base, UniqueList, round_float
 from ..method import FFMethod, Method, ProteinForceField, WaterForceField
 from ..pdb import PDB
+from ..restraint import MDRestraints
 from ..trajectory_clustering import TrajectoryClustering
 from ..types import UUID, NonPolymerResidueMapping, ProteinMDTrajectory, round_list, round_vector3d
 from .workflow import ProteinStructureWorkflow, SMILESWorkflow
@@ -230,6 +231,7 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
             Cα atoms are harmonically restrained, in Å; None disables restraints
 
         protein_restraint_constant: force constant for Cα backbone restraints, in kcal/mol/Å²
+        restraints: explicit restraints active during minimization, equilibration, and production
 
         minimized_protein_uuid: UUID of final system PDB
         bonds: which atoms are bonded to which other atoms
@@ -252,11 +254,19 @@ class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureW
 
     protein_restraint_cutoff: Annotated[PositiveFloat, AfterValidator(round_float(3))] | None = None
     protein_restraint_constant: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 100
+    restraints: list[MDRestraints] = []
 
     minimized_protein_uuid: UUID | None = None
     bonds: list[tuple[int, int]] = []
     trajectories: list[BindingPoseTrajectory] = []
     hydration_sites: list[HydrationSite] = []
+
+    @model_validator(mode="after")
+    def validate_restraints(self) -> Self:
+        """Reject combining explicit restraints with the Cα cutoff shortcut."""
+        if self.restraints and self.protein_restraint_cutoff is not None:
+            raise ValueError("restraints and protein_restraint_cutoff are mutually exclusive")
+        return self
 
     @model_validator(mode="after")
     def validate_binder(self) -> Self:

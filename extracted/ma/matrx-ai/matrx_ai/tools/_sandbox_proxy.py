@@ -296,7 +296,7 @@ async def _remint_token(binding: SandboxBinding) -> str | None:
     """
     from matrx_ai._ext import get_sandbox_token_minter
 
-    if binding.target_kind != "sandbox":
+    if binding.target_kind == "local_machine" and not binding.device_id:
         return None
     minter = get_sandbox_token_minter()
     if minter is None:
@@ -307,7 +307,17 @@ async def _remint_token(binding: SandboxBinding) -> str | None:
         )
         return None
     try:
-        fresh = await minter(sandbox_id=binding.sandbox_id, base_url=binding.base_url)
+        if binding.target_kind == "local_machine":
+            # A computer: the run outlived the person's login token. The host mints a
+            # credential bound to this ONE device after re-checking it is still theirs.
+            fresh = await minter(
+                sandbox_id=binding.sandbox_id,
+                base_url=binding.base_url,
+                target_kind="local_machine",
+                device_id=binding.device_id,
+            )
+        else:
+            fresh = await minter(sandbox_id=binding.sandbox_id, base_url=binding.base_url)
     except Exception as exc:
         logger.warning("sandbox %s token re-mint raised: %s", binding.sandbox_id, exc)
         return None
@@ -441,19 +451,20 @@ def _unavailable_error(
 
 
 #: Orchestrator route families the generated ``matrx_api`` operations model
-#: (``/sandboxes/{sandbox_id}/fs/{path}`` and ``.../search/{path}``).
-_API_FAMILIES = {"fs": "orchestrator_proxy_fs", "search": "orchestrator_proxy_search"}
-_API_OPERATION_SUFFIX = {
-    "GET": "_get",
-    "POST": "_post",
-    "PUT": "",
-    "PATCH": "_patch",
-    "DELETE": "_delete",
-}
-_API_FAMILY_SUFFIX = {
-    # search has only GET and POST operations; fs has all five verbs.
-    "search": {"GET": "_get", "POST": ""},
-}
+#: (``/sandboxes/{sandbox_id}/fs/{path}`` and ``.../search/{path}``). An operation is found by
+#: its METHOD and PATH TEMPLATE, never by its generated name: the generator decides which verb
+#: gets the bare name (``orchestrator_proxy_fs`` moved from PUT to DELETE on a regeneration, so
+#: a name table silently sent every write as a delete).
+_API_FAMILIES = ("fs", "search")
+
+
+def _api_operation(family: str, method: str) -> Any:
+    template = f"/sandboxes/{{sandbox_id}}/{family}/{{path}}"
+    wanted = method.upper()
+    for op in architecture.OPERATIONS.values():
+        if op.path == template and str(op.method).upper() == wanted:
+            return op
+    return None
 
 
 def _api_target(
@@ -470,14 +481,9 @@ def _api_target(
     if not sep or not origin or not sandbox_id or "/" in sandbox_id:
         return None
     family, _, rest = path.lstrip("/").partition("/")
-    base_name = _API_FAMILIES.get(family)
-    if base_name is None or not rest:
+    if family not in _API_FAMILIES or not rest:
         return None
-    suffixes = _API_FAMILY_SUFFIX.get(family, _API_OPERATION_SUFFIX)
-    suffix = suffixes.get(method.upper())
-    if suffix is None:
-        return None
-    op = architecture.OPERATIONS.get(base_name + suffix)
+    op = _api_operation(family, method)
     if op is None:
         return None
     return origin, sandbox_id, dataclasses.replace(op, stream="none"), rest

@@ -46,7 +46,7 @@ changes — which is the right cache-bust behavior for tests.
 
 from __future__ import annotations
 
-from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
+from matrx_ai.orchestrator.mandate_carrier import HolderCarrier
 
 import asyncio
 import hashlib
@@ -324,16 +324,12 @@ class RecordReplayExecutor:
     def _path(self, key: str) -> Path:
         return self.recordings_dir / f"{key}.json"
 
-    @mandate_carrier_passthrough(
-        "a drop-in test executor: it forwards the config and metadata its caller hands "
-        "it to execute_ai_request unchanged (or replays a recording of exactly that)"
-    )
     async def __call__(
         self,
         config: UnifiedConfig,
         max_iterations: int = 100,
         max_retries_per_iteration: int = 2,
-        metadata: dict[str, Any] | None = None,
+        metadata: HolderCarrier[dict[str, Any] | None] = None,
         **carrier: Any,
     ) -> Any:
         """``carrier`` is the executor's keyword surface beyond the four

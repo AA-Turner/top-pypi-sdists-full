@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agent-framework
-Version: 1.22.0
+Version: 1.23.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This package contains core and a curated set of optional integrations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core[all]==1.22.0
+Requires-Dist: agent-framework-core[all]==1.23.0
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -83,8 +83,6 @@ not provide exactly the same feature set as Python 3.14:
 | --- | --- |
 | Declarative Power Fx | `agent-framework-declarative` is installed, but its `powerfx` dependency is not. YAML values beginning with `=` produce a warning and remain unchanged instead of being evaluated. Declarative agents or workflows that rely on expressions may therefore use invalid literal values or fail later. |
 | Redis | `agent-framework-redis` is omitted from the standard install because RedisVL declares `Requires-Python <3.15`. Redis imports and Redis-backed history, context, and vector storage are unavailable. |
-| Hyperlight | `agent-framework-hyperlight` is omitted because no compatible Python 3.15 sandbox backend wheel is published. Hyperlight CodeAct and its `execute_code` tool are unavailable. |
-| AG-UI A2UI | The base `agent-framework-ag-ui` package works, but pip cannot install its optional `a2ui` extra because `ag-ui-a2ui-toolkit` declares `Requires-Python <3.15`. |
 
 ## 1. Setup API Keys
 

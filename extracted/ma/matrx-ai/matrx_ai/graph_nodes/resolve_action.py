@@ -47,7 +47,13 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from matrx_ai.code_call_mandate_keys import ARM_RESOLVER_MANDATE
 from matrx_ai.graph_nodes._strict_json import StrictJsonError, node_panel_hooks
 from matrx_ai.graph_nodes.class_pin import model_class_extras, offering_id_field
-from matrx_ai.mandates import MandateResolutionUnavailable, hold_code_call, run_held_pydantic
+from matrx_ai.mandates import (
+    MandateResolutionUnavailable,
+    Offer,
+    RunOptions,
+    carried_principal,
+    get_mandate_runner,
+)
 from matrx_ai.orchestrator.mandate_carrier import MANDATE_HOLDER_METADATA_KEY
 
 NODE_NAME = "ai.judge.resolve"
@@ -427,21 +433,26 @@ async def resolve_arms(
 
     on_delta, on_reset = node_panel_hooks(getattr(getattr(ctx, "app", None), "emitter", None))
     try:
-        held = await hold_code_call(
-            ARM_RESOLVER_MANDATE,
-            consumer=NODE_NAME,
-            variables={
-                "job": inputs.job,
-                "criteria": list(inputs.criteria),
-                "job_input": inputs.job_input,
-                "arms": present,
-                "missing_arms": [m.model_dump(mode="json") for m in missing],
-                "allow_merge": inputs.allow_merge,
-                "allowed_verdicts": ", ".join(
-                    v for v in RESOLVER_VERDICTS if inputs.allow_merge or v != "merge"
+        held = (
+            await get_mandate_runner().prepare(
+                ARM_RESOLVER_MANDATE,
+                Offer.given_values(
+                    {
+                        "job": inputs.job,
+                        "criteria": list(inputs.criteria),
+                        "job_input": inputs.job_input,
+                        "arms": present,
+                        "missing_arms": [m.model_dump(mode="json") for m in missing],
+                        "allow_merge": inputs.allow_merge,
+                        "allowed_verdicts": ", ".join(
+                            v for v in RESOLVER_VERDICTS if inputs.allow_merge or v != "merge"
+                        ),
+                    }
                 ),
-            },
-        )
+                who=carried_principal(),
+                opts=RunOptions(door="package_code_call", consumer=NODE_NAME),
+            )
+        ).held_call()
     except MandateResolutionUnavailable as exc:
         return failure(
             "judge_unbound",
@@ -450,8 +461,7 @@ async def resolve_arms(
             details={"mandate_key": ARM_RESOLVER_MANDATE, "reason": exc.reason},
         )
 
-    answer = await run_held_pydantic(
-        held,
+    answer = await held.send_pydantic(
         user=held.authored_user(),
         output_cls=_ResolverLlmOutput,
         model=inputs.model,

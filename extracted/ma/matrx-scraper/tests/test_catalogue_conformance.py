@@ -553,6 +553,21 @@ P("redirect_chain", "6 hops", ">=4 hops to reach final URL", 20, **_chain(6))
 P("redirect_loop", "loop", "Loop detected in redirect trace", 1, redirect_chain=[{"url": "https://example.com/a"}, {"url": "https://example.com/b"}, {"url": "https://example.com/a"}])
 P("redirect_loop", "no loop", "No loop", 100, redirect_chain=[{"url": "https://example.com/a"}, {"url": "https://example.com/b"}])
 
+# content_needs_rendering -- an unrendered app frame (knob mirror: 20 visible words)
+_R1 = "2xx page with an app root, an executable script, fewer than knowledge.scraper.audit.js_shell_word_limit visible words, no headings, links or images, and at most knowledge.scraper.audit.js_shell_root_text_words words of server-rendered text inside the app root"
+_SHELL = dict(http_status=200, app_root=True, executable_script=True, headings=[], h1_count=0, link_count=0, internal_link_count=0, image_count=0, noindex=False)
+P("content_needs_rendering", "shell, 19 words", _R1, 20, word_count=19, **_SHELL)
+P("content_needs_rendering", "shell markup, 20 words", "Content is in the fetched HTML", 100, word_count=20, **_SHELL)
+P("content_needs_rendering", "shell, 3 root words", _R1, 20, word_count=3, root_text_words=3, **_SHELL)
+P("content_needs_rendering", "4 server-rendered root words", "Content is in the fetched HTML", 100, word_count=4, root_text_words=4, **_SHELL)
+P("content_needs_rendering", "shell markup with a link", "Content is in the fetched HTML", 100, word_count=5, **{**_SHELL, "link_count": 1, "internal_link_count": 1})
+
+# dead_end_page
+_D1 = "Indexable 2xx page, not an app shell, with zero internal links"
+_PAGE = dict(http_status=200, noindex=False, canonical_matches=True, app_root=False, executable_script=True, word_count=400, headings=[{"level": 1, "text": "x"}], h1_count=1, image_count=0, link_count=0)
+P("dead_end_page", "no internal links", _D1, 70, internal_link_count=0, **_PAGE)
+P("dead_end_page", "one internal link", "At least one internal link", 100, internal_link_count=1, **{**_PAGE, "link_count": 1})
+
 # temporary_redirect_usage (the 3-session band needs history a page does not carry)
 P("temporary_redirect_usage", "302 in latest session", "302/307 seen in latest session", 65, redirect_chain=[{"url": "https://example.com/a", "status": 302}], http_status=200)
 P("temporary_redirect_usage", "301 only", "301/308 or no redirect", 100, redirect_chain=[{"url": "https://example.com/a", "status": 301}], http_status=200)

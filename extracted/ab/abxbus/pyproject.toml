@@ -1,8 +1,7 @@
 [project]
 name = "abxbus"
 description = "Advanced Pydantic-powered event bus with async support"
-authors = [{ name = "Nick Sweeting" }, { name = "ArchiveBox" }]
-version = "2.5.77"
+version = "2.5.79"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
@@ -15,30 +14,24 @@ dependencies = [
     "typing-extensions>=4.15.0",
     "uuid7>=0.1.0",
 ]
+
+[[project.authors]]
+name = "Nick Sweeting"
+
+[[project.authors]]
+name = "ArchiveBox"
+
 [project.optional-dependencies]
-postgres = [
-    "asyncpg>=0.31.0",
-]
-nats = [
-    "nats-py>=2.14.0",
-]
-redis = [
-    "redis>=7.4.0",
-]
-# Tachyon's native core requires GCC 14+ / Clang 17+ to compile, so it's exposed
-# as its own extra and intentionally excluded from `bridges` to keep that
-# aggregate installable on stock CI/runtimes. Install with `abxbus[tachyon]`.
-tachyon = [
-    "tachyon-ipc>=0.5.0",
-]
+postgres = ["asyncpg>=0.31.0"]
+nats = ["nats-py>=2.14.0"]
+redis = ["redis>=7.4.0"]
+tachyon = ["tachyon-ipc>=0.5.0"]
 bridges = [
     "asyncpg>=0.31.0",
     "nats-py>=2.14.0",
     "redis>=7.4.0",
 ]
-otel = [
-    "opentelemetry-api>=1.44.0",
-]
+otel = ["opentelemetry-api>=1.45.1"]
 
 [project.urls]
 Homepage = "https://abxbus.archivebox.io"
@@ -53,7 +46,7 @@ NPM = "https://www.npmjs.com/package/abxbus"
 dev = [
     "ruff>=0.15.12",
     "build>=1.5.0",
-    "pytest>=9.0.3,<9.1",  # pytest-codeblocks still uses the collect hook removed in 9.1.
+    "pytest>=9.0.3,<9.1",
     "pytest-asyncio>=1.3.0",
     "pytest-codeblocks>=0.17.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
@@ -97,12 +90,37 @@ fix = true
 
 [tool.ruff.lint]
 preview = true
-select = ["ASYNC", "E", "F", "FAST", "I", "PLE"]
-ignore = ["ASYNC109", "E101", "E402", "E501", "F841", "E731", "W291"]  # TODO: determine if adding timeouts to all the unbounded async functions is needed / worth-it so we can un-ignore ASYNC109
-unfixable = ["E101", "E402", "E501", "F841", "E731"]
+select = [
+    "ASYNC",
+    "E",
+    "F",
+    "FAST",
+    "I",
+    "PLE",
+]
+ignore = [
+    "ASYNC109",
+    "E101",
+    "E402",
+    "E501",
+    "F841",
+    "E731",
+    "W291",
+]
+unfixable = [
+    "E101",
+    "E402",
+    "E501",
+    "F841",
+    "E731",
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["ASYNC220", "ASYNC221", "ASYNC240"]
+"tests/**/*.py" = [
+    "ASYNC220",
+    "ASYNC221",
+    "ASYNC240",
+]
 
 [tool.ruff.format]
 indent-style = "space"
@@ -121,13 +139,22 @@ reportMissingTypeStubs = "error"
 reportPrivateUsage = "error"
 venvPath = "."
 venv = ".venv"
-include = ["abxbus", "examples", "tests"]
-executionEnvironments = [
-    { root = "tests", extraPaths = ["."] },
+include = [
+    "abxbus",
+    "examples",
+    "tests",
 ]
 
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+extraPaths = ["."]
+
 [tool.ty.src]
-include = ["abxbus", "examples", "tests"]
+include = [
+    "abxbus",
+    "examples",
+    "tests",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -142,7 +169,10 @@ testpaths = [
     "skills",
     "docs",
 ]
-python_files = ["test_*.py", "*_test.py"]
+python_files = [
+    "test_*.py",
+    "*_test.py",
+]
 addopts = "-sv --strict-markers --tb=short --dist=loadscope --codeblocks"
 log_cli = true
 log_cli_format = "%(levelname)-8s [%(name)s] %(message)s"
@@ -171,8 +201,8 @@ exclude_lines = [
     "raise NotImplementedError",
     "return NotImplemented",
     "assert_never",
-    "\\.\\.\\.",
-    "^\\s*$",  # Blank lines
+    '\.\.\.',
+    '^\s*$',
 ]
 show_missing = true
 skip_covered = false

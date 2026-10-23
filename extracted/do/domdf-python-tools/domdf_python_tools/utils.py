@@ -139,7 +139,7 @@ pyversion: int = int(sys.version_info.major)  # Python Version
 SPACE_PLACEHOLDER = '␣'
 
 
-def cmp(x, y) -> int:
+def cmp(x, y) -> int:  # noqa: PRM002,MAN001
 	"""
 	Implementation of ``cmp`` for Python 3.
 
@@ -277,6 +277,8 @@ def strtobool(val: Union[str, int]) -> bool:
 	:py:obj:`True` values are ``'y'``, ``'yes'``, ``'t'``, ``'true'``, ``'on'``, ``'1'``, and ``1``.
 
 	:py:obj:`False` values are ``'n'``, ``'no'``, ``'f'``, ``'false'``, ``'off'``, ``'0'``, and ``0``.
+
+	:param val:
 
 	:raises: :py:exc:`ValueError` if ``val`` is anything else.
 	"""
@@ -431,7 +433,7 @@ def head(obj: Union[Tuple, List, "DataFrame", "Series", String, HasHead], n: int
 		if len(obj) <= n:
 			return repr(obj)
 		else:
-			head_of_namedtuple = {k: v for k, v in zip(obj._fields[:n], obj[:n])}  # type: ignore
+			head_of_namedtuple = {k: v for k, v in zip(obj._fields[:n], obj[:n])}
 			repr_fmt = '(' + ", ".join(f"{k}={v!r}" for k, v in head_of_namedtuple.items()) + f", {etc})"
 			return obj.__class__.__name__ + repr_fmt
 
@@ -444,11 +446,11 @@ def head(obj: Union[Tuple, List, "DataFrame", "Series", String, HasHead], n: int
 	elif isinstance(obj, HasHead):
 		return obj.head(n).to_string()
 
-	elif len(obj) <= n:  # type: ignore
+	elif len(obj) <= n:  # type: ignore[arg-type]
 		return str(obj)
 
 	else:
-		return str(obj[:n]) + etc  # type: ignore
+		return str(obj[:n]) + etc  # type: ignore[index]
 
 
 def magnitude(x: float) -> int:
@@ -553,7 +555,7 @@ def divide(string: str, sep: str) -> Tuple[str, str]:
 		raise ValueError(f"{sep!r} not in {string!r}")
 
 	parts = string.split(sep, 1)
-	return tuple(parts)  # type: ignore
+	return tuple(parts)  # type: ignore[return-value]
 
 
 def redivide(string: str, pat: Union[str, Pattern]) -> Tuple[str, str]:
@@ -577,7 +579,7 @@ def redivide(string: str, pat: Union[str, Pattern]) -> Tuple[str, str]:
 		raise ValueError(f"{pat!r} has no matches in {string!r}")
 
 	parts = pat.split(string, 1)
-	return tuple(parts)  # type: ignore
+	return tuple(parts)  # type: ignore[return-value]
 
 
 @overload

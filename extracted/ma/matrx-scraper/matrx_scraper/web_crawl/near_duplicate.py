@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from matrx_scraper.audit_metrics import resolve_canonical_url
 from matrx_scraper.parser.hashing import simhash64_hamming
 from matrx_scraper.seo_audit import normalized_url_key
 
@@ -94,8 +95,10 @@ class NearDuplicateReport:
 
 def _canonical_identity(page: NearDuplicatePage) -> str:
     canonical = page.canonical_url
-    if canonical and canonical.startswith(("http://", "https://")):
-        return normalized_url_key(canonical)
+    if canonical and canonical.strip():
+        resolved = resolve_canonical_url(canonical, page.url)
+        if resolved.startswith(("http://", "https://")):
+            return normalized_url_key(resolved)
     return normalized_url_key(page.url)
 
 

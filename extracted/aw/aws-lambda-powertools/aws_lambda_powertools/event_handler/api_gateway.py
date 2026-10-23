@@ -13,11 +13,13 @@ from enum import Enum
 from functools import partial
 from http import HTTPStatus
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, Match, Pattern, TypeVar, cast
+from re import Match, Pattern
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 
 from typing_extensions import override
 
 from aws_lambda_powertools.event_handler import content_types
+from aws_lambda_powertools.event_handler.depends import DependencyResolutionError
 from aws_lambda_powertools.event_handler.exception_handling import ExceptionHandlerManager
 from aws_lambda_powertools.event_handler.exceptions import NotFoundError, ResponseSizeExceededError, ServiceError
 from aws_lambda_powertools.event_handler.openapi.config import OpenAPIConfig
@@ -1465,7 +1467,8 @@ class MiddlewareFrame:
         logger.debug("MiddlewareFrame: %s", self)
         app._push_processed_stack_frame(str(self))
 
-        return self.current_middleware(app, self.next_middleware)
+        extra_kwargs = _resolve_extra_middleware_kwargs(app, self.current_middleware)
+        return self.current_middleware(app, self.next_middleware, **extra_kwargs)
 
 
 def _find_request_param_name(func: Callable) -> str | None:
@@ -1479,11 +1482,69 @@ def _find_request_param_name(func: Callable) -> str | None:
     except Exception:
         hints = {}
 
+    from aws_lambda_powertools.event_handler.depends import _unwrap_optional
+
     for param_name, annotation in hints.items():
-        if annotation is Request:
+        # Python 3.10 wraps annotations of ``= None`` parameters in Optional[...]
+        if _unwrap_optional(annotation) is Request:
             return param_name
 
     return None
+
+
+_DEPENDS_CACHE_KEY = "_dependency_cache"
+
+
+def _inspect_middleware(middleware: Callable[..., Any]) -> tuple:
+    """Inspect a middleware's signature once and cache the result on the callable.
+
+    Returns a tuple of the ``Request``-typed parameter name (or ``None``) and the
+    middleware's dependency tree. Results are cached on the callable itself, mirroring
+    how ``Route`` caches its dependant, to avoid repeated signature analysis per request.
+    """
+    from aws_lambda_powertools.event_handler.depends import build_dependency_tree
+
+    cached = getattr(middleware, "_powertools_middleware_inspection", None)
+    if cached is not None:
+        return cached
+
+    inspection = (_find_request_param_name(middleware), build_dependency_tree(middleware))
+    try:
+        middleware._powertools_middleware_inspection = inspection  # type: ignore[attr-defined]
+    except (AttributeError, TypeError):
+        pass  # callables without attribute support are re-inspected per request
+
+    return inspection
+
+
+def _resolve_extra_middleware_kwargs(app: ApiGatewayResolver, middleware: Callable[..., Any]) -> dict:
+    """Resolve extra keyword arguments for a function-based middleware.
+
+    Supports ``Request`` injection and ``Depends()`` parameters, sharing the per-request
+    dependency cache (stored in ``app.context``) with route handlers so the same
+    dependency is resolved only once across middleware and routes. Class-based
+    middleware is intentionally out of scope.
+    """
+    from aws_lambda_powertools.event_handler.depends import solve_dependencies
+
+    request_param, dependency_tree = _inspect_middleware(middleware)
+
+    kwargs: dict = {}
+    if request_param:
+        kwargs[request_param] = app.request
+
+    if dependency_tree.dependencies:
+        dependency_cache = app.context.setdefault(_DEPENDS_CACHE_KEY, {})
+        kwargs.update(
+            solve_dependencies(
+                dependant=dependency_tree,
+                request=app.request,
+                dependency_overrides=app.dependency_overrides or None,
+                dependency_cache=dependency_cache,
+            ),
+        )
+
+    return kwargs
 
 
 def _registered_api_adapter(
@@ -1533,6 +1594,7 @@ def _registered_api_adapter(
                 dependant=build_dependency_tree(route.func),
                 request=app.request,
                 dependency_overrides=app.dependency_overrides or None,
+                dependency_cache=app.context.get(_DEPENDS_CACHE_KEY),
             )
             route_args.update(dep_values)
 
@@ -2560,7 +2622,10 @@ class ApiGatewayResolver(BaseRouter):
         BaseRouter.current_event = self._to_proxy_event(cast(dict, event))
         BaseRouter.lambda_context = context
 
-        response = self._build_response(self._resolve())
+        try:
+            response = self._build_response(self._resolve())
+        finally:
+            self.clear_context()
 
         # Debug print Processed Middlewares
         if self._debug:
@@ -2568,8 +2633,6 @@ class ApiGatewayResolver(BaseRouter):
             print("======================")
             print("\n".join(self.processed_stack_frames))
             print("======================")
-
-        self.clear_context()
 
         return response
 
@@ -2621,15 +2684,16 @@ class ApiGatewayResolver(BaseRouter):
         BaseRouter.current_event = self._to_proxy_event(cast(dict, event))
         BaseRouter.lambda_context = context
 
-        response = self._build_response(await self._resolve_async())
+        try:
+            response = self._build_response(await self._resolve_async())
+        finally:
+            self.clear_context()
 
         if self._debug:
             print("\nProcessed Middlewares:")
             print("======================")
             print("\n".join(self.processed_stack_frames))
             print("======================")
-
-        self.clear_context()
 
         return response
 
@@ -2945,6 +3009,16 @@ class ApiGatewayResolver(BaseRouter):
         return self.exception_handler_manager.exception_handler(exc_class=exc_class)
 
     def _call_exception_handler(self, exp: Exception, route: Route) -> ResponseBuilder | None:
+        # Depends() wraps what a dependency raised in DependencyResolutionError. Handle the original exception
+        # as if the route had raised it, unless a handler is registered for DependencyResolutionError itself.
+        # If nothing handles it, this returns None and the caller re-raises the DependencyResolutionError.
+        if (
+            isinstance(exp, DependencyResolutionError)
+            and isinstance(exp.__cause__, Exception)
+            and DependencyResolutionError not in self.exception_handler_manager.get_registered_handlers()
+        ):
+            exp = exp.__cause__
+
         handler = self.exception_handler_manager.lookup_exception_handler(type(exp))
         if handler:
             try:
@@ -3401,19 +3475,15 @@ class ALBResolver(ApiGatewayResolver):
         try:
             self._validate_response_size(response)
         except ResponseSizeExceededError as exc:
-            try:
-                # Resolved responses retain their route, including not-found and preflight responses.
-                handled_response = self._call_exception_handler(exc, cast(Route, response_builder.route))
-                if handled_response is None:
-                    raise
-
-                handled_response.response = cast(Response, self._to_response(handled_response.response))
-                response = super()._build_response(handled_response)
-                # Validate once more without invoking an exception handler recursively.
-                self._validate_response_size(response)
-            except Exception:
-                self.clear_context()
+            # Resolved responses retain their route, including not-found and preflight responses.
+            handled_response = self._call_exception_handler(exc, cast(Route, response_builder.route))
+            if handled_response is None:
                 raise
+
+            handled_response.response = cast(Response, self._to_response(handled_response.response))
+            response = super()._build_response(handled_response)
+            # Validate once more without invoking an exception handler recursively.
+            self._validate_response_size(response)
 
         return response
 

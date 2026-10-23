@@ -3,10 +3,13 @@
 
 """SQLite coverage data."""
 
+# pragma: enforce 100% coverage
+
 from __future__ import annotations
 
 import base64
 import collections
+import contextlib
 import datetime
 import functools
 import glob
@@ -22,7 +25,7 @@ import textwrap
 import threading
 import uuid
 import zlib
-from collections.abc import Callable, Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
 from typing import Any, Concatenate, ParamSpec, TypeAlias, TypeVar, cast
 
 from coverage.debug import NoDebugging, auto_repr, file_summary
@@ -306,6 +309,17 @@ class CoverageData:
         for db in self._dbs.values():
             db.close(force=force)
         self._dbs = {}
+
+    @contextlib.contextmanager
+    def keep_db_open(self) -> Iterator[None]:
+        """Keep the reporting database connection open for a block."""
+        db = self._connect()
+        try:
+            with db:
+                yield
+        finally:
+            if not self._no_disk:
+                self.close(force=True)
 
     def _open_db(self) -> None:
         """Open an existing db file, and read its metadata."""
@@ -726,11 +740,17 @@ class CoverageData:
             self._debug.write(f"Updating with data from {other_filename!r}")
         if self._has_lines and other_data._has_arcs:
             raise DataError(
-                "Can't combine branch coverage data with statement data", slug="cant-combine"
+                "Can't combine branch coverage data with statement data: "
+                + f"data file {other_data.data_filename()!r} measured branch coverage, "
+                + f"but data file {self.data_filename()!r} didn't",
+                slug="cant-combine",
             )
         if self._has_arcs and other_data._has_lines:
             raise DataError(
-                "Can't combine statement coverage data with branch data", slug="cant-combine"
+                "Can't combine statement coverage data with branch data: "
+                + f"data file {other_data.data_filename()!r} didn't measure branch coverage, "
+                + f"but data file {self.data_filename()!r} did",
+                slug="cant-combine",
             )
 
         # Force the database we're writing to to exist before we start nesting contexts.
@@ -918,19 +938,36 @@ class CoverageData:
             with self._connect():
                 self._have_used = True
 
+    def _data_hash(self) -> str:
+        """The short hash of the data so far, for the data file name."""
+        return base64.b64encode(self._hasher.digest(), altchars=b"01").decode()[:NHASH]
+
     def write(self) -> None:
         """Ensure the data is written to the data file."""
+        unhashed_filename = None
         if self._our_suffix and not self._wrote_hash:
+            unhashed_filename = self._filename
+        elif (
+            self._our_suffix
+            and (m := filename_match(self._filename))
+            and m["hash"]
+            and not self._filename.endswith(f".H{self._data_hash()}h")
+        ):
+            # More data was recorded after the hash went into the file name.
+            # Update the name, or combining would skip this file as a
+            # duplicate of another one that only shared its earlier data.
+            unhashed_filename = self._filename[: m.start("hash") - len(".H")]
+        if unhashed_filename is not None:
             self._debug_dataio("Finishing data file", self._filename)
             with self._connect() as con:
                 con.execute_void(
-                    "INSERT OR IGNORE INTO meta (key, value) VALUES ('hash', ?)",
+                    "INSERT OR REPLACE INTO meta (key, value) VALUES ('hash', ?)",
                     (self._hasher.hexdigest(),),
                 )
             self.close()
-            data_hash = base64.b64encode(self._hasher.digest(), altchars=b"01").decode()[:NHASH]
+            data_hash = self._data_hash()
             current_filename = self._filename
-            self._filename += f".H{data_hash}h"
+            self._filename = unhashed_filename + f".H{data_hash}h"
             self._debug_dataio("Renaming data file to", self._filename)
             os.rename(current_filename, self._filename)
             self._wrote_hash = True

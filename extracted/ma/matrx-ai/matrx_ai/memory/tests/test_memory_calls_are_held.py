@@ -77,7 +77,7 @@ async def test_adapter_holds_the_call_and_names_the_reflector(monkeypatch) -> No
         )
 
     class _Client:
-        async def execute(self, request):
+        async def execute(self, request, **_kw):
             assert request.config.model == "holder-model"
             assert str(request.config.system_instruction).endswith("HOLDER")
             return SimpleNamespace(
@@ -176,7 +176,7 @@ async def test_adapter_sends_the_holders_retry_text_and_refuses_without_it(monke
         )
 
     class _Client:
-        async def execute(self, request):
+        async def execute(self, request, **_kw):
             sent.append(request.config.messages)
             return SimpleNamespace(
                 messages=[SimpleNamespace(role="assistant", content=[SimpleNamespace(text="ok")])],

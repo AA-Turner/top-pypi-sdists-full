@@ -46,6 +46,8 @@ class SemanticType(str, Enum):
     ENUM_MAPPING = "enum-mapping"
     # Represents the type of a resource
     RESOURCE_TYPE = "resource-type"
+    # Represents a settings field a connector derives `unique_tenant_id` from
+    TENANT_ID = "tenant-id"
 
 
 @dataclass

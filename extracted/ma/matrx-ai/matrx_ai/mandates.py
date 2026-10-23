@@ -42,15 +42,15 @@ from __future__ import annotations
 
 import inspect
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
 from matrx_ai.agents import AgentRunResult
 from matrx_ai.agents.named import AgentSource, NamedAgent, offer_view, to_template_value
-from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
+from matrx_ai.orchestrator.mandate_carrier import HolderCarrier
 
 MandateCompletion = Callable[
     [AgentRunResult, dict[str, Any], str | None],
@@ -73,6 +73,9 @@ class OfferedValueSpec:
     kind: str
     guaranteed: bool = True
     lazy: bool = False
+    #: True = the value is a LIST whose every item is an instance of ``kind``
+    #: (aidream ``mandates.provisions.OfferedValue.many``).
+    many: bool = False
     #: D2 — one static example of what this value looks like, declared with the
     #: provision. An ILLUSTRATION for whoever is choosing where it should land,
     #: never a default and never a fallback: nothing reads it at run time.
@@ -205,6 +208,312 @@ def get_mandate_resolver() -> MandateResolver | None:
     return _MANDATE_RESOLVER
 
 
+# ---------------------------------------------------------------------------
+# THE MANDATE RUNNER PORT (runner plan 25, step 2)
+# ---------------------------------------------------------------------------
+#
+# One module in the host runs every mandate (aidream ``services/mandate_runner``).
+# matrx-ai cannot import it, so it declares the ONE structural port the host
+# installs (``set_mandate_runner``), plus the value types every caller hands it.
+# Graph nodes, NamedAgent, evaluators, ``memory/llm_adapter`` and
+# ``agent_runners/*`` move onto this port step by step; the resolver seam above
+# and its closure bag are deleted once they have.
+
+
+@dataclass(frozen=True, slots=True)
+class Principal:
+    """Who a mandate runs for: explicit at every verb, never read from ambient state.
+
+    ``watching`` is set only by the request boundary for that one run (AI Watch)
+    and is never inherited: :meth:`child` gives fan-out, batch and child runs the
+    same identity with ``watching=False``.
+    """
+
+    user_id: str | None
+    org_id: str
+    watching: bool = False
+
+    def child(self) -> Principal:
+        return Principal(user_id=self.user_id, org_id=self.org_id, watching=False)
+
+
+@dataclass(frozen=True, slots=True)
+class HolderRef:
+    """A run-scope Holder override (the try door's picked candidate, a test holder)."""
+
+    type: str  # "agent" | "workflow"
+    id: str
+    version_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RunOptions:
+    """Per-run options. ``door`` is a label for the record, never a code path."""
+
+    door: str
+    user_input: str | None = None
+    holder: HolderRef | None = None
+    correlation_key: str | None = None
+    emit: Any = None
+    dry_run: bool = False
+    #: A raw-request site's own name for itself (the Holder stamp's ``consumer``, refusal sentences).
+    consumer: str | None = None
+    #: A raw-request site's request metadata (``source_app`` / ``source_feature`` / its own ids),
+    #: merged UNDER the Holder stamp exactly as ``hold_code_call(metadata=)`` always did.
+    metadata: Mapping[str, Any] | None = None
+    #: Output keys THIS call needs beside the mandate contract's own (the honesty core refuses an answer
+    #: missing one). ``None`` = the contract's keys only.
+    required_keys: tuple[str, ...] | None = None
+    #: A cap on an agent Holder's tool rounds for THIS run (``None`` = the agent's own ceiling).
+    max_iterations: int | None = None
+
+
+# ── THE OFFER (runner plan 25 §3) ────────────────────────────────────────────
+#
+# Defined here, beside the port, because package code builds offers too (a graph node,
+# an evaluator, a NamedAgent call); the host runner re-exports these unchanged — one
+# definition of each.
+
+#: A builder takes the run's scope (who / mandate / the values in hand) and returns the value,
+#: sync or async. ``None`` means absent.
+Builder = Callable[[Any], Any]
+
+
+@dataclass(frozen=True, slots=True)
+class Offered:
+    """One offered value: a builder that runs only when the compute rule names it."""
+
+    build: Builder
+    #: ``given()``: the value is already held — zero cost, nothing to compute.
+    in_hand: bool = False
+    #: A plain value a not-yet-migrated caller passed (``eager_legacy``).
+    legacy: bool = False
+
+
+def given(value: Any, *, legacy: bool = False) -> Offered:
+    """A value the call site already holds (computing it cost nothing extra)."""
+    return Offered(build=lambda _scope: value, in_hand=True, legacy=legacy)
+
+
+def build(fn: Builder) -> Offered:
+    """A value computed only when the binding reads it (or the run is watched)."""
+    return Offered(build=fn)
+
+
+async def run_offered(offered: Offered, scope: Any = None) -> Any:
+    built = offered.build(scope)
+    return await built if inspect.isawaitable(built) else built
+
+
+@dataclass(frozen=True, slots=True)
+class NamedCall:
+    """The typed ``NamedAgent`` call an :meth:`Offer.from_inputs` carries to the runner."""
+
+    agent_cls: type[NamedAgent]
+    #: The run's keyword arguments exactly as the call site wrote them (``inputs``, ``label``,
+    #: ``user_input``, ``config_overrides``, ``request_metadata``, ``suppress_stream``, …).
+    kwargs: dict[str, Any]
+    #: Values held BESIDE the typed ``Inputs``, declared for mapping only (``mapped_offer``).
+    offered: dict[str, Any] | None = None
+    #: Media-kind offered values (durable references), the funnel's media channel.
+    offered_media: dict[str, Any] | None = None
+    #: A class that overrides ``run`` passes its bound base implementation here.
+    runner: Callable[..., Awaitable[AgentRunResult]] | None = None
+
+
+class Offer(dict):
+    """What a caller offers a mandate: offered value name -> :class:`Offered`.
+
+    A plain mapping is accepted by every verb too (each plain value then counts as eager
+    legacy). :meth:`from_inputs` builds the offer of a typed ``NamedAgent`` call: its
+    ``Inputs`` in the call site's vocabulary (``offer_view``), each value ``given`` — the
+    call site holds it — plus the call itself, which the runner's NamedAgent engine runs.
+    """
+
+    named: NamedCall | None
+
+    def __init__(self, values: Mapping[str, Any] | None = None, *, named: NamedCall | None = None) -> None:
+        super().__init__(values or {})
+        self.named = named
+
+    @classmethod
+    def given_values(cls, values: Mapping[str, Any] | None) -> Offer:
+        """Every value in hand: ``{name: given(value)}`` (an ``Offered`` passes through)."""
+        return cls({n: v if isinstance(v, Offered) else given(v) for n, v in dict(values or {}).items()})
+
+    @classmethod
+    def from_inputs(
+        cls,
+        agent_cls: type[NamedAgent],
+        inputs: Any = None,
+        *,
+        offered: Mapping[str, Any] | None = None,
+        offered_media: Mapping[str, Any] | None = None,
+        runner: Callable[..., Awaitable[AgentRunResult]] | None = None,
+        **run_kwargs: Any,
+    ) -> Offer:
+        kwargs = dict(run_kwargs)
+        if inputs is not None:
+            kwargs["inputs"] = inputs
+        named = NamedCall(
+            agent_cls=agent_cls,
+            kwargs=kwargs,
+            offered=dict(offered) if offered else None,
+            offered_media=dict(offered_media) if offered_media else None,
+            runner=runner,
+        )
+        view = _offer_view(agent_cls, kwargs)
+        values = {**view, **dict(offered or {}), **dict(offered_media or {})}
+        return cls({name: given(value) for name, value in values.items()}, named=named)
+
+
+def carried_principal(user_id: str | None = None, org_id: str | None = None) -> Principal:
+    """The principal the CARRIED request context names — read, never rebuilt (explicit ids win).
+
+    The ambient context fills only what belongs to the SAME party: an explicit person takes the
+    ambient organization only when the ambient context is that person's (another party's ambient
+    organization is never paired with them — review 46 F7); an explicit organization takes the
+    ambient person only when the ambient context is in that organization.
+
+    No person and no organization anywhere is REFUSED (``MandateRefused`` code ``no_identity``,
+    recorded): a run with no identity never silently becomes a system run. A system job declares
+    itself with :func:`system_principal` (plan §0 law 8). A person with no organization is refused
+    the same way (``no_organization``) — never answered with the system organization."""
+    if not (user_id and org_id):
+        try:
+            from matrx_connect.context.app_context import try_get_app_context
+
+            app = try_get_app_context()
+        except Exception:  # noqa: BLE001 — no context machinery = no carried context
+            app = None
+        if app is not None:
+            ambient_user = str(getattr(app, "user_id", None) or "") or None
+            ambient_org = str(getattr(app, "organization_id", None) or "") or None
+            if user_id and org_id is None:
+                if ambient_user == str(user_id):
+                    org_id = ambient_org
+            elif org_id and user_id is None:
+                if ambient_org == str(org_id):
+                    user_id = ambient_user
+            elif not user_id and not org_id:
+                user_id, org_id = ambient_user, ambient_org
+    if org_id:
+        return Principal(user_id=str(user_id) if user_id else None, org_id=str(org_id))
+    if user_id:
+        raise _recorded_identity_refusal(MandateRefused(
+            "<principal>",
+            code="no_organization",
+            sentence=(
+                f"the carried request names person {user_id} and no organization of theirs — a mandate run "
+                "is never org-less, never borrows another party's organization and never borrows the "
+                "system organization for a person"
+            ),
+        ))
+    raise _recorded_identity_refusal(MandateRefused(
+        "<principal>",
+        code="no_identity",
+        sentence=(
+            "this run carries no person and no organization — a run with no identity is never "
+            "filed as a system run; carry the request context, or declare a system job with "
+            "system_principal()"
+        ),
+    ))
+
+
+def _recorded_identity_refusal(exc: MandateRefused) -> MandateRefused:
+    """Law 6 for a refusal raised before any verb: captured (``mandate_refused``) once, then raised.
+    ``carried_principal`` is synchronous, so the capture is scheduled on the running loop; with no
+    loop the refusal is logged at ERROR. Never masks the refusal."""
+    import logging
+
+    log = logging.getLogger("matrx_ai.mandates")
+    log.error("[mandates] refused before the run: %s (%s)", exc.sentence, exc.code)
+    try:
+        import asyncio
+
+        from matrx_utils import capture_error, detached_task
+
+        asyncio.get_running_loop()
+        detached_task(
+            capture_error(exc, kind="mandate_refused", context={"mandate_key": exc.mandate_key, "code": exc.code}),
+            name="mandate-identity-refusal-capture",
+        )
+        exc.recorded = True  # type: ignore[attr-defined]
+    except Exception as capture_exc:  # noqa: BLE001 — no loop / no capture: the ERROR log above stands
+        log.error("[mandates] could not schedule the refusal capture: %s", capture_exc)
+    return exc
+
+
+def system_principal() -> Principal:
+    """The runner's ``SYSTEM`` principal (Matrx System organization + account): system jobs only — no user,
+    no user organization, no user billing (plan §0 law 8)."""
+    system = getattr(get_mandate_runner(), "system", None)
+    if not isinstance(system, Principal):
+        raise MandateRunnerUnavailable("the installed mandate runner names no SYSTEM principal")
+    return system
+
+
+class MandateRefused(MandateResolutionUnavailable):
+    """A mandate run that was refused: typed, recorded, then raised (never an empty result).
+
+    Subclasses :class:`MandateResolutionUnavailable` so every existing catch site
+    keeps catching it while callers move onto the runner.
+    """
+
+    def __init__(
+        self,
+        mandate_key: str,
+        *,
+        code: str,
+        sentence: str,
+        missing: tuple[str, ...] = (),
+        door: str = "",
+    ) -> None:
+        super().__init__(mandate_key, door or "mandate_runner", sentence)
+        self.code = code
+        self.sentence = sentence
+        self.missing = tuple(missing)
+        self.door = door
+
+
+class MandateRunnerUnavailable(RuntimeError):
+    """No mandate runner is installed in this process — a deployment defect, never a fallback."""
+
+
+@runtime_checkable
+class MandateRunnerPort(Protocol):
+    """The four verbs the host's runner serves to package code."""
+
+    async def run(self, key: str, offer: Mapping[str, Any] | None, *, who: Principal, opts: RunOptions) -> Any: ...
+
+    async def prepare(self, key: str, offer: Mapping[str, Any] | None, *, who: Principal, opts: RunOptions) -> Any: ...
+
+    async def finish(self, prepared: Any, result: Any) -> Any: ...
+
+    async def resolve(self, key: str, *, who: Principal) -> Any: ...
+
+
+_MANDATE_RUNNER: MandateRunnerPort | None = None
+
+
+def set_mandate_runner(runner: MandateRunnerPort | None) -> None:
+    """Install the host's mandate runner. Called once at host startup."""
+    global _MANDATE_RUNNER
+    if runner is not None and not isinstance(runner, MandateRunnerPort):
+        raise TypeError(f"{runner!r} does not serve run / prepare / finish / resolve")
+    _MANDATE_RUNNER = runner
+
+
+def get_mandate_runner() -> MandateRunnerPort:
+    """The installed runner, or a loud refusal naming the missing install."""
+    if _MANDATE_RUNNER is None:
+        raise MandateRunnerUnavailable(
+            "No mandate runner is installed in this process. The host installs one at startup "
+            "(aidream: services/mandates/runner_host.install_mandate_runner)."
+        )
+    return _MANDATE_RUNNER
+
+
 async def _report_resolution_failure(
     *,
     mandate_key: str,
@@ -267,24 +576,10 @@ def _coerce_inputs(agent_cls: type[NamedAgent], kwargs: dict[str, Any]) -> BaseM
     return None
 
 
-def _run_variables(agent_cls: type[NamedAgent], kwargs: dict[str, Any]) -> dict[str, Any]:
-    consumed = kwargs.get("consumed_variables")
-    if consumed is not None:
-        return {key: to_template_value(value) for key, value in dict(consumed).items()}
-    inputs_obj = _coerce_inputs(agent_cls, kwargs)
-    if inputs_obj is None:
-        return {}
-    return {
-        key: to_template_value(value)
-        for key, value in agent_cls.prepare_variables(inputs_obj).items()
-    }
-
-
 def _offer_view(agent_cls: type[NamedAgent], kwargs: dict[str, Any]) -> dict[str, Any]:
     """The CALL SITE's vocabulary for this run — see :func:`matrx_ai.agents.named.offer_view`.
 
-    NOT ``_run_variables``: those are the HOLDER's variables, already renamed
-    through ``variable_map``/``prepare_variables``. An offer check reads the
+    NOT the Holder's variables (already renamed through ``variable_map``/``prepare_variables``). An offer check reads the
     names the Provision was declared in.
     """
     inputs_obj = _coerce_inputs(agent_cls, kwargs)
@@ -398,132 +693,35 @@ class BrokenOfferPromise(ValueError):
         self.missing = missing
 
 
-def _assert_offer_complete(
-    agent_cls: type[NamedAgent],
-    mandate_key: str,
-    resolution: MandateResolution,
-    kwargs: dict[str, Any],
-    offered: dict[str, Any] | None = None,
-) -> None:
-    """🚨 THE SAME RULE THE HOST FUNNEL ENFORCES — see aidream
-    ``services/mandates/named_agents.py::_assert_offer_complete_for_named``.
-
-    ``offered_values`` rides the resolution precisely so this check needs no
-    host import. Skipped when the resolution carries no offer (nothing was
-    declared) or when the class was driven without its typed ``Inputs`` (a
-    raw-kwargs call makes no offer through this funnel at all).
-    """
-    if not resolution.offered_values or kwargs.get("inputs") is None:
-        return
-    supplied = {**_offer_view(agent_cls, kwargs), **dict(offered or {})}
-    missing = [
-        value.name
-        for value in resolution.offered_values
-        if value.guaranteed and supplied.get(value.name) is None
-    ]
-    if missing:
-        raise BrokenOfferPromise(mandate_key, agent_cls.__name__, missing)
-
-
-async def named_consumption(
-    agent_cls: type[NamedAgent],
-    mandate_key: str,
-    resolution: MandateResolution,
-    offer: dict[str, Any],
-    offered: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    """THE NAMEDAGENT FUNNEL'S CONSUMPTION MAP — the rule ``hold_code_call`` applies.
-
-    Until 2026-09-28 this funnel applied no consumption map at all: a binding
-    that carried one on a ``research.*`` / ``ner.*`` / podcast-runner mandate
-    was stored, validated, shown — and ignored at run time, so values declared
-    for mapping (``mapped_offer``) could never reach any Holder. Now:
-
-    * **No map (the default pin)** — returns ``None`` and the typed ``Inputs``
-      flow runs byte-for-byte as before. ``offered`` values are the site's
-      mapping-only extras, filtered by :func:`default_pin_offer` exactly as the
-      code-call door filters them; an extra that would survive the filter (a
-      by-name value, or one the Provision does not declare) has no channel on
-      this funnel — ``Inputs`` is the by-name channel — so it REFUSES in words
-      rather than being silently dropped.
-    * **A bound map** — the call site's whole offer (the ``Inputs`` in the
-      call-site vocabulary, :func:`matrx_ai.agents.named.offer_view`, plus the
-      extras) goes through the host's ONE consumption pipeline
-      (``resolution.materialize``); its output is what the Holder runs on
-      (``NamedAgent.run(consumed_variables=…)``). A host that offers no
-      pipeline refuses: a map that would be silently ignored is the defect this
-      closes.
-    """
-    extras = dict(offered or {})
-    if not resolution.consumption_map:
-        if extras:
-            declared = {spec.name for spec in resolution.offered_values}
-            by_name = sorted(default_pin_offer(extras, resolution.offered_values))
-            undeclared = sorted(name for name in extras if name not in declared)
-            if by_name or undeclared:
-                raise ValueError(
-                    f"Mandate {mandate_key!r} ({agent_cls.__name__}): offered= carries "
-                    f"{sorted(set(by_name) | set(undeclared))}, which the Provision does not "
-                    "declare for mapping only (mapped_offer). A by-name value belongs on the "
-                    "class's typed Inputs; declare the rest with mapped_offer."
-                )
-        return None
-    if resolution.materialize is None:
-        raise MandateResolutionUnavailable(
-            mandate_key,
-            agent_cls.__name__,
-            "the binding carries a consumption map and this host offers no pipeline to "
-            "apply it — the map would be silently ignored, so the run refuses",
-        )
-    return dict(await resolution.materialize({**offer, **extras}))
-
-
 async def run_mandated(
     agent_cls: type[NamedAgent],
     *,
     offered: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> AgentRunResult:
-    """Run a ``NamedAgent`` through its DB-managed mandate when a resolver is installed.
+    """SUGAR over the one runner: ``get_mandate_runner().run(key, Offer.from_inputs(...))``.
 
-    Resolves ``agent_cls.mandate_key`` to the mandate's current agent and passes it as
-    ``source_override``; the mandate's ``config_overrides`` merge UNDER any
-    call-site overrides, so a per-run argument (a tts voice, a model for one
-    call) always wins.
+    Runner plan 25 step 5 merged the two NamedAgent funnels into ONE path — the host runner's
+    NamedAgent engine (aidream ``mandates.named_agents.run_named``): resolve for the carried
+    principal, mandate ``config_overrides`` UNDER the call's, the guaranteed-offer check, the
+    consumption map (``offered`` = mapping-only extras), the attribution stamp, the run, the post-run
+    honesty core. New call sites call the runner directly; this name goes with the last caller.
 
-    A class with no ``mandate_key`` is not mandated and runs on its own source.
-
-    🚨 A class WITH a ``mandate_key`` must resolve. No resolver installed, or a
-    resolver that fails, raises :class:`MandateResolutionUnavailable` — it never
-    falls back to the id in the class body. A failure emits a red alarm and
-    calls the host's injected ``record_error`` seam with
-    ``mandate_resolution_failed`` before raising.
-
-    A modern resolver returns :class:`MandateResolution`; its completion callback
-    receives the result plus the exact variables/user input after the run.
-    Hosts use that callback for structural checking and exemplar capture
-    without the package importing host code. Legacy two-tuples remain accepted
-    for third-party compatibility but cannot provide host post-run behavior.
-
-    ``offered`` — values the call site holds BESIDE its typed ``Inputs``,
-    declared on the mandate's Provision for mapping only (``mapped_offer``,
-    ``pass_by_name=False``). See :func:`named_consumption` for the rule.
+    A class with no ``mandate_key`` is not mandated and runs on its own source. There is no seed
+    fallback: no runner installed raises :class:`MandateRunnerUnavailable`.
     """
     mandate_key = getattr(agent_cls, "mandate_key", None)
     if not mandate_key:
         return await agent_cls.run(**kwargs)
-
-    # MANDATE CANDIDATES — the host observes this real run (input copied here,
-    # before anything below mutates ``kwargs``) and may re-run it through a
-    # candidate Holder in the background. The tap never alters the run.
-    from matrx_ai.mandate_taps import tapped_door
-
-    return await tapped_door(
-        "run_mandated",
+    # ONE PATH (runner plan 25 step 5): the host runner's NamedAgent engine — the same funnel the
+    # host's own call sites reach. There is no second copy here any more.
+    done = await get_mandate_runner().run(
         mandate_key,
-        lambda: named_door_snapshot(agent_cls, offered, kwargs),
-        lambda: _run_mandated_resolved(agent_cls, mandate_key, offered, kwargs),
+        Offer.from_inputs(agent_cls, offered=offered, **kwargs),
+        who=carried_principal(),
+        opts=RunOptions(door="named_agent"),
     )
+    return done.raw
 
 
 #: The request-metadata key every mandate run carries — THE structured attribution
@@ -660,75 +858,6 @@ def named_door_snapshot(
     }
 
 
-async def _run_mandated_resolved(
-    agent_cls: type[NamedAgent],
-    mandate_key: str,
-    offered: dict[str, Any] | None,
-    kwargs: dict[str, Any],
-) -> AgentRunResult:
-    resolution = await resolve_mandate_for(agent_cls)
-    if resolution.holder_type != "agent" or resolution.source is None:
-        # A NamedAgent funnel runs an AGENT record. A workflow-held mandate
-        # executes through the host's workflow-mandate runner (run_mandate /
-        # the ai.agent.start workflow-holder branch) — never a silent guess.
-        raise MandateResolutionUnavailable(
-            mandate_key,
-            agent_cls.__name__,
-            f"resolved to a {resolution.holder_type!r} Holder — this funnel can "
-            "only run an agent record; call the mandate through the host's "
-            "run_mandate (workflow Holders execute as durable child runs)",
-        )
-    source = resolution.source
-    mandate_overrides = resolution.config_overrides
-    complete = resolution.complete
-    if resolution.variable_mapping:
-        kwargs["variable_mapping"] = resolution.variable_mapping
-    if resolution.spill_variables:
-        kwargs["spill_variables"] = set(resolution.spill_variables)
-
-    call_overrides = kwargs.pop("config_overrides", None) or {}
-    merged = {**(mandate_overrides or {}), **(dict(call_overrides) if call_overrides else {})}
-    kwargs["source_override"] = source
-    if merged:
-        kwargs["config_overrides"] = merged
-    _assert_offer_complete(agent_cls, mandate_key, resolution, kwargs, offered)
-    consumed = await named_consumption(
-        agent_cls, mandate_key, resolution, _offer_view(agent_cls, kwargs), offered
-    )
-    if consumed is not None:
-        kwargs["consumed_variables"] = consumed
-    stamp_mandate_attribution(kwargs, mandate_key, agent_cls)
-    if isinstance(kwargs.get("request_metadata"), dict):
-        # THE MARK, on the run's request before its conversation exists (db/stored_values_screen):
-        # the host keeps this mandate run's values off client-readable rows from the insert.
-        from matrx_ai.db.stored_values_screen import mark_mandate_values
-
-        mark_mandate_values(kwargs["request_metadata"], door="package_code_call")
-    result = await agent_cls.run(**kwargs)
-    if complete is not None:
-        try:
-            await complete(
-                result,
-                _run_variables(agent_cls, kwargs),
-                _capture_user_input(kwargs.get("user_input")),
-            )
-        except Exception as exc:  # completion cannot invalidate a delivered response
-            if getattr(exc, "fails_the_run", False):
-                # 🚨 ...except an answer missing the keys the job reads, from a
-                # Holder chosen although it does not declare them (the host's
-                # MandateOutputError, aidream 1363). Handing it on would let the
-                # call site save half an answer; it stops the job instead.
-                raise
-            from matrx_utils import vcprint
-
-            vcprint(
-                f"[mandates] post-run honesty callback FAILED for {mandate_key!r}: "
-                f"{type(exc).__name__}: {exc}",
-                color="red",
-            )
-    return result
-
-
 # ── THE CODE-CALL HOLDER ────────────────────────────────────────────────────
 #
 # A code position that calls the funnel directly (``llm_to_text`` /
@@ -798,6 +927,10 @@ class HeldCall:
     #: Media the mandate's provision delivered (image/audio blocks built by the host's one media builder), for
     #: the site to attach to its turn. Empty for a mandate that declares no media.
     media_blocks: list[dict[str, Any]] = field(default_factory=list)
+    #: The Holder AGENT itself, the binding's values already on it (config overrides, variables applied) — for a
+    #: site that renders or runs the Holder on its own transport (a batch body, runner plan 25 step 7). ``None``
+    #: for a workflow Holder. Read it through :meth:`holder_agent`, which refuses a workflow in words.
+    agent: Any = None
 
     # ── THE ONE PRECEDENCE RULE for every held call (2026-09-25) ───────────
     # The Holder's settings apply. A caller's value wins ONLY when it was
@@ -937,6 +1070,32 @@ class HeldCall:
         # The Holder's own text: the escape and the sections run too (config/template_substitution.py).
         # One pass: a value's own braces are data, never re-filled.
         return substitute_authored(str(text), str(text), values, prompt_safe_value, unescape=True)
+
+    def holder_agent(self) -> Any:
+        """The Holder agent with the binding's values on it, for a site that renders or runs it itself (a batch
+        body). A WORKFLOW Holder is refused in words: it is a durable run, never one provider request."""
+        if self.holder_type != "agent" or self.agent is None:
+            raise MandateRefused(
+                self.mandate_key,
+                code="holder_not_an_agent",
+                sentence=(
+                    f"this call renders its Holder agent itself, and the Holder is a {self.holder_type!r} — "
+                    "rebind it to an agent"
+                ),
+            )
+        return self.agent
+
+    async def send(self, **kwargs: Any) -> Any:
+        """One turn, no tools, through the funnel; closes the run. See :func:`_send_call`."""
+        return await _send_call(self, **kwargs)
+
+    async def send_pydantic(self, **kwargs: Any) -> Any:
+        """A strict-JSON call with the Holder's settings; closes the run. See :func:`_send_pydantic`."""
+        return await _send_pydantic(self, **kwargs)
+
+    async def send_text(self, **kwargs: Any) -> Any:
+        """A free-text call with the Holder's settings; closes the run. See :func:`_send_text`."""
+        return await _send_text(self, **kwargs)
 
     async def finish(
         self,
@@ -1091,6 +1250,25 @@ def _finished_run_ids(held: HeldCall) -> dict[str, Any]:
     return {}
 
 
+def engine_output(result: Any) -> tuple[str, Any]:
+    """A finished call's ``(output text, parsed artifact)`` — what ``finish()`` records, whichever runner.
+
+    A string is the text; a dict/list is the site's own parsed JSON (its text the JSON); a validated
+    pydantic value (``llm_to_pydantic``) is dumped; anything else reads ``final_text`` / ``output`` and
+    ``parsed``."""
+    if isinstance(result, str):
+        return result, None
+    if isinstance(result, dict | list):
+        return json.dumps(result, ensure_ascii=False, default=str), result
+    if hasattr(result, "model_dump") and not hasattr(result, "final_text") and not hasattr(result, "output"):
+        dumped = result.model_dump(mode="json")
+        return json.dumps(dumped, ensure_ascii=False, default=str), dumped
+    text = getattr(result, "final_text", None)
+    if text is None:
+        text = getattr(result, "output", None)
+    return str(text or ""), getattr(result, "parsed", None)
+
+
 class UncarriableHeldPart(ValueError):
     """An authored Holder part a text-only held call cannot carry honestly."""
 
@@ -1195,6 +1373,14 @@ async def hold_code_call(
     )
 
     resolution = await resolve_mandate_by_key(mandate_key, consumer=consumer)
+    if variables and any(isinstance(v, Offered) for v in variables.values()):
+        if resolution.consumption_map and resolution.materialize is not None and resolution.holder_type == "agent":
+            # The host pipeline applies the compute rule to the offers (only bound names build).
+            variables = dict(variables)
+        else:
+            # No map (the by-name lane) or a workflow Holder: every value rides by name, so every builder runs.
+            variables = {k: (await run_offered(v)) if isinstance(v, Offered) else v for k, v in variables.items()}
+            variables = {k: v for k, v in variables.items() if v is not None}
     if resolution.holder_type == "workflow":
         return await _hold_by_workflow(
             mandate_key, consumer=consumer, resolution=resolution,
@@ -1356,6 +1542,7 @@ async def hold_code_call(
         holder_values=holder_values,
         offering_id=str(getattr(config, "offering_id", None) or "") or None,
         media_blocks=list(held_media),
+        agent=agent,
     )
     _register_held_run(held_call_id, held.run_ids)
     return held
@@ -1459,6 +1646,7 @@ def held_request_config(
     extra_turns: list[dict[str, Any]] | None = None,
     stream: bool = False,
     max_output_tokens: int | None = None,
+    hosted_tool_options: Mapping[str, Any] | None = None,
 ) -> Any:
     """The whole request a held call sends, built ONLY from its Holder.
 
@@ -1469,6 +1657,11 @@ def held_request_config(
     (the text being processed), appended after the Holder's authored ones.
     ``max_output_tokens`` is a run-scope ceiling a caller may lower, never a
     default: when omitted the Holder's own ceiling applies.
+
+    ``hosted_tool_options`` narrows a provider-run tool the HOLDER turned on (its ``internal_x_search`` /
+    ``internal_web_search`` setting) for this one call: ``{"internal_x_search": {"allowed_x_handles": [h]},
+    "max_turns": 2}``. The Holder decides whether the tool runs; the site only says what it is reading. A
+    call that narrows a tool its Holder does not run is refused in words, never sent without it.
     """
     from matrx_ai.config import UnifiedConfig
 
@@ -1493,22 +1686,36 @@ def held_request_config(
         value = getattr(held.config, knob, None)
         if value not in (None, [], ""):
             cfg[knob] = value
+    if hosted_tool_options:
+        for setting in hosted_tool_options:
+            if setting == "max_turns":
+                continue
+            if getattr(held.config, setting, None) is not True:
+                raise MandateRefused(
+                    held.mandate_key,
+                    code="holder_lacks_hosted_tool",
+                    sentence=(
+                        f"this call narrows the provider tool {setting!r}, and its Holder does not run it — "
+                        f"rebind it to an agent with {setting} on"
+                    ),
+                )
+            cfg[setting] = True
+        cfg["hosted_tool_options"] = dict(hosted_tool_options)
     return UnifiedConfig.from_dict(cfg)
 
 
-@mandate_carrier_passthrough(
-    "the HeldCall handed in IS the resolved Holder (hold_code_call); its metadata names it"
-)
-async def run_held_call(
-    held: HeldCall,
+async def _send_call(
+    held: HolderCarrier[HeldCall],
     *,
     extra_turns: list[dict[str, Any]] | None = None,
     max_output_tokens: int | None = None,
     store: bool = True,
+    hosted_tool_options: Mapping[str, Any] | None = None,
 ) -> Any:
     """Run one held call to completion and return the normalized result.
 
-    One turn, no tools, not streamed to any listener — the shape of a code call
+    One turn, no tools of ours (a provider-run tool the Holder turns on runs inside the provider's
+    call; ``hosted_tool_options`` narrows it, see :func:`held_request_config`), not streamed to any listener — the shape of a code call
     (a labeler, a cleaner, an observer). Returns ``AiExecutionResult``:
     ``final_text`` plus the usage the funnel measured. The metadata names the
     Holder, so the runtime carrier gate and ``chat.request`` both record who
@@ -1557,7 +1764,10 @@ async def run_held_call(
     try:
         completed = await execute_ai_request(
             held_request_config(
-                held, extra_turns=extra_turns, max_output_tokens=max_output_tokens
+                held,
+                extra_turns=extra_turns,
+                max_output_tokens=max_output_tokens,
+                hosted_tool_options=hosted_tool_options,
             ),
             max_iterations=1,
             max_retries_per_iteration=2,
@@ -1577,11 +1787,8 @@ async def run_held_call(
     return result
 
 
-@mandate_carrier_passthrough(
-    "the HeldCall handed in IS the resolved Holder (hold_code_call); its metadata names it"
-)
-async def run_held_pydantic(
-    held: HeldCall,
+async def _send_pydantic(
+    held: HolderCarrier[HeldCall],
     *,
     output_cls: type[Any],
     user: str | None = None,
@@ -1646,11 +1853,8 @@ async def run_held_pydantic(
     return value
 
 
-@mandate_carrier_passthrough(
-    "the HeldCall handed in IS the resolved Holder (hold_code_call); its metadata names it"
-)
-async def run_held_text(
-    held: HeldCall,
+async def _send_text(
+    held: HolderCarrier[HeldCall],
     *,
     user: str,
     model: str | None = None,
@@ -1687,3 +1891,28 @@ async def run_held_text(
     text = (getattr(result, "final_text", None) or "") if measured else (result or "")
     await held.finish(text)
     return result
+
+
+# ── PORT SUGAR (runner plan 25 step 6) ─────────────────────────────────────
+#
+# A site prepared through the runner sends its held call ITSELF:
+#
+#     prepared = await get_mandate_runner().prepare(KEY, Offer.given_values({...}), who=..., opts=...)
+#     held = prepared.held_call()
+#     value = await held.send_pydantic(output_cls=Model, user=held.authored_user())
+#
+# ``send_*`` send the request through the one funnel and close the run (``HeldCall.finish`` — the same
+# completion the runner's ``finish`` runs for a prepared raw request). The ``run_held_*`` names below are the
+# same sugar for sites still holding through ``hold_code_call``; they go with their last caller.
+
+
+async def run_held_call(held: HolderCarrier[HeldCall], **kwargs: Any) -> Any:
+    return await _send_call(held, **kwargs)
+
+
+async def run_held_pydantic(held: HolderCarrier[HeldCall], **kwargs: Any) -> Any:
+    return await _send_pydantic(held, **kwargs)
+
+
+async def run_held_text(held: HolderCarrier[HeldCall], **kwargs: Any) -> Any:
+    return await _send_text(held, **kwargs)

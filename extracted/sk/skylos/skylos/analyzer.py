@@ -42,10 +42,15 @@ from skylos.visitors.languages.typescript.analysis import (
     build_ts_import_graph,
     demote_unconsumed_ts_exports,
     _discover_ts_vscode_lifecycle_entry_files,
+    discover_ts_build_aliases,
     discover_ts_bundle_entry_files,
     find_dead_ts_files,
     find_unused_ts_exports,
     mark_package_api_ts_exports_consumed,
+)
+from skylos.visitors.languages.typescript.build_configs import (
+    JestMappedResolver,
+    apply_ts_module_substitutions,
 )
 from skylos.visitors.languages.typescript.framework import is_framework_loaded_file
 from skylos.analysis.ast_cache import (
@@ -63,6 +68,7 @@ from skylos.rules.secrets import scan_ctx as _secrets_scan_ctx
 
 from skylos.config import load_config
 from skylos.analysis.errors import analysis_error_payload as _analysis_error_payload
+from skylos.analysis.errors import dedupe_source_analysis_errors
 from skylos.analysis.finding_filter import (
     finding_is_inline_ignored as _finding_is_inline_ignored,
 )
@@ -89,6 +95,8 @@ from skylos.rules.quality.clones import (
     CloneType,
     detect_pairs,
     group_pairs,
+    python_imports_outside_tests,
+    without_test_only_groups,
 )
 from skylos.analysis.penalties import apply_penalties
 from skylos.analysis.file_worker import process_file
@@ -149,6 +157,7 @@ _OPTIONAL_RUN_STATE_ATTRIBUTES = (
     "_ts_demoted_exports",
     "_browser_script_entry_files",
     "_generated_file_scope",
+    "_module_names_by_file",
 )
 
 
@@ -606,6 +615,22 @@ _DART_SOURCE_EXTS = (".dart",)
 _CSHARP_SOURCE_EXTS = (".cs",)
 _KOTLIN_SOURCE_EXTS = (".kt", ".kts")
 _SHELL_SOURCE_EXTS = SHELL_SOURCE_EXTS
+# Every suffix a directory scan parses as source.
+ANALYZED_SOURCE_SUFFIXES = frozenset(
+    {
+        *PYTHON_SIGNATURE_SUFFIXES,
+        ".go",
+        *_TS_JS_SOURCE_EXTS,
+        ".java",
+        *_PHP_SOURCE_EXTS,
+        *_RUST_SOURCE_EXTS,
+        *_CPP_SOURCE_EXTS,
+        *_DART_SOURCE_EXTS,
+        *_CSHARP_SOURCE_EXTS,
+        *_KOTLIN_SOURCE_EXTS,
+        *_SHELL_SOURCE_EXTS,
+    }
+)
 _PYTHON_SOURCE_ROOT_NAMES = {"src", "lib", "python"}
 _REFERENCE_LANGUAGE_FAMILIES = {
     **dict.fromkeys(PYTHON_SIGNATURE_SUFFIXES, "python"),
@@ -1637,6 +1662,27 @@ def _source_file_key(value) -> str | None:
     return os.path.normcase(os.path.abspath(path))
 
 
+def _python_import_bindings_by_module_attr(definitions, module_names) -> dict:
+    """Map ``module.binding`` to the Python imports that bind it in ``module``."""
+    if not module_names:
+        return {}
+    module_by_file = {str(path): module for path, module in module_names.items()}
+    bindings = defaultdict(list)
+    for definition in definitions:
+        if getattr(definition, "type", None) != "import":
+            continue
+        filename = str(getattr(definition, "filename", ""))
+        if _reference_language_family(filename) != "python":
+            continue
+        module = module_by_file.get(filename)
+        if not module:
+            continue
+        binding = _definition_binding_name(definition)
+        if binding:
+            bindings[f"{module}.{binding}"].append(definition)
+    return bindings
+
+
 def _definition_binding_name(definition) -> str:
     simple_name = str(getattr(definition, "simple_name", ""))
     if getattr(definition, "type", None) != "import":
@@ -1674,6 +1720,22 @@ def _is_loaded_root(defn) -> bool:
     if not filename.endswith(_TS_JS_SOURCE_EXTS):
         return True
     return is_framework_loaded_file(filename)
+
+
+# Penalty codes for methods kept because their base class dispatches to them.
+_DISPATCHED_OVERRIDE_CODES = frozenset({"parent_override", "protocol_override"})
+
+
+def _is_dispatched_override(defn) -> bool:
+    """An override the base class calls is not a dead caller of its helpers.
+
+    The penalty pass already keeps it out of the report; treating it as dead
+    here would report the methods only it calls (``self.helper`` callbacks).
+    """
+    return (
+        getattr(defn, "type", None) == "method"
+        and getattr(defn, "suppression_code", None) in _DISPATCHED_OVERRIDE_CODES
+    )
 
 
 def _annotate_dead_code_evidence_sources(defs, test_flags, framework_flags) -> None:
@@ -1864,19 +1926,7 @@ class Skylos:
             return [], Path(os.path.abspath(raw_path)).parent.resolve()
         p = raw_path.resolve()
 
-        exts = {
-            *PYTHON_SIGNATURE_SUFFIXES,
-            ".go",
-            *(_TS_JS_SOURCE_EXTS),
-            ".java",
-            *(_PHP_SOURCE_EXTS),
-            *(_RUST_SOURCE_EXTS),
-            *(_CPP_SOURCE_EXTS),
-            *(_DART_SOURCE_EXTS),
-            *(_CSHARP_SOURCE_EXTS),
-            *(_KOTLIN_SOURCE_EXTS),
-            *(_SHELL_SOURCE_EXTS),
-        }
+        exts = set(ANALYZED_SOURCE_SUFFIXES)
         if p.is_file():
             # Explicit paths need the same source filter as directory scans.
             # Config files also have a worker adapter for the later repo checks.
@@ -2253,7 +2303,7 @@ class Skylos:
             # A root with no static references (a Next.js page's default
             # export, a Laravel listener) is called by its framework, so the
             # helpers it calls must not inherit deadness from it.
-            if _is_loaded_root(defn):
+            if _is_loaded_root(defn) or _is_dispatched_override(defn):
                 continue
             if (
                 defn.type in ("function", "method")
@@ -2283,6 +2333,13 @@ class Skylos:
         changed = True
         iterations = 0
         max_iterations = 100
+        # Definitions this pass zeroed, with the references they had. A
+        # later rescue of their caller (grep verification) must restore them.
+        killed = {}
+        self._transitive_dead_kills = killed
+        self._transitive_dead_caller_key = key_for_caller
+        self._transitive_dead_class_keys = class_key_by_name_file
+        self._transitive_dead_filename = resolved_filename
 
         while changed and iterations < max_iterations:
             changed = False
@@ -2314,6 +2371,7 @@ class Skylos:
                     )
                     if defn.references <= dead_callers:
                         dead_set.add(key)
+                        killed[key] = defn.references
                         defn.references = 0
                         if defn.type in ("class", "type"):
                             dead_classes.add(key)
@@ -2346,6 +2404,52 @@ class Skylos:
                 if why_reduced is not None:
                     why_reduced.append("survived_propagation_via_attr_heuristic")
                 defn.confidence = min(defn.confidence, 40)
+
+    def _restore_transitive_dead_callees(self) -> int:
+        """Undo transitive deadness whose caller was later found to be used.
+
+        Transitive propagation zeroes callees whose only callers had no
+        references. When a caller is rescued afterwards (for example by grep
+        verification), reporting its callees as dead would contradict that.
+        """
+        killed = getattr(self, "_transitive_dead_kills", None)
+        if not killed:
+            return 0
+        key_for_caller = self._transitive_dead_caller_key
+        class_keys = self._transitive_dead_class_keys
+        resolved_filename = self._transitive_dead_filename
+
+        def is_live(key):
+            defn = self.defs.get(key)
+            if defn is None:
+                return False
+            if key in killed:
+                return False
+            return defn.references > 0 or bool(defn.is_exported)
+
+        def is_live_caller(caller, callee_defn):
+            caller_key = key_for_caller(caller, callee_defn)
+            if caller_key is None or not is_live(caller_key):
+                return False
+            owner = caller.rsplit(".", 1)[0] if "." in caller else ""
+            owner_key = class_keys.get((owner, resolved_filename(callee_defn.filename)))
+            return owner_key is None or is_live(owner_key)
+
+        restored = 0
+        changed = True
+        while changed:
+            changed = False
+            for key, original in list(killed.items()):
+                defn = self.defs.get(key)
+                if defn is None or defn.references > 0:
+                    killed.pop(key, None)
+                    continue
+                if any(is_live_caller(c, defn) for c in defn.called_by):
+                    killed.pop(key, None)
+                    defn.references = max(original, 1)
+                    restored += 1
+                    changed = True
+        return restored
 
     def _class_declares_attr(self, defn, attr_name: str) -> bool:
         node = getattr(defn, "node", None)
@@ -2462,6 +2566,18 @@ class Skylos:
             reason = report.reasons[key]
             if reason not in defn.why_unused:
                 defn.why_unused.append(reason)
+        self._mark_dynamic_lookup_candidates(report)
+
+    def _mark_dynamic_lookup_candidates(self, report):
+        for key in report.dynamic_lookup_keys:
+            defn = self.defs.get(key)
+            if defn is not None and "dynamic_lookup" not in defn.confidence_factors:
+                defn.confidence_factors.append("dynamic_lookup")
+
+    def _refresh_after_rescue(self):
+        self._restore_transitive_dead_callees()
+        self._refresh_python_reachability()
+        self._restore_transitive_dead_callees()
 
     def _refresh_python_reachability(self):
         report = getattr(self, "_python_reachability_report", None)
@@ -2474,6 +2590,7 @@ class Skylos:
         }
         report.refresh(self.defs, additional_roots=revived_roots)
         self._retain_reachability_uncertainty(report)
+        self._mark_dynamic_lookup_candidates(report)
         # An external callback or a later grep rescue may establish a real
         # caller. Its callees must be restored in this same scan.
         for key in previously_unreachable - report.unreachable_keys:
@@ -2599,11 +2716,11 @@ class Skylos:
                     if key in verified_keys
                 },
             )
-            self._refresh_python_reachability()
+            self._refresh_after_rescue()
             return rescued
 
         rescued = _apply_grep_verify_verdicts(candidate_defs, verdicts)
-        self._refresh_python_reachability()
+        self._refresh_after_rescue()
 
         if rescued:
             logger.info(f"Grep verify: rescued {rescued} findings from dead code")
@@ -2621,6 +2738,7 @@ class Skylos:
                 exclude_folders=getattr(self, "_analysis_scope", {}).get(
                     "excluded_folders"
                 ),
+                module_names=getattr(self, "_module_names_by_file", None),
             )
             self._dead_code_liveness_report = report
             if report.rescued:
@@ -2774,6 +2892,10 @@ class Skylos:
             if d.type == "method":
                 _methods_by_file_and_name[(str(d.filename), d.simple_name)].append(d)
 
+        reexported_import_bindings = _python_import_bindings_by_module_attr(
+            self.defs.values(), getattr(self, "_module_names_by_file", None)
+        )
+
         csharp_by_name = defaultdict(list)
         csharp_by_simple = defaultdict(list)
         for definition in self.defs.values():
@@ -2902,6 +3024,13 @@ class Skylos:
                 ):
                     if d.type == "method":
                         d.references += 1
+
+            if ref_family in {None, "python"} and ref in reexported_import_bindings:
+                # ``from pkg.mod import name`` / ``mod.name`` elsewhere reads the
+                # name that pkg.mod binds by importing it, so that import is used.
+                for binding in reexported_import_bindings[ref]:
+                    if str(binding.filename) != str(ref_file):
+                        binding.references += 1
 
             file_key = f"{ref_file}:{ref}"
 
@@ -3049,11 +3178,15 @@ class Skylos:
 
         from skylos.analysis.implicit_refs import pattern_tracker as global_tracker
 
+        if global_tracker._class_patterns:
+            global_tracker.set_class_hierarchy(self._python_subclass_map())
+
         if (
             global_tracker.traced_calls
             or global_tracker.coverage_hits
             or global_tracker.known_refs
             or global_tracker._compiled_patterns
+            or global_tracker._class_patterns
             or getattr(global_tracker, "known_qualified_refs", None)
         ):
             for def_obj in self.defs.values():
@@ -3124,6 +3257,107 @@ class Skylos:
                     continue
 
                 attribute_contexts.mark(defn, _heuristic_weights)
+
+    def _python_subclass_map(self):
+        children_of = defaultdict(set)
+        for name, defn in self.defs.items():
+            if defn.type != "class":
+                continue
+            for base_qname in getattr(defn, "base_classes", None) or ():
+                children_of[base_qname].add(name)
+        return children_of
+
+    def _mark_reflected_module_members(self, module_names):
+        """Mark members of modules that code enumerates by reflection.
+
+        ``for name in dir(module)`` (directly, or in a function that receives
+        the module as an argument) reaches every member the loop does not
+        filter out. ``issubclass(obj, Base)`` and ``name.startswith(prefix)``
+        filters narrow the members to those subclasses or names.
+        """
+        from skylos.analysis.implicit_refs import (
+            _compile_pattern_ref,
+            pattern_tracker as global_tracker,
+        )
+
+        targets = set(getattr(global_tracker, "reflected_modules", ()) or ())
+        reflective_params = getattr(global_tracker, "reflective_params", {}) or {}
+        for callee, index, name in getattr(global_tracker, "module_call_args", ()):
+            for name_filter in reflective_params.get((callee, index), ()):
+                targets.add((name, name_filter))
+        targets = {
+            (module, name_filter)
+            for module, name_filter in targets
+            if module in module_names
+        }
+        if not targets:
+            return 0
+
+        children_of = self._python_subclass_map()
+        descendants = {}
+
+        def subclasses(base):
+            if base not in descendants:
+                seen = set()
+                stack = list(children_of.get(base, ()))
+                while stack:
+                    child = stack.pop()
+                    if child not in seen:
+                        seen.add(child)
+                        stack.extend(children_of.get(child, ()))
+                descendants[base] = seen
+            return descendants[base]
+
+        members_by_module = defaultdict(list)
+        for defn in self.defs.values():
+            if defn.type not in ("class", "function", "variable"):
+                continue
+            owner, _, simple = defn.name.rpartition(".")
+            if owner and simple == defn.simple_name:
+                members_by_module[owner].append(defn)
+
+        marked = set()
+        for module, (bases, patterns) in targets:
+            allowed = set()
+            for base in bases:
+                allowed |= subclasses(base)
+            regexes = [_compile_pattern_ref(pattern) for pattern in patterns]
+            for defn in members_by_module.get(module, ()):
+                if defn.name in marked:
+                    continue
+                if bases and defn.name not in allowed:
+                    continue
+                if regexes and not any(r.match(defn.simple_name) for r in regexes):
+                    continue
+                defn.references += 1
+                _mark_evidence_ref(defn, "dynamic_pattern")
+                marked.add(defn.name)
+        return len(marked)
+
+    def _mark_discovered_subclasses(self) -> int:
+        """Only reachable discovery of classes whose modules really load."""
+        from skylos.analysis.implicit_refs import pattern_tracker
+        from skylos.deadcode.subclass_proofs import discovered_classes
+
+        report = getattr(self, "_python_reachability_report", None)
+        discoveries = getattr(pattern_tracker, "discovered_subclass_bases", ())
+        if not discoveries or report is None or not report.complete:
+            return 0
+        found = discovered_classes(
+            discoveries,
+            report,
+            self.defs,
+            self._python_subclass_map(),
+        )
+        marked = 0
+        for name in found:
+            defn = self.defs.get(name)
+            if defn is None or defn.type != "class" or defn.references > 0:
+                continue
+            defn.references += 1
+            _mark_evidence_ref(defn, "dynamic_pattern")
+            marked += 1
+        return marked
 
     def _mark_call_arg_method_refs(self):
         param_method_refs = getattr(self, "_param_method_refs", {})
@@ -3666,6 +3900,7 @@ class Skylos:
         include_review_context=False,
         skip_generated=False,
         generated_keep_paths=None,
+        all_advice=True,
     ) -> str:
         if not isinstance(path, (str, list, tuple)):
             raise TypeError(
@@ -3876,7 +4111,8 @@ class Skylos:
                         if detected.returncode == 0:
                             signals = {
                                 str(context.root / name)
-                                for name in detected.stdout.split("\0") if name
+                                for name in detected.stdout.split("\0")
+                                if name
                             }
                         elif _requires_security_control_history(context, None, ()):
                             # A new Git repository has no HEAD to compare yet.
@@ -3898,28 +4134,37 @@ class Skylos:
                     ):
                         comparison_base = (
                             _working_tree_diff_start(context, diff_base)
-                            or diff_base or "HEAD"
+                            or diff_base
+                            or "HEAD"
                         )
                         result["quality"] = collect_control_regressions(
                             path,
                             (
                                 {**project_cfg, "exclude": exclude_folders}
-                                if exclude_folders is not None else project_cfg
+                                if exclude_folders is not None
+                                else project_cfg
                             ),
                             comparison_base,
                             changed_files=(
                                 _scoped_changed_paths(
                                     root, path, signals, resolve_symlinks=False
                                 )
-                                if signals is not None else None
+                                if signals is not None
+                                else None
                             ),
                         )
-                        result["analysis_summary"]["quality_count"] = len(result["quality"])
+                        result["analysis_summary"]["quality_count"] = len(
+                            result["quality"]
+                        )
                 except Exception as exc:
-                    result["analysis_errors"].append(_analysis_error_payload(
-                        root, exc, kind="security_regression_unavailable"
-                    ))
-                    result["analysis_summary"]["analysis_error_count"] = len(result["analysis_errors"])
+                    result["analysis_errors"].append(
+                        _analysis_error_payload(
+                            root, exc, kind="security_regression_unavailable"
+                        )
+                    )
+                    result["analysis_summary"]["analysis_error_count"] = len(
+                        result["analysis_errors"]
+                    )
             if first_is_symlink and required_config_rules:
                 result["analysis_errors"].append(
                     _analysis_error_payload(
@@ -3945,7 +4190,9 @@ class Skylos:
                             ignore=project_ignore,
                             required_rules=required_config_rules,
                             analysis_errors=result["analysis_errors"],
-                            scan_paths=path if isinstance(path, (list, tuple)) else None,
+                            scan_paths=path
+                            if isinstance(path, (list, tuple))
+                            else None,
                         )
                         result["analysis_summary"]["analysis_error_count"] = len(
                             result["analysis_errors"]
@@ -4150,6 +4397,13 @@ class Skylos:
             )
             result["assessment"] = compute_assessment(result)
             result["analysis_summary"]["assessment_scope"] = "all_analyzed_findings"
+            from skylos.reporting.advice_policy import apply_advice_policy
+            from skylos.reporting.listing import explicit_rule_ids, normalize_rule_ids
+
+            result = apply_advice_policy(
+                result, project_root=str(project_root), all_advice=all_advice,
+                explicit_rules=explicit_rule_ids(project_cfg) | normalize_rule_ids(required_config_rules),
+            )
             return json.dumps(result)
 
         logger.info(f"Analyzing {len(files)} files...")
@@ -4160,6 +4414,7 @@ class Skylos:
         modmap = {}
         for f in files:
             modmap[f] = self._module(module_root, f)
+        self._module_names_by_file = modmap
 
         from skylos.analysis.implicit_refs import pattern_tracker
         from skylos.analysis.implicit_refs import (
@@ -4176,6 +4431,8 @@ class Skylos:
         global_pattern_tracker.traced_calls.clear()
         global_pattern_tracker.traced_by_file.clear()
         global_pattern_tracker._traced_by_basename.clear()
+        global_pattern_tracker.pattern_refs.clear()
+        global_pattern_tracker.reset_dynamic_refs()
 
         pyproject_entrypoint_qnames = set()
         pyproject_entrypoint_modules = set()
@@ -4215,16 +4472,35 @@ class Skylos:
         all_dangers = []
         all_quality = []
         self._maintainability_inventory = []
+        self._annotation_coverage = []
         all_ai_defects = []
         all_suppressed = []
         secret_scanned_files = set()
         analysis_errors = list(language_engine_errors)
+        credential_source_locations = None
+        if enable_quality and "SKY-L014" not in project_ignore:
+            from skylos.analysis.credential_sources import (
+                collect_project_credential_sources,
+            )
+
+            credential_source_locations = collect_project_credential_sources(
+                files,
+                modmap,
+                project_root=project_root,
+                config_file=config_file,
+                analysis_errors=analysis_errors,
+            )
         empty_files = []
         file_contexts = []
         all_clone_fragments = []
         architecture_abstractness = {}
         architecture_loc = {}
         architecture_main_guard_modules = set()
+        from skylos.reporting.architecture_result import _architecture_metric_sources
+
+        architecture_metric_sources = (
+            _architecture_metric_sources(files, modmap) if enable_quality else {}
+        )
 
         per_file_ignore_lines = {}
         per_file_ignore_rules = {}
@@ -4289,6 +4565,7 @@ class Skylos:
                 enable_danger_rules=enable_danger,
                 config_file=config_file,
                 project_root=project_root,
+                credential_source_locations=credential_source_locations,
             )
 
             if os.getenv("SKYLOS_DEBUG"):
@@ -4353,8 +4630,19 @@ class Skylos:
                 file_top_level_refs = out[24] if len(out) > 24 else set()
                 file_analysis_error = out[25] if len(out) > 25 else None
                 file_has_explicit_all = bool(out[27]) if len(out) > 27 else False
+                file_annotation_coverage = out[28] if len(out) > 28 else None
+                if isinstance(file_annotation_coverage, dict) and file_annotation_coverage:
+                    self._annotation_coverage.append(
+                        {"file": str(file), **file_annotation_coverage}
+                    )
                 if isinstance(file_analysis_error, dict):
                     analysis_errors.append(file_analysis_error)
+                elif isinstance(file_analysis_error, list):
+                    analysis_errors.extend(
+                        error
+                        for error in file_analysis_error
+                        if isinstance(error, dict)
+                    )
                 (
                     defs,
                     refs,
@@ -4393,6 +4681,9 @@ class Skylos:
 
                 if pattern_tracker_obj:
                     pattern_trackers[mod] = pattern_tracker_obj
+                    # A process-pool worker returns its own tracker; serial
+                    # analysis already wrote into the global one.
+                    global_pattern_tracker.merge(pattern_tracker_obj)
 
                 if file_inferred_types:
                     all_inferred_types.update(file_inferred_types)
@@ -4416,15 +4707,16 @@ class Skylos:
                         self._maintainability_inventory.append(
                             {"file": str(file), **measured_units}
                         )
-                    abstractness = file_architecture_metrics.get("abstractness")
-                    loc = file_architecture_metrics.get("loc")
-                    has_main_guard = file_architecture_metrics.get("has_main_guard")
-                    if abstractness is not None:
-                        architecture_abstractness[mod] = abstractness
-                    if loc is not None:
-                        architecture_loc[mod] = loc
-                    if has_main_guard:
-                        architecture_main_guard_modules.add(mod)
+                    if architecture_metric_sources.get(mod) == Path(file):
+                        abstractness = file_architecture_metrics.get("abstractness")
+                        loc = file_architecture_metrics.get("loc")
+                        has_main_guard = file_architecture_metrics.get("has_main_guard")
+                        if abstractness is not None:
+                            architecture_abstractness[mod] = abstractness
+                        if loc is not None:
+                            architecture_loc[mod] = loc
+                        if has_main_guard:
+                            architecture_main_guard_modules.add(mod)
                 for callee, method_refs in file_param_method_refs.items():
                     all_param_method_refs[callee].extend(method_refs)
                 for callee, arg_refs in file_call_arg_types.items():
@@ -4580,11 +4872,19 @@ class Skylos:
             if progress_callback:
                 progress_callback(0, 1, Path("PHASE: clone detection"))
             RULE_ID = "SKY-C401"
+            from skylos.rules.quality.clones import clone_member_label
 
             frags = all_clone_fragments
 
             pairs = detect_pairs(frags, clone_cfg)
-            groups = group_pairs(pairs, clone_cfg)
+            groups = without_test_only_groups(
+                group_pairs(pairs, clone_cfg),
+                root,
+                imported_modules=python_imports_outside_tests(all_raw_imports, root),
+                module_names={
+                    str(Path(file).resolve()): module for file, module in modmap.items()
+                },
+            )
 
             for g in groups:
                 if len(g.fragments) < 2:
@@ -4593,11 +4893,10 @@ class Skylos:
                 g.fragments.sort(key=lambda x: (x.file_path, x.start_line))
                 top = g.fragments[0]
 
-                members_preview = []
-                for frag in g.fragments[:4]:
-                    members_preview.append(
-                        f"{Path(frag.file_path).name}:{frag.start_line}-{frag.end_line} ({frag.kind} {frag.name})"
-                    )
+                members_preview = [
+                    clone_member_label(frag, project_root)
+                    for frag in g.fragments[:4]
+                ]
 
                 if (
                     g.clone_type in (CloneType.TYPE1, CloneType.TYPE2)
@@ -4692,11 +4991,11 @@ class Skylos:
                 diff_base = resolve_diff_base_ref(root)
                 comparison_base = (
                     _working_tree_diff_start(git_context, diff_base)
-                    or diff_base or "HEAD"
+                    or diff_base
+                    or "HEAD"
                 )
                 signaled = {
-                    _lexical_repository_path(root, item)
-                    for item in diff_signal_files
+                    _lexical_repository_path(root, item) for item in diff_signal_files
                 }
                 source_changes = {}
                 if _requires_security_control_history(git_context, diff_base, signaled):
@@ -4716,16 +5015,22 @@ class Skylos:
                         continue
                     try:
                         all_quality.extend(
-                            compare_source_controls(git_context, comparison_base, change)
+                            compare_source_controls(
+                                git_context, comparison_base, change
+                            )
                         )
                     except Exception as exc:
-                        analysis_errors.append(_analysis_error_payload(
-                            cf, exc, kind="security_regression_unavailable"
-                        ))
+                        analysis_errors.append(
+                            _analysis_error_payload(
+                                cf, exc, kind="security_regression_unavailable"
+                            )
+                        )
             except Exception as exc:
-                analysis_errors.append(_analysis_error_payload(
-                    root, exc, kind="security_regression_unavailable"
-                ))
+                analysis_errors.append(
+                    _analysis_error_payload(
+                        root, exc, kind="security_regression_unavailable"
+                    )
+                )
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error("Security regression scan failed", exc_info=True)
 
@@ -4959,11 +5264,15 @@ class Skylos:
                             return False
                         if not resolved_path.is_file():
                             return False
-                        candidate_key = str(resolved_path)
+                        try:
+                            stat = resolved_path.stat()
+                        except OSError:
+                            return False
+                        candidate_key = (stat.st_dev, stat.st_ino)
                         if candidate_key in seen_injection_files:
                             return False
                         seen_injection_files.add(candidate_key)
-                        injection_candidates.append(candidate_path)
+                        injection_candidates.append(_with_on_disk_name(candidate_path))
                         return True
 
                     if changed_files is not None:
@@ -5015,8 +5324,7 @@ class Skylos:
                                     injection_root
                                 ).parts
                                 if any(
-                                    part.startswith(".")
-                                    for part in relative_parts[:-1]
+                                    part.startswith(".") for part in relative_parts[:-1]
                                 ):
                                     reviewer_high_only.add(str(candidate))
                         if injection_root.is_dir():
@@ -5154,7 +5462,9 @@ class Skylos:
                             getattr(
                                 api_findings,
                                 "check",
-                                failed_python_api_signature_check("coverage_receipt_missing"),
+                                failed_python_api_signature_check(
+                                    "coverage_receipt_missing"
+                                ),
                             ),
                             project_ignore=project_ignore,
                             per_file_ignore_lines=per_file_ignore_lines,
@@ -5503,8 +5813,7 @@ class Skylos:
                 )
 
             if diff_signal_files and (
-                {"SKY-A103", "SKY-A104", "SKY-A122", "SKY-A125"}
-                - set(project_ignore)
+                {"SKY-A103", "SKY-A104", "SKY-A122", "SKY-A125"} - set(project_ignore)
             ):
                 try:
                     _scan_ai_defect_diff_signals(
@@ -5520,9 +5829,17 @@ class Skylos:
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error("AI defect diff scan failed", exc_info=True)
 
+        unused_dependency_analysis = None
         if enable_quality:
             if progress_callback:
                 progress_callback(0, 1, Path("PHASE: dependency quality scan"))
+            unused_dependency_analysis = {
+                "rule_id": "SKY-U005",
+                "status": "not_run",
+                "complete": False,
+                "reasons": [{"kind": "no_project_python_sources"}],
+                "abstained_count": 0,
+            }
             try:
                 from skylos.rules.quality.unused_deps import scan_unused_dependencies
 
@@ -5547,12 +5864,32 @@ class Skylos:
 
                     if "SKY-U005" not in project_ignore:
                         ud_findings = scan_unused_dependencies(
-                            _ud_root, _ud_py_files, location_root=project_root
+                            _ud_root,
+                            _ud_py_files,
+                            location_root=project_root,
+                            coverage=unused_dependency_analysis,
                         )
                         if ud_findings:
                             all_quality.extend(ud_findings)
 
-            except Exception:
+                elif _file_scoped_scan:
+                    unused_dependency_analysis["reasons"] = [
+                        {"kind": "file_scoped_scan"}
+                    ]
+                if "SKY-U005" in project_ignore:
+                    unused_dependency_analysis["reasons"] = [{"kind": "rule_ignored"}]
+
+            except Exception as error:
+                unused_dependency_analysis.update(
+                    status="incomplete",
+                    complete=False,
+                    reasons=[
+                        {
+                            "kind": "unused_dependency_analysis_failed",
+                            "error_type": type(error).__name__,
+                        }
+                    ],
+                )
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error(traceback.format_exc())
 
@@ -5669,7 +6006,37 @@ class Skylos:
                     if os.getenv("SKYLOS_DEBUG"):
                         logger.error("JS API hallucination scan failed", exc_info=True)
 
-        self._build_ts_import_graph(ts_raw_imports, monorepo_resolver)
+        jest_mappings, file_replacements = [], []
+        try:
+            jest_mappings, file_replacements = discover_ts_build_aliases(
+                files,
+                project_root=str(self._project_root),
+                workspace_inventory=workspace_inventory,
+                exclude_folders=exclude_folders,
+            )
+        except Exception:
+            if os.getenv("SKYLOS_DEBUG"):
+                logger.error("JS/TS build config alias scan failed", exc_info=True)
+        graph_resolver = monorepo_resolver
+        if jest_mappings:
+            # Under Jest, moduleNameMapper decides what a bare import loads;
+            # the analysis resolver is only asked first.
+            graph_resolver = JestMappedResolver(
+                monorepo_resolver,
+                jest_mappings,
+                {
+                    os.path.realpath(str(f))
+                    for f in files
+                    if str(f).endswith(_TS_JS_SOURCE_EXTS)
+                },
+            )
+        self._build_ts_import_graph(ts_raw_imports, graph_resolver)
+        apply_ts_module_substitutions(
+            file_replacements,
+            self.ts_consumed_exports,
+            self._ts_importers_of,
+            self._ts_wildcard_edges,
+        )
 
         self._global_type_map = {}
         self._global_type_map.update(all_inferred_types)
@@ -5728,6 +6095,7 @@ class Skylos:
         if progress_callback:
             progress_callback(0, 1, Path("PHASE: mark refs"))
         self._mark_refs(progress_callback=progress_callback)
+        self._mark_reflected_module_members(set(modmap.values()))
         self._mark_call_arg_method_refs()
         mark_signature_contract_parameters(self.defs)
 
@@ -5782,6 +6150,8 @@ class Skylos:
         # callback cycles cannot become roots or consume ordinary references.
         self._apply_external_protocol_liveness(files)
         self._refresh_python_reachability()
+        if self._mark_discovered_subclasses():
+            self._refresh_python_reachability()
         self._suppress_standalone_orm_models()
 
         grep_verify_report = {
@@ -5833,6 +6203,18 @@ class Skylos:
             workspace_inventory=workspace_inventory,
         )
 
+        if enable_quality:
+            from skylos.analysis.typing_scope import scope_typing_findings
+
+            all_quality = scope_typing_findings(
+                all_quality,
+                modmap,
+                all_raw_imports,
+                project_root,
+                production_modules=(
+                    pyproject_entrypoint_modules | architecture_main_guard_modules
+                ),
+            )
         self._review_file_configs = effective_file_configs
         if effective_file_configs is None or any(
             _resolution_scope_limited(config, thr)
@@ -5840,9 +6222,28 @@ class Skylos:
         ):
             resolution_scope_limited = True
         refresh_review_context(diff_signal_files)
+        analysis_errors = dedupe_source_analysis_errors(analysis_errors)
         analysis_errors, outside_diff_warnings = _split_outside_diff_analysis_errors(
             analysis_errors, changed_files
         )
+        if enable_danger and all_dangers:
+            from skylos.rules.danger.danger_fs.closed_world import (
+                drop_closed_world_helper_findings,
+            )
+
+            all_dangers = drop_closed_world_helper_findings(
+                all_dangers, scan_path=path, suppressed=all_suppressed
+            )
+            from skylos.security.static_trace import attach_security_traces
+
+            attach_security_traces(
+                all_dangers, project_root=project_root, files=files
+            )
+        if enable_danger:
+            from skylos.reporting.metadata_paths import relativize_receiver_paths
+
+            relativize_receiver_paths(all_dangers, project_root)
+            relativize_receiver_paths(all_suppressed, project_root)
         result = self._build_result(
             files,
             thr,
@@ -5882,6 +6283,25 @@ class Skylos:
             )
         result["analysis_summary"]["resolution_scope_limited"] = (
             resolution_scope_limited
+        )
+        if enable_danger:
+            from skylos.security.trace_report import trace_coverage
+
+            result["analysis_summary"]["security_trace_coverage"] = trace_coverage(
+                all_dangers
+            )
+        if unused_dependency_analysis is not None:
+            result["analysis_summary"]["unused_dependency_analysis"] = (
+                unused_dependency_analysis
+            )
+        # The CLI asks for focused advice, so its terminal, JSON, SARIF, gate
+        # and upload read one result. Library callers keep every check.
+        from skylos.reporting.advice_policy import apply_advice_policy
+        from skylos.reporting.listing import explicit_rule_ids, normalize_rule_ids
+
+        result = apply_advice_policy(
+            result, project_root=str(project_root), all_advice=all_advice,
+            explicit_rules=explicit_rule_ids(project_cfg) | normalize_rule_ids(required_config_rules),
         )
 
         return json.dumps(result, indent=2)
@@ -5980,6 +6400,7 @@ def proc_file(
     enable_danger_rules=True,
     config_file=None,
     project_root=None,
+    credential_source_locations=(),
 ) -> tuple | None:
     return process_file(
         file_or_args,
@@ -5993,10 +6414,26 @@ def proc_file(
         enable_danger_rules=enable_danger_rules,
         config_file=config_file,
         project_root=project_root,
+        credential_source_locations=credential_source_locations,
         visitor_class=Visitor,
         test_aware_visitor_class=TestAwareVisitor,
         framework_aware_visitor_class=FrameworkAwareVisitor,
     )
+
+
+def _with_on_disk_name(path: Path) -> Path:
+    """``path`` with its last component spelled as the directory lists it, for
+    a name that matched only because the filesystem ignores case."""
+    try:
+        names = os.listdir(path.parent)
+    except OSError:
+        return path
+    if path.name in names:
+        return path
+    folded = [name for name in names if name.lower() == path.name.lower()]
+    if len(folded) == 1:
+        return path.with_name(folded[0])
+    return path
 
 
 def analyze(
@@ -6024,6 +6461,7 @@ def analyze(
     include_review_context=False,
     skip_generated=False,
     generated_keep_paths=None,
+    all_advice=True,
 ) -> str:
     return Skylos().analyze(
         path,
@@ -6050,6 +6488,7 @@ def analyze(
         include_review_context=include_review_context,
         skip_generated=skip_generated,
         generated_keep_paths=generated_keep_paths,
+        all_advice=all_advice,
     )
 
 

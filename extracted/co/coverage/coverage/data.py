@@ -21,9 +21,11 @@ from typing import Literal
 
 from coverage.exceptions import CoverageException, NoDataError
 from coverage.files import PathAliases
-from coverage.misc import Hasher, file_be_gone, human_sorted, plural
-from coverage.sqldata import CoverageData as CoverageData  # pylint: disable=useless-import-alias
-from coverage.sqldata import filename_match
+from coverage.misc import Hasher, file_be_gone, human_sorted, neutralize_control, plural
+from coverage.sqldata import (  # pylint: disable=useless-import-alias
+    CoverageData as CoverageData,
+    filename_match,
+)
 
 
 def line_counts(data: CoverageData, fullpath: bool = False) -> dict[str, int]:
@@ -255,10 +257,10 @@ def debug_data_file(filename: str) -> None:
     nfiles = len(filenames)
     print(f"{plural(nfiles, 'file')}:")
     for f in filenames:
-        line = f"{f}: {plural(summary[f], 'line')}"
+        line = f"{neutralize_control(f)}: {plural(summary[f], 'line')}"
         plugin = data.file_tracer(f)
         if plugin:
-            line += f" [{plugin}]"
+            line += f" [{neutralize_control(plugin)}]"
         print(line)
 
 

@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -38,6 +45,11 @@ from .data_quality_related import RelatedDataQualityRule, RelatedMetric
 from .gcp_dataplex_related import RelatedGCPDataplexAspectType
 from .gtc_related import RelatedAtlasGlossaryTerm
 from .knowledge_related import RelatedKnowledgeFile
+from .model_related import (
+    RelatedModelAttribute,
+    RelatedModelAttributeAssociation,
+    RelatedModelEntity,
+)
 from .monte_carlo_related import RelatedMCIncident, RelatedMCMonitor
 from .partial_related import RelatedPartialField, RelatedPartialObject
 from .process_related import RelatedProcess
@@ -46,18 +58,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .model_related import (
-    RelatedModelAttribute,
-    RelatedModelAttributeAssociation,
-    RelatedModelEntity,
-)
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -772,6 +772,7 @@ def _model_attribute_association_to_nested(
         is_incomplete=model_attribute_association.is_incomplete,
         provenance_type=model_attribute_association.provenance_type,
         home_id=model_attribute_association.home_id,
+        delete_handler=model_attribute_association.delete_handler,
         depth=model_attribute_association.depth,
         immediate_upstream=model_attribute_association.immediate_upstream,
         immediate_downstream=model_attribute_association.immediate_downstream,
@@ -822,6 +823,7 @@ def _model_attribute_association_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

@@ -2202,3 +2202,23 @@ def test_claude_haiku_5_5_is_priced_per_context_tier():
         (100_000 * 0.10 + 1_000 * 0.50) / 1e6)
     assert usage.cost("claude-haiku-5-5", input_tokens=100_001, output_tokens=1_000) == pytest.approx(
         (100_001 * 0.50 + 1_000 * 2.50) / 1e6)
+
+
+def test_the_lock_taker_clears_an_ask_meant_for_the_previous_holder(tmp_path):
+    """A restarting service dates its hand-over ask ahead (the previous worker
+    hands over when it sees its parent gone). The worker that takes the lock
+    next must clear it, or it would hand over itself when its own session
+    ends instead of finishing its queue (critic R2)."""
+    from probe.daemon import mailbox
+
+    marker = mailbox.handover_path(SID)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.touch()
+    ahead = time.time() + 180
+    os.utime(marker, (ahead, ahead))
+    got = worker_mod.session_lock(SID, poll_s=0.01)
+    try:
+        assert not isinstance(got, int)
+        assert not marker.exists()
+    finally:
+        got.close()

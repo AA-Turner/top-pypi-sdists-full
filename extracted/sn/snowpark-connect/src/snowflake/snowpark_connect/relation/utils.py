@@ -7,7 +7,8 @@ import secrets
 import string
 import time
 import uuid
-from typing import Any, Sequence
+from collections.abc import Callable
+from typing import Any, Sequence, TypeVar
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
@@ -36,14 +37,23 @@ from snowflake.snowpark_connect.column_name_handler import (
     ColumnNameMap,
     make_column_names_snowpark_compatible,
 )
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_pivot_first_last_ignore_nulls_enabled,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.map_relation import map_relation
+from snowflake.snowpark_connect.utils.context import (
+    get_sql_aggregate_function_count,
+    pivot_first_last_rewrite,
+    set_sql_aggregate_function_count,
+)
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.scos_query_tag import scos_internal_query_tag
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -443,9 +453,12 @@ def assert_sf_connector_context_matches(
     assert_sf_connector_auth_options_match(session, sf_options)
     assert_sf_connector_warehouse_matches(session, sf_options)
 
+    with scos_internal_query_tag():
+        current_database = session.get_current_database()
+        current_schema = session.get_current_schema()
     location_checks = [
-        ("sfdatabase", session.get_current_database(), "sfDatabase"),
-        ("sfschema", session.get_current_schema(), "sfSchema"),
+        ("sfdatabase", current_database, "sfDatabase"),
+        ("sfschema", current_schema, "sfSchema"),
     ]
     for opt_key, current_val, display_name in location_checks:
         if opt_key in sf_options and not _sf_connector_identifiers_match(
@@ -483,8 +496,9 @@ def qualify_dbtable_with_sf_options(
     # session.get_current_database/schema() return Snowflake-quoted identifiers
     # like '"TESTDB_SAS"'.  Unquote them before embedding in the dot-joined FQN
     # string so _spark_to_snowflake doesn't double-quote them.
-    session_db = session.get_current_database()
-    session_schema = session.get_current_schema()
+    with scos_internal_query_tag():
+        session_db = session.get_current_database()
+        session_schema = session.get_current_schema()
     db = sf_options.get("sfdatabase") or (
         unquote_if_quoted(session_db) if session_db else ""
     )
@@ -570,3 +584,87 @@ def create_pivot_column_condition(
         lit = snowpark_fn.cast(lit, cast_literal_to)
 
     return snowpark_fn.is_null(col) if pivot_value_is_null else (col == lit)
+
+
+# Spark PivotFirst.supportsDataType (PivotFirst.scala). These result types take
+# the two-phase pivot plan, which does not rewrite First/Last. Every other type
+# takes Analyzer.ResolvePivot's single-pass rewrite (Analyzer.scala), which
+# forces first/last to ignore nulls.
+_PIVOT_FIRST_DATATYPES = (
+    ByteType,
+    ShortType,
+    IntegerType,
+    LongType,
+    FloatType,
+    DoubleType,
+    BooleanType,
+    DecimalType,
+)
+
+
+def pivot_first_supports_datatype(datatype: DataType) -> bool:
+    """True when Spark would pivot this aggregate result type via PivotFirst."""
+    return isinstance(datatype, _PIVOT_FIRST_DATATYPES)
+
+
+def pivot_aggregate_forces_first_last_ignore_nulls(
+    *,
+    in_pivot: bool,
+    flag_enabled: bool,
+    force_all: bool,
+) -> bool:
+    """Whether pivot should rewrite a first/last to ignore nulls.
+
+    force_all is Spark's decision for the whole pivot (Analyzer.scala forall
+    over the aggregate result types), computed by
+    pivot_result_types_need_first_last_rewrite. It is not decided per
+    first/last argument: first(int).cast("string") is rewritten, and
+    length(first(string)) is not.
+    """
+    return in_pivot and flag_enabled and force_all
+
+
+def pivot_result_types_need_first_last_rewrite(
+    datatypes: Sequence[DataType | None],
+) -> bool:
+    """True when any pivot aggregate result type is outside PivotFirst.
+
+    A type that could not be inferred (None) counts as outside. The rewrite
+    only turns NULL into a non-null value of the same cell, which Spark also
+    returns for some input order, so guessing "outside" cannot produce a
+    value Spark never would.
+    """
+    return any(
+        datatype is None or not pivot_first_supports_datatype(datatype)
+        for datatype in datatypes
+    )
+
+
+_Mapped = TypeVar("_Mapped")
+
+
+def map_pivot_aggregates(
+    is_pivot: bool,
+    map_pass: Callable[[], _Mapped],
+    result_types: Callable[[_Mapped], list],
+) -> _Mapped:
+    """Map aggregate expressions, following ResolvePivot's first/last choice.
+
+    Spark decides on the aggregate result types (Analyzer.scala forall), which
+    are known only after mapping. A pivot with a first/last and any result
+    type outside PivotFirst is therefore mapped a second time with every
+    first/last rewritten, and the first pass is discarded.
+    """
+    saved_agg_count = get_sql_aggregate_function_count()
+    with pivot_first_last_rewrite(is_pivot) as pivot_state:
+        mapped = map_pass()
+        if (
+            pivot_state is not None
+            and pivot_state.saw_first_last
+            and is_pivot_first_last_ignore_nulls_enabled()
+            and pivot_result_types_need_first_last_rewrite(result_types(mapped))
+        ):
+            set_sql_aggregate_function_count(saved_agg_count)
+            pivot_state.force_all = True
+            mapped = map_pass()
+    return mapped

@@ -14,11 +14,20 @@ This module provides:
 
 from __future__ import annotations
 
+import hashlib
 import re
 from typing import Any, ClassVar, Dict, List, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
@@ -36,6 +45,10 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .databricks_related import (
+    RelatedDatabricksExternalLocation,
+    RelatedDatabricksExternalLocationPath,
+)
 from .dbt_related import (
     RelatedDbtModel,
     RelatedDbtSeed,
@@ -58,17 +71,6 @@ from .spark_related import RelatedSparkJob
 from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
-)
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .databricks_related import (
-    RelatedDatabricksExternalLocation,
-    RelatedDatabricksExternalLocationPath,
 )
 
 # =============================================================================
@@ -509,6 +511,49 @@ class DatabricksExternalLocationPath(Asset):
         if self.guid is not UNSET:
             return RelatedDatabricksExternalLocationPath(guid=self.guid)
         return RelatedDatabricksExternalLocationPath(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        path: str,
+        external_location_qualified_name: str,
+        connection_qualified_name: str | None = None,
+    ) -> "DatabricksExternalLocationPath":
+        validate_required_fields(
+            ["path", "external_location_qualified_name"],
+            [path, external_location_qualified_name],
+        )
+        fields = external_location_qualified_name.split("/")
+        if len(fields) < 4:
+            raise ValueError(
+                "Invalid external_location_qualified_name: "
+                f"{external_location_qualified_name}. "
+                "Expected format: default/connector/connection_id/location_name"
+            )
+        # The path segment is the md5 of the raw path, as atlan-databricks-app emits it.
+        path_hash = hashlib.md5(path.encode("utf-8"), usedforsecurity=False).hexdigest()
+        return cls(
+            name=path,
+            qualified_name=f"{external_location_qualified_name}/{path_hash}",
+            connector_name=fields[1],
+            connection_qualified_name=connection_qualified_name or "/".join(fields[:3]),
+            databricks_path=path,
+            databricks_parent_name="/".join(fields[3:]),
+            databricks_parent_qualified_name=external_location_qualified_name,
+            databricks_external_location=RelatedDatabricksExternalLocation(
+                qualified_name=external_location_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DatabricksExternalLocationPath":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DatabricksExternalLocationPath":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1049,6 +1094,7 @@ def _databricks_external_location_path_to_nested(
         is_incomplete=databricks_external_location_path.is_incomplete,
         provenance_type=databricks_external_location_path.provenance_type,
         home_id=databricks_external_location_path.home_id,
+        delete_handler=databricks_external_location_path.delete_handler,
         depth=databricks_external_location_path.depth,
         immediate_upstream=databricks_external_location_path.immediate_upstream,
         immediate_downstream=databricks_external_location_path.immediate_downstream,
@@ -1099,6 +1145,7 @@ def _databricks_external_location_path_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

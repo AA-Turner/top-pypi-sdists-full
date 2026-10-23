@@ -50,7 +50,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import children, paths, procid
+from . import children, loginenv, paths, procid
 from .protocol import (
     ACTIONS,
     REPORT_TRIGGERS,
@@ -471,10 +471,13 @@ class ActionManager:
         code: int | None
         failure: str | None = None
         try:
+            # The login shell's PATH (D14): an agent installed with nvm or volta
+            # is found. The request's context, not the shell, says the rest.
+            login = await loginenv.child_env(vars=False)
             code = await children.run_events(
                 record.action,
                 request,
-                env_extra=env,
+                env_extra={**login, **env},
                 on_event=lambda event: self._event(record, event),
                 on_start=started,
                 log_path=self._log(record.action_id),

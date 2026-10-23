@@ -254,12 +254,21 @@ class PageSummary(BaseModel):
 
     # Link / image counts (full graph in crawl_links)
     internal_links: int = 0
+    # Distinct same-site pages linked onward (www/apex equivalent, no `#`, no
+    # self links) — `dead_end_page`'s evidence. None = not parsed from HTML.
+    onward_internal_links: int | None = None
     external_links: int = 0
     link_count: int = 0
     images_count: int = 0
     images_missing_alt: int = 0
     image_inventory: list[dict[str, Any]] = Field(default_factory=list)
     resources: dict[str, Any] = Field(default_factory=dict)
+    # App-shell markup facts — {"app_root", "executable_script", "visible_words"}
+    # (`app_shell.AppShellSignals.to_dict`). `None` = not parsed from HTML.
+    app_shell: dict[str, Any] | None = None
+    # Set when the crawl KEPT a page the content gate failed (`seo_audit.
+    # keepable_failed_read`): {"kind": "js_shell" | "soft_404", "reason": <gate reason>}.
+    kept_from_failed_read: dict[str, Any] | None = None
 
     # Full link rows — anchor text + rel + type. Persisted to crawl_links.
     links: list[LinkEntry] = Field(default_factory=list)

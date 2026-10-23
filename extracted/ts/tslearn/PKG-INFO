@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tslearn
-Version: 0.9.0
+Version: 0.10.0
 Summary: A machine learning toolkit dedicated to time-series data
 Author-email: Romain Tavenard <romain.tavenard@univ-rennes2.fr>
 License-Expression: BSD-2-Clause
@@ -17,7 +17,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: scikit-learn>=1.4
+Requires-Dist: scikit-learn>=1.5
 Requires-Dist: numpy>=1.24.3
 Requires-Dist: scipy>=1.10.1
 Requires-Dist: numba>=0.61
@@ -25,6 +25,8 @@ Requires-Dist: joblib>=1.2
 Requires-Dist: statsmodels>=0.14
 Provides-Extra: pytorch
 Requires-Dist: torch; extra == "pytorch"
+Provides-Extra: foundation
+Requires-Dist: torch; extra == "foundation"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: h5py; extra == "tests"
@@ -36,6 +38,8 @@ Requires-Dist: sphinx_copybutton; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: pypandoc; extra == "docs"
+Requires-Dist: torch; extra == "docs"
+Requires-Dist: chronos-forecasting>=2.0; extra == "docs"
 Provides-Extra: all-features
 Requires-Dist: torch; extra == "all-features"
 Requires-Dist: numpy<2; ("darwin" in sys_platform and "x86_64" in platform_machine) and extra == "all-features"
@@ -62,7 +66,7 @@ Dynamic: license-file
         <img alt="Python 3.10+" src="https://img.shields.io/badge/python-3.10+-blue.svg">
     </a>
     <a href="http://tslearn.readthedocs.io/en/stable/?badge=stable">
-        <img alt="Documentation" src="https://readthedocs.org/projects/tslearn/badge/?version=stable">
+        <img alt="Documentation" src="https://app.readthedocs.org/projects/tslearn/badge/?version=stable">
     </a>
     <a href="https://dev.azure.com/romaintavenard/tslearn/_build">
         <img alt="Build (Azure Pipelines)" src="https://dev.azure.com/romaintavenard/tslearn/_apis/build/status/tslearn-team.tslearn?branchName=main">
@@ -165,7 +169,7 @@ The documentation is hosted at [readthedocs](http://tslearn.readthedocs.io/en/st
 
 ## Contributing<a id="contributing"></a>
 
-If you would like to contribute to `tslearn`, please have a look at [our contribution guidelines](https://github.com/tslearn-team/tslearn/blob/main/CONTRIBUTING.md). A list of interesting TODO's can be found [here](https://github.com/tslearn-team/tslearn/issues?utf8=✓&q=is%3Aissue%20is%3Aopen%20label%3A%22new%20feature%22%20). **If you want other ML methods for time series to be added to this TODO list, do not hesitate to [open an issue](https://github.com/tslearn-team/tslearn/issues/new/choose)!**
+If you would like to contribute to `tslearn`, please have a look at [our contribution guidelines](https://github.com/tslearn-team/tslearn/blob/main/CONTRIBUTING.rst). A list of interesting TODO's can be found [here](https://github.com/tslearn-team/tslearn/issues?utf8=✓&q=is%3Aissue%20is%3Aopen%20label%3A%22new%20feature%22%20). **If you want other ML methods for time series to be added to this TODO list, do not hesitate to [open an issue](https://github.com/tslearn-team/tslearn/issues/new/choose)!**
 
 ## Referencing tslearn<a id="referencing-tslearn"></a>
 
@@ -183,7 +187,7 @@ If you use `tslearn` in a scientific publication, we would appreciate citations:
   volume  = {21},
   number  = {118},
   pages   = {1-6},
-  url     = {http://jmlr.org/papers/v21/20-091.html}
+  url     = {https://www.jmlr.org/papers/v21/20-091.html}
 }
 ```
 

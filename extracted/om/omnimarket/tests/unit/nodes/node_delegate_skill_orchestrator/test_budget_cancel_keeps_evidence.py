@@ -57,6 +57,7 @@ from omnimarket.nodes.node_llm_delegation_call_effect.handlers import (
 )
 from omnimarket.nodes.node_llm_delegation_call_effect.handlers import transport
 from omnimarket.routing import byok_model_discovery as discovery
+from omnimarket.routing import byok_provider_backends as catalogue
 from omnimarket.routing.delegation_backend_resolution import (
     ModelResolvedDelegationBackend,
 )
@@ -98,6 +99,9 @@ def short_budget(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
             terminal_delivery_margin_seconds=1,
         ),
     )
+    # The stubbed budget is a few seconds, under the 60 s next-rung reserve the
+    # real classes declare; the retry cases here need the reserve out of the way.
+    monkeypatch.setattr(port_mod, "_next_rung_reserve_seconds", lambda _task_type: 0.0)
 
     async def expire_after_provider_started(
         awaitable: Awaitable[Any], *, timeout: float
@@ -249,6 +253,14 @@ class _ReaimThenHangEffect:
                 "resolve_local_byok_model_chooser",
                 lambda _ref: "catalogue",
             )
+            # OMN-21059 refuses a catalogue pick on every shipped row; the re-aim
+            # is reached from a row that picks its own model, as the
+            # catalogue_picks_models fixture gives the parent process.
+            plans = {
+                key: row.model_copy(update={"customer_chooses_model": False})
+                for key, row in catalogue.load_byok_plan_catalog().items()
+            }
+            patch.setattr(catalogue, "load_byok_plan_catalog", lambda: plans)
             return effect.HandlerLlmDelegationCall()(request)
 
 
@@ -353,6 +365,13 @@ async def test_a_retry_on_the_customer_route_keeps_the_earlier_rung(
         ),
         evidence_db_path=db_path,
         effect_process_boundary=True,
+        # The port re-issues the route only while the run budget still holds
+        # another attempt as long as the first, and the first includes a spawned
+        # interpreter's boot. On the wall clock the retry raced that boot against
+        # the 12 s stub budget, as the budget expiry did before it was synced to
+        # the blocked call. A fixed run-budget clock keeps the re-issue decided
+        # by the 429; the budget still ends the run, through the handler's wait.
+        clock=lambda: 0.0,
     )
 
     terminal = await _cancelled_terminal(port)

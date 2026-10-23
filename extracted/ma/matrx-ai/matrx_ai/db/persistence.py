@@ -1090,6 +1090,14 @@ async def persist_completed_request(
         # cx_conversation / cx_user_request / cx_message / cx_request). When
         # there is no context (e.g. a direct unit test) we default to persisting.
         _should_persist = _ctx is None or _ctx.store
+        # A CONFIDENTIAL (sealed) run has store=False and still writes its
+        # structure rows for its own conversation; the write funnel empties
+        # every content column (matrx_ai.persistence.sealed).
+        from matrx_ai.persistence.sealed import writes_sealed_structure
+
+        _sealed_run = writes_sealed_structure(_ctx)
+        if not _should_persist and _sealed_run:
+            _should_persist = True
 
         # System-run mode (run_agent(system_run=True)): an internal machine
         # call. It keeps its FULL history exactly like a chat — sections 1
@@ -1298,7 +1306,7 @@ async def persist_completed_request(
         # 2. MESSAGES — write trigger message + messages produced by this execution
         #    Skipped entirely for ephemeral conversations (store=False).
         # ============================================================
-        _should_persist_messages = _ctx is None or _ctx.store
+        _should_persist_messages = _should_persist
         assistant_message_ids_by_iteration: dict[int, str] = {}
 
         if _should_persist_messages:
@@ -2076,6 +2084,7 @@ async def persist_completed_request(
             if (
                 _should_persist
                 and not _system_run
+                and not _sealed_run
                 and db_conversation_id
                 and _is_valid_uuid(db_conversation_id)
             ):

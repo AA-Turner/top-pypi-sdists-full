@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: selectolax
-Version: 1.0.1
+Version: 1.0.2
 Summary: A fast HTML5 parser with CSS selectors, written in Cython, using the Lexbor engine.
 Home-page: https://github.com/rushter/selectolax
 Author: Artem Golubin

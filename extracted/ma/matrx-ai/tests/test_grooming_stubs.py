@@ -231,15 +231,19 @@ def test_redact_longest_value_first_when_substring():
         set_wire_swaps({})
 
 
-def test_redact_fails_closed_on_short_values_and_no_swaps():
+def test_redact_fails_closed_on_short_values_and_keeps_payload_without_swaps():
     from matrx_ai.config.picklist_runtime import redact_wire_payload, set_wire_swaps
 
     set_wire_swaps({"token": "short"})  # < 16 chars — ambiguous to replace
     try:
-        assert redact_wire_payload({"a": "short"}) is None
+        assert redact_wire_payload({"a": "short"}) is None  # on the wire: fail closed
+        # Not on the wire: nothing to hide, the payload is kept.
+        assert redact_wire_payload({"a": "other text"}) == {"a": "other text"}
     finally:
         set_wire_swaps({})
-    assert redact_wire_payload({"a": 1}) is None  # no swaps
+    # No swaps: nothing materialized, nothing to hide — the payload is kept
+    # (dropping it stored {} snapshots from 2026-10-21).
+    assert redact_wire_payload({"a": 1}) == {"a": 1}
 
 
 # ── "any"-typed params must never reach a provider schema ────────────────────
@@ -266,3 +270,4 @@ def test_any_type_builds_valid_provider_schemas():
     google = tool_def.to_google_format()
     g_props = google["parameters"]["properties"]
     assert g_props["value"]["type"] == "string"  # Gemini requires a type; never 'any'
+

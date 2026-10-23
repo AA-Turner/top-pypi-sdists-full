@@ -18,7 +18,16 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
+from .anaplan_related import RelatedAnaplanSystemDimension
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
 from .asset import (
@@ -46,15 +55,6 @@ from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .anaplan_related import RelatedAnaplanSystemDimension
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -657,6 +657,7 @@ def _anaplan_system_dimension_to_nested(
         is_incomplete=anaplan_system_dimension.is_incomplete,
         provenance_type=anaplan_system_dimension.provenance_type,
         home_id=anaplan_system_dimension.home_id,
+        delete_handler=anaplan_system_dimension.delete_handler,
         depth=anaplan_system_dimension.depth,
         immediate_upstream=anaplan_system_dimension.immediate_upstream,
         immediate_downstream=anaplan_system_dimension.immediate_downstream,
@@ -707,6 +708,7 @@ def _anaplan_system_dimension_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,
@@ -734,10 +736,7 @@ def _anaplan_system_dimension_from_nested_bytes(
 # ---------------------------------------------------------------------------
 # Deferred field descriptor initialization
 # ---------------------------------------------------------------------------
-from pyatlan.model.fields.atlan_fields import (  # noqa: E402
-    KeywordField,
-    RelationField,
-)
+from pyatlan.model.fields.atlan_fields import KeywordField, RelationField  # noqa: E402
 
 AnaplanSystemDimension.ANAPLAN_WORKSPACE_QUALIFIED_NAME = KeywordField(
     "anaplanWorkspaceQualifiedName", "anaplanWorkspaceQualifiedName"

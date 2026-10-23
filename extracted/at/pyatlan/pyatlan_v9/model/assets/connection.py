@@ -15,11 +15,20 @@ This module provides:
 from __future__ import annotations
 
 import re
-from typing import Any, ClassVar, Dict, List, Union
-from typing import Optional
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 import msgspec
 from msgspec import UNSET, UnsetType
+
+from pyatlan.model.assets.connection import _validate_connector_type_value
+from pyatlan.model.enums import AtlanConnectorType
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
 
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -32,6 +41,7 @@ from .asset import (
     _extract_asset_attrs,
     _populate_asset_attrs,
 )
+from .connection_related import RelatedConnection
 from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
@@ -45,17 +55,6 @@ from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
 from .soda_related import RelatedSodaCheck
-from pyatlan.model.assets.connection import _validate_connector_type_value
-from pyatlan.model.enums import AtlanConnectorType
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-from pyatlan_v9.utils import init_guid, validate_required_fields
-
-from .connection_related import RelatedConnection
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -1056,6 +1055,7 @@ def _connection_to_nested(connection: Connection) -> ConnectionNested:
         is_incomplete=connection.is_incomplete,
         provenance_type=connection.provenance_type,
         home_id=connection.home_id,
+        delete_handler=connection.delete_handler,
         depth=connection.depth,
         immediate_upstream=connection.immediate_upstream,
         immediate_downstream=connection.immediate_downstream,
@@ -1102,6 +1102,7 @@ def _connection_from_nested(nested: ConnectionNested) -> Connection:
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

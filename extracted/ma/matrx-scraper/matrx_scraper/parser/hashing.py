@@ -88,7 +88,12 @@ def compute_hashes(text_content: str, outline: dict | None = None) -> dict:
 # normalization, shingling, or bit derivation MUST bump
 # FINGERPRINT_VERSION, and consumers must only compare equal versions.
 
-FINGERPRINT_VERSION = 1
+#: 2 (2026-10-22): the text the fingerprint is computed over no longer includes
+#: <script>/<style>/<template> content (`seo_audit._audit_tree`), so a v2 hash is
+#: never comparable with a v1 hash of the same page — and the snapshot's word
+#: count follows the same text, so `diff.py` compares word counts only between
+#: snapshots of the same version.
+FINGERPRINT_VERSION = 2
 FINGERPRINT_SHINGLE_SIZE = 3
 
 

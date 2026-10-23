@@ -12,12 +12,12 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		self.add(Wedge(106.8017,42.66948,50,-81.42857,-12.85714,yradius=40,annular=False,fillColor=Color(0,1,1,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=2,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=[2,2],strokeOpacity=None,radius1=20,yradius1=16))
 		self.add(Wedge(100,50,50,-167.1429,-81.42857,yradius=40,annular=False,fillColor=Color(.498039,1,.831373,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=.5,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None,radius1=20,yradius1=16))
 		self.add(Wedge(100,50,50,-270,-167.1429,yradius=40,annular=False,fillColor=Color(.372549,.619608,.627451,1),fillOpacity=None,strokeColor=Color(0,0,0,1),strokeWidth=.5,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None,radius1=20,yradius1=16))
-		self.add(String(108.9425,97.46388,'a',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(133.7992,89.65946,'b',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(158.4957,60.681,'c',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(159.5151,-1.313631,'d',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(1,0,0,1)))
-		self.add(String(66.2008,10.34054,'e',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(53.09011,79.92751,'f',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(108.9425,97.46388,'a',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(133.7992,89.65946,'b',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(158.4957,60.681,'c',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(159.5151,-1.313631,'d',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(1,0,0,1)))
+		self.add(String(66.2008,10.34054,'e',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(53.09011,79.92751,'f',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-audit-log
-Version: 0.6.2
+Version: 0.6.3
 Summary: Google Cloud Audit Protos
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-audit-log
 Author: Google LLC
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

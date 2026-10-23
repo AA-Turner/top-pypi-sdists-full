@@ -1,7 +1,8 @@
 //! Existing seed and function plan dataclass construction.
 
-use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::seed_reads;
 use crate::bindings::_helpers::planner_identity::metadata::build_compiled_function_fingerprint_sql;
 use crate::bindings::_helpers::planner_resolution::orchestration::resolve_function_sql;
 use crate::bindings::_helpers::planner_scenario::constants::SCENARIO_PLAN_UNKNOWN_SEED;
@@ -13,9 +14,9 @@ use crate::bindings::_helpers::records::construct::new_record_with;
 use crate::bindings::_helpers::records::fields::by_attribute;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::ids::RecordId;
-use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python, pyfunction};
+use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult};
 use pyo3::types::PyString;
-use pyo3::types::{PyDict, PyDictMethods, PyTuple};
+use pyo3::types::{PyDictMethods, PyTuple};
 
 pub(super) fn seed_entries<'py>(
     project: &Bound<'py, PyAny>,
@@ -23,7 +24,7 @@ pub(super) fn seed_entries<'py>(
     relations: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyTuple>> {
     let py = project.py();
-    let seeds = by_attribute(&native_field(project, "seeds")?, "name")?;
+    let seeds = by_attribute(&project_reads::seeds(project)?, "name")?;
     let fixtures = native_field(graph, "seed_fixture_names")?;
     let mut result: Vec<Bound<'py, PyAny>> = Vec::new();
     for name in native_field(graph, "seed_names")?.try_iter()? {
@@ -51,17 +52,17 @@ pub(super) fn seed_entries<'py>(
             py,
             RecordId::SeedPlanEntry,
             &[
-                ("key", native_field(&seed, "key")?),
-                ("name", native_field(&seed, "name")?),
+                ("key", seed_reads::key(&seed)?),
+                ("name", seed_reads::name(&seed)?),
                 ("destination", destination),
                 (
                     "file_path",
-                    native_field(&native_field(&seed, "seed_file")?, "file_path")?,
+                    native_field(&seed_reads::seed_file(&seed)?, "file_path")?,
                 ),
                 ("columns", extract_seed_columns(&seed)?.into_any()),
                 (
                     "csv_settings",
-                    native_field(&native_field(&seed, "schema_entry")?, "csv_settings")?,
+                    native_field(&seed_reads::schema_entry(&seed)?, "csv_settings")?,
                 ),
             ],
         )?);
@@ -132,23 +133,4 @@ pub(super) fn function_entry<'py>(
         fields.push((name, native_field(function, name)?));
     }
     new_record_with(py, RecordId::FunctionPlanEntry, &fields)
-}
-
-#[pyfunction]
-#[pyo3(signature = (**kwargs))]
-pub(crate) fn build_scenario_seed_entries<'py>(
-    py: Python<'py>,
-    kwargs: Option<Bound<'py, PyDict>>,
-) -> PyResult<Bound<'py, PyTuple>> {
-    let args = KeywordArguments::read(
-        py,
-        "build_scenario_seed_entries",
-        kwargs,
-        (&["project", "graph_plan", "relation_plan"], &[]),
-    )?;
-    seed_entries(
-        &args.value("project")?,
-        &args.value("graph_plan")?,
-        &args.value("relation_plan")?,
-    )
 }

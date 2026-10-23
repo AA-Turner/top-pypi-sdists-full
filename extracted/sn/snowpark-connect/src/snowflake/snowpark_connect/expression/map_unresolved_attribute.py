@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import contextlib
 import copy
 import re
 from collections import defaultdict
@@ -24,7 +25,10 @@ from snowflake.snowpark.types import (
     VariantType,
 )
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap, ColumnNames
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_spark_duplicate_column_resolution_enabled,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -42,6 +46,7 @@ from snowflake.snowpark_connect.utils.context import (
     is_lambda_being_resolved,
     resolve_lca_alias,
     set_plan_id_map,
+    skip_order_by_child_resolution,
 )
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
@@ -511,9 +516,16 @@ def _resolve_attribute_with_plan_id(
 
     # Try to resolve the full qualified name first
     # TODO: implement better mechanism for matching qualified names
-    snowpark_name, found_column_map, _ = _try_resolve_column_in_scopes(
-        quoted_attr_name, target_column_mapping
-    )
+    # A plan-id reference is bound to that DataFrame: in ORDER BY it does not
+    # resolve through the child plan (SNOW-4222753).
+    with (
+        skip_order_by_child_resolution()
+        if is_spark_duplicate_column_resolution_enabled()
+        else contextlib.nullcontext()
+    ):
+        snowpark_name, found_column_map, _ = _try_resolve_column_in_scopes(
+            quoted_attr_name, target_column_mapping
+        )
 
     if snowpark_name:
         # we don't need the qualifiers anymore, since the original snowpark name is enough to disambiguate

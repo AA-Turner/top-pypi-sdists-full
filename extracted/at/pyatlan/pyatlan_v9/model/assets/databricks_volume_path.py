@@ -20,6 +20,14 @@ from typing import Any, ClassVar, Dict, List, Union
 import msgspec
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+from pyatlan_v9.utils import init_guid, validate_required_fields
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -36,6 +44,7 @@ from .context_related import RelatedContextRepository
 from .data_contract_related import RelatedDataContract
 from .data_mesh_related import RelatedDataProduct
 from .data_quality_related import RelatedDataQualityRule, RelatedMetric
+from .databricks_related import RelatedDatabricksVolume, RelatedDatabricksVolumePath
 from .dbt_related import (
     RelatedDbtModel,
     RelatedDbtSeed,
@@ -59,14 +68,6 @@ from .sql_insight_related import (
     RelatedSqlInsightBusinessQuestion,
     RelatedSqlInsightJoin,
 )
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .databricks_related import RelatedDatabricksVolume, RelatedDatabricksVolumePath
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -471,14 +472,6 @@ class DatabricksVolumePath(Asset):
                 errors.append("connection_qualified_name is required for creation")
             if self.databricks_volume is UNSET:
                 errors.append("databricks_volume is required for creation")
-            if self.schema_name is UNSET:
-                errors.append("schema_name is required for creation")
-            if self.schema_qualified_name is UNSET:
-                errors.append("schema_qualified_name is required for creation")
-            if self.database_name is UNSET:
-                errors.append("database_name is required for creation")
-            if self.database_qualified_name is UNSET:
-                errors.append("database_qualified_name is required for creation")
         if errors:
             raise ValueError(f"DatabricksVolumePath validation failed: {errors}")
 
@@ -510,6 +503,62 @@ class DatabricksVolumePath(Asset):
         if self.guid is not UNSET:
             return RelatedDatabricksVolumePath(guid=self.guid)
         return RelatedDatabricksVolumePath(qualified_name=self.qualified_name)
+
+    @classmethod
+    @init_guid
+    def creator(
+        cls,
+        *,
+        path: str,
+        volume_qualified_name: str,
+        connection_qualified_name: str | None = None,
+    ) -> "DatabricksVolumePath":
+        validate_required_fields(
+            ["path", "volume_qualified_name"], [path, volume_qualified_name]
+        )
+        fields = volume_qualified_name.split("/")
+        if len(fields) != 6:
+            raise ValueError(
+                f"Invalid volume_qualified_name: {volume_qualified_name}. "
+                "Expected format: default/connector/connection_id/catalog/schema/volume"
+            )
+        if "/Volumes/" not in path:
+            raise ValueError(
+                f"Invalid path: {path}. Expected a Unity Catalog volume path, "
+                "e.g. /Volumes/catalog/schema/volume/dir/file.csv"
+            )
+        parts = path.split("/Volumes", 1)[1].strip("/").split("/")
+        if len(parts) < 3 or not all(parts[:3]):
+            raise ValueError(
+                f"Invalid path: {path}. Expected /Volumes/catalog/schema/volume[/...]"
+            )
+        file_path = "/".join(parts[3:])
+        connection_qn = connection_qualified_name or "/".join(fields[:3])
+        return cls(
+            name=path,
+            # The volume root keeps a trailing slash: "{volume_qn}/".
+            qualified_name=f"{volume_qualified_name}/{file_path}",
+            database_name=fields[3],
+            database_qualified_name=f"{connection_qn}/{fields[3]}",
+            schema_name=fields[4],
+            schema_qualified_name="/".join(fields[:5]),
+            connector_name=fields[1],
+            connection_qualified_name=connection_qn,
+            databricks_volume_path_path=path if file_path else "/",
+            databricks_volume_path_volume_name=fields[5],
+            databricks_volume_path_volume_qualified_name=volume_qualified_name,
+            databricks_volume=RelatedDatabricksVolume(
+                qualified_name=volume_qualified_name
+            ),
+        )
+
+    @classmethod
+    def create(cls, **kwargs) -> "DatabricksVolumePath":
+        return cls.creator(**kwargs)
+
+    @classmethod
+    def create_for_modification(cls, **kwargs) -> "DatabricksVolumePath":
+        return cls.updater(**kwargs)
 
     # =========================================================================
     # Optimized Serialization Methods (override Asset base class)
@@ -1052,6 +1101,7 @@ def _databricks_volume_path_to_nested(
         is_incomplete=databricks_volume_path.is_incomplete,
         provenance_type=databricks_volume_path.provenance_type,
         home_id=databricks_volume_path.home_id,
+        delete_handler=databricks_volume_path.delete_handler,
         depth=databricks_volume_path.depth,
         immediate_upstream=databricks_volume_path.immediate_upstream,
         immediate_downstream=databricks_volume_path.immediate_downstream,
@@ -1102,6 +1152,7 @@ def _databricks_volume_path_from_nested(
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

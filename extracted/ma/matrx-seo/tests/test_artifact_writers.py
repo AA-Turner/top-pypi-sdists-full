@@ -145,8 +145,18 @@ async def test_page_keyword_analysis_writes_site_value_and_links_page(
 
     monkeypatch.setattr(orm_identity, "upsert_keywords", upsert_keywords)
     monkeypatch.setattr(orm_identity, "link_keyword_to_page", link_keyword_to_page)
-    monkeypatch.setattr(m.SiteKeywordValue, "get_or_none", staticmethod(missing))
-    monkeypatch.setattr(m.SiteKeywordValue, "create", staticmethod(create))
+    import matrx_seo.artifact_writers as _aw
+
+    async def _merge_upsert(rows):
+        # The one site_keyword_value write seam (INSERT … ON CONFLICT, metadata merged);
+        # its SQL is proven in test_site_keyword_value_writes_merge.py.
+        out = []
+        for row in rows:
+            created.append(dict(row))
+            out.append({"id": f"skv-{len(created)}", "keyword_id": row["keyword_id"]})
+        return out
+
+    monkeypatch.setattr(_aw, "merge_upsert_site_keyword_values", _merge_upsert)
 
     summary = await apply_page_keyword_analysis(
         {
@@ -228,8 +238,18 @@ async def test_page_keyword_map_assigns_existing_page_and_suppresses(
     monkeypatch.setattr(orm_identity, "upsert_keyword", upsert_keyword)
     monkeypatch.setattr(orm_identity, "link_keyword_to_page", link_keyword_to_page)
     monkeypatch.setattr(writers.WebPage, "get_or_none", staticmethod(get_page))
-    monkeypatch.setattr(m.SiteKeywordValue, "get_or_none", staticmethod(missing))
-    monkeypatch.setattr(m.SiteKeywordValue, "create", staticmethod(create))
+    import matrx_seo.artifact_writers as _aw
+
+    async def _merge_upsert(rows):
+        # The one site_keyword_value write seam (INSERT … ON CONFLICT, metadata merged);
+        # its SQL is proven in test_site_keyword_value_writes_merge.py.
+        out = []
+        for row in rows:
+            created.append(dict(row))
+            out.append({"id": f"skv-{len(created)}", "keyword_id": row["keyword_id"]})
+        return out
+
+    monkeypatch.setattr(_aw, "merge_upsert_site_keyword_values", _merge_upsert)
 
     summary = await apply_page_keyword_map(
         {
@@ -285,8 +305,18 @@ async def test_page_keyword_map_records_unresolved_pages(
 
     monkeypatch.setattr(orm_identity, "upsert_keyword", upsert_keyword)
     monkeypatch.setattr(writers.WebPage, "get_or_none", staticmethod(missing_page))
-    monkeypatch.setattr(m.SiteKeywordValue, "get_or_none", staticmethod(missing_value))
-    monkeypatch.setattr(m.SiteKeywordValue, "create", staticmethod(create))
+    import matrx_seo.artifact_writers as _aw
+
+    async def _merge_upsert(rows):
+        # The one site_keyword_value write seam (INSERT … ON CONFLICT, metadata merged);
+        # its SQL is proven in test_site_keyword_value_writes_merge.py.
+        out = []
+        for row in rows:
+            created.append(dict(row))
+            out.append({"id": f"skv-{len(created)}", "keyword_id": row["keyword_id"]})
+        return out
+
+    monkeypatch.setattr(_aw, "merge_upsert_site_keyword_values", _merge_upsert)
 
     summary = await apply_page_keyword_map(
         {
@@ -685,3 +715,104 @@ async def test_a_mangled_or_foreign_keyword_id_never_reaches_the_database(
     assert updated == [sent]
     assert summary["updated"] == 1
     assert len(summary["missing_keyword_ids"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# Instance-update JsonbMerge sites (2026-10-22): the merge must name its own
+# column and render as SQL, never reach the row as an object.
+# ---------------------------------------------------------------------------
+
+
+def _assert_merges_into(value: object, column: str, payload: dict[str, object]) -> None:
+    import json
+
+    from matrx_orm import JsonbMerge
+
+    assert isinstance(value, JsonbMerge), value
+    params: list[object] = []
+    sql = value.as_sql(params)
+    assert sql.startswith(f"COALESCE({column},"), sql
+    assert json.loads(params[-1]) == payload  # type: ignore[arg-type]
+
+
+@pytest.mark.asyncio
+async def test_serp_intent_analysis_merges_into_classification_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import matrx_seo.artifact_writers as writers
+
+    calls: list[dict[str, object]] = []
+
+    class FakeKeyword:
+        deleted_at = None
+
+        async def update(self, **fields: object) -> None:
+            calls.append(fields)
+
+    async def load(_kid: str):
+        return FakeKeyword()
+
+    monkeypatch.setattr(writers.m.Keyword, "load_by_id_or_none", staticmethod(load))
+    await writers.apply_keyword_serp_intent_analysis("kw-1", {"intent": "local"})
+
+    assert len(calls) == 1
+    _assert_merges_into(
+        calls[0]["classification_detail"],
+        "classification_detail",
+        {"serp_intent_analysis": {"intent": "local"}},
+    )
+
+
+@pytest.mark.asyncio
+async def test_topic_reassignment_merges_placement_into_link_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from contextlib import asynccontextmanager
+
+    import matrx_seo.artifact_writers as writers
+
+    calls: list[dict[str, object]] = []
+
+    class ExistingLink:
+        is_primary = True
+        topic_id = "topic-1"
+        assigned_by = "agent"
+
+        async def update(self, **fields: object) -> None:
+            calls.append(fields)
+
+    @asynccontextmanager
+    async def no_transaction(*_a, **_k):
+        yield
+
+    async def resolve(_batch, *, assigner_version):
+        return {"recycling": "topic-1"}, []
+
+    async def primaries(**_k):
+        return [ExistingLink()]
+
+    async def existing(**_k):
+        return ExistingLink()
+
+    monkeypatch.setattr(writers, "transaction", no_transaction)
+    monkeypatch.setattr(writers, "_resolve_topic_ids", resolve)
+    monkeypatch.setattr(writers.m.KeywordTopic, "filter_items", staticmethod(primaries))
+    monkeypatch.setattr(writers.m.KeywordTopic, "get_or_none", staticmethod(existing))
+
+    await writers.apply_topic_assignments(
+        {
+            "assigner_version": "topic-v1",
+            "assignments": [
+                {"keyword_id": "kw-1", "primary_topic": "recycling", "confidence": 90}
+            ],
+        }
+    )
+
+    assert len(calls) == 1
+    merge = calls[0]["metadata"]
+    params: list[object] = []
+    assert merge.as_sql(params).startswith("COALESCE(metadata,")  # type: ignore[union-attr]
+    import json
+
+    placement = json.loads(params[-1])["placement"]  # type: ignore[arg-type]
+    assert placement["origin"] == "agent" and placement["confirmed"] is True

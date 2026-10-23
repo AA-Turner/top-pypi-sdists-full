@@ -2,7 +2,9 @@
 
 use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compiled_views::function_reads;
 use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::project_reads;
 use crate::bindings::_helpers::discovery::guidance::microbatch_guidance;
 use crate::bindings::_helpers::planner_changes::actions::replaces_incremental_relation;
 use crate::bindings::_helpers::planner_changes::detect::detect_model_changes;
@@ -426,9 +428,9 @@ pub(crate) fn plan_entries<'py>(
         runtime_cursor_producer_names(&scope, &relations_context.source_map.bind(py).clone())?,
     )?;
     let functions_by_name = PyDict::new(py);
-    for function in native_field(&project, "functions")?.try_iter()? {
+    for function in project_reads::functions(&project)?.try_iter()? {
         let function = function?;
-        functions_by_name.set_item(native_field(&function, "name")?, function)?;
+        functions_by_name.set_item(function_reads::name(&function)?, function)?;
     }
     let settings = native_field(&project, "settings")?;
     let models_by_name = native_field(&scope, "models_by_name")?;
@@ -604,23 +606,6 @@ pub(crate) fn plan_model<'py>(
     })
 }
 
-/// Build a name-to-materialization-type lookup from planned model entries.
-#[pyfunction]
-#[pyo3(signature = (model_entries, /))]
-fn build_model_materializations<'py>(
-    model_entries: &Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let lookup = PyDict::new(model_entries.py());
-    for entry in model_entries.try_iter()? {
-        let entry = entry?;
-        lookup.set_item(
-            native_field(&entry, "name")?,
-            native_field(&entry, "materialization_type")?,
-        )?;
-    }
-    Ok(lookup)
-}
-
 /// Check if any scope dependency is in the selected keys.
 #[pyfunction]
 #[pyo3(signature = (*, scope_deps, selected_keys))]
@@ -638,6 +623,5 @@ pub(crate) fn scope_overlaps(
 
 pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(plan_model, module)?)?;
-    module.add_function(wrap_pyfunction!(build_model_materializations, module)?)?;
     module.add_function(wrap_pyfunction!(scope_overlaps, module)?)
 }

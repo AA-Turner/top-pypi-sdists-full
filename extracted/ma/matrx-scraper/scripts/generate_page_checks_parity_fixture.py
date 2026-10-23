@@ -21,8 +21,15 @@ layer.
 Run from the aidream repo root:
     .venv/bin/python packages/matrx-scraper/scripts/generate_page_checks_parity_fixture.py
 
-Writes (committed):
+Writes (both committed):
+    packages/matrx-scraper/tests/__fixtures__/page-checks-parity.json   <- THE home
     ../matrx-frontend/features/marketing/seo/audit/__fixtures__/page-checks-parity.json
+        (vendored copy, byte-identical; the frontend parity test reads the aidream
+        home when the sibling checkout exists and fails when the copy differs)
+
+`tests/test_page_checks_parity_fixture.py` regenerates in memory and fails when
+the committed home is stale — a Python check change without a regenerate is red
+in aidream's own suite, not only in the frontend.
 """
 
 from __future__ import annotations
@@ -172,6 +179,11 @@ def healthy(**overrides: Any) -> PageEvidence:
         "schema_types": ["Article"],
         "image_count": 8,
         "images_missing_alt": 0,
+        "link_count": 24,
+        "internal_link_count": 18,
+        "app_root": False,
+        "executable_script": True,
+        "app_shell_words": None,
         "image_items": healthy_images(),
         "http_status": 200,
         "redirect_chain": [],
@@ -997,6 +1009,149 @@ CASES: list[dict[str, Any]] = [
         ),
     },
     {
+        "name": "js_app_shell",
+        "why": "An unrendered app frame: every content check answers n_a with the shell "
+        "reason and content_needs_rendering fails, naming the Render mode setting.",
+        "evidence": healthy(
+            title="Acme Dashboard",
+            title_metrics=calculate_meta_title_metrics("Acme Dashboard"),
+            h1_count=0,
+            headings=[],
+            word_count=9,
+            text_bytes=48,
+            image_count=0,
+            images_missing_alt=0,
+            image_items=[],
+            link_count=0,
+            internal_link_count=0,
+            app_root=True,
+            executable_script=True,
+            app_shell_words=9,
+        ),
+    },
+    {
+        "name": "js_shell_root_text_at_limit",
+        "why": "Shell markup with 3 server-rendered words inside the app root — at the "
+        "js_shell_root_text_words knob (3), still a shell.",
+        "evidence": healthy(
+            h1_count=0,
+            headings=[],
+            word_count=3,
+            image_count=0,
+            images_missing_alt=0,
+            image_items=[],
+            link_count=0,
+            internal_link_count=0,
+            app_root=True,
+            executable_script=True,
+            app_shell_words=3,
+            root_text_words=3,
+        ),
+    },
+    {
+        "name": "js_shell_root_text_real_page",
+        "why": "The same markup with 12 real words inside the app root — over the knob, so "
+        "it is a server-rendered page and the content checks judge it.",
+        "evidence": healthy(
+            h1_count=0,
+            headings=[],
+            word_count=12,
+            image_count=0,
+            images_missing_alt=0,
+            image_items=[],
+            link_count=0,
+            internal_link_count=0,
+            app_root=True,
+            executable_script=True,
+            app_shell_words=12,
+            root_text_words=12,
+        ),
+    },
+    {
+        "name": "canonical_names_start_url",
+        "why": "The canonical names the URL the crawl started at, which redirected here — "
+        "canonical_conflicts: 'points to a redirect', fail 30.",
+        "evidence": healthy(
+            canonical_url="http://example.com/guides/seo-basics",
+            canonical_matches=False,
+            redirect_chain=[
+                {"url": "http://example.com/guides/seo-basics", "status": 301},
+                {"url": URL, "status": 200},
+            ],
+        ),
+    },
+    {
+        "name": "canonical_names_middle_hop",
+        "why": "The canonical names a middle hop of a two-hop chain — also a redirect, fail 30.",
+        "evidence": healthy(
+            canonical_url="https://example.com/guides/seo",
+            canonical_matches=False,
+            redirect_chain=[
+                {"url": "http://example.com/seo", "status": 301},
+                {"url": "https://example.com/guides/seo", "status": 301},
+                {"url": URL, "status": 200},
+            ],
+        ),
+    },
+    {
+        "name": "kept_soft_404",
+        "why": "The crawl kept a page the read judge called a soft 404: soft_404_detection "
+        "judges it, every other check answers n_a with one reason.",
+        "evidence": healthy(title="Page not found", word_count=12, kept_soft_404=True),
+    },
+    {
+        "name": "js_shell_bot_wall",
+        "why": "Shell markup that is a bot wall: never a shell, so content checks judge it.",
+        "evidence": healthy(
+            h1_count=0,
+            headings=[],
+            word_count=4,
+            image_count=0,
+            images_missing_alt=0,
+            image_items=[],
+            link_count=0,
+            internal_link_count=0,
+            app_root=True,
+            executable_script=True,
+            app_shell_words=4,
+            bot_wall=True,
+        ),
+    },
+    {
+        "name": "js_shell_non_2xx",
+        "why": "Shell markup on a 503: a real answer, not an app frame — never a shell.",
+        "evidence": healthy(
+            http_status=503,
+            h1_count=0,
+            headings=[],
+            word_count=4,
+            image_count=0,
+            images_missing_alt=0,
+            image_items=[],
+            link_count=0,
+            internal_link_count=0,
+            app_root=True,
+            executable_script=True,
+            app_shell_words=4,
+        ),
+    },
+    {
+        "name": "js_shell_unknown",
+        "why": "A snapshot older than the app-shell capture: shell status unknown, "
+        "content_needs_rendering n_a with the recapture button, nothing silenced.",
+        "evidence": healthy(app_root=None, executable_script=None),
+    },
+    {
+        "name": "dead_end_page",
+        "why": "An indexable 200 page with zero internal links out — dead_end_page warns.",
+        "evidence": healthy(link_count=0, internal_link_count=0),
+    },
+    {
+        "name": "dead_end_noindexed",
+        "why": "The same dead end, noindexed — not judged.",
+        "evidence": healthy(link_count=0, internal_link_count=0, noindex=True),
+    },
+    {
         "name": "no_pagespeed_measurement",
         "why": "Every CWV check answers n_a with the one-click measure — a "
         "crawl cannot produce these numbers.",
@@ -1042,19 +1197,28 @@ def build() -> dict[str, Any]:
     }
 
 
+HOME = REPO_ROOT / "packages/matrx-scraper/tests/__fixtures__/page-checks-parity.json"
+VENDORED = (
+    REPO_ROOT.parent / "matrx-frontend/features/marketing/seo/audit/__fixtures__/page-checks-parity.json"
+)
+
+
+def render() -> str:
+    return json.dumps(build(), indent=2, ensure_ascii=False, sort_keys=False) + "\n"
+
+
 def main() -> int:
-    payload = build()
-    body = json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
-    target = (
-        REPO_ROOT.parent
-        / "matrx-frontend/features/marketing/seo/audit/__fixtures__/page-checks-parity.json"
-    )
-    if not target.parent.parent.exists():
-        print(f"SKIP (repo not present): {target}")
-        return 1
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
-    print(f"wrote {len(payload['cases'])} cases -> {target}")
+    body = render()
+    cases = len(json.loads(body)["cases"])
+    HOME.parent.mkdir(parents=True, exist_ok=True)
+    HOME.write_text(body, encoding="utf-8")
+    print(f"wrote {cases} cases -> {HOME}")
+    if not VENDORED.parent.parent.exists():
+        print(f"SKIP vendored copy (repo not present): {VENDORED}")
+        return 0
+    VENDORED.parent.mkdir(parents=True, exist_ok=True)
+    VENDORED.write_text(body, encoding="utf-8")
+    print(f"wrote {cases} cases -> {VENDORED}")
     return 0
 
 

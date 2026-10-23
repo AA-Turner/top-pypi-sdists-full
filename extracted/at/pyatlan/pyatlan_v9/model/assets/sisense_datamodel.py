@@ -18,6 +18,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -44,20 +51,13 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
-from .soda_related import RelatedSodaCheck
-from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
 from .sisense_related import (
     RelatedSisenseDashboard,
     RelatedSisenseDatamodel,
     RelatedSisenseDatamodelTable,
 )
+from .soda_related import RelatedSodaCheck
+from .spark_related import RelatedSparkJob
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -663,6 +663,7 @@ def _sisense_datamodel_to_nested(
         is_incomplete=sisense_datamodel.is_incomplete,
         provenance_type=sisense_datamodel.provenance_type,
         home_id=sisense_datamodel.home_id,
+        delete_handler=sisense_datamodel.delete_handler,
         depth=sisense_datamodel.depth,
         immediate_upstream=sisense_datamodel.immediate_upstream,
         immediate_downstream=sisense_datamodel.immediate_downstream,
@@ -711,6 +712,7 @@ def _sisense_datamodel_from_nested(nested: SisenseDatamodelNested) -> SisenseDat
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

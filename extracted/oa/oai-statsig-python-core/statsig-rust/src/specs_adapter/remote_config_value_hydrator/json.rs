@@ -13,6 +13,7 @@ use serde_json::value::{RawValue, to_raw_value};
 use crate::interned_string::InternedString;
 use crate::interned_values::{InternedStore, interned_store::MmapProjectId};
 use crate::networking::ResponseData;
+use crate::specs_adapter::SpecsSyncTrigger;
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_specs::VerifiedRemoteConfigValues;
 use crate::specs_response::spec_types::{Spec, SpecsResponseFull, SpecsResponseNoUpdates};
@@ -38,6 +39,7 @@ pub(crate) struct HydratedJsonStoreUpdate {
 
 pub(crate) struct JsonStoreHydrationContext<'a> {
     pub(crate) source_url: &'a str,
+    pub(crate) sync_trigger: Option<SpecsSyncTrigger>,
     pub(crate) current_verified_values: &'a VerifiedRemoteConfigValues,
     pub(crate) mmap_project_id: MmapProjectId,
     pub(crate) preserve_session_update_mode: bool,
@@ -73,6 +75,7 @@ fn parse_json_hydration_input(
         data.rewind()?;
         return Ok(None);
     };
+    hydration_result.set_response_type(false);
     // Validate reused references too, before selecting proofs or starting GETs.
     let (references, configs) =
         collect_json_references(&mut payload, source_url, hydration_result)?;
@@ -185,7 +188,7 @@ pub(super) async fn hydrate_response_for_store(
     });
     let (snapshot, verified_by_config) = candidate?;
     hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonApply);
-    hydrator.log_hydration_success(reference_count, total_bytes);
+    hydration_result.log_hydration_success(reference_count, total_bytes);
     Ok(Some(HydratedJsonStoreUpdate {
         values: snapshot,
         spec_decode_stats,
@@ -473,7 +476,7 @@ pub(super) async fn hydrate_response(
     data.replace_bytes(hydrated_bytes);
     hydrator.log_phase_latency(started_at.elapsed(), HydrationPhase::JsonApply);
 
-    hydrator.log_hydration_success(reference_count, total_bytes);
+    hydration_result.log_hydration_success(reference_count, total_bytes);
     Ok(true)
 }
 

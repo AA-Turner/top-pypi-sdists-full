@@ -20,12 +20,13 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import ListIngestionJobsPaginator, ListIngestionStreamsPaginator
 from .type_defs import (
     BatchGetCollectionGroupRequestTypeDef,
     BatchGetCollectionGroupResponseTypeDef,
@@ -37,6 +38,8 @@ from .type_defs import (
     BatchGetLifecyclePolicyResponseTypeDef,
     BatchGetVpcEndpointRequestTypeDef,
     BatchGetVpcEndpointResponseTypeDef,
+    CancelIngestionJobRequestTypeDef,
+    CancelIngestionJobResponseTypeDef,
     CreateAccessPolicyRequestTypeDef,
     CreateAccessPolicyResponseTypeDef,
     CreateCollectionGroupRequestTypeDef,
@@ -44,6 +47,10 @@ from .type_defs import (
     CreateCollectionRequestTypeDef,
     CreateCollectionResponseTypeDef,
     CreateIndexRequestTypeDef,
+    CreateIngestionJobRequestTypeDef,
+    CreateIngestionJobResponseTypeDef,
+    CreateIngestionStreamRequestTypeDef,
+    CreateIngestionStreamResponseTypeDef,
     CreateLifecyclePolicyRequestTypeDef,
     CreateLifecyclePolicyResponseTypeDef,
     CreateSecurityConfigRequestTypeDef,
@@ -57,6 +64,8 @@ from .type_defs import (
     DeleteCollectionRequestTypeDef,
     DeleteCollectionResponseTypeDef,
     DeleteIndexRequestTypeDef,
+    DeleteIngestionStreamRequestTypeDef,
+    DeleteIngestionStreamResponseTypeDef,
     DeleteLifecyclePolicyRequestTypeDef,
     DeleteSecurityConfigRequestTypeDef,
     DeleteSecurityPolicyRequestTypeDef,
@@ -67,6 +76,10 @@ from .type_defs import (
     GetAccountSettingsResponseTypeDef,
     GetIndexRequestTypeDef,
     GetIndexResponseTypeDef,
+    GetIngestionJobRequestTypeDef,
+    GetIngestionJobResponseTypeDef,
+    GetIngestionStreamRequestTypeDef,
+    GetIngestionStreamResponseTypeDef,
     GetPoliciesStatsResponseTypeDef,
     GetSecurityConfigRequestTypeDef,
     GetSecurityConfigResponseTypeDef,
@@ -78,6 +91,10 @@ from .type_defs import (
     ListCollectionGroupsResponseTypeDef,
     ListCollectionsRequestTypeDef,
     ListCollectionsResponseTypeDef,
+    ListIngestionJobsRequestTypeDef,
+    ListIngestionJobsResponseTypeDef,
+    ListIngestionStreamsRequestTypeDef,
+    ListIngestionStreamsResponseTypeDef,
     ListLifecyclePoliciesRequestTypeDef,
     ListLifecyclePoliciesResponseTypeDef,
     ListSecurityConfigsRequestTypeDef,
@@ -110,9 +127,9 @@ from .type_defs import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Unpack
+    from typing import Literal, Unpack
 else:
-    from typing_extensions import Unpack
+    from typing_extensions import Literal, Unpack
 
 __all__ = ("OpenSearchServiceServerlessClient",)
 
@@ -214,6 +231,16 @@ class OpenSearchServiceServerlessClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#batch_get_vpc_endpoint)
         """
 
+    def cancel_ingestion_job(
+        self, **kwargs: Unpack[CancelIngestionJobRequestTypeDef]
+    ) -> CancelIngestionJobResponseTypeDef:
+        """
+        Cancels an in-progress ingestion job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/cancel_ingestion_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#cancel_ingestion_job)
+        """
+
     def create_access_policy(
         self, **kwargs: Unpack[CreateAccessPolicyRequestTypeDef]
     ) -> CreateAccessPolicyResponseTypeDef:
@@ -250,6 +277,28 @@ class OpenSearchServiceServerlessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/create_index.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#create_index)
+        """
+
+    def create_ingestion_job(
+        self, **kwargs: Unpack[CreateIngestionJobRequestTypeDef]
+    ) -> CreateIngestionJobResponseTypeDef:
+        """
+        Creates an ingestion job that performs a one-time bulk ingestion of data from
+        an Amazon S3 bucket into an index in an OpenSearch Serverless collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/create_ingestion_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#create_ingestion_job)
+        """
+
+    def create_ingestion_stream(
+        self, **kwargs: Unpack[CreateIngestionStreamRequestTypeDef]
+    ) -> CreateIngestionStreamResponseTypeDef:
+        """
+        Creates an ingestion stream that continuously ingests data from an Amazon S3
+        bucket into an index in an OpenSearch Serverless collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/create_ingestion_stream.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#create_ingestion_stream)
         """
 
     def create_lifecycle_policy(
@@ -331,6 +380,16 @@ class OpenSearchServiceServerlessClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#delete_index)
         """
 
+    def delete_ingestion_stream(
+        self, **kwargs: Unpack[DeleteIngestionStreamRequestTypeDef]
+    ) -> DeleteIngestionStreamResponseTypeDef:
+        """
+        Deletes an ingestion stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/delete_ingestion_stream.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#delete_ingestion_stream)
+        """
+
     def delete_lifecycle_policy(
         self, **kwargs: Unpack[DeleteLifecyclePolicyRequestTypeDef]
     ) -> dict[str, Any]:
@@ -398,6 +457,28 @@ class OpenSearchServiceServerlessClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#get_index)
         """
 
+    def get_ingestion_job(
+        self, **kwargs: Unpack[GetIngestionJobRequestTypeDef]
+    ) -> GetIngestionJobResponseTypeDef:
+        """
+        Returns information about an ingestion job, including its configuration,
+        status, and processing state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/get_ingestion_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#get_ingestion_job)
+        """
+
+    def get_ingestion_stream(
+        self, **kwargs: Unpack[GetIngestionStreamRequestTypeDef]
+    ) -> GetIngestionStreamResponseTypeDef:
+        """
+        Returns information about an ingestion stream, including its configuration,
+        status, and processing state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/get_ingestion_stream.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#get_ingestion_stream)
+        """
+
     def get_policies_stats(self) -> GetPoliciesStatsResponseTypeDef:
         """
         Returns statistical information about your OpenSearch Serverless access
@@ -455,6 +536,26 @@ class OpenSearchServiceServerlessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/list_collections.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#list_collections)
+        """
+
+    def list_ingestion_jobs(
+        self, **kwargs: Unpack[ListIngestionJobsRequestTypeDef]
+    ) -> ListIngestionJobsResponseTypeDef:
+        """
+        Returns a list of ingestion jobs in a collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/list_ingestion_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#list_ingestion_jobs)
+        """
+
+    def list_ingestion_streams(
+        self, **kwargs: Unpack[ListIngestionStreamsRequestTypeDef]
+    ) -> ListIngestionStreamsResponseTypeDef:
+        """
+        Returns a list of ingestion streams in a collection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/list_ingestion_streams.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#list_ingestion_streams)
         """
 
     def list_lifecycle_policies(
@@ -612,4 +713,26 @@ class OpenSearchServiceServerlessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/update_vpc_endpoint.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#update_vpc_endpoint)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ingestion_jobs"]
+    ) -> ListIngestionJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ingestion_streams"]
+    ) -> ListIngestionStreamsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearchserverless/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_opensearchserverless/client/#get_paginator)
         """

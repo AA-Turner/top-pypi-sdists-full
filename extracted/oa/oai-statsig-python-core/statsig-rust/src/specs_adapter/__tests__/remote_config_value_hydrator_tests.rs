@@ -763,6 +763,7 @@ async fn rejects_markerless_remote_metadata_without_downloading() {
         ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("markerless-remote-metadata"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode: false,
@@ -2233,6 +2234,7 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
         ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("single-pass-store-parser"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode: false,
@@ -2316,6 +2318,7 @@ async fn store_parser_reuses_non_remote_dynamic_configs_with_or_without_sidecar_
                 ProtobufHydrationContext {
                     hydrator: &hydrator,
                     source_url: "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+                    sync_trigger: None,
                     mmap_project_id: MmapProjectId::for_sdk_key("reused-config-decode-stats"),
                     capture_hydrated_data_store_bytes: capture_sidecar,
                     preserve_session_update_mode: false,
@@ -2359,6 +2362,7 @@ async fn store_parser_rejects_true_marker_without_remote_metadata() {
             ProtobufHydrationContext {
                 hydrator: &hydrator,
                 source_url: "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+                sync_trigger: None,
                 mmap_project_id: MmapProjectId::for_sdk_key("store-marker-without-metadata"),
                 capture_hydrated_data_store_bytes: capture_sidecar,
                 preserve_session_update_mode: false,
@@ -2465,6 +2469,7 @@ async fn store_parser_reuses_verified_hydrated_current_values_without_downloadin
             ProtobufHydrationContext {
                 hydrator: &hydrator,
                 source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                sync_trigger: None,
                 mmap_project_id: MmapProjectId::for_sdk_key("verified-current-reuse"),
                 capture_hydrated_data_store_bytes: capture_sidecar,
                 preserve_session_update_mode: false,
@@ -2571,6 +2576,7 @@ async fn store_parser_downloads_when_hydrated_value_cannot_reconstruct_wire_byte
         ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("unreconstructable-current-value"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode: false,
@@ -2644,6 +2650,7 @@ async fn store_parser_does_not_reuse_matching_placeholder_config() {
         ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("placeholder-reuse"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode: false,
@@ -2740,6 +2747,7 @@ rusty_fork_test! {
                     &mut data,
                     ProtobufHydrationContext {
                         hydrator: &hydrator,
+                        sync_trigger: None,
                         source_url: &format!(
                             "{}/v2/download_config_specs/key.json",
                             server.uri()
@@ -2822,6 +2830,7 @@ rusty_fork_test! {
                     ProtobufHydrationContext {
                         hydrator: &hydrator,
                         source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                        sync_trigger: None,
                         mmap_project_id: MmapProjectId::for_sdk_key(SDK_KEY),
                         capture_hydrated_data_store_bytes: true,
                         preserve_session_update_mode: false,
@@ -2869,6 +2878,7 @@ rusty_fork_test! {
                     ProtobufHydrationContext {
                         hydrator: &hydrator,
                         source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                        sync_trigger: None,
                         mmap_project_id: MmapProjectId::for_sdk_key(SDK_KEY),
                         capture_hydrated_data_store_bytes: false,
                         preserve_session_update_mode: false,
@@ -2994,6 +3004,7 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
             ProtobufHydrationContext {
                 hydrator: &hydrator,
                 source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                sync_trigger: None,
                 mmap_project_id: MmapProjectId::for_sdk_key("concurrent-store-parser"),
                 capture_hydrated_data_store_bytes: true,
                 preserve_session_update_mode: false,
@@ -3134,6 +3145,7 @@ async fn store_parser_flushes_remote_configs_before_checksums_and_deletions() {
             ProtobufHydrationContext {
                 hydrator: &hydrator,
                 source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                sync_trigger: None,
                 mmap_project_id: MmapProjectId::for_sdk_key("control-barriers-store-parser"),
                 capture_hydrated_data_store_bytes: true,
                 preserve_session_update_mode: false,
@@ -3248,6 +3260,7 @@ async fn store_parser_keeps_download_window_full_behind_slow_blob() {
         ProtobufHydrationContext {
             hydrator: &hydrator,
             source_url: &source_url,
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("sliding-window-store-parser"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode: false,
@@ -3453,6 +3466,7 @@ async fn hydrate_protobuf_for_store(
         ProtobufHydrationContext {
             hydrator,
             source_url,
+            sync_trigger: None,
             mmap_project_id: MmapProjectId::for_sdk_key("hydration-result-metrics"),
             capture_hydrated_data_store_bytes: false,
             preserve_session_update_mode: false,
@@ -3474,7 +3488,16 @@ fn assert_hydration_results(
             {
                 assert!(matches!(event.metric_type, MetricType::Increment));
                 assert_eq!(event.value, 1.0);
-                results.push(event.tags.unwrap_or_default());
+                let mut tags = event.tags.unwrap_or_default();
+                assert_eq!(
+                    tags.remove("config_sync_trigger").as_deref(),
+                    Some("unknown")
+                );
+                assert!(matches!(
+                    tags.remove("config_payload_type").as_deref(),
+                    Some("full_snapshot" | "delta_update" | "unknown")
+                ));
+                results.push(tags);
             }
             Ok(_) => {}
             Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,

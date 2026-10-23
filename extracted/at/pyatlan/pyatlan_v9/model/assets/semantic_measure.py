@@ -19,6 +19,13 @@ from typing import Any, ClassVar, List, Union
 
 from msgspec import UNSET, UnsetType
 
+from pyatlan_v9.model.conversion_utils import (
+    categorize_relationships,
+    merge_relationships,
+)
+from pyatlan_v9.model.serde import Serde, get_serde
+from pyatlan_v9.model.transform import register_asset
+
 from .airflow_related import RelatedAirflowTask
 from .anomalo_related import RelatedAnomaloCheck
 from .app_related import RelatedApplication, RelatedApplicationField
@@ -45,16 +52,9 @@ from .process_related import RelatedProcess
 from .referenceable_related import RelatedReferenceable
 from .resource_related import RelatedFile, RelatedLink, RelatedReadme
 from .schema_registry_related import RelatedSchemaRegistrySubject
+from .semantic_related import RelatedSemanticMeasure, RelatedSemanticModel
 from .soda_related import RelatedSodaCheck
 from .spark_related import RelatedSparkJob
-from pyatlan_v9.model.conversion_utils import (
-    categorize_relationships,
-    merge_relationships,
-)
-from pyatlan_v9.model.serde import Serde, get_serde
-from pyatlan_v9.model.transform import register_asset
-
-from .semantic_related import RelatedSemanticMeasure, RelatedSemanticModel
 
 # =============================================================================
 # FLAT ASSET CLASS
@@ -643,6 +643,7 @@ def _semantic_measure_to_nested(
         is_incomplete=semantic_measure.is_incomplete,
         provenance_type=semantic_measure.provenance_type,
         home_id=semantic_measure.home_id,
+        delete_handler=semantic_measure.delete_handler,
         depth=semantic_measure.depth,
         immediate_upstream=semantic_measure.immediate_upstream,
         immediate_downstream=semantic_measure.immediate_downstream,
@@ -691,6 +692,7 @@ def _semantic_measure_from_nested(nested: SemanticMeasureNested) -> SemanticMeas
         "is_incomplete": nested.is_incomplete,
         "provenance_type": nested.provenance_type,
         "home_id": nested.home_id,
+        "delete_handler": nested.delete_handler,
         "depth": nested.depth,
         "immediate_upstream": nested.immediate_upstream,
         "immediate_downstream": nested.immediate_downstream,

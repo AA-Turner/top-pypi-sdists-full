@@ -2,7 +2,9 @@
 
 use sqlbuild_host::entries::models::{ExecutorHost, UserCodeHost};
 
+use crate::bindings::_helpers::compiled_views::function_reads;
 use crate::bindings::_helpers::compiled_views::model_reads;
+use crate::bindings::_helpers::compiled_views::project_reads;
 use crate::bindings::_helpers::contracts::spec_resolution::matching_dynamic_families;
 use crate::bindings::_helpers::model_config::typed_config::{config_text, model_values};
 use crate::bindings::_helpers::planner_changes::results::native_enum;
@@ -107,15 +109,15 @@ pub(crate) fn detect_changes<'py>(
     let query_change_tracking: bool =
         native_field(&native_field(project, "settings")?, "query_change_tracking")?.is_truthy()?;
     let dialect: Option<String> = native_field(snapshot, "column_dialect")?.extract()?;
-    for function in native_field(project, "functions")?.try_iter()? {
+    for function in project_reads::functions(project)?.try_iter()? {
         let function: Bound<'py, PyAny> = function?;
-        let name: Bound<'py, PyAny> = native_field(&function, "name")?;
+        let name: Bound<'py, PyAny> = function_reads::name(&function)?;
         let fingerprint_sql: String = compiled_function_fingerprint_sql(&function)?;
         let mut arguments: Vec<(&str, Bound<'py, PyAny>)> = vec![(
             "fingerprint_sql",
             PyString::new(py, &fingerprint_sql).into_any(),
         )];
-        if selected.contains(native_field(&function, "key")?)? {
+        if selected.contains(function_reads::key(&function)?)? {
             let reason: &str = if full_refresh {
                 "full_refresh"
             } else {
@@ -128,7 +130,7 @@ pub(crate) fn detect_changes<'py>(
                         &name.extract::<String>()?,
                         (
                             &fingerprint_sql,
-                            &native_field(&function, "language")?
+                            &function_reads::language(&function)?
                                 .str()?
                                 .extract::<String>()?,
                             dialect.as_deref(),
@@ -154,40 +156,6 @@ pub(crate) fn detect_changes<'py>(
             ("models", models.into_any()),
             ("functions", functions.into_any()),
         ],
-    )
-}
-
-/// Selected model changes, without inspecting functions.
-#[pyfunction]
-#[pyo3(signature = (**options))]
-pub(crate) fn detect_model_changes_in_scope<'py>(
-    py: Python<'py>,
-    options: Option<Bound<'py, PyDict>>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let arguments: KeywordArguments<'py> = KeywordArguments::read(
-        py,
-        "detect_model_changes_in_scope",
-        options,
-        (
-            &["project", "scope", "snapshot"],
-            &[
-                "query_change_tracking",
-                "expected_version_hashes",
-                "expected_metadata_jsons",
-            ],
-        ),
-    )?;
-    scope_model_changes(
-        (
-            &arguments.value("project")?,
-            &arguments.value("scope")?,
-            &arguments.value("snapshot")?,
-        ),
-        arguments.value("query_change_tracking")?.extract()?,
-        (
-            arguments.value("expected_version_hashes")?,
-            arguments.value("expected_metadata_jsons")?,
-        ),
     )
 }
 
@@ -248,7 +216,7 @@ pub(crate) fn scope_model_changes<'py>(
         }
     };
     let function_local_hashes: Bound<'py, PyAny> = function_local_hashes(
-        &native_field(project, "functions")?,
+        &project_reads::functions(project)?,
         native_field(project, "sql_analysis_dialect")?
             .extract::<Option<String>>()?
             .as_deref(),
@@ -530,7 +498,7 @@ fn model_schema_findings<'py>(
     for column in &validity {
         warehouse.retain(|(name, _)| !column.eq_ignore_ascii_case(name));
     }
-    let schema_entry: Bound<'py, PyAny> = native_field(model, "schema_entry")?;
+    let schema_entry: Bound<'py, PyAny> = model_reads::schema_entry(model)?;
     let mut yml: Vec<(String, String)> = Vec::new();
     let mut type_enforcement: bool = false;
     let mut dynamic: Option<Bound<'py, PyAny>> = None;
@@ -782,7 +750,6 @@ impl<'py> ChangeResult<'py> {
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(detect_changes_of, module)?)?;
-    module.add_function(wrap_pyfunction!(detect_model_changes_in_scope, module)?)?;
     module.add_function(wrap_pyfunction!(detect_model_changes, module)?)?;
     module.add_function(wrap_pyfunction!(schema_changes, module)?)
 }

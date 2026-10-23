@@ -753,6 +753,10 @@ class CrawlDiffCounts(BaseModel):
     pages_unchanged: int = 0
     pages_status_worse: int = 0
     pages_status_better: int = 0
+    #: Pages whose word count was NOT compared because the two snapshots were
+    #: counted by different methods (text fingerprint versions differ — the
+    #: 2026-10-22 switch to never counting script/style/template text).
+    word_count_method_changed: int = 0
 
 
 class CrawlDiff(BaseModel):

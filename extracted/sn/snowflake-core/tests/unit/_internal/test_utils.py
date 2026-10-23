@@ -1,6 +1,10 @@
 import pytest
 
-from snowflake.core._internal.utils import get_local_file_path, is_single_quoted, normalize_path, quote_name
+from snowflake.core._internal.utils import (
+    get_local_file_path,
+    is_single_quoted,
+    normalize_path,
+)
 
 
 @pytest.mark.parametrize(
@@ -21,48 +25,6 @@ def test_normalize_path_backslash_exploit(path: str, is_local: bool) -> None:
     """normalize_path must produce a properly closed single-quoted string for backslash-before-quote inputs."""
     result = normalize_path(path, is_local)
     assert is_single_quoted(result)
-
-
-@pytest.mark.parametrize(
-    ("name", "keep_case", "expected"),
-    [
-        # Already quoted names - should return as-is
-        ('"already_quoted"', False, '"already_quoted"'),
-        ('"already_quoted"', True, '"already_quoted"'),
-        ('"MyName"', False, '"MyName"'),
-        ('"MyName"', True, '"MyName"'),
-        # Unquoted case-insensitive identifiers (simple identifiers)
-        # With keep_case=False, should uppercase and quote
-        ("simple_id", False, '"SIMPLE_ID"'),
-        ("simple_id123", False, '"SIMPLE_ID123"'),
-        ("_privatevar", False, '"_PRIVATEVAR"'),
-        ("var_with_$dollar", False, '"VAR_WITH_$DOLLAR"'),
-        # Unquoted case-insensitive identifiers
-        # With keep_case=True, should quote without uppercasing
-        ("simple_id", True, '"simple_id"'),
-        ("simple_id123", True, '"simple_id123"'),
-        ("_privatevar", True, '"_privatevar"'),
-        # Names with special characters that require quoting and escaping
-        ("name-with-hyphens", False, '"name-with-hyphens"'),
-        ("name.with.dots", False, '"name.with.dots"'),
-        ("name with spaces", False, '"name with spaces"'),
-        # Names with double quotes inside - need escaping
-        ('name"with"quotes', False, '"name""with""quotes"'),
-        ('name"with"quotes', True, '"name""with""quotes"'),
-        ('"ANOTHER   ""NAME""WITH   ""QUOTES"""', False, '"ANOTHER   ""NAME""WITH   ""QUOTES"""'),
-        # Mixed case simple identifiers - with keep_case
-        ("MySimpleName", False, '"MYSIMPLENAME"'),
-        ("MySimpleName", True, '"MySimpleName"'),
-        # Single character names
-        ("a", False, '"A"'),
-        ("A", False, '"A"'),
-        ("_", False, '"_"'),
-    ],
-)
-def test_quote_name_parametrized(name: str, keep_case: bool, expected: str) -> None:
-    """Exercise :func:`~snowflake.core._internal.utils.quote_name` across identifier forms."""
-    result = quote_name(name, keep_case=keep_case)
-    assert result == expected
 
 
 @pytest.mark.parametrize(

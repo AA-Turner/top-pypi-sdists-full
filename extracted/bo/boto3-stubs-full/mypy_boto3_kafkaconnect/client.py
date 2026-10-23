@@ -63,8 +63,12 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListWorkerConfigurationsRequestTypeDef,
     ListWorkerConfigurationsResponseTypeDef,
+    PauseConnectorRequestTypeDef,
+    PauseConnectorResponseTypeDef,
     RestartConnectorRequestTypeDef,
     RestartConnectorResponseTypeDef,
+    ResumeConnectorRequestTypeDef,
+    ResumeConnectorResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateConnectorRequestTypeDef,
@@ -277,6 +281,16 @@ class KafkaConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafkaconnect/client/#list_worker_configurations)
         """
 
+    def pause_connector(
+        self, **kwargs: Unpack[PauseConnectorRequestTypeDef]
+    ) -> PauseConnectorResponseTypeDef:
+        """
+        Pauses the specified connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafkaconnect/client/pause_connector.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafkaconnect/client/#pause_connector)
+        """
+
     def restart_connector(
         self, **kwargs: Unpack[RestartConnectorRequestTypeDef]
     ) -> RestartConnectorResponseTypeDef:
@@ -285,6 +299,16 @@ class KafkaConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafkaconnect/client/restart_connector.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafkaconnect/client/#restart_connector)
+        """
+
+    def resume_connector(
+        self, **kwargs: Unpack[ResumeConnectorRequestTypeDef]
+    ) -> ResumeConnectorResponseTypeDef:
+        """
+        Resumes the specified paused connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafkaconnect/client/resume_connector.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafkaconnect/client/#resume_connector)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:

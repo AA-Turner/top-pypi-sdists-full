@@ -33,8 +33,6 @@ from textwrap import indent
 
 import click
 import click.testing
-from boltons.strutils import strip_ansi
-from boltons.tbutils import ExceptionInfo
 from cloup import Color
 
 from ._deprecated import warn_deprecated_argument
@@ -54,7 +52,7 @@ from .styling import Style
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Generator, Iterable
     from contextlib import AbstractContextManager
     from typing import IO, Any, Literal
 
@@ -174,8 +172,10 @@ def render_cli_run(
     for label, attr in STREAM_FIELDS.values():
         content = getattr(view, attr)
         if content:
-            trace.append(f"{Style(fg=stream_colors[label])(label)} stream:")
-            trace.append(indent(content, _INDENT))
+            trace.extend((
+                f"{Style(fg=stream_colors[label])(label)} stream:",
+                indent(content, _INDENT),
+            ))
     if view.exit_code is not None:
         trace.append(f"{Style(fg=Color.yellow)(EXIT_CODE_LABEL)}: {view.exit_code}")
     return "\n".join(trace)
@@ -235,6 +235,9 @@ class Result(click.testing.Result):
         if self.exception is None:
             return None
         if self.exc_info:
+            # Deferred import: keeps boltons.tbutils off the startup path of the CLI.
+            from boltons.tbutils import ExceptionInfo
+
             return ExceptionInfo.from_exc_info(*self.exc_info).get_formatted()
         return f"Exception occurred: {self.exception}"
 
@@ -248,7 +251,7 @@ class Result(click.testing.Result):
 @contextmanager
 def isolated_filesystem(
     temp_dir: str | os.PathLike[str] | None = None,
-) -> Iterator[str]:
+) -> Generator[str, None, None]:
     """Create a temporary directory and change the working directory to it.
 
     Reimplements {meth}`click.testing.CliRunner.isolated_filesystem`, which Click
@@ -412,6 +415,9 @@ class CliRunner(click.testing.CliRunner):
 
         # `color` has been explicitly set to `False`, so strip all ANSI codes.
         if color is False:
+            # Deferred import: keeps boltons.strutils off the startup path of the CLI.
+            from boltons.strutils import strip_ansi
+
             extra_result.stdout_bytes = strip_ansi(extra_result.stdout_bytes)  # type: ignore[assignment,arg-type]
             extra_result.stderr_bytes = strip_ansi(extra_result.stderr_bytes)  # type: ignore[assignment,arg-type]
             extra_result.output_bytes = strip_ansi(extra_result.output_bytes)  # type: ignore[assignment,arg-type]
@@ -430,7 +436,7 @@ class CliRunner(click.testing.CliRunner):
     @contextmanager
     def isolated_filesystem(
         self, temp_dir: str | os.PathLike[str] | None = None
-    ) -> Iterator[str]:
+    ) -> Generator[str, None, None]:
         """Same as {func}`isolated_filesystem`, minus Click's deprecation warning.
 
         Overrides {meth}`click.testing.CliRunner.isolated_filesystem` so a runner

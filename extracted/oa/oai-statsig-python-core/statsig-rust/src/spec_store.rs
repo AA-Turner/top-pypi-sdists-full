@@ -67,6 +67,7 @@ pub struct SpecStoreData {
     pub snapshot: Arc<SpecsResponseFull>,
     pub id_lists: Arc<HashMap<String, IdList>>,
     pub(crate) has_id_list_conditions: bool,
+    pub(crate) may_have_time_dependent_evaluations: bool,
     pub(crate) id_list_lookup_conditions: Arc<OnceLock<Vec<IdListLookupCondition>>>,
     pub(crate) auto_capture_settings_value: Option<Arc<Value>>,
     pub(crate) auto_capture_settings_hash: u64,
@@ -212,6 +213,7 @@ pub struct SpecStore {
     preserve_session_update_mode: bool,
     precompute_gcir_evaluation_plan: bool,
     prepare_snapshot_evaluation_data: bool,
+    prepare_time_dependence_metadata: bool,
     internal_observability_enabled: bool,
     release_unused_heap_memory_after_update: bool,
 }
@@ -263,6 +265,7 @@ impl SpecStore {
                 source_api: None,
                 id_lists: Arc::new(HashMap::new()),
                 has_id_list_conditions: false,
+                may_have_time_dependent_evaluations: true,
                 id_list_lookup_conditions: Arc::new(OnceLock::new()),
                 auto_capture_settings_value: None,
                 auto_capture_settings_hash: 0,
@@ -296,6 +299,13 @@ impl SpecStore {
                     .unwrap_or(false),
             precompute_gcir_evaluation_plan: session_options.precompute_gcir_evaluation_plan,
             prepare_snapshot_evaluation_data: session_options.config_only_mode,
+            // Config-only mode alone is not feature opt-in. Capture the local control once,
+            // before either scan; missing/invalid values leave preparation disabled.
+            prepare_time_dependence_metadata: session_options.config_only_mode
+                && matches!(
+                    std::env::var("STATSIG_ENABLE_TIME_DEPENDENCE_METADATA").as_deref(),
+                    Ok("true") | Ok("1")
+                ),
             internal_observability_enabled: !session_options.config_only_mode,
             release_unused_heap_memory_after_update: !session_options.config_only_mode,
         }
@@ -460,6 +470,7 @@ enum PrepResult {
     CursorOnly {
         lcut: u64,
         checksum: String,
+        response_type: ConfigResponseType,
     },
     Duplicate,
     NoUpdates,
@@ -514,6 +525,7 @@ impl SpecStore {
                 update,
                 hydration.hydrator.as_ref(),
                 &hydration.source_url,
+                hydration.sync_trigger,
                 Some(response_has_updates),
             ))
             .await
@@ -524,6 +536,7 @@ impl SpecStore {
         mut specs_update: SpecsUpdate,
         hydrator: &RemoteConfigValueHydrator,
         source_url: &str,
+        sync_trigger: Option<crate::specs_adapter::SpecsSyncTrigger>,
         response_has_updates: Option<&AtomicBool>,
     ) -> Result<(), StatsigErr> {
         let update_started_at = Instant::now();
@@ -542,6 +555,7 @@ impl SpecStore {
                 &mut specs_update.data,
                 JsonStoreHydrationContext {
                     source_url,
+                    sync_trigger,
                     current_verified_values: &parse_base.verified_remote_values,
                     mmap_project_id: self.mmap_project_id,
                     preserve_session_update_mode: self.preserve_session_update_mode,
@@ -566,8 +580,10 @@ impl SpecStore {
             }
         };
 
-        let prep_result = if self.are_current_values_newer(&parse_base, &hydrated.values) {
-            PrepResult::CurrentValuesNewer
+        let prep_result = if let Some(result) =
+            self.prepare_cursor_update(&parse_base, &hydrated.values, false)
+        {
+            result
         } else if hydrated.values.has_updates {
             PrepResult::HasUpdates {
                 field_checksums: SpecsFieldChecksums::from_specs(&hydrated.values),
@@ -601,6 +617,7 @@ impl SpecStore {
         mut specs_update: SpecsUpdate,
         hydrator: &RemoteConfigValueHydrator,
         source_url: &str,
+        sync_trigger: Option<crate::specs_adapter::SpecsSyncTrigger>,
     ) -> Result<(), StatsigErr> {
         let update_started_at = Instant::now();
 
@@ -647,6 +664,7 @@ impl SpecStore {
                 ProtobufHydrationContext {
                     hydrator,
                     source_url,
+                    sync_trigger,
                     mmap_project_id: self.mmap_project_id,
                     capture_hydrated_data_store_bytes,
                     preserve_session_update_mode: self.preserve_session_update_mode,
@@ -690,8 +708,10 @@ impl SpecStore {
                 field_checksums,
                 is_delta,
             } => {
-                if self.are_current_values_newer(&parse_base, &next_values) {
-                    PrepResult::CurrentValuesNewer
+                if let Some(result) =
+                    self.prepare_cursor_update(&parse_base, &next_values, is_delta)
+                {
+                    result
                 } else if next_values.has_updates {
                     PrepResult::HasUpdates {
                         values: next_values,
@@ -709,7 +729,11 @@ impl SpecStore {
                 if cursor_is_stale_or_duplicate(&parse_base, lcut, &checksum) {
                     PrepResult::CurrentValuesNewer
                 } else {
-                    PrepResult::CursorOnly { lcut, checksum }
+                    PrepResult::CursorOnly {
+                        lcut,
+                        checksum,
+                        response_type: ConfigResponseType::Delta,
+                    }
                 }
             }
         };
@@ -793,7 +817,11 @@ impl SpecStore {
                     is_delta,
                 ))
             }
-            PrepResult::CursorOnly { lcut, checksum } => {
+            PrepResult::CursorOnly {
+                lcut,
+                checksum,
+                response_type,
+            } => {
                 Self::validate_scoped_expected_metadata(
                     specs_update,
                     Some(checksum.as_str()),
@@ -808,7 +836,7 @@ impl SpecStore {
                 Ok(LockedSetValuesResult::NoSemanticUpdate(
                     specs_update.source.clone(),
                     specs_update.source_api.clone(),
-                    ConfigResponseType::Delta,
+                    response_type,
                 ))
             }
             PrepResult::CurrentValuesNewer => Ok(LockedSetValuesResult::CurrentValuesNewer),
@@ -1026,8 +1054,9 @@ impl SpecStore {
                 if matches!(response_format, SpecsFormat::Json) && next_values.has_updates {
                     *decoded_has_updates = Some(true);
                 }
-                if self.are_current_values_newer(&read_data, &next_values) {
-                    return Ok(PrepResult::CurrentValuesNewer);
+                if let Some(result) = self.prepare_cursor_update(&read_data, &next_values, is_delta)
+                {
+                    return Ok(result);
                 }
 
                 if next_values.has_updates {
@@ -1048,7 +1077,11 @@ impl SpecStore {
                     return Ok(PrepResult::CurrentValuesNewer);
                 }
 
-                return Ok(PrepResult::CursorOnly { lcut, checksum });
+                return Ok(PrepResult::CursorOnly {
+                    lcut,
+                    checksum,
+                    response_type: ConfigResponseType::Delta,
+                });
             }
             Err(e) => Some(e),
         };
@@ -1101,6 +1134,22 @@ impl SpecStore {
         let prev_checksum = data.checksum().map(str::to_string);
         let time_received_at = Utc::now().timestamp_millis() as u64;
         let values: Arc<SpecsResponseFull> = Arc::from(next_values);
+        // Standard SDK instances skip this preparation and conservatively report unknown/true.
+        // LCUT cannot prove unchanged results across conditions or scheduled override activations.
+        // Inspect the complete post-delta snapshot and retain past activations for old clients.
+        let may_have_time_dependent_evaluations = !self.prepare_time_dependence_metadata
+            || values
+                .condition_map
+                .values()
+                .any(|condition| condition.condition_type.as_str() == "current_time")
+            || values.overrides.as_ref().is_some_and(|overrides| {
+                overrides.values().flatten().any(|mapping| {
+                    mapping
+                        .rules
+                        .iter()
+                        .any(|rule| rule.start_time.unwrap_or_default() > 0)
+                })
+            });
         let has_id_list_conditions = self.prepare_snapshot_evaluation_data
             && values.condition_map.values().any(|condition| {
                 matches!(
@@ -1150,6 +1199,7 @@ impl SpecStore {
             snapshot: values,
             id_lists: data.id_lists.clone(),
             has_id_list_conditions,
+            may_have_time_dependent_evaluations,
             id_list_lookup_conditions: Arc::new(OnceLock::new()),
             auto_capture_settings_value,
             auto_capture_settings_hash,
@@ -1467,16 +1517,31 @@ impl SpecStore {
         }
     }
 
-    fn are_current_values_newer(
+    fn prepare_cursor_update(
         &self,
         data: &SpecStoreData,
         next_values: &SpecsResponseFull,
-    ) -> bool {
+        is_delta: bool,
+    ) -> Option<PrepResult> {
         let curr_checksum = data.checksum().unwrap_or_default();
         let new_checksum = next_values.checksum.as_deref().unwrap_or_default();
 
         let cached_time_is_newer = data.lcut() > 0 && data.lcut() > next_values.time;
         let checksums_match = !curr_checksum.is_empty() && curr_checksum == new_checksum;
+
+        if checksums_match && next_values.has_updates && next_values.time > data.lcut() {
+            // Identical content can have a newer cursor. Retaining the old cursor
+            // can strand subsequent delta requests outside the server's cache window.
+            return Some(PrepResult::CursorOnly {
+                lcut: next_values.time,
+                checksum: new_checksum.to_string(),
+                response_type: if is_delta {
+                    ConfigResponseType::Delta
+                } else {
+                    ConfigResponseType::Full
+                },
+            });
+        }
 
         if cached_time_is_newer || checksums_match {
             log_d!(
@@ -1487,10 +1552,10 @@ impl SpecStore {
                 data.lcut(),
                 curr_checksum,
             );
-            return true;
+            return Some(PrepResult::CurrentValuesNewer);
         }
 
-        false
+        None
     }
 }
 
@@ -1795,6 +1860,7 @@ impl SpecsUpdateListener for SpecStore {
                             update,
                             hydration.hydrator.as_ref(),
                             &hydration.source_url,
+                            hydration.sync_trigger,
                         )
                         .await;
                 }
@@ -1803,6 +1869,7 @@ impl SpecsUpdateListener for SpecStore {
                     update,
                     hydration.hydrator.as_ref(),
                     &hydration.source_url,
+                    hydration.sync_trigger,
                     None,
                 )
                 .await
@@ -2418,6 +2485,7 @@ mod tests {
             snapshot: Arc::new(SpecsResponseFull::default()),
             id_lists: Arc::new(HashMap::new()),
             has_id_list_conditions: false,
+            may_have_time_dependent_evaluations: true,
             id_list_lookup_conditions: Arc::new(OnceLock::new()),
             auto_capture_settings_value: None,
             auto_capture_settings_hash: 0,

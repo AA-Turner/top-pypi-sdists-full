@@ -122,6 +122,7 @@ def _make_request(
     method: str,
     endpoint: str,
     data: Optional[Dict] = None,
+    params: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """Make HTTP request to API."""
     url = f"{base_url.rstrip('/')}{endpoint}"
@@ -129,7 +130,7 @@ def _make_request(
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     headers.update(service_headers)
 
-    response = requests.request(method, url, headers=headers, json=data)
+    response = requests.request(method, url, headers=headers, json=data, params=params)
     try:
         response.raise_for_status()
     except requests.HTTPError as e:
@@ -311,10 +312,12 @@ def list_model_assets(
     perimeter: str,
     project: str,
     branch: str,
+    continuation: Optional[str] = None,
 ) -> Dict[str, Any]:
     """List model assets with the latest instance."""
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/models"
-    return _make_request(base_url, service_headers, "GET", endpoint)
+    params = {"continuation": continuation} if continuation else None
+    return _make_request(base_url, service_headers, "GET", endpoint, params=params)
 
 
 def list_data_assets(
@@ -324,10 +327,12 @@ def list_data_assets(
     perimeter: str,
     project: str,
     branch: str,
+    continuation: Optional[str] = None,
 ) -> Dict[str, Any]:
     """List data assets with the latest instance."""
     endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/data"
-    return _make_request(base_url, service_headers, "GET", endpoint)
+    params = {"continuation": continuation} if continuation else None
+    return _make_request(base_url, service_headers, "GET", endpoint, params=params)
 
 
 def get_data_asset_summary(
@@ -506,58 +511,85 @@ class Asset:
         if not self.read_only:
             self._add_to_metadata("data", name, description=description)
 
+    def _list_assets_paginated(self, kind: str) -> Dict[str, Any]:
+        """List all assets of a kind, transparently following continuation tokens.
+
+        The backend caps pages but historically accepts no continuation
+        parameter; the loop is guarded against a server that returns a
+        token while ignoring the query param (same token twice in a row).
+        """
+        fn = list_data_assets if kind == "data" else list_model_assets
+        items = []
+        continuation = None
+        seen_tokens = set()
+        while True:
+            page = fn(
+                self.base_url,
+                self.service_headers,
+                perimeter=self.perimeter,
+                project=self.project,
+                branch=self.branch,
+                continuation=continuation,
+            )
+            items.extend(page.get("items", []))
+            continuation = page.get("continuation")
+            if not continuation or continuation in seen_tokens:
+                break
+            seen_tokens.add(continuation)
+        return {"items": items, "continuation": None}
+
     def list_data_assets(self, tags=None):
         """
         List data assets, optionally filtered by tags.
 
+        Paginates transparently: all pages are merged, so the returned
+        listing is complete regardless of the server's page cap.
+
         Args:
-            tags: Dict of tag key-value pairs to filter by (client-side filtering)
+            tags: Dict of tag key-value pairs to filter by (client-side
+                filtering on the latest instance's tags)
 
         Returns:
-            List of data asset metadata
+            Dict with "items" (list of data asset entries) and "continuation"
         """
-        assets = list_data_assets(
-            self.base_url,
-            self.service_headers,
-            perimeter=self.perimeter,
-            project=self.project,
-            branch=self.branch,
-        )
+        assets = self._list_assets_paginated("data")
         if tags:
-            # Client-side filtering by tags
+            # Client-side filtering by tags (tags live on the latest instance)
             filtered = []
-            for asset in assets.get("data", []):
-                asset_tags = {t["key"]: t["value"] for t in asset.get("tags", [])}
+            for item in assets["items"]:
+                instance = item.get("latest_instance") or {}
+                tags_list = instance.get("tags") or item.get("tags") or []
+                asset_tags = {t["key"]: t["value"] for t in tags_list}
                 if all(asset_tags.get(k) == v for k, v in tags.items()):
-                    filtered.append(asset)
-            return {"data": filtered}
+                    filtered.append(item)
+            return {"items": filtered, "continuation": None}
         return assets
 
     def list_model_assets(self, tags=None):
         """
         List model assets, optionally filtered by tags.
 
+        Paginates transparently: all pages are merged, so the returned
+        listing is complete regardless of the server's page cap.
+
         Args:
-            tags: Dict of tag key-value pairs to filter by (client-side filtering)
+            tags: Dict of tag key-value pairs to filter by (client-side
+                filtering on the latest instance's tags)
 
         Returns:
-            List of model asset metadata
+            Dict with "items" (list of model asset entries) and "continuation"
         """
-        assets = list_model_assets(
-            self.base_url,
-            self.service_headers,
-            perimeter=self.perimeter,
-            project=self.project,
-            branch=self.branch,
-        )
+        assets = self._list_assets_paginated("models")
         if tags:
-            # Client-side filtering by tags
+            # Client-side filtering by tags (tags live on the latest instance)
             filtered = []
-            for asset in assets.get("models", []):
-                asset_tags = {t["key"]: t["value"] for t in asset.get("tags", [])}
+            for item in assets["items"]:
+                instance = item.get("latest_instance") or {}
+                tags_list = instance.get("tags") or item.get("tags") or []
+                asset_tags = {t["key"]: t["value"] for t in tags_list}
                 if all(asset_tags.get(k) == v for k, v in tags.items()):
-                    filtered.append(asset)
-            return {"models": filtered}
+                    filtered.append(item)
+            return {"items": filtered, "continuation": None}
         return assets
 
     def _iter_asset_instances(self, kind, name) -> Iterator[AssetInstance]:
@@ -765,19 +797,25 @@ class Asset:
             ) from e
         return True
 
-    def _catalog_delete_if_present(self, kind, name):
-        """Probe with a summary GET then DELETE only if present. Returns True if a DELETE was issued."""
+    def _asset_exists(self, kind, name, branch=None):
+        """Probe with a summary GET. Returns False when the asset is absent (404)."""
         summary_fn = get_data_asset_summary if kind == "data" else get_model_asset_summary
         try:
             summary_fn(
                 self.base_url, self.service_headers,
                 perimeter=self.perimeter, project=self.project,
-                branch=self.branch, asset=name,
+                branch=branch or self.branch, asset=name,
             )
         except requests.HTTPError as e:
             if e.response is not None and e.response.status_code == 404:
                 return False
             raise
+        return True
+
+    def _catalog_delete_if_present(self, kind, name):
+        """Probe with a summary GET then DELETE only if present. Returns True if a DELETE was issued."""
+        if not self._asset_exists(kind, name):
+            return False
         delete_fn = delete_data_asset if kind == "data" else delete_model_asset
         delete_fn(
             self.base_url, self.service_headers,
@@ -964,7 +1002,7 @@ DEFAULT_PROMOTION_ALIASES = ["candidate", "validated", "production"]
 
 
 def promote_assets(project, source, target, kinds=None, asset=None,
-                   instance="latest", with_aliases=True, alias="candidate"):
+                   instance="latest", with_aliases=None, alias="candidate"):
     """
     Promote assets from one branch to another.
 
@@ -983,8 +1021,12 @@ def promote_assets(project, source, target, kinds=None, asset=None,
                Otherwise promotes all assets on the source branch.
         instance: Which instance to promote ("latest", instance ID,
                   or "@alias"). Defaults to "latest".
-        with_aliases: If True, copy aliases from the source branch that
-                  point to the promoted instance. Default False.
+        with_aliases: If True, copy aliases from the source branch onto
+            the promoted instances on the target branch.
+            Defaults:
+                - True when the source and target branches differ
+                - False when promoting within the same branch
+            Pass True or False to override the default behavior.
         alias: Alias to set on the promoted instance on the target branch.
                Defaults to "candidate". Must be one of the allowed promotion
                aliases (default: candidate, validated, production). Set to
@@ -1013,8 +1055,16 @@ def promote_assets(project, source, target, kinds=None, asset=None,
     """
     source = _sanitize_branch_name(source)
     target = _sanitize_branch_name(target)
+    # kinds=None means "all kinds"; combined with a named asset it also
+    # means "don't error on the kinds the asset isn't registered as".
+    kinds_defaulted = kinds is None
     if kinds is None:
         kinds = ["data", "models"]
+
+    # with_aliases=None means auto behavior: carry aliases when promoting
+    # across branches, but not when promoting within a single branch
+    if with_aliases is None:
+        with_aliases = source != target
 
     # Validate alias against allowed promotion aliases
     allowed_aliases = DEFAULT_PROMOTION_ALIASES
@@ -1049,29 +1099,62 @@ def promote_assets(project, source, target, kinds=None, asset=None,
     if asset:
         # Promote a single named asset — try each requested kind
         for kind in kinds:
+            # With the default kinds, an asset usually exists as only one
+            # kind: probe the source branch and skip kinds where it isn't
+            # registered instead of reporting an  error. An explicit `kinds`
+            # list keeps the strict error behavior.
+            if kinds_defaulted:
+                try:
+                    exists = client._asset_exists(kind, asset, branch=source)
+                except Exception as e:
+                    errors.append({"kind": kind, "name": asset, "error": str(e)})
+                    continue
+                if not exists:
+                    continue
             try:
                 client._promote_single(source, target, asset, kind, instance,
                                        with_aliases=with_aliases, alias=alias)
                 promoted.append({"kind": kind, "name": asset, "alias": alias})
             except Exception as e:
                 errors.append({"kind": kind, "name": asset, "error": str(e)})
+
+        # Not registered as any requested kind: surface one clear error
+        # instead of returning a silent empty result.
+        if kinds_defaulted and not promoted and not errors:
+            errors.append({
+                "kind": None,
+                "name": asset,
+                "error": (
+                    f"asset {asset!r} not found on source branch {source!r} "
+                    f"(checked: {', '.join(kinds)})"
+                ),
+            })
         return {"promoted": promoted, "errors": errors}
 
     # Promote all assets on the source branch
     for kind in kinds:
         try:
             if kind == "data":
-                result = list_data_assets(
-                    client.base_url, client.service_headers,
-                    perimeter=client.perimeter, project=project,
-                    branch=source,
-                )
+                fn = list_data_assets
             else:
-                result = list_model_assets(
+                fn = list_model_assets
+            result = fn(
+                client.base_url, client.service_headers,
+                perimeter=client.perimeter, project=project,
+                branch=source,
+            )
+            # Follow continuation tokens so every page is promoted
+            seen_tokens = set()
+            continuation = result.get("continuation")
+            while continuation and continuation not in seen_tokens:
+                seen_tokens.add(continuation)
+                page = fn(
                     client.base_url, client.service_headers,
                     perimeter=client.perimeter, project=project,
-                    branch=source,
+                    branch=source, continuation=continuation,
                 )
+                result["items"].extend(page.get("items", []))
+                continuation = page.get("continuation")
         except Exception as e:
             errors.append({"kind": kind, "error": str(e)})
             continue

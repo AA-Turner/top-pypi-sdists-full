@@ -1,6 +1,8 @@
 //! Selected-scope buildability validation before change planning.
 
 use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compiled_views::project_reads;
+use crate::bindings::_helpers::compiled_views::seed_reads;
 use crate::bindings::_helpers::planner_identity::graph::build_execution_edge_origins;
 use crate::bindings::_helpers::planner_identity::graph::check_buildability;
 use crate::bindings::_helpers::planner_identity::graph::missing_upstream_message;
@@ -14,10 +16,7 @@ use crate::bindings::_helpers::planner_phases::runtime::warehouse_field;
 use crate::bindings::_helpers::planner_warehouse::source_tables::check_selected_source_tables_exist;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult};
-use pyo3::pyfunction;
 
-#[pyfunction]
-#[pyo3(signature = (*, runtime, scopes, warehouse, deferral))]
 pub(crate) fn check_selected_scope_buildability<'py>(
     runtime: &Bound<'py, PyAny>,
     scopes: &Bound<'py, PyAny>,
@@ -28,10 +27,10 @@ pub(crate) fn check_selected_scope_buildability<'py>(
     let project = runtime_field(runtime, |runtime| &runtime.project)?;
     let selected_scope = class_field(scopes, |s: &PlannerScopeResolution| &s.selected_scope)?;
     let mut external_seeds: Vec<_> = Vec::new();
-    for seed in native_field(&project, "seeds")?.try_iter()? {
+    for seed in project_reads::seeds(&project)?.try_iter()? {
         let seed = seed?;
-        if native_field(&seed, "external")?.is_truthy()? {
-            external_seeds.push(native_field(&seed, "key")?);
+        if seed_reads::external(&seed)?.is_truthy()? {
+            external_seeds.push(seed_reads::key(&seed)?);
         }
     }
     let missing = object(

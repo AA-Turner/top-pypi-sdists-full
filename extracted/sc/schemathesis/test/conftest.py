@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-
-# Import eagerly: `pytester` can drop it from `sys.modules` while `requests` is importing it.
-import netrc  # noqa: F401
 from collections.abc import Callable
 from dataclasses import dataclass
 from io import BytesIO
@@ -16,9 +13,6 @@ import httpx2
 import pytest
 import requests
 
-# Import eagerly: `pytester` can drop it from `sys.modules` while the CLI is importing it.
-import rich._emoji_codes  # noqa: F401
-
 # Import eagerly: on Windows `rich` loads its console bindings on the first console, which `pytester` can race.
 import rich._windows  # noqa: F401
 import yaml
@@ -28,8 +22,7 @@ from werkzeug import Request
 from werkzeug.datastructures import Headers
 from werkzeug.test import TestResponse
 
-# Import eagerly: `pytester` drops lazily-imported modules, and the re-created class breaks `isinstance`.
-import schemathesis.generation.value  # noqa: F401
+# Import eagerly: otherwise `pytester` drops and re-imports it around in-process runs, which shifts generated data.
 import schemathesis.specs.openapi.schemas  # noqa: F401
 from schemathesis.cli.commands.run.handlers import output
 from schemathesis.core import storage
@@ -316,6 +309,15 @@ def openapi_31(ctx):
     raw = make_schema("simple_openapi.yaml")
     raw["openapi"] = "3.1.0"
     return ctx.openapi.from_full_schema(raw)
+
+
+@pytest.fixture
+def pytester(request, pytester, monkeypatch):
+    # Inner runs read no project config, so they get the outer loop scope instead of a pytest-asyncio warning each.
+    # `pytester` discards outer options from `PYTEST_ADDOPTS` when it starts, so this is set after it.
+    scope = request.config.getini("asyncio_default_fixture_loop_scope")
+    monkeypatch.setenv("PYTEST_ADDOPTS", f"-o asyncio_default_fixture_loop_scope={scope}")
+    return pytester
 
 
 @pytest.fixture

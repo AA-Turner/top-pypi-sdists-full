@@ -30,6 +30,7 @@ from cozy_runtime.author.kernels import (
     INT8_CONVROT,
     ROWWISE_FP8,
     PreQuantized,
+    readable,
     shared_operand,
 )
 from cozy_runtime.internal import fp8_linear, int8_linear, nvfp4_linear
@@ -198,23 +199,28 @@ def _native_leaf_class(torch: ModuleType) -> type:
         BUFFERS: ClassVar[dict[str, str]] = {"weight": "data"}  # no `.weight` on this leaf
 
         def linear(self, x: Tensor | PreQuantized, prequantized: PreQuantized | None) -> Tensor:
+            # The ops launch by pointer: a leaf run outside its model's forward (Klein's
+            # modulation heads) has its weight read in (cr-208).
             ops = _NATIVE_OPS[self.provider]
             out_dtype = self.out_dtype
-            if isinstance(x, PreQuantized):
-                # A producer's prologue (`kernels.int8_rows`) hands the operand in place of x.
-                if torch.is_autocast_enabled(x.payload.device.type):
-                    out_dtype = torch.get_autocast_dtype(x.payload.device.type)
-                return ops.gemm(torch, x, self.data, self.scale, self.bias, out_dtype)
-            cast = x
-            if torch.is_autocast_enabled(x.device.type):
-                # As the replaced `nn.Linear` does: from and to the autocast dtype.
-                out_dtype = torch.get_autocast_dtype(x.device.type)
-                cast = x.to(out_dtype)
-            if prequantized is None or prequantized.provider != self.provider:
-                prequantized = shared_operand(x, self.provider, lambda: ops.quantize(torch, cast))
-            if prequantized is not None:
-                return ops.gemm(torch, prequantized, self.data, self.scale, self.bias, out_dtype)
-            return ops.linear(torch, cast, self.data, self.scale, self.bias, out_dtype)
+            with readable(self.data, self.scale, self.bias) as (data, scale, bias):
+                if isinstance(x, PreQuantized):
+                    # A producer's prologue (`kernels.int8_rows`) hands the operand in place of x.
+                    if torch.is_autocast_enabled(x.payload.device.type):
+                        out_dtype = torch.get_autocast_dtype(x.payload.device.type)
+                    return ops.gemm(torch, x, data, scale, bias, out_dtype)
+                cast = x
+                if torch.is_autocast_enabled(x.device.type):
+                    # As the replaced `nn.Linear` does: from and to the autocast dtype.
+                    out_dtype = torch.get_autocast_dtype(x.device.type)
+                    cast = x.to(out_dtype)
+                if prequantized is None or prequantized.provider != self.provider:
+                    prequantized = shared_operand(
+                        x, self.provider, lambda: ops.quantize(torch, cast)
+                    )
+                if prequantized is not None:
+                    return ops.gemm(torch, prequantized, data, scale, bias, out_dtype)
+                return ops.linear(torch, cast, data, scale, bias, out_dtype)
 
         def int8_prologue(
             self,
@@ -268,8 +274,7 @@ class RowwiseNativeLeaf:
     `_scaled_mm(use_fast_accum=True)`'s: on an L40S the default ran 0.52x bf16 and the fast
     one 2.03x, for -0.007 to -0.018 dB (#517b).
 
-    The floor `cuda.sm89+` is where an fp8 tensor-core GEMM exists; whether it pays on a card
-    is what the probe measures.
+    The floor `cuda.sm89+` is where an fp8 tensor-core GEMM exists (`formats`).
     """
 
     encoding: str = "fp8.rowwise"
@@ -298,6 +303,15 @@ class RowwiseNativeLeaf:
     @property
     def suite(self) -> str:
         return "fp8-rowwise-native"
+
+    @property
+    def formats(self) -> frozenset[str]:
+        return frozenset({"fp8"})
+
+    @property
+    def out_dtypes(self) -> frozenset[str]:
+        """`_scaled_mm`'s row-wise scaling writes half precision only."""
+        return frozenset({"bfloat16", "float16"})
 
     @property
     def required(self) -> frozenset[str]:
@@ -388,6 +402,15 @@ class Int8ConvRotNativeLeaf:
         return "int8-convrot256-native"
 
     @property
+    def formats(self) -> frozenset[str]:
+        return frozenset({"int8"})
+
+    @property
+    def out_dtypes(self) -> frozenset[str]:
+        """Half through the 8-bit op; float32 through torch's int8 GEMM."""
+        return frozenset({"bfloat16", "float16", "float32"})
+
+    @property
     def required(self) -> frozenset[str]:
         return frozenset({"weight", "scale"})
 
@@ -447,6 +470,19 @@ class Int8ConvRotNativeLeaf:
         )
 
 
+def _nvfp4_leaf_class(torch: ModuleType) -> type:
+    """`EncodedLinear` keyed by nvfp4's stored roles, held in the buffers its kernels read."""
+    cached: type | None = getattr(_nvfp4_leaf_class, "_cached", None)
+    if cached is not None:
+        return cached
+
+    class Nvfp4Linear(_leaf_class(torch)):  # type: ignore[misc]
+        BUFFERS: ClassVar[dict[str, str]] = {"scale": "weight_scale", "scale_2": "weight_scale_2"}
+
+    _nvfp4_leaf_class._cached = Nvfp4Linear  # type: ignore[attr-defined]
+    return Nvfp4Linear
+
+
 @dataclass(frozen=True, slots=True)
 class Nvfp4NativeLeaf:
     """`nvfp4-w4a4/1` ENCODED GEMM: the stored E2M1 payload and E4M3 block scales stay resident
@@ -485,6 +521,16 @@ class Nvfp4NativeLeaf:
     @property
     def suite(self) -> str:
         return "nvfp4-native"
+
+    @property
+    def formats(self) -> frozenset[str]:
+        """None: W4A16 runs on every MMA card, W4A4 where the row has fp4 (`nvfp4_linear`)."""
+        return frozenset()
+
+    @property
+    def out_dtypes(self) -> frozenset[str]:
+        """Half through its kernels; float32 through the eager decode."""
+        return frozenset({"bfloat16", "float16", "float32"})
 
     @property
     def required(self) -> frozenset[str]:
@@ -561,13 +607,9 @@ class Nvfp4NativeLeaf:
         second = parts["scale_2"].to(torch.float32).reshape(1)
         if params.get("global_scale") == "divide":
             second = 1.0 / second  # the kernels multiply: one f32 reciprocal, a W4A4 rounding
-        return _leaf_class(torch)(
+        return _nvfp4_leaf_class(torch)(
             Nvfp4NativeLeaf._forward,
-            {
-                "weight": weight,
-                "weight_scale": blocked,
-                "weight_scale_2": second,
-            },
+            {"weight": weight, "scale": blocked, "scale_2": second},
             getattr(replaced, "bias", None),
             out_dtype,
             self.name,
@@ -627,6 +669,15 @@ class MicroScaledNativeLeaf:
     @property
     def suite(self) -> str:
         return "mxfp8-native"
+
+    @property
+    def formats(self) -> frozenset[str]:
+        return frozenset({"mxfp8"})
+
+    @property
+    def out_dtypes(self) -> frozenset[str]:
+        """`_scaled_mm`'s MX scaling, at half precision."""
+        return frozenset({"bfloat16", "float16"})
 
     @property
     def required(self) -> frozenset[str]:

@@ -80,7 +80,7 @@ _V = TypeVar("_V")
 
 
 @prettify_docstrings
-class Dictable(Iterable[Tuple[str, _V]]):
+class Dictable(Iterable[Tuple[str, _V]]):  # noqa: PRM002
 	"""
 	The basic structure of a class that can be converted into a dictionary.
 	"""
@@ -105,21 +105,21 @@ class Dictable(Iterable[Tuple[str, _V]]):
 	def __getstate__(self) -> Dict[str, _V]:
 		return self.__dict__
 
-	def __setstate__(self, state):
+	def __setstate__(self, state) -> None:  # noqa: MAN001
 		self.__init__(**state)  # type: ignore[misc]
 
-	def __copy__(self):
+	def __copy__(self):  # noqa: MAN002
 		return self.__class__(**self.__dict__)
 
-	def __deepcopy__(self, memodict={}):
+	def __deepcopy__(self, memodict={}):  # noqa: MAN001,MAN002
 		return self.__copy__()
 
 	@property
 	@abstractmethod
-	def __dict__(self):
+	def __dict__(self):  # type: ignore[override]  # noqa: MAN002
 		return dict()  # pragma: no cover (abc)
 
-	def __eq__(self, other) -> bool:
+	def __eq__(self, other) -> bool:  # noqa: MAN001
 		if isinstance(other, self.__class__):
 			return is_match_with(other.__dict__, self.__dict__)
 
@@ -188,7 +188,7 @@ class UserList(MutableSequence[_T]):
 		return self.data >= self.__cast(other)
 
 	@staticmethod
-	def __cast(other):
+	def __cast(other):  # noqa: MAN001,MAN002
 		return other.data if isinstance(other, UserList) else other
 
 	def __contains__(self, item: object) -> bool:
@@ -221,7 +221,7 @@ class UserList(MutableSequence[_T]):
 	def __setitem__(self, i: Union[int, slice], item: Union[_T, Iterable[_T]]) -> None:
 		self.data[i] = item  # type: ignore[index, assignment]
 
-	def __delitem__(self, i: Union[int, slice]):
+	def __delitem__(self, i: Union[int, slice]) -> None:
 		del self.data[i]
 
 	def __add__(self: _S, other: Iterable[_T]) -> _S:
@@ -231,7 +231,7 @@ class UserList(MutableSequence[_T]):
 			return self.__class__(self.data + other)
 		return self.__class__(self.data + list(other))
 
-	def __radd__(self, other):
+	def __radd__(self, other):  # noqa: MAN001,MAN002
 		if isinstance(other, UserList):
 			return self.__class__(other.data + self.data)
 		elif isinstance(other, type(self.data)):
@@ -256,7 +256,7 @@ class UserList(MutableSequence[_T]):
 		self.data *= n
 		return self
 
-	def __copy__(self):
+	def __copy__(self):  # noqa: MAN002
 		inst = self.__class__.__new__(self.__class__)
 		inst.__dict__.update(self.__dict__)
 		# Create a copy and avoid triggering descriptors
@@ -266,6 +266,8 @@ class UserList(MutableSequence[_T]):
 	def append(self, item: _T) -> None:
 		"""
 		Append ``item`` to the end of the :class:`~.domdf_python_tools.bases.UserList`.
+
+		:param item:
 		"""
 
 		self.data.append(item)
@@ -273,6 +275,9 @@ class UserList(MutableSequence[_T]):
 	def insert(self, i: int, item: _T) -> None:
 		"""
 		Insert ``item`` at position ``i`` in the :class:`~.domdf_python_tools.bases.UserList`.
+
+		:param i:
+		:param item:
 		"""
 
 		self.data.insert(i, item)
@@ -280,6 +285,8 @@ class UserList(MutableSequence[_T]):
 	def pop(self, i: int = -1) -> _T:
 		"""
 		Removes and returns the item at index ``i``.
+
+		:param i:
 
 		:raises IndexError: if list is empty or index is out of range.
 		"""
@@ -315,7 +322,7 @@ class UserList(MutableSequence[_T]):
 
 		return self.__class__(self)
 
-	def count(self, item: _T) -> int:
+	def count(self, item: _T) -> int:  # noqa: PRM002
 		"""
 		Returns the number of occurrences of ``item`` in the :class:`~.domdf_python_tools.bases.UserList`.
 		"""
@@ -323,11 +330,11 @@ class UserList(MutableSequence[_T]):
 		return self.data.count(item)
 
 	def index(self, item: _T, *args: Any) -> int:
-		"""
+		r"""
 		Returns the index of the fist element matching ``item``.
 
 		:param item:
-		:param args:
+		:param \*args:
 
 		:raises ValueError: if the item is not present.
 		"""
@@ -341,7 +348,7 @@ class UserList(MutableSequence[_T]):
 
 		self.data.reverse()
 
-	def sort(self, *, key=None, reverse: bool = False) -> None:
+	def sort(self, *, key=None, reverse: bool = False) -> None:  # noqa: PRM002
 		"""
 		Sort the list in ascending order and return :py:obj:`None`.
 
@@ -422,7 +429,7 @@ class UserFloat(Real):
 	def __mul__(self: _F, other: float) -> _F:
 		return self.__class__(float(self).__mul__(other))
 
-	def __floordiv__(self: _F, other: float) -> _F:  # type: ignore[override]
+	def __floordiv__(self: _F, other: float) -> _F:
 		return self.__class__(float(self).__floordiv__(other))
 
 	def __truediv__(self: _F, other: float) -> _F:
@@ -434,7 +441,7 @@ class UserFloat(Real):
 	def __divmod__(self: _F, other: float) -> Tuple[_F, _F]:
 		return tuple(self.__class__(x) for x in float(self).__divmod__(other))  # type: ignore[return-value]
 
-	def __pow__(self: _F, other: float, mod=None) -> _F:
+	def __pow__(self: _F, other: float, mod: None = None) -> _F:
 		return self.__class__(float(self).__pow__(other, mod))
 
 	def __radd__(self: _F, other: float) -> _F:
@@ -446,7 +453,7 @@ class UserFloat(Real):
 	def __rmul__(self: _F, other: float) -> _F:
 		return self.__class__(float(self).__rmul__(other))
 
-	def __rfloordiv__(self: _F, other: float) -> _F:  # type: ignore[override]
+	def __rfloordiv__(self: _F, other: float) -> _F:
 		return self.__class__(float(self).__rfloordiv__(other))
 
 	def __rtruediv__(self: _F, other: float) -> _F:
@@ -456,9 +463,9 @@ class UserFloat(Real):
 		return self.__class__(float(self).__rmod__(other))
 
 	def __rdivmod__(self: _F, other: float) -> Tuple[_F, _F]:
-		return tuple(self.__class__(x) for x in float(self).__rdivmod__(other))  # type: ignore
+		return tuple(self.__class__(x) for x in float(self).__rdivmod__(other))  # type: ignore[return-value]
 
-	def __rpow__(self: _F, other: float, mod=None) -> _F:
+	def __rpow__(self: _F, other: float, mod: None = None) -> _F:
 		return self.__class__(float(self).__rpow__(other, mod))
 
 	def __getnewargs__(self) -> Tuple[float]:
@@ -471,7 +478,13 @@ class UserFloat(Real):
 
 		return float(self).__trunc__()
 
-	def __round__(self, ndigits: Optional[int] = None) -> Union[int, float]:  # type: ignore
+	@overload
+	def __round__(self, ndigits: None = ...) -> int: ...
+
+	@overload
+	def __round__(self, ndigits: int) -> float: ...
+
+	def __round__(self, ndigits: Optional[int] = None) -> Union[int, float]:
 		"""
 		Round the :class:`~.UserFloat` to ``ndigits`` decimal places, defaulting to ``0``.
 
@@ -538,16 +551,16 @@ class UserFloat(Real):
 	def __abs__(self: _F) -> _F:
 		return self.__class__(float(self).__abs__())
 
-	def __hash__(self) -> int:
+	def __hash__(self) -> int:  # type: ignore[override]
 		return float(self).__hash__()
 
 	def __repr__(self) -> str:
 		return str(self)
 
-	def __ceil__(self):
+	def __ceil__(self):  # noqa: MAN002
 		raise NotImplementedError
 
-	def __floor__(self):
+	def __floor__(self):  # noqa: MAN002
 		raise NotImplementedError
 
 	def __bool__(self) -> bool:
@@ -622,7 +635,7 @@ class Lineup(UserList[_T]):
 
 		return self
 
-	def sort(  # type: ignore
+	def sort(  # type: ignore[override]  # noqa: PRM002
 			self: _LU,
 			*,
 			key=None,
@@ -643,25 +656,25 @@ class Lineup(UserList[_T]):
 		super().sort(key=key, reverse=reverse)
 		return self
 
-	def reverse(self: _LU) -> _LU:  # type: ignore  # noqa: D102
+	def reverse(self: _LU) -> _LU:  # type: ignore[override]  # noqa: D102
 		super().reverse()
 		return self
 
-	def append(  # type: ignore  # noqa: D102
+	def append(  # type: ignore[override]  # noqa: D102
 			self: _LU,
 			item: _T,
 			) -> _LU:
 		super().append(item)
 		return self
 
-	def extend(  # type: ignore  # noqa: D102
+	def extend(  # type: ignore[override]  # noqa: D102
 			self: _LU,
 			other: Iterable[_T],
 			) -> _LU:
 		super().extend(other)
 		return self
 
-	def insert(  # type: ignore  # noqa: D102
+	def insert(  # type: ignore[override]  # noqa: D102
 			self: _LU,
 			i: int,
 			item: _T,
@@ -669,13 +682,13 @@ class Lineup(UserList[_T]):
 		super().insert(i, item)
 		return self
 
-	def remove(  # type: ignore  # noqa: D102
+	def remove(  # type: ignore[override]  # noqa: D102
 			self: _LU,
 			item: _T,
 			) -> _LU:
 		super().remove(item)
 		return self
 
-	def clear(self: _LU) -> _LU:  # type: ignore  # noqa: D102
+	def clear(self: _LU) -> _LU:  # type: ignore[override]  # noqa: D102
 		super().clear()
 		return self

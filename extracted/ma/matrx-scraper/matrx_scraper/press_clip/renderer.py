@@ -42,6 +42,72 @@ logger = logging.getLogger("matrx_scraper.press_clip.renderer")
 
 CLIP_PAGE_JS: str = Path(__file__).with_name("clip_page.js").read_text()
 
+#: What the placeholder sweep counts as a photo. The SEED of the host's knob ``press.clip.photo_rules``
+#: (aidream migration 1536), equal to ``PHOTO_DEFAULTS`` in clip_page.js; the host passes the live row
+#: as ``photo_rules``.
+PHOTO_RULE_SEEDS: dict[str, Any] = {
+    "inline_image_max_chars": 4096,
+    "spinner_patterns": [
+        "spinner", "loader", "loading.gif", "loading.svg", "loading.png", "placeholder", "skeleton",
+        "shimmer", "spacer.gif", "blank.gif", "blank.png", "transparent.gif", "transparent.png",
+        "pixel.gif", "1x1",
+    ],
+    "ad_slot_sizes": [
+        [300, 250], [300, 600], [728, 90], [970, 250], [970, 90], [320, 50], [320, 100], [336, 280],
+        [160, 600], [120, 600], [300, 50], [468, 60], [250, 250], [200, 200], [300, 1050],
+    ],
+    "ad_slot_tolerance_px": 4,
+    "lazy_image_attributes": [
+        "data-src", "data-lazy-src", "data-srcset", "data-lazy-srcset", "data-original", "data-lazy",
+        "data-hi-res-src", "data-full-src", "srcset",
+    ],
+    "video_embed_hosts": [
+        "youtube.com", "youtube-nocookie.com", "youtu.be", "vimeo.com", "dailymotion.com", "dai.ly",
+        "players.brightcove.net", "jwplayer.com", "jwplatform.com", "wistia.com", "wistia.net", "vidyard.com",
+        "loom.com", "facebook.com/plugins/video", "tiktok.com/embed", "twitch.tv", "rumble.com",
+        "streamable.com", "cdn.jwplayer.com", "video.ibm.com", "ted.com",
+    ],
+    "ad_marker_words": [
+        "ad", "ads", "advert", "advertisement", "sponsored", "dfp", "gpt-ad", "adslot", "ad-slot", "ad-container",
+        "taboola", "outbrain",
+    ],
+    "editorial_embed_hosts": [
+        "datawrapper.dwcdn.net", "dwcdn.net", "datawrapper.de", "flo.uri.sh", "flourish.studio",
+        "infogram.com", "e.infogram.com", "public.tableau.com", "open.spotify.com", "w.soundcloud.com",
+        "soundcloud.com", "embed.podcasts.apple.com", "platform.twitter.com", "twitter.com", "x.com",
+        "instagram.com", "bsky.app", "embed.bsky.app", "threads.net", "tiktok.com/embed",
+        "google.com/maps/embed", "scribd.com", "documentcloud.org", "embed.documentcloud.org",
+        "genially.com", "knightlab.com",
+    ],
+    "ad_network_hosts": [
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com", "googletagservices.com",
+        "adservice.google.com", "taboola.com", "taboolasyndication.com", "outbrain.com", "outbrainimg.com",
+        "adnxs.com", "adsrvr.org", "criteo.com", "criteo.net", "amazon-adsystem.com", "pubmatic.com",
+        "rubiconproject.com", "openx.net", "adform.net", "smartadserver.com", "teads.tv", "yieldmo.com",
+        "sharethrough.com", "triplelift.com", "3lift.com", "moatads.com", "revcontent.com", "mgid.com",
+        "zergnet.com", "nativo.com", "ntv.io", "spotxchange.com", "springserve.com", "primis.tech",
+    ],
+    "drawing_min_side_px": 64,
+}
+_PHOTO_RULE_JS_KEYS = {
+    "inline_image_max_chars": "inlineImageMaxChars",
+    "spinner_patterns": "spinnerPatterns",
+    "ad_slot_sizes": "adSlotSizes",
+    "ad_slot_tolerance_px": "adSlotTolerancePx",
+    "lazy_image_attributes": "lazyImageAttributes",
+    "video_embed_hosts": "videoEmbedHosts",
+    "ad_marker_words": "adMarkerWords",
+    "editorial_embed_hosts": "editorialEmbedHosts",
+    "ad_network_hosts": "adNetworkHosts",
+    "drawing_min_side_px": "drawingMinSidePx",
+}
+
+
+def photo_rules_for_page(rules: dict[str, Any] | None) -> dict[str, Any]:
+    """The page's ``clip(o).photo``: the seeds overlaid with the host's rules, in the page's names."""
+    merged = {**PHOTO_RULE_SEEDS, **{k: v for k, v in (rules or {}).items() if k in PHOTO_RULE_SEEDS}}
+    return {_PHOTO_RULE_JS_KEYS[k]: v for k, v in merged.items()}
+
 VIEWPORT = {"width": 1180, "height": 1600}
 DEVICE_SCALE_FACTOR = 2
 NAV_TIMEOUT_MS = 60_000
@@ -138,6 +204,7 @@ async def render_clip_document(
     keep: list[str] | None = None,
     root: str | None = None,
     logo_url: str | None = None,
+    photo_rules: dict[str, Any] | None = None,
 ) -> RenderedClip:
     from playwright.async_api import async_playwright
 
@@ -211,6 +278,7 @@ async def render_clip_document(
                 "root": (root or "").strip(),
                 "logoSrc": logo.url or "",
                 "logoSvg": logo.svg or "",
+                "photo": photo_rules_for_page(photo_rules),
             },
         )
         scope_applied = "section" if report.get("section_applied") else "whole"
@@ -273,9 +341,11 @@ async def render_clip_document(
 
 __all__ = [
     "CLIP_PAGE_JS",
+    "PHOTO_RULE_SEEDS",
     "BlockCounter",
     "RenderedClip",
     "install_block_route",
+    "photo_rules_for_page",
     "rasterize_pdf",
     "render_clip_document",
 ]

@@ -1,49 +1,39 @@
 Metadata-Version: 2.4
 Name: dimod
-Version: 0.12.22
+Version: 0.12.23
 Summary: A shared API for binary quadratic model samplers.
-Home-page: https://github.com/dwavesystems/dimod
-Download-URL: https://github.com/dwavesystems/dimod/releases
-Author: D-Wave Systems Inc.
-Author-email: tools@dwavesys.com
-License: Apache 2.0
-Classifier: License :: OSI Approved :: Apache Software License
+Author-Email: D-Wave <tools@dwavesys.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Classifier: Programming Language :: C++
-Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: numpy>=1.17.3
+Project-URL: Changelog, https://github.com/dwavesystems/dimod/releases
+Project-URL: Documentation, https://docs.dwavequantum.com
+Project-URL: Source Code, https://github.com/dwavesystems/dimod
+Requires-Python: >=3.11
+Requires-Dist: numpy>=2
 Provides-Extra: all
-Dynamic: download-url
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
+Description-Content-Type: text/x-rst
 
-.. image:: https://img.shields.io/pypi/v/dimod.svg
+.. image:: https://img.shields.io/pypi/v/dimod.svg?style=svg
     :target: https://pypi.org/project/dimod
 
-.. image:: https://img.shields.io/pypi/pyversions/dimod.svg
+.. image:: https://img.shields.io/pypi/pyversions/dimod.svg?style=svg
     :target: https://pypi.python.org/pypi/dimod
 
 .. image:: https://circleci.com/gh/dwavesystems/dimod.svg?style=svg
     :target: https://circleci.com/gh/dwavesystems/dimod
-
-.. image:: https://codecov.io/gh/dwavesystems/dimod/branch/main/graph/badge.svg
-    :target: https://codecov.io/gh/dwavesystems/dimod
 
 =====
 dimod
@@ -91,3 +81,51 @@ Installation from `PyPI <https://pypi.org/project/dimod>`_:
 .. code-block:: bash
 
     pip install dimod
+
+During package development, it is often convenient to use an editable install.
+See `meson-python's editable installs
+<https://meson-python.readthedocs.io/en/latest/how-to-guides/editable-installs.html>`_
+for more details.
+
+.. code-block:: bash
+
+    pip install --group dev
+    pip install --editable . \
+        --no-build-isolation \
+        --config-settings=editable-verbose=true
+
+Testing
+=======
+
+All code should be thoroughly tested and all pull requests should include tests.
+
+To run the Python tests, first install the package using an editable install
+as described above. You will also need to install additional dependencies for
+the tests.
+
+.. code-block:: bash
+
+    pip install --group tests
+
+The tests can then be run with
+`unittest <https://docs.python.org/3/library/unittest.html>`_.
+
+.. code-block:: bash
+
+    python -m unittest
+
+To run the C++ tests, first install the project dependencies, then setup a
+``meson`` build directory. You must configure the build as a debug build for
+the tests to run.
+
+.. code-block:: bash
+
+    pip install --group dev
+    meson setup build -Dbuildtype=debug
+
+You can then run the tests using
+`meson's test framework <https://mesonbuild.com/Unit-tests.html>`_.
+
+.. code-block:: bash
+
+    meson test -Cbuild

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Required, TypedDict
 
 
 class DeploymentsPromoteParams(TypedDict, total=False):
-  demote_deployment_id: str | None
+  expected_deployment_id: Required[str | None]
   """
-  Optional previous deployment of the same model slug to replace atomically.
+  Expected current production target; null for initial promotion.
   """

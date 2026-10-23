@@ -2,7 +2,6 @@ import math
 import re
 from datetime import date, datetime, timezone
 from typing import Any
-from uuid import UUID
 
 import numpy as np
 
@@ -11,6 +10,7 @@ from qdrant_client.local import datetime_utils
 from qdrant_client.local.geo import boolean_point_in_polygon, geo_distance
 from qdrant_client.local.payload_value_extractor import value_by_key
 from qdrant_client.local.siphash import point_id_slice
+from qdrant_client.local.utils import normalize_point_ids
 from qdrant_client.conversions import common_types as types
 
 
@@ -254,6 +254,9 @@ def check_match(condition: models.Match, value: Any) -> bool:
         # byte-wise and case-sensitive, like exact keyword matching. Non-string values never
         # match, not even against an empty prefix.
         return isinstance(value, str) and value.startswith(condition.prefix)
+    if isinstance(condition, models.MatchSubstring):
+        # like `MatchPrefix`, but anywhere in the value
+        return isinstance(value, str) and condition.substring in value
     if isinstance(condition, models.MatchAny):
         return any(values_match(value, v) for v in condition.any)
     if isinstance(condition, models.MatchExcept):
@@ -282,7 +285,8 @@ def nested_filter_values(payload: dict[str, Any], key: str) -> list[Any]:
     elements: list[Any] = []
     for value in values:
         if isinstance(value, list):
-            elements.extend(value)
+            # only objects are checked against the nested filter, as on the server
+            elements.extend(element for element in value if isinstance(element, dict))
     return elements
 
 
@@ -301,8 +305,8 @@ def check_condition(
     elif isinstance(condition, models.IsEmptyCondition):
         return check_is_empty(payload, condition.is_empty.key)
     elif isinstance(condition, models.HasIdCondition):
-        ids = [str(id_) if isinstance(id_, UUID) else id_ for id_ in condition.has_id]
-        if point_id in ids:
+        # stored ids are already normalized
+        if point_id in normalize_point_ids(tuple(condition.has_id)):
             return True
     elif isinstance(condition, models.SliceCondition):
         total, index = condition.slice.total, condition.slice.index

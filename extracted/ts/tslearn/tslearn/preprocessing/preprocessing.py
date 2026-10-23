@@ -140,23 +140,36 @@ class TimeSeriesResampler(TimeSeriesMixin, TransformerMixin, BaseEstimator):
 
 class TimeSeriesScalerMinMax(TimeSeriesMixin, TransformerMixin, BaseEstimator):
     """Scaler for time series datasets.
-    When `per_timeseries` is False, scales features based on computation led on the fitted data,
-    so that their span in given dimensions is between ``min`` and ``max`` where ``value_range=(min, max)``.
-    The transformation is stateless otherwise, dealing with each timeseries individually.
 
     Parameters
     ----------
     value_range : tuple (default: (0., 1.))
         The minimum and maximum value for the output time series.
-    per_timeseries: bool (default: True)
+    per_timeseries : bool (default: True)
         Wether the scaling should be performed per time series.
-    per_feature: bool (default: True)
+        When `per_timeseries` is False, scales features based on computation led on the fitted data,
+        so that their span in given dimensions is between ``min`` and ``max`` where ``value_range=(min, max)``.
+        The transformation is stateless otherwise, dealing with each timeseries individually.
+    per_feature : bool (default: True)
         Wether the scaling should be performed per feature.
         Meaningless for univariate timeseries.
+
+    Attributes
+    ----------
+    min_ : array-like of shape=(1, 1, d or 1)
+        The miminum value(s) seen in data and used for normalization.
+        Only available when `per_timeseries` is False.
+        The shape depends on the `per_feature` parameters.
+    max_ : array-like of shape=(1, 1, d or 1)
+        The maximum value(s) seen in data and used for normalization.
+        Only available when `per_timeseries` is False.
+        The shape depends on the `per_feature` parameters.
 
     Notes
     -----
         NaNs within a time series are ignored when calculating min and max.
+        A constant fitted feature uses a unit range for scaling and inverse
+        scaling, so values in later datasets can still round-trip.
 
     Examples
     --------
@@ -179,6 +192,10 @@ class TimeSeriesScalerMinMax(TimeSeriesMixin, TransformerMixin, BaseEstimator):
     <BLANKLINE>
            [[1.5 , 1.75],
             [1.75, 2.  ]]])
+    >>> scaler = TimeSeriesScalerMinMax(per_timeseries=False).fit([[3., 3.]])
+    >>> scaler.inverse_transform(scaler.transform([[4., 1.]]))
+    array([[[4.],
+            [1.]]])
     """
     def __init__(self, value_range=(0., 1.), per_timeseries=True, per_feature=True):
         self.value_range = value_range
@@ -203,9 +220,15 @@ class TimeSeriesScalerMinMax(TimeSeriesMixin, TransformerMixin, BaseEstimator):
         self._X_fit_dims = X_.shape
         self.n_features_in_ = self._X_fit_dims[-1]
 
-        if not self.per_timeseries:
-            self.min_, self.max_ = self._process(X_)
+        # Reset if needed
+        if hasattr(self, 'min_'):
+            del self.min_
+        if hasattr(self, 'max_'):
+            del self.max_
 
+        if not self.per_timeseries:
+            min_, max_ = self._process(X_)
+            self.min_, self.max_ = min_.reshape((-1,)), max_.reshape((-1,))
         return self
 
     def fit_transform(self, X, y=None, **kwargs):
@@ -248,7 +271,7 @@ class TimeSeriesScalerMinMax(TimeSeriesMixin, TransformerMixin, BaseEstimator):
 
         Returns
         -------
-        numpy.ndarray
+        array-like of shape (n_ts, sz, d)
             Rescaled time series dataset.
         """
         if self.value_range[0] >= self.value_range[1]:
@@ -260,12 +283,46 @@ class TimeSeriesScalerMinMax(TimeSeriesMixin, TransformerMixin, BaseEstimator):
         X_ = to_time_series_dataset(X_)
         X_ = check_dims(X_, X_fit_dims=self._X_fit_dims, check_n_features_only=True, extend=False)
 
-        min_, max_ = self._process(X_) if self.per_timeseries else (self.min_, self.max_)
+        min_, max_ = (self._process(X_)
+                      if self.per_timeseries else (self.min_.reshape(1, 1, -1), self.max_.reshape(1, 1, -1)))
 
         range_t = max_ - min_
         range_t[range_t == 0.] = 1.
         nomin = (X_ - min_) * (self.value_range[1] - self.value_range[0])
         X_ = nomin / range_t + self.value_range[0]
+        return X_
+
+    def inverse_transform(self, X):
+        """
+        Undo the scaling of X based on fitted data.
+        Only available when per_timeseries is False, raises RuntimeError otherwise.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_ts, sz, d)
+            Input dataset.
+
+        Returns
+        -------
+        array-like of shape (n_ts, sz, d)
+            Transformed dataset.
+        """
+        check_is_fitted(self, '_X_fit_dims')
+        if self.per_timeseries:
+            raise RuntimeError("Cannot inverse per timeseries scaling.")
+
+        X_ = check_array(X, allow_nd=True, force_all_finite=False)
+        X_ = to_time_series_dataset(X_)
+        X_ = check_dims(X_, X_fit_dims=self._X_fit_dims, check_n_features_only=True, extend=False)
+
+        min_, max_ = self.min_.reshape(1, 1, -1), self.max_.reshape(1, 1, -1)
+
+        range_t = max_ - min_
+        range_t[range_t == 0.] = 1.
+
+        X_ -= self.value_range[0]
+        X_ *= range_t / (self.value_range[1] - self.value_range[0])
+        X_ += min_
         return X_
 
     def _more_tags(self):
@@ -282,9 +339,6 @@ class TimeSeriesScalerMinMax(TimeSeriesMixin, TransformerMixin, BaseEstimator):
 
 class TimeSeriesScalerMeanVariance(TimeSeriesMixin, TransformerMixin, BaseEstimator):
     """Scaler for time series datasets.
-    When `per_timeseries` is False, scales features based on computation led on the fitted data,
-    so that their mean (resp. standard deviation) in given dimensions is mu (resp. std).
-    The transformation is stateless otherwise, dealing with each timeseries individually.
 
     Parameters
     ----------
@@ -292,11 +346,26 @@ class TimeSeriesScalerMeanVariance(TimeSeriesMixin, TransformerMixin, BaseEstima
         Mean of the output time series.
     std : float (default: 1.)
         Standard deviation of the output time series.
-    per_timeseries: bool (default: True)
+    per_timeseries : bool (default: True)
         Whether the scaling should be performed per time series.
-    per_feature: bool (default: True)
+        When `per_timeseries` is False, scales features based on computation led on the fitted data,
+        so that their mean (resp. standard deviation) in given dimensions is mu (resp. std).
+        The transformation is stateless otherwise, dealing with each timeseries individually.
+    per_feature : bool (default: True)
         Whether the scaling should be performed per feature.
         Meaningless for univariate timeseries.
+
+    Attributes
+    ----------
+    mean_ : array-like of shape=(1, 1, d or 1)
+        The mean value(s) seen in input data and used for normalization.
+        Only available when `per_timeseries` is False.
+        The shape depends on the `per_feature` parameters.
+
+    std_ : array-like of shape=(1, 1, d or 1)
+        The standard deviation values seen in input data and used for normalization.
+        Only available when `per_timeseries` is False.
+        The shape depends on the `per_feature` parameters.
 
     Notes
     -----
@@ -346,6 +415,12 @@ class TimeSeriesScalerMeanVariance(TimeSeriesMixin, TransformerMixin, BaseEstima
         X_ = to_time_series_dataset(X_)
         self._X_fit_dims = X_.shape
         self.n_features_in_ = self._X_fit_dims[-1]
+
+        # Reset if needed
+        if hasattr(self, 'mean_'):
+            del self.mean_
+        if hasattr(self, 'std_'):
+            del self.std_
 
         if not self.per_timeseries:
             self.mean_, self.std_ = self._process(X_)
@@ -402,9 +477,41 @@ class TimeSeriesScalerMeanVariance(TimeSeriesMixin, TransformerMixin, BaseEstima
         X_ = to_time_series_dataset(X_)
         X_ = check_dims(X_, X_fit_dims=self._X_fit_dims, check_n_features_only=True, extend=False)
 
-        mean_, std_ = self._process(X_) if self.per_timeseries else (self.mean_, self.std_)
+        mean_, std_ = self._process(X_) if self.per_timeseries else (self.mean_.reshape(1, 1, -1),
+                                                                     self.std_.reshape(1, 1, -1))
 
         X_ = (X_ - mean_) * self.std / std_ + self.mu
+        return X_
+
+    def inverse_transform(self, X):
+        """
+        Undo the scaling of X based on fitted data.
+        Only available when per_timeseries is False, raises RuntimeError otherwise.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_ts, sz, d)
+            Input dataset.
+
+        Returns
+        -------
+        array-like of shape (n_ts, sz, d)
+            Transformed dataset.
+        """
+
+        check_is_fitted(self, '_X_fit_dims')
+        if self.per_timeseries:
+            raise RuntimeError("Cannot inverse per timeseries scaling.")
+
+        X_ = check_array(X, allow_nd=True, force_all_finite=False)
+        X_ = to_time_series_dataset(X_)
+        X_ = check_dims(X_, X_fit_dims=self._X_fit_dims, check_n_features_only=True, extend=False)
+
+        mean_, std_ = self.mean_.reshape(1, 1, -1), self.std_.reshape(1, 1, -1)
+
+        X_ -= self.mu
+        X_ *= std_ / self.std
+        X_ += mean_
         return X_
 
     def _more_tags(self):
@@ -532,6 +639,9 @@ class TimeSeriesImputer(TimeSeriesMixin, TransformerMixin, BaseEstimator):
         for di in range(ts.shape[-1]):
             ts_di = ts[:, di]
             mask = numpy.isnan(ts_di)
+            if mask.all():
+                # No observed value to interpolate from: left unchanged
+                continue
             ts_di[mask] = numpy.interp(
                 numpy.nonzero(mask)[0],
                 numpy.nonzero(~mask)[0],

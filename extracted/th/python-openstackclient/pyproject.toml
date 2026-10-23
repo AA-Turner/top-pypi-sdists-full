@@ -74,6 +74,8 @@ accelerator_device_attribute_create = "openstackclient.accelerator.v2.attribute:
 accelerator_device_attribute_delete = "openstackclient.accelerator.v2.attribute:DeleteAttribute"
 accelerator_device_attribute_list = "openstackclient.accelerator.v2.attribute:ListAttribute"
 accelerator_device_attribute_show = "openstackclient.accelerator.v2.attribute:ShowAttribute"
+accelerator_device_disable = "openstackclient.accelerator.v2.device:DisableDevice"
+accelerator_device_enable = "openstackclient.accelerator.v2.device:EnableDevice"
 accelerator_device_list = "openstackclient.accelerator.v2.device:ListDevice"
 accelerator_device_profile_create = "openstackclient.accelerator.v2.device_profile:CreateDeviceProfile"
 accelerator_device_profile_delete = "openstackclient.accelerator.v2.device_profile:DeleteDeviceProfile"
@@ -908,12 +910,8 @@ include = ["openstackclient*"]
 python_version = "3.11"
 show_column_numbers = true
 show_error_context = true
-ignore_missing_imports = true
-follow_imports = "normal"
-incremental = true
-check_untyped_defs = true
-disallow_untyped_defs = true
-warn_unused_ignores = true
+strict = true
+disable_error_code = ["import-untyped"]
 exclude = "(?x)(doc | examples | hacking | releasenotes)"
 
 [[tool.mypy.overrides]]
@@ -921,6 +919,7 @@ module = [
     "openstackclient.tests.functional.*",
 ]
 disallow_untyped_defs = false
+disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
 module = [

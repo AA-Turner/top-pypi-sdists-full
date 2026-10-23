@@ -8,6 +8,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::SpecsSyncTrigger;
 use super::remote_config_value_hydrator::RemoteConfigValueHydrator;
 
 #[repr(u8)]
@@ -134,6 +135,7 @@ pub struct SpecsUpdate {
 pub struct SpecsUpdateHydration {
     pub(crate) hydrator: Arc<RemoteConfigValueHydrator>,
     pub(crate) source_url: String,
+    pub(crate) sync_trigger: Option<SpecsSyncTrigger>,
 }
 
 impl SpecsUpdateHydration {
@@ -141,7 +143,13 @@ impl SpecsUpdateHydration {
         Self {
             hydrator,
             source_url,
+            sync_trigger: None,
         }
+    }
+
+    pub(crate) fn with_sync_trigger(mut self, trigger: SpecsSyncTrigger) -> Self {
+        self.sync_trigger = Some(trigger);
+        self
     }
 }
 
@@ -200,7 +208,11 @@ pub trait SpecsUpdateListener: Send + Sync {
         if let Some(hydration) = hydration {
             hydration
                 .hydrator
-                .hydrate_response(&mut update.data, &hydration.source_url)
+                .hydrate_response_with_trigger(
+                    &mut update.data,
+                    &hydration.source_url,
+                    hydration.sync_trigger,
+                )
                 .await?;
         }
 

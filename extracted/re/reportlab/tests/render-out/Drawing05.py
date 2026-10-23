@@ -7,12 +7,12 @@ class ExplodedDrawing_Drawing(_DrawingEditorMixin,Drawing):
 		Drawing.__init__(self,width,height,*args,**kw)
 		self.transform = (1,0,0,1,0,0)
 		self.add(Line(250,10,250,190,strokeColor=Color(.501961,.501961,.501961,1),strokeWidth=1,strokeLineCap=0,strokeLineJoin=0,strokeMiterLimit=0,strokeDashArray=None,strokeOpacity=None))
-		self.add(String(250,130,'Hello World',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(50,130,'start:',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(250,100,'Hello World',textAnchor='middle',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(50,100,'middle:',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(250,70,'Hello World',textAnchor='end',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
-		self.add(String(50,70,'end:',textAnchor='start',fontName='Times-Roman',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(250,130,'Hello World',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(50,130,'start:',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(250,100,'Hello World',textAnchor='middle',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(50,100,'middle:',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(250,70,'Hello World',textAnchor='end',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
+		self.add(String(50,70,'end:',textAnchor='start',fontName='Helvetica',fontSize=10,fillColor=Color(0,0,0,1)))
 
 
 if __name__=="__main__": #NORUNTESTS
